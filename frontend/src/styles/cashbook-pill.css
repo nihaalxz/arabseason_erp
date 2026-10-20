@@ -1,0 +1,3048 @@
+/* ═══════════════════════════════════════════════════════════════════
+   CASHBOOK BLUE/NAVY PILL THEME – Scoped to Cashbook module only
+   Palette: Deep Navy #0B1B44 → Royal Blue #1366D9, white sheets
+   Reference: Fintech layered-sheet design language (100% Polish)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. TOKENS ── */
+[data-theme-scope="cashbook-pill"],
+.theme-cashbook-pill,
+[data-cashbook-active="true"],
+body[data-cashbook-active="true"] {
+  /* Executive Monochrome Tokens */
+  --cb-primary: #0f172a;
+  --cb-primary-hover: #1e293b;
+  --cb-primary-active: #000000;
+  --cb-primary-light: #f1f5f9;
+  --cb-primary-mid: #334155;
+  --cb-primary-shadow: rgba(15, 23, 42, 0.25);
+  --cb-blue-glow: rgba(15, 23, 42, 0.12);
+
+  /* Deep Executive Charcoal / Black & Hero Gradients */
+  --cb-navy-dark: #0f172a;
+  --cb-navy-sidebar: #090a0b;
+  --cb-navy-card: #181a1f;
+  --cb-navy-card-hover: #22252a;
+  --cb-navy-border: #232528;
+  --cb-hero-top: #0f172a;
+  --cb-hero-bottom: #090a0b;
+  --cb-hero-grad: linear-gradient(180deg, #0f172a 0%, #1e293b 45%, #0f172a 100%);
+  --cb-header-grad: linear-gradient(180deg, #0f172a 0%, #181f2f 55%, #0f172a 100%);
+  --cb-mobile-header-grad: linear-gradient(180deg, #0f172a 0%, #1e293b 40%, #0f172a 100%);
+
+  /* Semantic Colors (green strictly for positive/Active/Export CSV, amber for Withdraw, red for negative) */
+  --cb-success: #10B981;
+  --cb-success-dark: #059669;
+  --cb-success-light: #ECFDF5;
+  --cb-success-border: #A7F3D0;
+
+  --cb-warning: #F59E0B;
+  --cb-warning-dark: #D97706;
+  --cb-warning-light: #FFFBEB;
+  --cb-warning-border: #FDE68A;
+
+  --cb-danger: #EF4444;
+  --cb-danger-dark: #DC2626;
+  --cb-danger-light: #FEF2F2;
+  --cb-danger-border: #FECACA;
+
+  /* Form & Input Tokens */
+  --cb-input-bg: #F6F8FD;
+  --cb-input-border: #E3E8F4;
+  --cb-input-border-hover: #C9D3EA;
+  --cb-input-text: #0F1B3D;
+  --cb-input-placeholder: #97A3BD;
+  --cb-input-height: 42px;
+  --cb-label-color: #64708A;
+  --cb-tile-tint: #E8EFFF;
+
+  /* Canvas & Surfaces */
+  --cb-canvas: #FFFFFF;
+  --cb-sheet-bg: #FFFFFF;
+  --cb-card-bg: #FFFFFF;
+  --cb-border-subtle: #E8ECF5;
+  --cb-border-card: #E5EAF3;
+  --cb-border-strong: #CDD5E0;
+
+  /* Radii */
+  --cb-radius-sheet: 32px;
+  --cb-radius-card: 24px;
+  --cb-radius-tile: 16px;
+  --cb-radius-chip: 12px;
+  --cb-radius-input: 999px;
+  --cb-radius-pill: 999px;
+  --cb-radius-circle: 50%;
+
+  /* Shadows – layered soft shadows */
+  --cb-shadow-card: 0 4px 20px rgba(15, 23, 42, 0.04);
+  --cb-shadow-hover: 0 16px 40px rgba(15, 23, 42, 0.10);
+  --cb-shadow-floating: 0 12px 32px rgba(15, 23, 42, 0.10);
+  --cb-shadow-actions: 0 2px 6px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.10);
+  --cb-shadow-pill: 0 4px 14px rgba(19, 102, 217, 0.32);
+  --cb-shadow-bottom-bar: 0 12px 32px rgba(11, 27, 68, 0.35);
+
+  /* Typography */
+  --cb-text-main: #0F1B3D;
+  --cb-text-secondary: #334155;
+  --cb-text-muted: #64708A;
+  --cb-text-light: #94A3B8;
+  --cb-text-white: #FFFFFF;
+}
+
+/* ── 2. FULL-BLEED MOBILE HERO & TOP BAR INTEGRATION (A1 & A2) ── */
+@media (max-width: 768px) {
+  /* Continuous full-bleed vertical depth gradient + top-right subtle radial glow */
+  .theme-cashbook-pill.dashboard-wrapper,
+  [data-theme-scope="cashbook-pill"].dashboard-wrapper {
+    background: 
+      radial-gradient(circle at 88% calc(env(safe-area-inset-top, 0px) + 50px), rgba(255, 255, 255, 0.05) 0%, transparent 65%),
+      linear-gradient(180deg, #0f172a 0%, #1e293b 360px, #0f172a 560px, #ffffff 560px) !important;
+    min-height: 100vh !important;
+    overflow-x: hidden !important;
+  }
+
+  body.cb-dark-bw .theme-cashbook-pill.dashboard-wrapper,
+  .cb-dark-bw .theme-cashbook-pill.dashboard-wrapper,
+  html.cb-dark-bw [data-theme-scope="cashbook-pill"].dashboard-wrapper {
+    background: 
+      linear-gradient(180deg, #090a0b 0%, #121316 360px, #090a0b 560px, #0d0e10 560px) !important;
+  }
+
+  /* Header sits directly ON the gradient: no separate background, no bottom border, no box-shadow, no strip */
+  .theme-cashbook-pill .zoho-header,
+  [data-theme-scope="cashbook-pill"] .zoho-header {
+    background: transparent !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    position: relative !important;
+    z-index: 30 !important;
+  }
+
+  /* Body & main content transparent so the continuous gradient shines through */
+  .theme-cashbook-pill .dashboard-body,
+  [data-theme-scope="cashbook-pill"] .dashboard-body,
+  .theme-cashbook-pill .main-content,
+  [data-theme-scope="cashbook-pill"] .main-content,
+  .theme-cashbook-pill .content-area,
+  [data-theme-scope="cashbook-pill"] .content-area,
+  .theme-cashbook-pill .cashbook-real-container,
+  [data-theme-scope="cashbook-pill"] .cashbook-real-container,
+  .theme-cashbook-pill .cashbook-mobile-view,
+  [data-theme-scope="cashbook-pill"] .cashbook-mobile-view {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Hero sits directly below the header on the SAME continuous gradient */
+  .cb-mobile-hero {
+    background: transparent !important;
+    margin: 0 !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    padding-top: 8px !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+}
+
+/* ── 3. WHITE SHEET (A3: 32px top radius, overlaps hero by ~28-32px, soft upward shadow) ── */
+.cb-mobile-white-sheet {
+  background: #ffffff !important;
+  border-radius: 32px 32px 0 0 !important;
+  margin-top: -30px !important;
+  position: relative !important;
+  z-index: 10 !important;
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08) !important;
+  min-height: 70vh !important;
+  padding-bottom: calc(64px + 36px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+body.cb-dark-bw .cb-mobile-white-sheet,
+.cb-dark-bw .cb-mobile-white-sheet {
+  background: #0d0e10 !important;
+  border-top: 1px solid #1f2228 !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ── 4. QUICK ACTIONS CARD (A4: straddles hero/sheet boundary with stacked-card depth) ── */
+.cb-mobile-actions-straddle {
+  margin: 0 20px !important;
+  margin-top: -56px !important;
+  position: relative !important;
+  z-index: 20 !important;
+}
+
+/* Stacked card depth: second white layer behind it via pseudo-element */
+.cb-mobile-actions-main {
+  position: relative !important;
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  padding: 20px !important;
+  border: 1px solid #E8ECF5 !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.10) !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 8px !important;
+}
+
+body.cb-dark-bw .cb-mobile-actions-main,
+.cb-dark-bw .cb-mobile-actions-main {
+  background: #131518 !important;
+  border-color: #232528 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+.cb-mobile-actions-main::after {
+  content: '' !important;
+  position: absolute !important;
+  left: 12px !important;
+  right: 12px !important;
+  bottom: -10px !important;
+  height: 24px !important;
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(232, 236, 245, 0.85) !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07) !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+}
+
+body.cb-dark-bw .cb-mobile-actions-main::after,
+.cb-dark-bw .cb-mobile-actions-main::after {
+  background: #131518 !important;
+  border-color: #1f2228 !important;
+}
+
+/* Circular tiles with clean executive monochrome styling */
+.cb-action-tile-btn {
+  background: transparent !important;
+  border: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  transition: transform 120ms ease !important;
+}
+
+.cb-action-tile-btn:active {
+  transform: scale(0.97) !important;
+}
+
+.cb-action-tile-circle {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease !important;
+}
+
+body.cb-dark-bw .cb-action-tile-circle,
+.cb-dark-bw .cb-action-tile-circle {
+  background: #1c1e22 !important;
+  color: #ffffff !important;
+  border-color: #2a2d33 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.cb-action-tile-btn:active .cb-action-tile-circle {
+  transform: scale(0.95) !important;
+}
+
+.cb-action-tile-label {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin-top: 8px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+body.cb-dark-bw .cb-action-tile-label,
+.cb-dark-bw .cb-action-tile-label {
+  color: #ffffff !important;
+}
+
+/* ── 5. SUB-TAB CHIP ROW & FILTER PILL (A5: 20px start padding, right fade, 52px pill) ── */
+.cb-mobile-subtab-row {
+  display: flex !important;
+  gap: 8px !important;
+  padding: 16px 20px 8px 20px !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+  scroll-snap-type: x mandatory !important;
+  background: #ffffff !important;
+  -webkit-mask-image: linear-gradient(to right, black 0%, black calc(100% - 24px), transparent 100%) !important;
+  mask-image: linear-gradient(to right, black 0%, black calc(100% - 24px), transparent 100%) !important;
+}
+
+body.cb-dark-bw .cb-mobile-subtab-row,
+.cb-dark-bw .cb-mobile-subtab-row {
+  background: #0d0e10 !important;
+}
+
+.cb-mobile-subtab-row::-webkit-scrollbar {
+  display: none !important;
+}
+
+.cb-mobile-subtab-chip {
+  flex-shrink: 0 !important;
+  scroll-snap-align: start !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-height: 44px !important;
+  padding: 8px 16px !important;
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+  font-size: 0.82rem !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 120ms ease !important;
+  border: 1.5px solid #E8ECF5 !important;
+  background: #ffffff !important;
+  color: #64708A !important;
+}
+
+body.cb-dark-bw .cb-mobile-subtab-chip,
+.cb-dark-bw .cb-mobile-subtab-chip {
+  border: 1.5px solid #232528 !important;
+  background: #131518 !important;
+  color: #94a3b8 !important;
+}
+
+.cb-mobile-subtab-chip:active {
+  transform: scale(0.97) !important;
+}
+
+.cb-mobile-subtab-chip.active {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25) !important;
+}
+
+body.cb-dark-bw .cb-mobile-subtab-chip.active,
+.cb-dark-bw .cb-mobile-subtab-chip.active {
+  background: #ffffff !important;
+  color: #090a0b !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Filter Pill: 52px high, 1px #E3E8F4 border, fully rounded, white */
+.cb-filter-pill-container {
+  padding: 0 20px 16px 20px !important;
+  background: #ffffff !important;
+}
+
+.cb-filter-pill-wrap {
+  position: relative !important;
+  width: 100% !important;
+  height: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.cb-filter-pill-wrap svg:first-child {
+  left: 12px !important;
+}
+
+.cb-filter-select-pill {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 100% !important;
+  height: 52px !important;
+  padding: 0 2.5rem 0 56px !important;
+  border-radius: 999px !important;
+  border: 1px solid #E3E8F4 !important;
+  background: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #0F1B3D !important;
+  cursor: pointer !important;
+  outline: none !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+.cb-filter-select-pill:focus-visible {
+  border-color: #0f172a !important;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12) !important;
+}
+
+body.cb-dark-bw .cb-filter-select-pill:focus-visible,
+.cb-dark-bw .cb-filter-select-pill:focus-visible {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ── 6. SEPARATE BANK / PETTY CASH CARDS (A6: 24px radius, soft shadow, no card-in-card nesting) ── */
+.cb-section-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 12px !important;
+}
+
+.cb-section-title-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.cb-section-icon-tile {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+body.cb-dark-bw .cb-section-icon-tile,
+.cb-dark-bw .cb-section-icon-tile {
+  background: #1c1e22 !important;
+  color: #ffffff !important;
+  border-color: #2a2d33 !important;
+}
+
+.cb-section-title {
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.01em !important;
+  margin: 0 !important;
+}
+
+body.cb-dark-bw .cb-section-title,
+.cb-dark-bw .cb-section-title {
+  color: #ffffff !important;
+}
+
+.cb-section-link-pill {
+  background: #0f172a !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  padding: 6px 14px !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-height: 40px !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15) !important;
+  transition: transform 120ms ease, background 120ms ease !important;
+}
+
+body.cb-dark-bw .cb-section-link-pill,
+.cb-dark-bw .cb-section-link-pill {
+  background: #ffffff !important;
+  color: #090a0b !important;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15) !important;
+}
+
+.cb-section-link-pill:active {
+  transform: scale(0.97) !important;
+}
+
+/* Individual card */
+.cb-standalone-card {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 20px !important;
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  border: 1px solid #E8ECF5 !important;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04) !important;
+  cursor: pointer !important;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease !important;
+}
+
+.cb-standalone-card:active {
+  transform: scale(0.97) !important;
+}
+
+.cb-standalone-card:hover {
+  border-color: #CDD5E0 !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* 44px circular tinted icon tile inside cards */
+.cb-card-icon-tile-44 {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+body.cb-dark-bw .cb-card-icon-tile-44,
+.cb-dark-bw .cb-card-icon-tile-44 {
+  background: #1c1e22 !important;
+  color: #ffffff !important;
+  border-color: #2a2d33 !important;
+}
+
+/* Outlined monochrome pill for View Feed */
+.cb-view-feed-pill {
+  display: inline-block !important;
+  margin-top: 4px !important;
+  padding: 2px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid #0f172a !important;
+  color: #0f172a !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  transition: all 120ms ease !important;
+}
+
+body.cb-dark-bw .cb-view-feed-pill,
+.cb-dark-bw .cb-view-feed-pill {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.cb-view-feed-pill:hover {
+  background: #f1f5f9 !important;
+}
+body.cb-dark-bw .cb-view-feed-pill:hover,
+.cb-dark-bw .cb-view-feed-pill:hover {
+  background: #1e2024 !important;
+}
+
+/* ── 7. FLOATING DOCK (A7: nav pill + detached 64px circular "+" button, 96px fade) ── */
+.cb-mobile-dock-fade {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+  background: linear-gradient(to top, #ffffff 65%, rgba(255, 255, 255, 0) 100%) !important;
+  pointer-events: none !important;
+  z-index: 980 !important;
+}
+
+body.cb-dark-bw .cb-mobile-dock-fade,
+.cb-dark-bw .cb-mobile-dock-fade {
+  background: linear-gradient(to top, #0d0e10 65%, rgba(13, 14, 16, 0) 100%) !important;
+}
+
+.cb-mobile-dock-row {
+  position: fixed !important;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  left: 16px !important;
+  right: 16px !important;
+  height: 64px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  z-index: 990 !important;
+  pointer-events: auto !important;
+}
+
+.cb-dock-pill-nav {
+  flex: 1 !important;
+  height: 64px !important;
+  background: #0f172a !important;
+  border-radius: 999px !important;
+  padding: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-around !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+body.cb-dark-bw .cb-dock-pill-nav,
+.cb-dark-bw .cb-dock-pill-nav {
+  background: #090a0b !important;
+  border-color: #232528 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6) !important;
+}
+
+.cb-dock-item {
+  position: relative !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  border: none !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 0 16px !important;
+  border-radius: 999px !important;
+  cursor: pointer !important;
+  transition: all 120ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.cb-dock-item:active {
+  transform: scale(0.95) !important;
+}
+
+.cb-dock-item.active {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.25) !important;
+}
+
+body.cb-dark-bw .cb-dock-item.active,
+.cb-dark-bw .cb-dock-item.active {
+  background: #ffffff !important;
+  color: #090a0b !important;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.3) !important;
+}
+
+.cb-dock-badge {
+  position: absolute !important;
+  top: 4px !important;
+  right: 6px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  padding: 1.5px 6px !important;
+  border-radius: 999px !important;
+  border: 1.5px solid #0f172a !important;
+  line-height: 1.15 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.cb-dark-bw .cb-dock-badge,
+.cb-dark-bw .cb-dock-badge {
+  background: #232528 !important;
+  color: #ffffff !important;
+  border: 1.5px solid #090a0b !important;
+}
+
+/* 64px solid circle detached to the right of the pill */
+.cb-dock-plus-btn {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.4) !important;
+  cursor: pointer !important;
+  transition: transform 120ms ease, box-shadow 120ms ease !important;
+}
+
+body.cb-dark-bw .cb-dock-plus-btn,
+.cb-dark-bw .cb-dock-plus-btn {
+  background: #ffffff !important;
+  color: #090a0b !important;
+  border: none !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+.cb-dock-plus-btn:active {
+  transform: scale(0.94) !important;
+}
+
+/* ── 8. PART B: ALL FORM FIELDS, INPUTS, TEXTAREAS & SELECTS (Modals & Form Grids Only) ── */
+[data-theme-scope="cashbook-pill"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+body[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+[data-theme-scope="cashbook-pill"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+body[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+[data-theme-scope="cashbook-pill"] .modal-container select,
+[data-cashbook-active="true"] .modal-container select,
+body[data-cashbook-active="true"] .modal-container select,
+[data-theme-scope="cashbook-pill"] .form-grid select,
+[data-cashbook-active="true"] .form-grid select,
+body[data-cashbook-active="true"] .form-grid select {
+  height: 42px !important;
+  min-height: 42px !important;
+  border-radius: 10px !important;
+  font-size: 13.5px !important;
+  background: #F6F8FD !important;
+  border: 1px solid #E3E8F4 !important;
+  color: #0F1B3D !important;
+  padding: 0 14px !important;
+  width: 100% !important;
+  outline: none !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease !important;
+  box-sizing: border-box !important;
+}
+
+[data-theme-scope="cashbook-pill"] select.cb-filter-select-pill,
+.theme-cashbook-pill select.cb-filter-select-pill,
+[data-cashbook-active="true"] select.cb-filter-select-pill,
+body[data-cashbook-active="true"] select.cb-filter-select-pill,
+.cb-filter-select-pill {
+  padding-left: 58px !important;
+  padding-right: 2.5rem !important;
+}
+
+/* Dense table/toolbar inputs & selects */
+[data-theme-scope="cashbook-pill"] .table-toolbar input,
+[data-theme-scope="cashbook-pill"] .table-toolbar select,
+[data-theme-scope="cashbook-pill"] .dense-toolbar input,
+[data-theme-scope="cashbook-pill"] .dense-toolbar select,
+[data-cashbook-active="true"] .table-toolbar input,
+[data-cashbook-active="true"] .table-toolbar select {
+  height: 44px !important;
+  min-height: 44px !important;
+  font-size: 14px !important;
+}
+
+/* Bulk entries row inside modal */
+.cb-bulk-entry-row {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-bottom: 8px !important;
+}
+
+.cb-bulk-entry-row select {
+  width: 140px !important;
+  flex: 0 0 140px !important;
+}
+
+.cb-bulk-entry-row input[type="number"] {
+  width: 110px !important;
+  flex: 0 0 110px !important;
+}
+
+.cb-bulk-entry-row input[type="text"] {
+  width: auto !important;
+  flex: 1 1 auto !important;
+  min-width: 120px !important;
+}
+
+/* Placeholder styling */
+[data-theme-scope="cashbook-pill"] input::placeholder,
+.theme-cashbook-pill input::placeholder,
+[data-cashbook-active="true"] input::placeholder,
+body[data-cashbook-active="true"] input::placeholder {
+  color: #97A3BD !important;
+  font-size: 15px !important;
+}
+
+/* Multi-line textarea: 10px radius, min-height 72px */
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) textarea,
+.theme-cashbook-pill:not(.cb-dark-bw) textarea,
+body[data-cashbook-active="true"]:not(.cb-dark-bw) textarea {
+  border-radius: 10px !important;
+  min-height: 72px !important;
+  font-size: 13.5px !important;
+  background: #F6F8FD !important;
+  border: 1px solid #E3E8F4 !important;
+  color: #0F1B3D !important;
+  padding: 10px 14px !important;
+  width: 100% !important;
+  outline: none !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease !important;
+  box-sizing: border-box !important;
+  font-family: inherit !important;
+}
+
+/* Hover state: border #C9D3EA */
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:hover:not(:disabled),
+.theme-cashbook-pill:not(.cb-dark-bw) input:hover:not(:disabled),
+body[data-cashbook-active="true"]:not(.cb-dark-bw) input:hover:not(:disabled),
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) select:hover:not(:disabled),
+.theme-cashbook-pill:not(.cb-dark-bw) select:hover:not(:disabled),
+body[data-cashbook-active="true"]:not(.cb-dark-bw) select:hover:not(:disabled),
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) textarea:hover:not(:disabled),
+.theme-cashbook-pill:not(.cb-dark-bw) textarea:hover:not(:disabled),
+body[data-cashbook-active="true"]:not(.cb-dark-bw) textarea:hover:not(:disabled) {
+  border-color: #C9D3EA !important;
+}
+
+/* Focus-visible state: white fill, 2px solid blue border plus 4px blue ring at 15% opacity (Light Mode) */
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:focus,
+.theme-cashbook-pill:not(.cb-dark-bw) input:focus,
+body[data-cashbook-active="true"]:not(.cb-dark-bw) input:focus,
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) select:focus,
+.theme-cashbook-pill:not(.cb-dark-bw) select:focus,
+body[data-cashbook-active="true"]:not(.cb-dark-bw) select:focus,
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) textarea:focus,
+.theme-cashbook-pill:not(.cb-dark-bw) textarea:focus,
+body[data-cashbook-active="true"]:not(.cb-dark-bw) textarea:focus {
+  background: #ffffff !important;
+  border: 2px solid #1366D9 !important;
+  box-shadow: 0 0 0 4px rgba(19, 102, 217, 0.15) !important;
+  outline: none !important;
+}
+
+/* Focus-visible & Textarea state for Dark Mode */
+body.cb-dark-bw textarea,
+html.cb-dark-bw textarea,
+.cb-dark-bw textarea,
+body.cb-dark-bw[data-cashbook-active="true"] textarea {
+  background: #17191d !important;
+  border: 1px solid #282b32 !important;
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw input:focus,
+body.cb-dark-bw select:focus,
+body.cb-dark-bw textarea:focus,
+html.cb-dark-bw input:focus,
+html.cb-dark-bw select:focus,
+html.cb-dark-bw textarea:focus,
+.cb-dark-bw input:focus,
+.cb-dark-bw select:focus,
+.cb-dark-bw textarea:focus,
+body.cb-dark-bw[data-cashbook-active="true"] input:focus,
+body.cb-dark-bw[data-cashbook-active="true"] select:focus,
+body.cb-dark-bw[data-cashbook-active="true"] textarea:focus {
+  background: #1a1d22 !important;
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25) !important;
+  color: #ffffff !important;
+  outline: none !important;
+}
+
+/* Modern Browser Color-Scheme Synchronization */
+html.cb-dark-bw,
+body.cb-dark-bw,
+.cashbook-dark,
+[data-theme="dark"] {
+  color-scheme: dark !important;
+}
+
+html:not(.cb-dark-bw),
+body:not(.cb-dark-bw),
+.cashbook-light,
+[data-theme="light"] {
+  color-scheme: light !important;
+}
+
+/* Chrome/Edge/Safari/Blink Autofill Overrides for Dark Mode */
+body.cb-dark-bw input:-webkit-autofill,
+body.cb-dark-bw input:-webkit-autofill:hover,
+body.cb-dark-bw input:-webkit-autofill:focus,
+body.cb-dark-bw input:-webkit-autofill:active,
+body.cb-dark-bw textarea:-webkit-autofill,
+body.cb-dark-bw textarea:-webkit-autofill:hover,
+body.cb-dark-bw textarea:-webkit-autofill:focus,
+body.cb-dark-bw textarea:-webkit-autofill:active,
+body.cb-dark-bw select:-webkit-autofill,
+html.cb-dark-bw input:-webkit-autofill,
+html.cb-dark-bw textarea:-webkit-autofill,
+.cashbook-dark input:-webkit-autofill,
+.cashbook-dark textarea:-webkit-autofill,
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #17191d inset !important;
+  box-shadow: 0 0 0 1000px #17191d inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  border-color: #282b32 !important;
+  color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+body.cb-dark-bw input:-webkit-autofill:focus,
+body.cb-dark-bw textarea:-webkit-autofill:focus,
+html.cb-dark-bw input:-webkit-autofill:focus,
+html.cb-dark-bw textarea:-webkit-autofill:focus,
+.cashbook-dark input:-webkit-autofill:focus,
+.cashbook-dark textarea:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #1a1d22 inset, 0 0 0 4px rgba(59, 130, 246, 0.25) !important;
+  box-shadow: 0 0 0 1000px #1a1d22 inset, 0 0 0 4px rgba(59, 130, 246, 0.25) !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Chrome/Edge/Safari/Blink Autofill Overrides for Light Mode */
+body:not(.cb-dark-bw) input:-webkit-autofill,
+body:not(.cb-dark-bw) input:-webkit-autofill:hover,
+body:not(.cb-dark-bw) input:-webkit-autofill:focus,
+body:not(.cb-dark-bw) textarea:-webkit-autofill,
+body:not(.cb-dark-bw) textarea:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+  box-shadow: 0 0 0 1000px #f8fafc inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+/* Error state: red border plus 4px red ring at 12% */
+[data-theme-scope="cashbook-pill"] input.error,
+[data-theme-scope="cashbook-pill"] input.input-error,
+[data-cashbook-active="true"] input.error,
+[data-cashbook-active="true"] input.input-error,
+body[data-cashbook-active="true"] input.error,
+body[data-cashbook-active="true"] input.input-error,
+[data-theme-scope="cashbook-pill"] select.error,
+[data-cashbook-active="true"] select.error,
+body[data-cashbook-active="true"] select.error {
+  border: 2px solid #EF4444 !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12) !important;
+}
+
+/* Disabled state: 60% opacity, no shadow */
+[data-theme-scope="cashbook-pill"] input:disabled,
+.theme-cashbook-pill input:disabled,
+[data-cashbook-active="true"] input:disabled,
+body[data-cashbook-active="true"] input:disabled,
+[data-theme-scope="cashbook-pill"] select:disabled,
+.theme-cashbook-pill select:disabled,
+[data-cashbook-active="true"] select:disabled,
+body[data-cashbook-active="true"] select:disabled,
+[data-theme-scope="cashbook-pill"] textarea:disabled,
+.theme-cashbook-pill textarea:disabled,
+[data-cashbook-active="true"] textarea:disabled,
+body[data-cashbook-active="true"] textarea:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* Labels above fields: 12.5px medium #475569, 4px gap */
+[data-theme-scope="cashbook-pill"] label:not([class*="swal2"]):not(.swal2-checkbox),
+.theme-cashbook-pill label:not([class*="swal2"]):not(.swal2-checkbox),
+[data-cashbook-active="true"] label:not([class*="swal2"]):not(.swal2-checkbox),
+body[data-cashbook-active="true"] label:not([class*="swal2"]):not(.swal2-checkbox),
+[data-theme-scope="cashbook-pill"] .form-group > label,
+.theme-cashbook-pill .form-group > label,
+[data-cashbook-active="true"] .form-group > label,
+body[data-cashbook-active="true"] .form-group > label {
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  margin-bottom: 4px !important;
+  display: block !important;
+}
+
+/* Currency/suffix pill on right side (SAR) */
+[data-theme-scope="cashbook-pill"] .cb-currency-pill,
+[data-cashbook-active="true"] .cb-currency-pill {
+  position: absolute !important;
+  right: 14px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  background: #E8EFFF !important;
+  color: #1366D9 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  pointer-events: none !important;
+}
+
+/* Leading icons inside input fields: 32px circular pale-blue tile inside left edge */
+[data-theme-scope="cashbook-pill"] .search-bar svg,
+[data-cashbook-active="true"] .search-bar svg,
+[data-theme-scope="cashbook-pill"] .cb-filter-pill-wrap svg:first-child,
+[data-cashbook-active="true"] .cb-filter-pill-wrap svg:first-child {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: #E8EFFF !important;
+  color: #1366D9 !important;
+  padding: 7px !important;
+  box-sizing: border-box !important;
+}
+
+/* Dropdown triggers & Portal Panels */
+body[data-cashbook-active="true"] .select__menu,
+[data-cashbook-active="true"] .select__menu,
+[data-theme-scope="cashbook-pill"] .select__menu {
+  border-radius: 20px !important;
+  border: 1px solid #E3E8F4 !important;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12) !important;
+  overflow: hidden !important;
+  padding: 6px !important;
+  background: #ffffff !important;
+  z-index: 2000 !important;
+}
+
+body[data-cashbook-active="true"] .select__option,
+[data-cashbook-active="true"] .select__option,
+[data-theme-scope="cashbook-pill"] .select__option {
+  height: 48px !important;
+  min-height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 16px !important;
+  border-radius: 12px !important;
+  font-size: 15px !important;
+  color: #0F1B3D !important;
+  transition: background 120ms ease !important;
+}
+
+body[data-cashbook-active="true"] .select__option:hover,
+[data-cashbook-active="true"] .select__option--is-focused {
+  background: #F6F8FD !important;
+}
+
+body[data-cashbook-active="true"] .select__option--is-selected {
+  background: #E8EFFF !important;
+  color: #1366D9 !important;
+  font-weight: 700 !important;
+}
+
+/* Checkbox & Radio */
+[data-theme-scope="cashbook-pill"] input[type="checkbox"]:not([class*="swal2"]),
+.theme-cashbook-pill input[type="checkbox"]:not([class*="swal2"]),
+[data-cashbook-active="true"] input[type="checkbox"]:not([class*="swal2"]),
+body[data-cashbook-active="true"] input[type="checkbox"]:not([class*="swal2"]) {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 8px !important;
+  accent-color: #1366D9 !important;
+  cursor: pointer !important;
+}
+
+[data-theme-scope="cashbook-pill"] input[type="radio"]:not([class*="swal2"]),
+.theme-cashbook-pill input[type="radio"]:not([class*="swal2"]),
+[data-cashbook-active="true"] input[type="radio"]:not([class*="swal2"]),
+body[data-cashbook-active="true"] input[type="radio"]:not([class*="swal2"]) {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  accent-color: #1366D9 !important;
+  cursor: pointer !important;
+}
+
+/* Choice groups (e.g. Credit/Debit or Deposit/Withdrawal): Pill segmented control */
+body:not(.cb-dark-bw) [data-theme-scope="cashbook-pill"] .cb-choice-group,
+body:not(.cb-dark-bw)[data-cashbook-active="true"] .cb-choice-group,
+body:not(.cb-dark-bw) .modal-container .cb-choice-group {
+  background: #EEF2FB !important;
+  border-radius: 999px !important;
+  padding: 4px !important;
+  gap: 4px !important;
+}
+
+body:not(.cb-dark-bw) [data-theme-scope="cashbook-pill"] .cb-choice-group button,
+body:not(.cb-dark-bw)[data-cashbook-active="true"] .cb-choice-group button,
+body:not(.cb-dark-bw) .modal-container .cb-choice-group button {
+  border-radius: 999px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  border: none !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  transition: all 150ms ease !important;
+}
+
+/* Month pill selectors in Create Book modal */
+[data-theme-scope="cashbook-pill"] .modal-container [style*="gridTemplateColumns: 'repeat(6"] button,
+[data-cashbook-active="true"] .modal-container [style*="gridTemplateColumns: 'repeat(6"] button,
+[data-theme-scope="cashbook-pill"] .modal-container [style*="grid-template-columns: repeat(6"] button,
+[data-cashbook-active="true"] .modal-container [style*="grid-template-columns: repeat(6"] button {
+  border-radius: 999px !important;
+}
+
+/* File upload area: 24px radius, 1.5px dashed border */
+[data-theme-scope="cashbook-pill"] .file-upload-area,
+.theme-cashbook-pill .file-upload-area,
+[data-cashbook-active="true"] .file-upload-area,
+body[data-cashbook-active="true"] .file-upload-area {
+  border-radius: 24px !important;
+  border: 1.5px dashed #C9D3EA !important;
+  background: #F6F8FD !important;
+  padding: 24px !important;
+  text-align: center !important;
+  transition: all 150ms ease !important;
+  cursor: pointer !important;
+}
+
+[data-theme-scope="cashbook-pill"] .file-upload-area:hover,
+.theme-cashbook-pill .file-upload-area:hover,
+[data-cashbook-active="true"] .file-upload-area:hover,
+body[data-cashbook-active="true"] .file-upload-area:hover {
+  border-color: #1366D9 !important;
+  background: #E8EFFF !important;
+}
+
+/* Form sections: 24px radius bordered card with 16-20px gap */
+[data-theme-scope="cashbook-pill"] .form-section,
+[data-cashbook-active="true"] .form-section,
+[data-theme-scope="cashbook-pill"] .modal-container fieldset,
+[data-cashbook-active="true"] .modal-container fieldset {
+  border-radius: 24px !important;
+  border: 1px solid #E8ECF5 !important;
+  padding: 20px !important;
+  margin-bottom: 20px !important;
+  background: #ffffff !important;
+}
+
+/* ── 9. BUTTONS IN FORMS & MODALS (Clean Monochrome Primary / Secondary / Destructive) ── */
+[data-theme-scope="cashbook-pill"] .modal-container button[type="submit"],
+[data-cashbook-active="true"] .modal-container button[type="submit"],
+body[data-cashbook-active="true"] .modal-container button[type="submit"],
+[data-theme-scope="cashbook-pill"] .modal-container .btn-primary,
+[data-cashbook-active="true"] .modal-container .btn-primary,
+body[data-cashbook-active="true"] .modal-container .btn-primary,
+[data-theme-scope="cashbook-pill"] .form-grid .btn-primary,
+[data-cashbook-active="true"] .form-grid .btn-primary,
+body[data-cashbook-active="true"] .form-grid .btn-primary {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 10px !important;
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+  padding: 0 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15) !important;
+  cursor: pointer !important;
+  transition: all 150ms ease !important;
+}
+
+body.cb-dark-bw .modal-container button[type="submit"],
+.cashbook-dark .modal-container button[type="submit"],
+body.cb-dark-bw .modal-container .btn-primary,
+.cashbook-dark .modal-container .btn-primary,
+body[data-theme="dark"] .modal-container button[type="submit"],
+body[data-theme="dark"] .modal-container .btn-primary,
+.cashbook-dark .cb-expense-modal-sheet button[type="submit"],
+body[data-theme="dark"] .cb-expense-modal-sheet button[type="submit"] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-container button[type="submit"]:active,
+[data-cashbook-active="true"] .modal-container button[type="submit"]:active,
+body[data-cashbook-active="true"] .modal-container button[type="submit"]:active,
+[data-theme-scope="cashbook-pill"] .modal-container .btn-primary:active,
+[data-cashbook-active="true"] .modal-container .btn-primary:active,
+body[data-cashbook-active="true"] .modal-container .btn-primary:active {
+  transform: scale(0.97) !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme-scope="cashbook-pill"] .btn-secondary,
+.theme-cashbook-pill .btn-secondary,
+[data-cashbook-active="true"] .btn-secondary,
+body[data-cashbook-active="true"] .btn-secondary,
+[data-theme-scope="cashbook-pill"] .modal-container .btn:not(.btn-primary):not(.btn-danger):not(.btn-icon):not([style*="borderRadius: 50"]),
+[data-cashbook-active="true"] .modal-container .btn:not(.btn-primary):not(.btn-danger):not(.btn-icon):not([style*="borderRadius: 50"]),
+body[data-cashbook-active="true"] .modal-container .btn:not(.btn-primary):not(.btn-danger):not(.btn-icon):not([style*="borderRadius: 50"]) {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1px solid #E3E8F4 !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  padding: 0 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  transition: all 150ms ease !important;
+}
+
+[data-theme-scope="cashbook-pill"] .btn-secondary:active,
+.theme-cashbook-pill .btn-secondary:active,
+[data-cashbook-active="true"] .btn-secondary:active,
+body[data-cashbook-active="true"] .btn-secondary:active {
+  transform: scale(0.97) !important;
+  background: #F8FAFC !important;
+}
+
+/* Destructive / Red-tinted button: 56px pill */
+[data-theme-scope="cashbook-pill"] .btn-danger,
+.theme-cashbook-pill .btn-danger,
+[data-cashbook-active="true"] .btn-danger,
+body[data-cashbook-active="true"] .btn-danger {
+  height: 56px !important;
+  min-height: 56px !important;
+  border-radius: 999px !important;
+  background: #FEF2F2 !important;
+  color: #DC2626 !important;
+  border: 1px solid #FECACA !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  padding: 0 24px !important;
+  cursor: pointer !important;
+  transition: all 150ms ease !important;
+}
+
+/* Icon-only button: 40px circular outlined button (close, edit, delete) */
+[data-theme-scope="cashbook-pill"] .btn-icon,
+.theme-cashbook-pill .btn-icon,
+[data-cashbook-active="true"] .btn-icon,
+body[data-cashbook-active="true"] .btn-icon,
+[data-theme-scope="cashbook-pill"] .modal-header .btn-icon,
+.theme-cashbook-pill .modal-header .btn-icon,
+[data-cashbook-active="true"] .modal-header .btn-icon,
+body[data-cashbook-active="true"] .modal-header .btn-icon {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  border: 1px solid #E3E8F4 !important;
+  background: #ffffff !important;
+  color: #64708A !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 120ms ease !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+[data-theme-scope="cashbook-pill"] .btn-icon:hover,
+.theme-cashbook-pill .btn-icon:hover,
+[data-cashbook-active="true"] .btn-icon:hover,
+body[data-cashbook-active="true"] .btn-icon:hover {
+  background: #E8EFFF !important;
+  border-color: #1366D9 !important;
+  color: #1366D9 !important;
+  transform: scale(1.05) !important;
+}
+
+/* ── 10. MODALS, BOTTOM SHEETS & BACKDROPS ── */
+[data-theme-scope="cashbook-pill"] .modal-overlay,
+.theme-cashbook-pill .modal-overlay,
+[data-cashbook-active="true"] .modal-overlay,
+body[data-cashbook-active="true"] .modal-overlay {
+  background: rgba(11, 27, 68, 0.50) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 1000 !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Modal containers scroll independently — no chaining to page */
+[data-theme-scope="cashbook-pill"] .modal-container,
+.theme-cashbook-pill .modal-container,
+[data-cashbook-active="true"] .modal-container,
+body[data-cashbook-active="true"] .modal-container,
+.cb-expense-modal-sheet {
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-body,
+.theme-cashbook-pill .modal-body,
+[data-cashbook-active="true"] .modal-body,
+body[data-cashbook-active="true"] .modal-body {
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Desktop Modal: Centered dialog, 16px radius, max-width min(640px, 92vw) */
+@media (min-width: 769px) {
+  [data-theme-scope="cashbook-pill"] .modal-container,
+  .theme-cashbook-pill .modal-container,
+  [data-cashbook-active="true"] .modal-container,
+  body[data-cashbook-active="true"] .modal-container,
+  .cb-expense-modal-sheet {
+    border-radius: 16px !important;
+    border: none !important;
+    outline: none !important;
+    max-height: calc(100vh - 3rem) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6) !important;
+  }
+}
+
+/* Sleek modern scrollbars on modal containers */
+.cb-expense-modal-sheet::-webkit-scrollbar,
+[data-cashbook-active="true"] .modal-container::-webkit-scrollbar,
+body[data-cashbook-active="true"] .modal-container::-webkit-scrollbar {
+  width: 6px !important;
+}
+.cb-expense-modal-sheet::-webkit-scrollbar-track,
+[data-cashbook-active="true"] .modal-container::-webkit-scrollbar-track,
+body[data-cashbook-active="true"] .modal-container::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.cb-expense-modal-sheet::-webkit-scrollbar-thumb,
+[data-cashbook-active="true"] .modal-container::-webkit-scrollbar-thumb,
+body[data-cashbook-active="true"] .modal-container::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45) !important;
+  border-radius: 999px !important;
+}
+.cb-expense-modal-sheet::-webkit-scrollbar-thumb:hover,
+[data-cashbook-active="true"] .modal-container::-webkit-scrollbar-thumb:hover,
+body[data-cashbook-active="true"] .modal-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.75) !important;
+}
+
+/* Mobile Modal: Bottom Sheet with 32px top radius, 36x4 drag-handle pill on top, sticky footer */
+@media (max-width: 768px) {
+  [data-theme-scope="cashbook-pill"] .modal-overlay,
+  .theme-cashbook-pill .modal-overlay,
+  [data-cashbook-active="true"] .modal-overlay,
+  body[data-cashbook-active="true"] .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-container,
+  .theme-cashbook-pill .modal-container,
+  [data-cashbook-active="true"] .modal-container,
+  body[data-cashbook-active="true"] .modal-container {
+    border-radius: 24px 24px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-height: 90vh !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 -8px 32px rgba(11, 27, 68, 0.25) !important;
+    position: relative !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  body.cb-dark-bw .modal-container,
+  .cb-dark-bw .modal-container,
+  body.cb-dark-bw[data-cashbook-active="true"] .modal-container,
+  body[data-theme="dark"] .modal-container {
+    background: #141517 !important;
+    border-top: 1px solid #282a2e !important;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.8) !important;
+  }
+
+  /* Visual drag handle pill on top: 36x4 pill */
+  [data-theme-scope="cashbook-pill"] .modal-container::before,
+  .theme-cashbook-pill .modal-container::before,
+  [data-cashbook-active="true"] .modal-container::before,
+  body[data-cashbook-active="true"] .modal-container::before {
+    content: '' !important;
+    width: 36px !important;
+    height: 4px !important;
+    border-radius: 999px !important;
+    background: #CBD5E1 !important;
+    margin: 8px auto 3px auto !important;
+    display: block !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.cb-dark-bw .modal-container::before,
+  .cb-dark-bw .modal-container::before,
+  body.cb-dark-bw[data-cashbook-active="true"] .modal-container::before,
+  body[data-theme="dark"] .modal-container::before {
+    background: #3f434a !important;
+  }
+
+  /* Floating Modal Action Buttons on Mobile - Clean, No Border Box */
+  [data-theme-scope="cashbook-pill"] .modal-container [style*="justifyContent: 'flex-end'"],
+  [data-cashbook-active="true"] .modal-container [style*="justifyContent: 'flex-end'"],
+  body[data-cashbook-active="true"] .modal-container [style*="justifyContent: 'flex-end'"],
+  [data-theme-scope="cashbook-pill"] .modal-container [style*="justify-content: flex-end"],
+  [data-cashbook-active="true"] .modal-container [style*="justify-content: flex-end"],
+  body[data-cashbook-active="true"] .modal-container [style*="justify-content: flex-end"],
+  [data-theme-scope="cashbook-pill"] .modal-footer,
+  [data-cashbook-active="true"] .modal-footer,
+  body[data-cashbook-active="true"] .modal-footer,
+  body.cb-dark-bw .modal-container [style*="justifyContent: 'flex-end'"],
+  .cb-dark-bw .modal-container [style*="justifyContent: 'flex-end'"],
+  body.cb-dark-bw[data-cashbook-active="true"] .modal-container [style*="justifyContent: 'flex-end'"],
+  body[data-theme="dark"] .modal-container [style*="justifyContent: 'flex-end'"],
+  body.cb-dark-bw .modal-container [style*="justify-content: flex-end"],
+  .cb-dark-bw .modal-container [style*="justify-content: flex-end"],
+  body.cb-dark-bw[data-cashbook-active="true"] .modal-container [style*="justify-content: flex-end"],
+  body[data-theme="dark"] .modal-container [style*="justify-content: flex-end"],
+  body.cb-dark-bw .modal-footer,
+  .cb-dark-bw .modal-footer,
+  body.cb-dark-bw[data-cashbook-active="true"] .modal-footer,
+  body[data-theme="dark"] .modal-footer,
+  .modal-form-footer {
+    position: relative !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-top: none !important;
+    padding: 0.65rem 0 0.25rem 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    z-index: 20 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Floating Action Buttons styling on mobile */
+  [data-theme-scope="cashbook-pill"] .modal-container [style*="justifyContent: 'flex-end'"] button,
+  [data-cashbook-active="true"] .modal-container [style*="justifyContent: 'flex-end'"] button,
+  body[data-cashbook-active="true"] .modal-container [style*="justifyContent: 'flex-end'"] button,
+  [data-theme-scope="cashbook-pill"] .modal-container [style*="justify-content: flex-end"] button,
+  [data-cashbook-active="true"] .modal-container [style*="justify-content: flex-end"] button,
+  body[data-cashbook-active="true"] .modal-container [style*="justify-content: flex-end"] button,
+  .modal-form-footer button {
+    height: 42px !important;
+    border-radius: 12px !important;
+    font-size: 0.86rem !important;
+    font-weight: 700 !important;
+    transition: all 0.15s ease !important;
+  }
+
+  /* Cancel Button - Floating */
+  [data-theme-scope="cashbook-pill"] .modal-container button.btn:not([type="submit"]),
+  [data-cashbook-active="true"] .modal-container button.btn:not([type="submit"]),
+  body[data-cashbook-active="true"] .modal-container button.btn:not([type="submit"]),
+  .modal-form-footer button:not([type="submit"]) {
+    flex: 1 !important;
+    background: #ffffff !important;
+    color: #334155 !important;
+    border: none !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  body.cb-dark-bw .modal-container button.btn:not([type="submit"]),
+  .cb-dark-bw .modal-container button.btn:not([type="submit"]),
+  body.cb-dark-bw[data-cashbook-active="true"] .modal-container button.btn:not([type="submit"]),
+  body[data-theme="dark"] .modal-container button.btn:not([type="submit"]),
+  body.cb-dark-bw .modal-form-footer button:not([type="submit"]) {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  /* Submit Button - Floating with prominent shadow */
+  [data-theme-scope="cashbook-pill"] .modal-container form button[type="submit"],
+  .theme-cashbook-pill .modal-container form button[type="submit"],
+  [data-cashbook-active="true"] .modal-container form button[type="submit"],
+  body[data-cashbook-active="true"] .modal-container form button[type="submit"],
+  .modal-form-footer button[type="submit"] {
+    flex: 2 !important;
+    width: auto !important;
+    box-shadow: 0 4px 18px rgba(22, 163, 74, 0.4) !important;
+  }
+}
+
+/* Modal Header & Body */
+[data-theme-scope="cashbook-pill"] .modal-header,
+.theme-cashbook-pill .modal-header,
+[data-cashbook-active="true"] .modal-header,
+body[data-cashbook-active="true"] .modal-header {
+  padding: 14px 20px !important;
+  border-bottom: 1px solid #E8ECF5 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: #ffffff !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-header h3,
+.theme-cashbook-pill .modal-header h3,
+[data-cashbook-active="true"] .modal-header h3,
+body[data-cashbook-active="true"] .modal-header h3 {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: #0F1B3D !important;
+  letter-spacing: -0.01em !important;
+  margin: 0 !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-body,
+.theme-cashbook-pill .modal-body,
+[data-cashbook-active="true"] .modal-body,
+body[data-cashbook-active="true"] .modal-body {
+  padding: 16px 20px 18px 20px !important;
+  background: #ffffff !important;
+  overflow-y: auto !important;
+}
+
+/* ── 11. SWEETALERT2 POPUPS (Portals inside Cashbook) ── */
+/* Strictly hide any SweetAlert2 input, checkbox, or control with display:none */
+.swal2-popup [style*="display: none"],
+div:where(.swal2-container) [style*="display: none"],
+div:where(.swal2-container) .swal2-checkbox[style*="display: none"],
+div:where(.swal2-container) .swal2-input[style*="display: none"],
+div:where(.swal2-container) .swal2-file[style*="display: none"],
+div:where(.swal2-container) .swal2-radio[style*="display: none"],
+div:where(.swal2-container) .swal2-select[style*="display: none"],
+div:where(.swal2-container) .swal2-textarea[style*="display: none"],
+div:where(.swal2-container) .swal2-range[style*="display: none"],
+div:where(.swal2-container) .swal2-validation-message[style*="display: none"],
+body[data-cashbook-active="true"] .swal2-checkbox[style*="display: none"],
+body[data-cashbook-active="true"] label.swal2-checkbox[style*="display: none"],
+body[data-cashbook-active="true"] .swal2-popup label[style*="display: none"],
+body[data-cashbook-active="true"] .swal2-popup [style*="display: none"] {
+  display: none !important;
+}
+
+/* Ensure unused checkbox and inputs never leak into confirmation modals */
+.swal2-popup:not(.swal2-has-input) label.swal2-checkbox,
+.swal2-popup:not(.swal2-has-input) .swal2-checkbox {
+  display: none !important;
+}
+
+/* SweetAlert2 Active Checkbox in Cashbook */
+body[data-cashbook-active="true"] .swal2-popup label.swal2-checkbox:not([style*="display: none"]),
+body[data-cashbook-active="true"] .swal2-popup .swal2-checkbox:not([style*="display: none"]),
+[data-cashbook-active="true"] .erp-swal-checkbox:not([style*="display: none"]) {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin: 16px auto 6px auto !important;
+  padding: 10px 18px !important;
+  border-radius: 999px !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #334155 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  width: auto !important;
+  max-width: 90% !important;
+  box-sizing: border-box !important;
+}
+
+body[data-cashbook-active="true"] .swal2-popup label.swal2-checkbox:not([style*="display: none"]) input[type="checkbox"],
+body[data-cashbook-active="true"] .swal2-popup .swal2-checkbox input[type="checkbox"],
+[data-cashbook-active="true"] .erp-swal-checkbox input[type="checkbox"] {
+  width: 17px !important;
+  height: 17px !important;
+  min-width: 17px !important;
+  min-height: 17px !important;
+  border-radius: 4px !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  accent-color: #dc2626 !important;
+  flex-shrink: 0 !important;
+}
+
+body[data-cashbook-active="true"] .swal2-popup label.swal2-checkbox:not([style*="display: none"]) .swal2-label,
+body[data-cashbook-active="true"] .swal2-popup .swal2-checkbox .swal2-label,
+[data-cashbook-active="true"] .erp-swal-checkbox .swal2-label {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: inherit !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.3 !important;
+}
+
+body.cb-dark-bw .swal2-popup label.swal2-checkbox:not([style*="display: none"]),
+body.cb-dark-bw .swal2-popup .swal2-checkbox:not([style*="display: none"]),
+.cb-dark-bw .erp-swal-checkbox:not([style*="display: none"]) {
+  background: #1c1e22 !important;
+  border: 1px solid #2e3238 !important;
+  color: #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.cb-dark-bw .swal2-popup label.swal2-checkbox:not([style*="display: none"]):hover,
+body.cb-dark-bw .swal2-popup .swal2-checkbox:not([style*="display: none"]):hover {
+  background: #23272e !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+/* Danger Confirm Button styling when permanent delete is active */
+body.cb-dark-bw .swal2-confirm.erp-swal-btn-danger,
+.cb-dark-bw .swal2-confirm.erp-swal-btn-danger,
+body[data-cashbook-active="true"] .swal2-confirm.erp-swal-btn-danger,
+[data-cashbook-active="true"] .erp-swal-confirm-btn.erp-swal-btn-danger {
+  background: #dc2626 !important;
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45) !important;
+}
+
+body[data-cashbook-active="true"] .swal2-container:not(.swal2-top-end):not(.swal2-top-right):not(.erp-toast-container):not(:has(.swal2-toast)):not(:has(.erp-swal-toast)).swal2-backdrop-show {
+  background: rgba(11, 27, 68, 0.50) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+body.swal2-toast-shown .swal2-container,
+body[data-cashbook-active="true"] .swal2-container.swal2-top-end,
+body[data-cashbook-active="true"] .swal2-container.swal2-top-right,
+body[data-cashbook-active="true"] .swal2-container.erp-toast-container,
+body[data-cashbook-active="true"] .swal2-container:has(.swal2-toast),
+body[data-cashbook-active="true"] .swal2-container:has(.erp-swal-toast) {
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: none !important;
+}
+
+body[data-cashbook-active="true"] .swal2-popup:not(.swal2-toast):not(.erp-swal-toast),
+[data-cashbook-active="true"] .erp-swal-popup {
+  border-radius: 28px !important;
+  padding: 24px !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.20) !important;
+  border: 1px solid #E8ECF5 !important;
+  font-family: inherit !important;
+}
+
+body[data-cashbook-active="true"] .swal2-popup.swal2-toast,
+body[data-cashbook-active="true"] .erp-swal-toast {
+  border-radius: 12px !important;
+  padding: 10px 16px !important;
+  width: auto !important;
+  max-width: 400px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+  pointer-events: auto !important;
+}
+
+body[data-cashbook-active="true"] .swal2-title {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  color: #0F1B3D !important;
+}
+
+body[data-cashbook-active="true"] .swal2-html-container {
+  font-size: 0.95rem !important;
+  color: #64708A !important;
+}
+
+body[data-cashbook-active="true"] .swal2-actions {
+  gap: 12px !important;
+  margin-top: 20px !important;
+}
+
+body[data-cashbook-active="true"] .swal2-confirm,
+[data-cashbook-active="true"] .erp-swal-confirm-btn {
+  height: 52px !important;
+  border-radius: 999px !important;
+  padding: 0 24px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  background: #1366D9 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(19, 102, 217, 0.32) !important;
+}
+
+body[data-cashbook-active="true"] .swal2-deny,
+[data-cashbook-active="true"] .erp-swal-deny-btn {
+  height: 52px !important;
+  border-radius: 999px !important;
+  padding: 0 22px !important;
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.32) !important;
+  cursor: pointer !important;
+}
+
+body[data-cashbook-active="true"] .swal2-cancel,
+[data-cashbook-active="true"] .erp-swal-cancel-btn {
+  height: 52px !important;
+  border-radius: 999px !important;
+  padding: 0 24px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  background: #ffffff !important;
+  border: 1px solid #E3E8F4 !important;
+  color: #475569 !important;
+}
+
+/* ── 12. MICRO-INTERACTIONS & MOTION (A9) ── */
+@keyframes cb-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cb-animate-slide-up,
+[data-theme-scope="cashbook-pill"] .cb-standalone-card,
+[data-cashbook-active="true"] .cb-standalone-card {
+  animation: cb-slide-up 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Stagger delays */
+.cb-stagger-1 { animation-delay: 40ms; }
+.cb-stagger-2 { animation-delay: 80ms; }
+.cb-stagger-3 { animation-delay: 120ms; }
+.cb-stagger-4 { animation-delay: 160ms; }
+
+/* Press state on tiles, buttons, chips, and cards: scale .97, 120ms */
+[data-theme-scope="cashbook-pill"] .cb-standalone-card:active,
+[data-cashbook-active="true"] .cb-standalone-card:active,
+[data-theme-scope="cashbook-pill"] .cb-action-tile-btn:active,
+[data-cashbook-active="true"] .cb-action-tile-btn:active,
+[data-theme-scope="cashbook-pill"] .cb-mobile-subtab-chip:active,
+[data-cashbook-active="true"] .cb-mobile-subtab-chip:active,
+[data-theme-scope="cashbook-pill"] .btn-primary:active,
+[data-cashbook-active="true"] .btn-primary:active,
+[data-theme-scope="cashbook-pill"] .btn-secondary:active,
+[data-cashbook-active="true"] .btn-secondary:active {
+  transform: scale(0.97) !important;
+  transition: transform 120ms ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── 13. DESKTOP & TABLET WORKSPACE (A10: Full bleed gradient band, white rounded sheet, dock-less) ── */
+@media (min-width: 769px) {
+  .cb-mobile-top-tab-pills { display: flex !important; }
+  .cb-mobile-dock-row,
+  .cb-mobile-dock-fade { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .cb-mobile-top-tab-pills { display: none !important; }
+}
+
+/* Desktop Header band with vertical depth gradient */
+.theme-cashbook-pill .cb-desktop-header-band,
+[data-theme-scope="cashbook-pill"] .cb-desktop-header-band {
+  background: var(--cb-header-grad) !important;
+  color: #FFF !important;
+  padding: 1.5rem 2rem 3.5rem 2rem !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  position: relative !important;
+}
+
+.theme-cashbook-pill .cb-content-sheet,
+[data-theme-scope="cashbook-pill"] .cb-content-sheet {
+  background: var(--cb-sheet-bg) !important;
+  border-radius: var(--cb-radius-sheet) var(--cb-radius-sheet) 0 0 !important;
+  margin-top: -2rem !important;
+  position: relative !important;
+  z-index: 10 !important;
+  box-shadow: 0 -8px 24px rgba(15,23,42,0.06) !important;
+  padding: 2rem 2rem 4rem 2rem !important;
+}
+
+/* ── 14. CASHBOOK FORMS & MODAL SHEET SPACING (Cashbook Scope Only) ── */
+[data-theme-scope="cashbook-pill"] .modal-container,
+[data-cashbook-active="true"] .modal-container,
+body[data-cashbook-active="true"] .modal-container {
+  border-radius: 28px !important;
+  overflow: hidden !important;
+  box-shadow: 0 20px 60px rgba(11, 27, 68, 0.22) !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-header,
+[data-cashbook-active="true"] .modal-header,
+body[data-cashbook-active="true"] .modal-header {
+  padding: 22px 24px 18px 24px !important;
+  border-bottom: 1px solid #EEF2FB !important;
+  background: #ffffff !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-header h3,
+[data-cashbook-active="true"] .modal-header h3,
+body[data-cashbook-active="true"] .modal-header h3 {
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  color: #0F1B3D !important;
+  letter-spacing: -0.01em !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-body,
+[data-cashbook-active="true"] .modal-body,
+body[data-cashbook-active="true"] .modal-body {
+  padding: 16px 20px 18px 20px !important;
+}
+
+/* Form Grid spacing */
+[data-theme-scope="cashbook-pill"] .form-grid,
+[data-cashbook-active="true"] .form-grid,
+body[data-cashbook-active="true"] .form-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px 14px !important;
+}
+
+[data-theme-scope="cashbook-pill"] .form-group,
+[data-cashbook-active="true"] .form-group,
+body[data-cashbook-active="true"] .form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  margin-bottom: 0 !important;
+}
+
+@media (max-width: 768px) {
+  [data-theme-scope="cashbook-pill"] .modal-overlay,
+  [data-cashbook-active="true"] .modal-overlay,
+  body[data-cashbook-active="true"] .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-container,
+  [data-cashbook-active="true"] .modal-container,
+  body[data-cashbook-active="true"] .modal-container {
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 92vh !important;
+    max-height: min(92vh, 92dvh) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    box-shadow: 0 -8px 36px rgba(11, 27, 68, 0.18) !important;
+    border: none !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-header,
+  [data-cashbook-active="true"] .modal-header,
+  body[data-cashbook-active="true"] .modal-header {
+    padding: 10px 16px 8px 16px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-header h3,
+  [data-cashbook-active="true"] .modal-header h3,
+  body[data-cashbook-active="true"] .modal-header h3 {
+    font-size: 0.98rem !important;
+    font-weight: 700 !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-body,
+  [data-cashbook-active="true"] .modal-body,
+  body[data-cashbook-active="true"] .modal-body {
+    padding: 12px 14px 28px 14px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-body form,
+  [data-cashbook-active="true"] .modal-body form,
+  body[data-cashbook-active="true"] .modal-body form {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-container label,
+  [data-cashbook-active="true"] .modal-container label,
+  body[data-cashbook-active="true"] .modal-container label {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    margin-bottom: 2px !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .form-grid,
+  [data-cashbook-active="true"] .form-grid,
+  body[data-cashbook-active="true"] .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .form-grid .col-span-2,
+  [data-cashbook-active="true"] .form-grid .col-span-2,
+  body[data-cashbook-active="true"] .form-grid .col-span-2,
+  [data-theme-scope="cashbook-pill"] .col-span-2,
+  [data-cashbook-active="true"] .col-span-2,
+  body[data-cashbook-active="true"] .col-span-2 {
+    grid-column: span 2 / span 2 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Mobile compact touch-target sizing for modal controls */
+  [data-theme-scope="cashbook-pill"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+  [data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+  body[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+  [data-theme-scope="cashbook-pill"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+  [data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+  body[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+  [data-theme-scope="cashbook-pill"] .modal-container select,
+  [data-cashbook-active="true"] .modal-container select,
+  body[data-cashbook-active="true"] .modal-container select,
+  [data-theme-scope="cashbook-pill"] .form-grid select,
+  [data-cashbook-active="true"] .form-grid select,
+  body[data-cashbook-active="true"] .form-grid select {
+    height: 38px !important;
+    min-height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    padding: 0 12px !important;
+  }
+
+  /* Custom CashbookSelect inside modal */
+  [data-theme-scope="cashbook-pill"] .modal-container .cb-custom-select-trigger,
+  [data-cashbook-active="true"] .modal-container .cb-custom-select-trigger,
+  body[data-cashbook-active="true"] .modal-container .cb-custom-select-trigger {
+    height: 38px !important;
+    min-height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    padding: 0 10px !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-container .cb-custom-select-trigger > div:first-child > div:first-child,
+  [data-cashbook-active="true"] .modal-container .cb-custom-select-trigger > div:first-child > div:first-child,
+  body[data-cashbook-active="true"] .modal-container .cb-custom-select-trigger > div:first-child > div:first-child {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] textarea,
+  .theme-cashbook-pill textarea,
+  [data-cashbook-active="true"] textarea,
+  body[data-cashbook-active="true"] textarea {
+    border-radius: 10px !important;
+    min-height: 56px !important;
+    font-size: 13px !important;
+    padding: 8px 12px !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-container button[type="submit"],
+  [data-cashbook-active="true"] .modal-container button[type="submit"],
+  body[data-cashbook-active="true"] .modal-container button[type="submit"],
+  [data-theme-scope="cashbook-pill"] .modal-container .btn-primary,
+  [data-cashbook-active="true"] .modal-container .btn-primary,
+  body[data-cashbook-active="true"] .modal-container .btn-primary,
+  [data-theme-scope="cashbook-pill"] .btn-secondary,
+  .theme-cashbook-pill .btn-secondary,
+  [data-cashbook-active="true"] .btn-secondary,
+  body[data-cashbook-active="true"] .btn-secondary,
+  [data-theme-scope="cashbook-pill"] .modal-container .btn:not(.btn-primary):not(.btn-danger):not(.btn-icon):not([style*="borderRadius: 50"]),
+  [data-cashbook-active="true"] .modal-container .btn:not(.btn-primary):not(.btn-danger):not(.btn-icon):not([style*="borderRadius: 50"]),
+  body[data-cashbook-active="true"] .modal-container .btn:not(.btn-primary):not(.btn-danger):not(.btn-icon):not([style*="borderRadius: 50"]) {
+    height: 38px !important;
+    min-height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    padding: 0 14px !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .modal-header .btn-icon,
+  .theme-cashbook-pill .modal-header .btn-icon,
+  [data-cashbook-active="true"] .modal-header .btn-icon,
+  body[data-cashbook-active="true"] .modal-header .btn-icon {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .form-grid > *:not(.col-span-2),
+  [data-cashbook-active="true"] .form-grid > *:not(.col-span-2),
+  body[data-cashbook-active="true"] .form-grid > *:not(.col-span-2) {
+    grid-column: span 1 / span 1 !important;
+  }
+
+  [data-theme-scope="cashbook-pill"] .form-grid > .col-span-2,
+  [data-cashbook-active="true"] .form-grid > .col-span-2,
+  body[data-cashbook-active="true"] .form-grid > .col-span-2 {
+    grid-column: span 2 / span 2 !important;
+  }
+
+  /* Book & Transfer Modal Mobile Optimization */
+  .cb-book-form-grid .form-group,
+  .cb-transfer-form-grid .form-group {
+    grid-column: span 2 / span 2 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .cb-book-modal-actions {
+    position: sticky !important;
+    bottom: 0 !important;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* Bulk Entry Row Mobile Layout */
+  .cb-bulk-entry-row {
+    flex-wrap: wrap !important;
+    padding: 8px 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .cb-bulk-entry-row select,
+  .cb-bulk-entry-row input[type="number"] {
+    flex: 1 1 calc(50% - 24px) !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  .cb-bulk-entry-row input[type="text"] {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Compact Month Card & Pills on Mobile */
+  .cb-modal-months-card {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .cb-months-grid {
+    gap: 6px !important;
+  }
+
+  .cb-month-pill-btn {
+    height: 32px !important;
+    min-height: 32px !important;
+    font-size: 0.76rem !important;
+    border-radius: 8px !important;
+  }
+
+  /* SweetAlert mobile scaling */
+  body[data-cashbook-active="true"] .swal2-popup,
+  [data-cashbook-active="true"] .erp-swal-popup {
+    border-radius: 18px !important;
+    padding: 16px 14px !important;
+    max-width: 90vw !important;
+  }
+
+  body[data-cashbook-active="true"] .swal2-confirm,
+  [data-cashbook-active="true"] .erp-swal-confirm-btn,
+  body[data-cashbook-active="true"] .swal2-deny,
+  [data-cashbook-active="true"] .erp-swal-deny-btn,
+  body[data-cashbook-active="true"] .swal2-cancel,
+  [data-cashbook-active="true"] .erp-swal-cancel-btn {
+    height: 38px !important;
+    min-height: 38px !important;
+    font-size: 13px !important;
+    border-radius: 10px !important;
+    padding: 0 16px !important;
+  }
+}
+
+/* Month pill card & buttons */
+.cb-modal-months-card {
+  background: #F6F8FD !important;
+  padding: 14px 16px !important;
+  border-radius: 20px !important;
+  border: 1px solid #E3E8F4 !important;
+}
+
+.cb-months-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 8px !important;
+}
+
+@media (min-width: 640px) {
+  .cb-months-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+  }
+}
+
+.cb-month-pill-btn {
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 4px !important;
+  border-radius: 999px !important;
+  border: 1px solid #CBD5E1 !important;
+  background: #ffffff !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+.cb-month-pill-btn:hover {
+  border-color: #1366D9 !important;
+  color: #1366D9 !important;
+}
+
+.cb-month-pill-btn.is-selected {
+  border: 2px solid #1366D9 !important;
+  background: #E8EFFF !important;
+  color: #1366D9 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 6px rgba(19, 102, 217, 0.15) !important;
+}
+
+/* Dark Mode support for Linked Month(s) Card & Month Pills */
+body.cb-dark-bw .cb-modal-months-card,
+.cb-dark-bw .cb-modal-months-card,
+html.cb-dark-bw .cb-modal-months-card,
+body[data-theme="dark"] .cb-modal-months-card {
+  background: #0d0e10 !important;
+  border: 1px solid #232528 !important;
+}
+
+body.cb-dark-bw .cb-month-pill-btn,
+.cb-dark-bw .cb-month-pill-btn,
+html.cb-dark-bw .cb-month-pill-btn,
+body[data-theme="dark"] .cb-month-pill-btn {
+  background: #141517 !important;
+  border: 1px solid #282a2e !important;
+  color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+body.cb-dark-bw .cb-month-pill-btn:hover,
+.cb-dark-bw .cb-month-pill-btn:hover,
+html.cb-dark-bw .cb-month-pill-btn:hover,
+body[data-theme="dark"] .cb-month-pill-btn:hover {
+  background: #1c1f24 !important;
+  border-color: #3b82f6 !important;
+  color: #60a5fa !important;
+}
+
+body.cb-dark-bw .cb-month-pill-btn.is-selected,
+.cb-dark-bw .cb-month-pill-btn.is-selected,
+html.cb-dark-bw .cb-month-pill-btn.is-selected,
+body[data-theme="dark"] .cb-month-pill-btn.is-selected {
+  background: rgba(19, 102, 217, 0.25) !important;
+  border: 1.5px solid #3b82f6 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.28) !important;
+}
+
+/* ── 15. DESKTOP WORKSPACE & TOOLBAR RESTORATION ── */
+@media (min-width: 769px) {
+  /* Restore desktop sidebar from pill overrides */
+  .sidebar,
+  aside {
+    border-radius: 0 !important;
+  }
+
+  .sidebar select,
+  aside select,
+  .sidebar input,
+  aside input {
+    height: auto !important;
+    min-height: auto !important;
+    border-radius: 12px !important;
+    width: 100% !important;
+  }
+
+  /* Desktop Table Toolbar Clean Layout */
+  #bank-flow-ledger-section .cb-custom-select-container {
+    display: inline-block !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  .cb-desktop-search-input {
+    height: 34px !important;
+    min-height: 34px !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 4px !important;
+    font-size: 13px !important;
+    color: #0F1B3D !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    outline: none !important;
+  }
+
+  .cb-desktop-search-input:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: transparent !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   16. FIGMA DARK MODE (NODE 14-3) - COMPREHENSIVE MODALS & FORMS
+   ═══════════════════════════════════════════════════════════════ */
+body.cb-dark-bw .modal-overlay,
+.cb-dark-bw .modal-overlay,
+html.cb-dark-bw .modal-overlay,
+body[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+body.cb-dark-bw .modal-container,
+.cb-dark-bw .modal-container,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-container,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-container,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-container,
+body[data-theme="dark"] .modal-container,
+body[data-theme="dark"] .cb-expense-modal-sheet {
+  background: #141517 !important;
+  background-color: #141517 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8) !important;
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw .modal-header,
+.cb-dark-bw .modal-header,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-header,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-header,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-header,
+body[data-theme="dark"] .modal-header {
+  background: #141517 !important;
+  background-color: #141517 !important;
+  border-bottom: 1px solid #1c1e21 !important;
+}
+
+body.cb-dark-bw .modal-header h3,
+.cb-dark-bw .modal-header h3,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-header h3,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-header h3,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-header h3,
+body[data-theme="dark"] .modal-header h3 {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+body.cb-dark-bw .modal-header .btn-icon,
+.cb-dark-bw .modal-header .btn-icon,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-header .btn-icon,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-header .btn-icon,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-header .btn-icon,
+body[data-theme="dark"] .modal-header .btn-icon {
+  background: #1e2023 !important;
+  border: 1px solid #2a2d31 !important;
+  color: #8b9096 !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+}
+
+body.cb-dark-bw .modal-header .btn-icon:hover,
+.cb-dark-bw .modal-header .btn-icon:hover {
+  background: #282b30 !important;
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw .modal-body,
+.cb-dark-bw .modal-body,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-body,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-body,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-body,
+body[data-theme="dark"] .modal-body {
+  background: #141517 !important;
+  background-color: #141517 !important;
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw .modal-container label,
+.cb-dark-bw .modal-container label,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-container label,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-container label,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-container label,
+body.cb-dark-bw .form-group label,
+.cb-dark-bw .form-group label {
+  color: #8b9096 !important;
+  font-weight: 700 !important;
+}
+
+body.cb-dark-bw .modal-container input,
+.cb-dark-bw .modal-container input,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-container input,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-container input,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-container input,
+body.cb-dark-bw .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+.cb-dark-bw .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+body.cb-dark-bw[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+html.cb-dark-bw [data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+body.cb-dark-bw .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+.cb-dark-bw .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+body.cb-dark-bw[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+html.cb-dark-bw [data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+html.cb-dark-bw body[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+body.cb-dark-bw .modal-container select,
+.cb-dark-bw .modal-container select,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-container select,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-container select,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-container select,
+body.cb-dark-bw .modal-container textarea,
+.cb-dark-bw .modal-container textarea,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-container textarea,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-container textarea,
+html.cb-dark-bw body[data-cashbook-active="true"] .modal-container textarea,
+body.cb-dark-bw .form-grid input,
+.cb-dark-bw .form-grid input,
+body.cb-dark-bw[data-cashbook-active="true"] .form-grid input,
+html.cb-dark-bw [data-cashbook-active="true"] .form-grid input,
+html.cb-dark-bw body[data-cashbook-active="true"] .form-grid input,
+body.cb-dark-bw .form-grid select,
+.cb-dark-bw .form-grid select,
+body.cb-dark-bw[data-cashbook-active="true"] .form-grid select,
+html.cb-dark-bw [data-cashbook-active="true"] .form-grid select,
+html.cb-dark-bw body[data-cashbook-active="true"] .form-grid select,
+body.cb-dark-bw .input-field,
+.cb-dark-bw .input-field {
+  background: #0d0e10 !important;
+  background-color: #0d0e10 !important;
+  border: 1px solid #232528 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.cb-dark-bw .modal-container input:focus,
+.cb-dark-bw .modal-container input:focus,
+body.cb-dark-bw .modal-container select:focus,
+.cb-dark-bw .modal-container select:focus,
+body.cb-dark-bw .input-field:focus,
+.cb-dark-bw .input-field:focus {
+  border-color: #ffffff !important;
+  background: #101114 !important;
+  outline: none !important;
+}
+
+body.cb-dark-bw .modal-container input::placeholder,
+.cb-dark-bw .modal-container input::placeholder,
+body.cb-dark-bw .input-field::placeholder,
+.cb-dark-bw .input-field::placeholder {
+  color: #55585d !important;
+}
+
+body.cb-dark-bw .modal-container select option,
+.cb-dark-bw .modal-container select option,
+body.cb-dark-bw .input-field option,
+.cb-dark-bw .input-field option {
+  background-color: #141517 !important;
+  color: #ffffff !important;
+}
+
+/* Designation (Credit/Debit) segmented control pill track in modal */
+body.cb-dark-bw .modal-container .cb-choice-group,
+.cb-dark-bw .modal-container .cb-choice-group,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-container .cb-choice-group,
+html.cb-dark-bw [data-cashbook-active="true"] .modal-container .cb-choice-group,
+body.cb-dark-bw .cb-choice-group,
+.cb-dark-bw .cb-choice-group {
+  background: #0d0e10 !important;
+  background-color: #0d0e10 !important;
+  border: 1px solid #232528 !important;
+  border-radius: 999px !important;
+  padding: 4px !important;
+  gap: 4px !important;
+}
+
+/* Floating Designation Buttons (Credit Cash In / Debit Cash Out) - Clean Transparent Track */
+.cb-designation-pill-track,
+body.cb-dark-bw .cb-designation-pill-track,
+.cb-dark-bw .cb-designation-pill-track,
+body .modal-container .cb-designation-pill-track,
+body.cb-dark-bw .modal-container .cb-designation-pill-track,
+html.cb-dark-bw body .modal-container .cb-designation-pill-track {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  gap: 12px !important;
+  box-shadow: none !important;
+}
+
+/* Floating Pill Buttons */
+body.cb-dark-bw .cb-designation-btn,
+.cb-dark-bw .cb-designation-btn,
+.cb-designation-btn {
+  border-radius: 999px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Inactive Credit Designation Button - Floating */
+.cb-designation-btn:not(.active-credit):not(.active-debit):first-child {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 1.5px solid #86efac !important;
+  color: #15803d !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+body.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):first-child,
+.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):first-child {
+  background: #141619 !important;
+  background-color: #141619 !important;
+  border: 1.5px solid rgba(74, 222, 128, 0.35) !important;
+  color: #86efac !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+.cb-designation-btn:not(.active-credit):not(.active-debit):first-child:hover,
+body.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):first-child:hover,
+.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):first-child:hover {
+  background: rgba(22, 163, 74, 0.15) !important;
+  border-color: #4ade80 !important;
+  color: #bbf7d0 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Inactive Debit Designation Button - Floating */
+.cb-designation-btn:not(.active-credit):not(.active-debit):last-child {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 1.5px solid #fca5a5 !important;
+  color: #b91c1c !important;
+  box-shadow: none !important;
+}
+body.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):last-child,
+.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):last-child {
+  background: #141619 !important;
+  background-color: #141619 !important;
+  border: 1.5px solid rgba(248, 113, 113, 0.35) !important;
+  color: #fca5a5 !important;
+  box-shadow: none !important;
+}
+.cb-designation-btn:not(.active-credit):not(.active-debit):last-child:hover,
+body.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):last-child:hover,
+.cb-dark-bw .cb-designation-btn:not(.active-credit):not(.active-debit):last-child:hover {
+  background: rgba(220, 38, 38, 0.15) !important;
+  border-color: #f87171 !important;
+  color: #fecaca !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Active Credit Button in Modal (Emerald Green for Cash In) - Solid Color, No Glow */
+body.cb-dark-bw .cb-designation-btn.active-credit,
+.cb-dark-bw .cb-designation-btn.active-credit,
+.cb-designation-btn.active-credit {
+  background: #16a34a !important;
+  background-color: #16a34a !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Active Debit Button in Modal (Crimson Red for Cash Out) - Solid Color, No Glow */
+body.cb-dark-bw .cb-designation-btn.active-debit,
+.cb-dark-bw .cb-designation-btn.active-debit,
+.cb-designation-btn.active-debit {
+  background: #dc2626 !important;
+  background-color: #dc2626 !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Modal Bottom / Action Buttons */
+body.cb-dark-bw .modal-container button.btn:not([type="submit"]):not([style*="background: rgb(5, 150, 105)"]):not([style*="background: rgb(185, 28, 28)"]),
+.cb-dark-bw .modal-container button.btn:not([type="submit"]):not([style*="background: rgb(5, 150, 105)"]):not([style*="background: rgb(185, 28, 28)"]) {
+  background: #1c1e21 !important;
+  border: 1px solid #282b30 !important;
+  color: #8b9096 !important;
+}
+
+body.cb-dark-bw .modal-container button.btn:not([type="submit"]):hover,
+.cb-dark-bw .modal-container button.btn:not([type="submit"]):hover {
+  background: #25282d !important;
+  color: #ffffff !important;
+}
+
+/* Category helper and Petty cash account box */
+body.cb-dark-bw .modal-container [style*="background: #f8fafc"],
+.cb-dark-bw .modal-container [style*="background: #f8fafc"],
+body.cb-dark-bw .modal-container [style*="background:#f8fafc"],
+.cb-dark-bw .modal-container [style*="background:#f8fafc"],
+body.cb-dark-bw .modal-container [style*="background: rgb(248, 250, 252)"],
+.cb-dark-bw .modal-container [style*="background: rgb(248, 250, 252)"] {
+  background: #0d0e10 !important;
+  border: 1px solid #232528 !important;
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw .modal-container button[style*="color: #1366D9"],
+.cb-dark-bw .modal-container button[style*="color: #1366D9"],
+body.cb-dark-bw .modal-container button[style*="color: rgb(19, 102, 217)"],
+.cb-dark-bw .modal-container button[style*="color: rgb(19, 102, 217)"] {
+  color: #ffffff !important;
+}
+
+/* General button[type="submit"] in modals that aren't credit/debit */
+body.cb-dark-bw .modal-container form button[type="submit"]:not(.btn-credit-submit):not(.btn-debit-submit):not([style*="background: rgb(5, 150, 105)"]):not([style*="background: rgb(185, 28, 28)"]):not([style*="#059669"]):not([style*="#b91c1c"]):not([style*="#16a34a"]):not([style*="#dc2626"]):not([style*="rgb(22, 163, 74)"]):not([style*="rgb(220, 38, 38)"]) {
+  background: #ffffff !important;
+  color: #0c0d0e !important;
+  border: none !important;
+  font-weight: 700 !important;
+}
+
+body.cb-dark-bw .modal-container form button.btn-credit-submit,
+body.cb-dark-bw .modal-container form button[type="submit"].btn-credit-submit,
+.cb-dark-bw .modal-container form button.btn-credit-submit,
+body.cb-dark-bw .modal-container form button[type="submit"][style*="#16a34a"],
+body.cb-dark-bw .modal-container form button[type="submit"][style*="rgb(22, 163, 74)"] {
+  background: #16a34a !important;
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+body.cb-dark-bw .modal-container form button.btn-debit-submit,
+body.cb-dark-bw .modal-container form button[type="submit"].btn-debit-submit,
+.cb-dark-bw .modal-container form button.btn-debit-submit,
+body.cb-dark-bw .modal-container form button[type="submit"][style*="#dc2626"],
+body.cb-dark-bw .modal-container form button[type="submit"][style*="rgb(220, 38, 38)"] {
+  background: #dc2626 !important;
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Modal Form Footer Reset - Clean, No Border or Glow */
+.modal-form-footer,
+body.cb-dark-bw .modal-form-footer,
+.cb-dark-bw .modal-form-footer,
+body.cb-dark-bw[data-cashbook-active="true"] .modal-form-footer,
+body[data-theme="dark"] .modal-form-footer {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-top: none !important;
+  box-shadow: none !important;
+}
+
+/* SweetAlert2 Dialogs in Dark Mode */
+body.cb-dark-bw .swal2-popup,
+.cb-dark-bw .swal2-popup {
+  --swal2-background: #141517 !important;
+  background: #141517 !important;
+  border: 1px solid #232528 !important;
+  color: #ffffff !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8) !important;
+}
+
+body.cb-dark-bw .swal2-checkbox,
+.cb-dark-bw .swal2-checkbox {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw .swal2-title,
+.cb-dark-bw .swal2-title {
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw .swal2-html-container,
+.cb-dark-bw .swal2-html-container {
+  color: #8b9096 !important;
+}
+
+body.cb-dark-bw .swal2-confirm,
+.cb-dark-bw .swal2-confirm {
+  background: #ffffff !important;
+  color: #0c0d0e !important;
+  border: none !important;
+  font-weight: 700 !important;
+}
+
+body.cb-dark-bw .swal2-deny,
+.cb-dark-bw .swal2-deny {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: 1px solid #ef4444 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4) !important;
+  cursor: pointer !important;
+}
+
+body[data-cashbook-active="true"] .swal2-popup:has(.swal2-deny),
+[data-cashbook-active="true"] .erp-swal-popup:has(.erp-swal-deny-btn),
+body.cb-dark-bw .swal2-popup:has(.swal2-deny),
+.cb-dark-bw .swal2-popup:has(.swal2-deny) {
+  width: min(calc(100vw - 32px), 520px) !important;
+  max-width: 520px !important;
+}
+
+body.cb-dark-bw .swal2-cancel,
+.cb-dark-bw .swal2-cancel {
+  background: #1c1e21 !important;
+  border: 1px solid #2a2d31 !important;
+  color: #ffffff !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DARK MODE HIGH-CONTRAST HOVER SPEC (White background, Black text)
+   ═══════════════════════════════════════════════════════════════════ */
+.cashbook-dark .cb-hover-invert:hover,
+.cashbook-dark .sidebar-nav-item:hover,
+.cashbook-dark .sidebar-book-item:hover,
+.cashbook-dark .quick-action-item:hover,
+.cashbook-dark .dropdown-menu-item:hover,
+.cashbook-dark .header-action-btn:hover,
+.cashbook-dark [data-hover-invert]:hover,
+.cashbook-dark .cb-pill:hover,
+.cashbook-dark .cb-filter-chip:hover,
+.cashbook-dark .cb-item-interactive:hover,
+.cb-dark-bw .cb-hover-invert:hover,
+.cb-dark-bw .sidebar-nav-item:hover,
+.cb-dark-bw .sidebar-book-item:hover,
+.cb-dark-bw .quick-action-item:hover,
+.cb-dark-bw .dropdown-menu-item:hover,
+.cb-dark-bw .header-action-btn:hover,
+.cb-dark-bw [data-hover-invert]:hover,
+.cb-dark-bw .cb-pill:hover,
+.cb-dark-bw .cb-filter-chip:hover,
+.cb-dark-bw .cb-item-interactive:hover,
+body.cb-dark-bw .cb-hover-invert:hover,
+body.cb-dark-bw .sidebar-nav-item:hover,
+body.cb-dark-bw .sidebar-book-item:hover,
+body.cb-dark-bw .quick-action-item:hover,
+body.cb-dark-bw .dropdown-menu-item:hover,
+body.cb-dark-bw .header-action-btn:hover,
+body.cb-dark-bw [data-hover-invert]:hover,
+body.cb-dark-bw .cb-pill:hover,
+body.cb-dark-bw .cb-filter-chip:hover,
+body.cb-dark-bw .cb-item-interactive:hover {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15) !important;
+}
+
+.cashbook-dark .cb-hover-invert:hover *,
+.cashbook-dark .sidebar-nav-item:hover *,
+.cashbook-dark .sidebar-book-item:hover *,
+.cashbook-dark .quick-action-item:hover *,
+.cashbook-dark .dropdown-menu-item:hover *,
+.cashbook-dark .header-action-btn:hover *,
+.cashbook-dark [data-hover-invert]:hover *,
+.cashbook-dark .cb-pill:hover *,
+.cashbook-dark .cb-filter-chip:hover *,
+.cashbook-dark .cb-item-interactive:hover *,
+.cb-dark-bw .cb-hover-invert:hover *,
+.cb-dark-bw .sidebar-nav-item:hover *,
+.cb-dark-bw .sidebar-book-item:hover *,
+.cb-dark-bw .quick-action-item:hover *,
+.cb-dark-bw .dropdown-menu-item:hover *,
+.cb-dark-bw .header-action-btn:hover *,
+.cb-dark-bw [data-hover-invert]:hover *,
+.cb-dark-bw .cb-pill:hover *,
+.cb-dark-bw .cb-filter-chip:hover *,
+.cb-dark-bw .cb-item-interactive:hover *,
+body.cb-dark-bw .cb-hover-invert:hover *,
+body.cb-dark-bw .sidebar-nav-item:hover span,
+body.cb-dark-bw .sidebar-nav-item:hover svg,
+body.cb-dark-bw .sidebar-book-item:hover span,
+body.cb-dark-bw .sidebar-book-item:hover svg,
+body.cb-dark-bw .quick-action-item:hover span,
+body.cb-dark-bw .quick-action-item:hover svg,
+body.cb-dark-bw .dropdown-menu-item:hover span,
+body.cb-dark-bw .dropdown-menu-item:hover svg,
+body.cb-dark-bw .header-action-btn:hover svg,
+body.cb-dark-bw [data-hover-invert]:hover span,
+body.cb-dark-bw [data-hover-invert]:hover svg,
+body.cb-dark-bw .cb-pill:hover span,
+body.cb-dark-bw .cb-filter-chip:hover span,
+body.cb-dark-bw .cb-item-interactive:hover span {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+.cashbook-dark tr.cb-table-row:hover,
+.cashbook-dark tr.cb-table-row:hover td,
+.cb-dark-bw tr.cb-table-row:hover,
+.cb-dark-bw tr.cb-table-row:hover td,
+body.cb-dark-bw tr.cb-table-row:hover,
+body.cb-dark-bw tr.cb-table-row:hover td {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE HIGH-CONTRAST HOVER SPEC (Black background, White text)
+   ═══════════════════════════════════════════════════════════════════ */
+.cashbook-light .cb-hover-invert:hover,
+.cashbook-light .sidebar-nav-item:hover,
+.cashbook-light .sidebar-book-item:hover,
+.cashbook-light .quick-action-item:hover,
+.cashbook-light .dropdown-menu-item:hover,
+.cashbook-light .header-action-btn:hover,
+.cashbook-light [data-hover-invert]:hover,
+.cashbook-light .cb-pill:hover,
+.cashbook-light .cb-filter-chip:hover,
+.cashbook-light .cb-item-interactive:hover,
+body:not(.cb-dark-bw) .cashbook-real-container .cb-hover-invert:hover,
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-nav-item:hover,
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-book-item:hover,
+body:not(.cb-dark-bw) .cashbook-real-container .quick-action-item:hover,
+body:not(.cb-dark-bw) .cashbook-real-container .dropdown-menu-item:hover,
+body:not(.cb-dark-bw) .cashbook-real-container .header-action-btn:hover,
+body:not(.cb-dark-bw) .cashbook-real-container [data-hover-invert]:hover {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.cashbook-light .cb-hover-invert:hover span,
+.cashbook-light .cb-hover-invert:hover svg,
+.cashbook-light .sidebar-nav-item:hover span,
+.cashbook-light .sidebar-nav-item:hover svg,
+.cashbook-light .sidebar-book-item:hover span,
+.cashbook-light .sidebar-book-item:hover svg,
+.cashbook-light .quick-action-item:hover span,
+.cashbook-light .quick-action-item:hover svg,
+.cashbook-light .dropdown-menu-item:hover span,
+.cashbook-light .dropdown-menu-item:hover svg,
+.cashbook-light .header-action-btn:hover svg,
+.cashbook-light [data-hover-invert]:hover span,
+.cashbook-light [data-hover-invert]:hover svg,
+.cashbook-light .cb-pill:hover span,
+.cashbook-light .cb-filter-chip:hover span,
+.cashbook-light .cb-item-interactive:hover span,
+body:not(.cb-dark-bw) .cashbook-real-container .cb-hover-invert:hover span,
+body:not(.cb-dark-bw) .cashbook-real-container .cb-hover-invert:hover svg,
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-nav-item:hover span,
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-nav-item:hover svg,
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-book-item:hover span,
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-book-item:hover svg,
+body:not(.cb-dark-bw) .cashbook-real-container .quick-action-item:hover span,
+body:not(.cb-dark-bw) .cashbook-real-container .quick-action-item:hover svg,
+body:not(.cb-dark-bw) .cashbook-real-container .dropdown-menu-item:hover span,
+body:not(.cb-dark-bw) .cashbook-real-container .dropdown-menu-item:hover svg,
+body:not(.cb-dark-bw) .cashbook-real-container .header-action-btn:hover svg,
+body:not(.cb-dark-bw) .cashbook-real-container [data-hover-invert]:hover span,
+body:not(.cb-dark-bw) .cashbook-real-container [data-hover-invert]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Sidebar book icon container high-contrast override on hover */
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-book-item:hover .cb-book-icon-box,
+.cashbook-light .sidebar-book-item:hover .cb-book-icon-box {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+}
+
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-book-item:hover .cb-book-icon-box *,
+.cashbook-light .sidebar-book-item:hover .cb-book-icon-box * {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+body.cb-dark-bw .sidebar-book-item:hover .cb-book-icon-box,
+.cashbook-dark .sidebar-book-item:hover .cb-book-icon-box,
+.cb-dark-bw .sidebar-book-item:hover .cb-book-icon-box {
+  background: #000000 !important;
+  border-color: #000000 !important;
+}
+
+body.cb-dark-bw .sidebar-book-item:hover .cb-book-icon-box *,
+.cashbook-dark .sidebar-book-item:hover .cb-book-icon-box *,
+.cb-dark-bw .sidebar-book-item:hover .cb-book-icon-box * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.cashbook-light tr.cb-table-row:hover,
+.cashbook-light tr.cb-table-row:hover td,
+body:not(.cb-dark-bw) .cashbook-real-container tr.cb-table-row:hover,
+body:not(.cb-dark-bw) .cashbook-real-container tr.cb-table-row:hover td {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.cashbook-light tr.cb-table-row:hover td *,
+body:not(.cb-dark-bw) .cashbook-real-container tr.cb-table-row:hover td * {
+  color: #ffffff !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SIDEBAR BADGES HOVER SPEC (CRYSTAL CLEAR IN DARK & LIGHT MODES)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Dark Mode Hover: The button is pure white (#ffffff), so the badge becomes a solid black pill (#000000) with crisp white text (#ffffff) */
+body.cb-dark-bw .sidebar-nav-item:hover .cb-sidebar-badge,
+.cashbook-dark .sidebar-nav-item:hover .cb-sidebar-badge,
+.cb-dark-bw .sidebar-nav-item:hover .cb-sidebar-badge,
+body.cb-dark-bw .cb-hover-invert:hover .cb-sidebar-badge,
+.cashbook-dark .cb-hover-invert:hover .cb-sidebar-badge,
+.cb-dark-bw .cb-hover-invert:hover .cb-sidebar-badge {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid #000000 !important;
+  opacity: 1 !important;
+}
+
+body.cb-dark-bw .sidebar-nav-item:hover .cb-sidebar-badge *,
+.cashbook-dark .sidebar-nav-item:hover .cb-sidebar-badge *,
+.cb-dark-bw .sidebar-nav-item:hover .cb-sidebar-badge *,
+body.cb-dark-bw .cb-hover-invert:hover .cb-sidebar-badge *,
+.cashbook-dark .cb-hover-invert:hover .cb-sidebar-badge *,
+.cb-dark-bw .cb-hover-invert:hover .cb-sidebar-badge * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Light Mode Hover: The button is pure black (#000000), so the badge becomes a solid white pill (#ffffff) with bold black text (#000000) */
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-nav-item:hover .cb-sidebar-badge,
+.cashbook-light .sidebar-nav-item:hover .cb-sidebar-badge,
+body:not(.cb-dark-bw) .cashbook-real-container .cb-hover-invert:hover .cb-sidebar-badge,
+.cashbook-light .cb-hover-invert:hover .cb-sidebar-badge {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #ffffff !important;
+  opacity: 1 !important;
+}
+
+body:not(.cb-dark-bw) .cashbook-real-container .sidebar-nav-item:hover .cb-sidebar-badge *,
+.cashbook-light .sidebar-nav-item:hover .cb-sidebar-badge *,
+body:not(.cb-dark-bw) .cashbook-real-container .cb-hover-invert:hover .cb-sidebar-badge *,
+.cashbook-light .cb-hover-invert:hover .cb-sidebar-badge * {
+  color: #000000 !important;
+  stroke: #000000 !important;
+  opacity: 1 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   17. 60 FPS ULTRA-SMOOTH SILKY TAB & MENU SWITCHING
+   ═══════════════════════════════════════════════════════════════ */
+.cb-tab-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  animation: cbTabFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@keyframes cbTabFadeIn {
+  from {
+    opacity: 0.88;
+    transform: translateY(2px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+/* GPU composite acceleration for interactive buttons and pills */
+.sidebar-nav-item,
+.sidebar-book-item,
+.cb-hover-invert,
+.cb-month-pill-btn,
+.header-action-btn,
+.cb-mobile-subtab-chip {
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  will-change: transform, background-color, color !important;
+}
+
+/* Custom Select Options Menu: smooth internal scrolling without overflowing */
+.cb-custom-select-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+.cb-custom-select-menu::-webkit-scrollbar {
+  width: 5px;
+}
+.cb-custom-select-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cb-custom-select-menu::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+.cb-custom-select-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
+/* Compact Add Transaction / Cashbook Modal */
+body[data-cashbook-active="true"] .modal-header,
+.cb-dark-bw .modal-header {
+  padding: 10px 18px !important;
+}
+
+body[data-cashbook-active="true"] .modal-body,
+.cb-dark-bw .modal-body {
+  padding: 12px 18px 14px 18px !important;
+}
+
+/* iOS Safari WebKit Date Input & Mobile Form Collision Fix */
+input[type="date"],
+.input-field[type="date"] {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left !important;
+  display: block !important;
+  min-height: 1.2em !important;
+  line-height: inherit !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.form-grid > *,
+.form-group {
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* iOS Safari Modal Background Scroll Lock */
+body.modal-open,
+html.modal-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+body.modal-open .main-content,
+body.modal-open .content-area {
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+body.modal-open .modal-overlay {
+  pointer-events: auto !important;
+  touch-action: none !important;
+  overscroll-behavior: contain !important;
+}
+
+body.modal-open .modal-body {
+  touch-action: pan-y !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Modal Shake Attention Animation (Outside Click Feedback) */
+@keyframes modalShakeAttention {
+  0%, 100% {
+    transform: scale(1) translateX(0);
+  }
+  20%, 60% {
+    transform: scale(1.008) translateX(-7px);
+  }
+  40%, 80% {
+    transform: scale(1.008) translateX(7px);
+  }
+}
+
+.modal-shake-attention {
+  animation: modalShakeAttention 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+  box-shadow: 0 0 0 3.5px rgba(59, 130, 246, 0.5), 0 24px 50px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Discard Confirmation Dialog Styling */
+.discard-confirm-dialog {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body.cb-dark-bw .discard-confirm-dialog,
+[data-theme="dark"] .discard-confirm-dialog,
+html.dark .discard-confirm-dialog {
+  background: #191b1f !important;
+  color: #f8fafc !important;
+  border: 1px solid #2e323b !important;
+}
+
+.discard-confirm-dialog .btn:not(.btn-danger) {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+body.cb-dark-bw .discard-confirm-dialog .btn:not(.btn-danger),
+[data-theme="dark"] .discard-confirm-dialog .btn:not(.btn-danger),
+html.dark .discard-confirm-dialog .btn:not(.btn-danger) {
+  background: #252830 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #373c47 !important;
+}
+
+

@@ -1,0 +1,26 @@
+services:
+  # Backend Service
+  - type: web
+    name: erp-backend
+    env: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  # Frontend Static Site
+  - type: static
+    name: erp-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: "dist"
+    envVars:
+      - key: VITE_API_URL
+        value: "https://erp-arab-season.onrender.com/api/"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"

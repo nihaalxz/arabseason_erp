@@ -1,0 +1,1362 @@
+/* ═════════════════════════════════════════════════════════════════════
+   SOFT FINTECH DESIGN THEME (SCOPED TO ERP & ACCOUNTING ONLY)
+   Style Reference: Soft pastel-gradient modern fintech dashboard
+   Isolation: Strictly scoped via [data-theme-scope="soft-fintech"]
+   ═════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── 1. DESIGN TOKENS (Scoped Theme Root) ── */
+[data-theme-scope="soft-fintech"],
+.theme-soft-fintech {
+  /* Brand Primary & Accents */
+  --primary:        #5B4BDB;
+  --primary-dark:   #4939C7;
+  --primary-hover:  #4939C7;
+  --primary-light:  #F0EEFD;
+  --primary-shadow: rgba(91, 75, 219, 0.16);
+  --accent:         #5B4BDB;
+
+  /* Semantic Accents from Reference Style */
+  --accent-orange:  #F2784B;
+  --accent-teal:    #22C39A;
+  --accent-rose:    #E5484D;
+  --accent-indigo:  #5B4BDB;
+
+  --success:        #22C39A;
+  --success-light:  #E6F8F3;
+  --success-border: #A3E7D5;
+  --danger:         #E5484D;
+  --danger-light:   #FDF0F0;
+  --danger-border:  #F7B5B7;
+  --warning:        #F2784B;
+  --warning-light:  #FEF2EC;
+  --warning-border: #FBC5AF;
+  --info:           #3E63DD;
+  --info-light:     #EEF2FF;
+  --info-border:    #B8C7FA;
+
+  /* Neutrals */
+  --bg-main:          #EEF0F8;               /* Soft lavender-grey page canvas */
+  --bg-surface:       #F7F7FD;               /* Near-white lavender surface */
+  --bg-sidebar:       #FFFFFF;               /* Frosted/clean white sidebar */
+  --bg-sidebar-hover: #F0EEFD;
+  --bg-header:        rgba(255, 255, 255, 0.92);
+  --card-bg:          #FFFFFF;
+  --glass-bg:         #FFFFFF;
+
+  /* Typography */
+  --text-main:        #1E1B4B;               /* Deep navy / indigo */
+  --text-secondary:   #52526B;
+  --text-muted:       #8B8FA8;               /* Grey-violet */
+  --text-light:       #A5A9C0;
+  --text-on-primary:  #FFFFFF;
+
+  /* Dividers & Borders */
+  --border-color:     #ECEBF7;               /* Hairline divider */
+  --border-light:     #F2F1FA;
+
+  /* Diffuse Soft Shadows */
+  --shadow-xs: 0 2px 6px rgba(91, 75, 219, 0.03);
+  --shadow-sm: 0 4px 14px rgba(91, 75, 219, 0.05);
+  --shadow-md: 0 8px 24px rgba(91, 75, 219, 0.06);
+  --shadow-lg: 0 12px 32px rgba(91, 75, 219, 0.08);
+  --shadow-xl: 0 20px 48px rgba(91, 75, 219, 0.12);
+
+  /* Curvatures from Reference Style */
+  --radius-xs:   8px;
+  --radius-sm:   12px;
+  --radius-md:   14px;
+  --radius-lg:   20px;
+  --radius-xl:   24px;
+  --radius-pill: 999px;
+
+  /* Soft Pastel Gradients (135deg) */
+  --grad-peach-lavender: linear-gradient(135deg, #FCE7D6 0%, #DCDDFB 100%);
+  --grad-peach-pink:     linear-gradient(135deg, #FDE8C8 0%, #FBD3E0 100%);
+  --grad-mint:           linear-gradient(135deg, #DDF7E3 0%, #C9F0D8 100%);
+  --grad-lavender-sky:   linear-gradient(135deg, #E4E7FF 0%, #D6E8FF 100%);
+  --grad-primary:        linear-gradient(135deg, #5B4BDB 0%, #4E3DC8 100%);
+  --grad-card-warm:      linear-gradient(135deg, #FFF7F0 0%, #F3F1FD 100%);
+  --grad-card-cool:      linear-gradient(135deg, #F6F8FE 0%, #EDF1FD 100%);
+
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+/* ── 2. APP SHELL & LAYOUT SURFACE ── */
+[data-theme-scope="soft-fintech"].dashboard-wrapper {
+  background-color: var(--bg-main) !important;
+}
+
+[data-theme-scope="soft-fintech"] .dashboard-body {
+  background-color: var(--bg-main) !important;
+  margin-top: 50px !important;
+  min-height: calc(100vh - 50px) !important;
+}
+
+[data-theme-scope="soft-fintech"] .main-content {
+  background-color: var(--bg-main) !important;
+}
+
+[data-theme-scope="soft-fintech"] .content-area {
+  padding: 1.25rem 1.75rem 3rem !important;
+  background-color: var(--bg-main) !important;
+}
+
+/* ── 3. TOP HEADER (Light Translucent + Segmented Pill Control) ── */
+[data-theme-scope="soft-fintech"] .header.zoho-header,
+[data-theme-scope="soft-fintech"] .soft-fintech-header {
+  background: var(--bg-header) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  box-shadow: 0 4px 20px rgba(91, 75, 219, 0.04) !important;
+  color: var(--text-main) !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 50px !important;
+  z-index: 1010 !important;
+}
+
+/* Dark contrast logo for white soft-fintech header (Cashbook stays original white) */
+[data-theme-scope="soft-fintech"] .header-logo-img,
+[data-theme-scope="soft-fintech"] .header-logo-link img {
+  filter: brightness(0.12) !important;
+  transition: opacity 0.18s ease !important;
+}
+
+/* Module Switcher in Header */
+[data-theme-scope="soft-fintech"] .soft-fintech-switcher {
+  display: flex !important;
+  align-items: center !important;
+  background: #EAEBF6 !important;
+  border: 1px solid #DFE1F0 !important;
+  border-radius: 999px !important;
+  padding: 3px !important;
+  gap: 3px !important;
+  margin-left: 0.75rem !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 14px !important;
+  border-radius: 999px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-btn:hover {
+  color: var(--text-main) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-btn.active {
+  background: #FFFFFF !important;
+  color: var(--text-main) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(91, 75, 219, 0.12) !important;
+}
+
+/* Header Action Buttons */
+[data-theme-scope="soft-fintech"] .soft-fintech-icon-btn {
+  width: 34px !important;
+  height: 34px !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px !important;
+  color: var(--text-muted) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 8px rgba(91, 75, 219, 0.04) !important;
+  transition: all 0.18s ease !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-icon-btn:hover {
+  color: var(--primary) !important;
+  background: var(--primary-light) !important;
+  border-color: #D9D5F8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(91, 75, 219, 0.1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-add-btn {
+  background: var(--primary) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(91, 75, 219, 0.3) !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-add-btn:hover {
+  background: var(--primary-dark) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 6px 18px rgba(91, 75, 219, 0.4) !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-avatar > div {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #5B4BDB 0%, #7E6FF3 100%) !important;
+  color: #FFFFFF !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  border: 2px solid #FFFFFF !important;
+  box-shadow: 0 3px 10px rgba(91, 75, 219, 0.22) !important;
+  transition: transform 0.18s ease !important;
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-avatar:hover > div {
+  transform: scale(1.05);
+}
+
+[data-theme-scope="soft-fintech"] .soft-fintech-mobile-pill {
+  background: #FFFFFF !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 2px 6px rgba(91, 75, 219, 0.06) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-header-menu-btn {
+  background: #F0EEFD !important;
+  color: var(--primary) !important;
+  border: 1px solid #ECEBF7 !important;
+  border-radius: 10px !important;
+}
+
+/* ── 4. SIDEBAR (Frosted White, Soft Indigo Active Pill) ── */
+[data-theme-scope="soft-fintech"] .sidebar.zoho-sidebar {
+  background: #FFFFFF !important;
+  border-right: 1px solid var(--border-color) !important;
+  box-shadow: 4px 0 24px rgba(91, 75, 219, 0.03) !important;
+  position: fixed !important;
+  top: 50px !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 216px !important;
+  z-index: 1005 !important;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .sidebar.mini {
+  width: 64px !important;
+}
+
+[data-theme-scope="soft-fintech"] .sidebar.mini .sidebar-top-bar {
+  justify-content: center !important;
+  padding: 0.5rem 0 !important;
+}
+
+[data-theme-scope="soft-fintech"] .sidebar.mini .nav-link.zoho-nav-item {
+  width: 44px !important;
+  height: 44px !important;
+  margin: 4px auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  border-radius: 12px !important;
+}
+
+[data-theme-scope="soft-fintech"] .sidebar.mini .nav-link.zoho-nav-item svg {
+  margin: 0 !important;
+  min-width: 18px !important;
+}
+
+[data-theme-scope="soft-fintech"] .sidebar.mini .nav-link.zoho-nav-item span,
+[data-theme-scope="soft-fintech"] .sidebar.mini .divider-label {
+  display: none !important;
+}
+
+[data-theme-scope="soft-fintech"] .sidebar-top-bar {
+  border-bottom: 1px solid var(--border-color) !important;
+  height: 48px !important;
+}
+
+[data-theme-scope="soft-fintech"] .sidebar-top-bar span {
+  color: var(--text-muted) !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+}
+
+[data-theme-scope="soft-fintech"] .pin-button {
+  border-radius: 8px !important;
+  color: var(--text-muted) !important;
+}
+
+[data-theme-scope="soft-fintech"] .pin-button.active {
+  color: var(--primary) !important;
+  background: var(--primary-light) !important;
+}
+
+[data-theme-scope="soft-fintech"] .divider-label {
+  color: var(--text-muted) !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  margin-top: 1.4rem !important;
+  margin-bottom: 0.45rem !important;
+  padding: 0 0.85rem !important;
+}
+
+[data-theme-scope="soft-fintech"] .nav-link.zoho-nav-item {
+  color: var(--text-secondary) !important;
+  border-radius: 10px !important;
+  margin: 2px 6px !important;
+  padding: 8px 10px !important;
+  font-size: 0.83rem !important;
+  font-weight: 500 !important;
+  gap: 0.55rem !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border: 1px solid transparent !important;
+}
+
+[data-theme-scope="soft-fintech"] .nav-link.zoho-nav-item span {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 155px !important;
+}
+
+[data-theme-scope="soft-fintech"] .nav-link.zoho-nav-item:hover {
+  background: #F7F7FD !important;
+  color: var(--text-main) !important;
+  transform: translateX(2px);
+}
+
+[data-theme-scope="soft-fintech"] .nav-link.zoho-nav-item.active {
+  background: #F0EEFD !important;
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+  border-color: #E6E2FB !important;
+  box-shadow: 0 2px 8px rgba(91, 75, 219, 0.08) !important;
+}
+
+[data-theme-scope="soft-fintech"] .nav-link.zoho-nav-item.active svg {
+  color: var(--primary) !important;
+}
+
+/* ── 5. CARDS & GENERAL GLASS PANELS ── */
+[data-theme-scope="soft-fintech"] .glass-panel,
+[data-theme-scope="soft-fintech"] .card {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme-scope="soft-fintech"] .glass-panel:hover,
+[data-theme-scope="soft-fintech"] .card:hover {
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* ── 6. DASHBOARD SPECIFIC COMPONENTS (Image 1 to Image 2 Mapping) ── */
+
+/* Filter Bar Pill Control */
+.dashboard-filter-select,
+[data-theme-scope="soft-fintech"] .dashboard-filter-select {
+  border-radius: 999px !important;
+  border: 1px solid var(--border-color, #ECEBF7) !important;
+  background: #FFFFFF !important;
+  color: var(--text-main, #1E1B4B) !important;
+  box-shadow: 0 2px 10px rgba(91, 75, 219, 0.05) !important;
+  padding: 0.45rem 2.2rem 0.45rem 2.1rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  transition: all 0.18s ease !important;
+  cursor: pointer !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+}
+
+.dashboard-filter-select:hover,
+.dashboard-filter-select:focus,
+[data-theme-scope="soft-fintech"] .dashboard-filter-select:hover,
+[data-theme-scope="soft-fintech"] .dashboard-filter-select:focus {
+  border-color: #C7C3F4 !important;
+  box-shadow: 0 4px 14px rgba(91, 75, 219, 0.1) !important;
+}
+
+.dashboard-refresh-btn,
+[data-theme-scope="soft-fintech"] .dashboard-refresh-btn {
+  border-radius: 999px !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--border-color, #ECEBF7) !important;
+  color: var(--primary, #5B4BDB) !important;
+  box-shadow: 0 2px 10px rgba(91, 75, 219, 0.05) !important;
+  font-weight: 600 !important;
+  padding: 0.45rem 1rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  transition: all 0.18s ease !important;
+  cursor: pointer !important;
+}
+
+.dashboard-refresh-btn:hover,
+[data-theme-scope="soft-fintech"] .dashboard-refresh-btn:hover {
+  background: var(--primary-light, #F0EEFD) !important;
+  border-color: #D9D5F8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(91, 75, 219, 0.1) !important;
+}
+
+/* ── Card Hero Amounts, Sub-Pills & Metric Pills (Image 2 Style) ── */
+[data-theme-scope="soft-fintech"] .fintech-card-sub-pill {
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  color: #5B4BDB !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  padding: 4px 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 2px 6px rgba(91, 75, 219, 0.04) !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-card-hero-amount {
+  font-size: 2.15rem !important;
+  font-weight: 800 !important;
+  color: #1E1B4B !important;
+  letter-spacing: -0.025em !important;
+  margin: 0.35rem 0 0.95rem !important;
+  line-height: 1.15 !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-metric-pill {
+  padding: 6px 14px !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+/* Row 1: Receivable Card (Luminous Pastel Peach to Lavender Gradient with Violet Glow) */
+[data-theme-scope="soft-fintech"] .dashboard-receivable-card {
+  background: linear-gradient(145deg, #FFE8D6 0%, #FFF3EB 30%, #F1EEFF 70%, #E2E3FB 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 18px 38px -12px rgba(124, 102, 240, 0.22), 0 2px 10px rgba(0, 0, 0, 0.02) !important;
+  padding: 1.5rem 1.75rem !important;
+  position: relative !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .dashboard-receivable-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 48px -12px rgba(124, 102, 240, 0.3), 0 4px 14px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Row 1: Total Payables Card (Luminous Pastel Peach to Pink Gradient with Coral Glow) */
+[data-theme-scope="soft-fintech"] .dashboard-payables-card {
+  background: linear-gradient(145deg, #FFF1DE 0%, #FFF7F0 30%, #FFE9F0 70%, #FDD7E2 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 18px 38px -12px rgba(242, 120, 75, 0.22), 0 2px 10px rgba(0, 0, 0, 0.02) !important;
+  padding: 1.5rem 1.75rem !important;
+  position: relative !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .dashboard-payables-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 48px -12px rgba(242, 120, 75, 0.3), 0 4px 14px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Sleek Floating Rounded Progress Bars */
+[data-theme-scope="soft-fintech"] .fintech-progress-track {
+  height: 8px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  gap: 2px !important;
+  margin-bottom: 1.15rem !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-progress-bar-current {
+  background: linear-gradient(90deg, #6C5CE7 0%, #5B4BDB 100%) !important;
+  border-radius: 999px !important;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-progress-bar-overdue {
+  background: linear-gradient(90deg, #F2784B 0%, #FA8231 100%) !important;
+  border-radius: 999px !important;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Row 2: Cash Flow Card */
+[data-theme-scope="soft-fintech"] .dashboard-cashflow-card {
+  background: #FFFFFF !important;
+  border-radius: 24px !important;
+  padding: 1.5rem 1.75rem !important;
+  border: 1px solid #ECEBF7 !important;
+  box-shadow: 0 16px 36px -10px rgba(91, 75, 219, 0.06), 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-pill-badge {
+  font-size: 0.73rem !important;
+  font-weight: 700 !important;
+  color: #4338CA !important;
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-amount {
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0.55rem 0 0.25rem !important;
+  line-height: 1.15 !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-sub {
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  color: #6E6893 !important;
+}
+
+/* 4 Cash Flow Pastel Gradient Cards with glowing drop shadows */
+[data-theme-scope="soft-fintech"] .cashflow-tile-opening {
+  background: linear-gradient(135deg, #FFE8D6 0%, #FFF4ED 30%, #ECEBFE 75%, #DFE1FC 100%) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 14px 30px -8px rgba(124, 102, 240, 0.2) !important;
+  padding: 1.25rem 1.45rem !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-opening:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px -8px rgba(124, 102, 240, 0.28) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-incoming {
+  background: linear-gradient(135deg, #E8FAF0 0%, #F2FBF6 30%, #DBF7E5 75%, #C8F3D7 100%) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 14px 30px -8px rgba(34, 195, 154, 0.22) !important;
+  padding: 1.25rem 1.45rem !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-incoming:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px -8px rgba(34, 195, 154, 0.3) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-outgoing {
+  background: linear-gradient(135deg, #FFF1EE 0%, #FFF6F5 30%, #FEE5E8 75%, #FCD5DA 100%) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 14px 30px -8px rgba(229, 72, 77, 0.2) !important;
+  padding: 1.25rem 1.45rem !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-outgoing:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px -8px rgba(229, 72, 77, 0.28) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-closing {
+  background: linear-gradient(135deg, #EEF2FF 0%, #F5F7FF 30%, #E0E7FE 75%, #D4E0FD 100%) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 14px 30px -8px rgba(91, 75, 219, 0.2) !important;
+  padding: 1.25rem 1.45rem !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .cashflow-tile-closing:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px -8px rgba(91, 75, 219, 0.28) !important;
+}
+
+/* Row 3: Income and Expense Card */
+[data-theme-scope="soft-fintech"] .dashboard-income-card {
+  background: #FFFFFF !important;
+  border-radius: 24px !important;
+  padding: 1.5rem 1.75rem !important;
+  border: 1px solid #ECEBF7 !important;
+  box-shadow: 0 16px 36px -10px rgba(91, 75, 219, 0.06), 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-theme-scope="soft-fintech"] .income-expense-icon-tile {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+[data-theme-scope="soft-fintech"] .income-expense-row {
+  border-radius: 16px !important;
+  background: #F8F9FD !important;
+  padding: 0.85rem 1.15rem !important;
+  border: 1px solid #ECEBF7 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .income-expense-row:hover {
+  background: #FFFFFF !important;
+  border-color: #DCDDFB !important;
+  box-shadow: 0 6px 18px rgba(91, 75, 219, 0.06) !important;
+  transform: translateY(-1px);
+}
+
+[data-theme-scope="soft-fintech"] .income-expense-total-row {
+  border-radius: 16px !important;
+  background: linear-gradient(135deg, #F8F9FE 0%, #F0EEFD 100%) !important;
+  padding: 0.95rem 1.15rem !important;
+  border: 1px solid #E2E0FA !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  box-shadow: 0 4px 16px rgba(91, 75, 219, 0.05) !important;
+}
+
+/* Row 3: Operational Status Card */
+[data-theme-scope="soft-fintech"] .dashboard-status-card {
+  background: #FFFFFF !important;
+  border-radius: 24px !important;
+  padding: 1.5rem 1.75rem !important;
+  border: 1px solid #ECEBF7 !important;
+  box-shadow: 0 16px 36px -10px rgba(91, 75, 219, 0.06), 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-theme-scope="soft-fintech"] .status-metric-tile {
+  border-radius: 18px !important;
+  background: #F8F9FD !important;
+  border: 1px solid #ECEBF7 !important;
+  padding: 1rem 1.15rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.4rem !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .status-metric-tile:hover {
+  background: #FFFFFF !important;
+  border-color: #DCDDFB !important;
+  box-shadow: 0 8px 24px rgba(91, 75, 219, 0.09) !important;
+  transform: translateY(-2px);
+}
+
+[data-theme-scope="soft-fintech"] .status-pill-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  width: fit-content !important;
+}
+
+/* Row 4: Recent Active Contracts Table Card */
+[data-theme-scope="soft-fintech"] .dashboard-table-card {
+  background: #FFFFFF !important;
+  border-radius: 24px !important;
+  border: 1px solid #ECEBF7 !important;
+  box-shadow: 0 16px 36px -10px rgba(91, 75, 219, 0.06), 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+  overflow: hidden !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-table-header {
+  padding: 1.15rem 1.5rem !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-view-all-btn {
+  border-radius: 999px !important;
+  background: #F0EEFD !important;
+  color: var(--primary) !important;
+  border: none !important;
+  padding: 0.4rem 0.95rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  text-decoration: none !important;
+  transition: all 0.18s ease !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-view-all-btn:hover {
+  background: var(--primary) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(91, 75, 219, 0.25) !important;
+}
+
+/* ── 7. AIRY DATA TABLES (Scoped) ── */
+[data-theme-scope="soft-fintech"] table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+[data-theme-scope="soft-fintech"] thead tr {
+  background: #F8F9FD !important;
+}
+
+[data-theme-scope="soft-fintech"] th {
+  padding: 0.85rem 1.25rem !important;
+  color: var(--text-muted) !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+[data-theme-scope="soft-fintech"] tbody tr {
+  border-bottom: 1px solid var(--border-color) !important;
+  transition: background 0.15s ease !important;
+}
+
+[data-theme-scope="soft-fintech"] tbody tr:hover {
+  background: #F8F9FD !important;
+}
+
+[data-theme-scope="soft-fintech"] td {
+  padding: 1rem 1.25rem !important;
+  font-size: 0.84rem !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+}
+
+/* ── 8. BUTTONS & CONTROLS ACROSS ERP & ACCOUNTING ── */
+[data-theme-scope="soft-fintech"] .btn-primary {
+  background: var(--grad-primary) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 0.55rem 1.25rem !important;
+  font-weight: 600 !important;
+  font-size: 0.84rem !important;
+  box-shadow: 0 4px 14px rgba(91, 75, 219, 0.24) !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  cursor: pointer !important;
+}
+
+[data-theme-scope="soft-fintech"] .btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(91, 75, 219, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+[data-theme-scope="soft-fintech"] .btn-secondary {
+  background: #FFFFFF !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px !important;
+  padding: 0.55rem 1.15rem !important;
+  font-weight: 600 !important;
+  font-size: 0.84rem !important;
+  box-shadow: 0 2px 6px rgba(91, 75, 219, 0.03) !important;
+  transition: all 0.18s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  cursor: pointer !important;
+}
+
+[data-theme-scope="soft-fintech"] .btn-secondary:hover {
+  background: #F8F9FD !important;
+  border-color: #DCDDFB !important;
+  color: var(--primary) !important;
+}
+
+/* Inputs & Form Fields */
+[data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme-scope="soft-fintech"] select,
+[data-theme-scope="soft-fintech"] textarea {
+  border-radius: 12px !important;
+  border: 1px solid var(--border-color) !important;
+  background: #FFFFFF !important;
+  color: var(--text-main) !important;
+  padding: 0.55rem 0.85rem !important;
+  font-size: 0.84rem !important;
+  transition: all 0.18s ease !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-theme-scope="soft-fintech"] input:focus,
+[data-theme-scope="soft-fintech"] select:focus,
+[data-theme-scope="soft-fintech"] textarea:focus {
+  border-color: var(--primary) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(91, 75, 219, 0.14) !important;
+}
+
+/* Pill Badges */
+[data-theme-scope="soft-fintech"] .badge,
+[data-theme-scope="soft-fintech"] .status-badge {
+  border-radius: 999px !important;
+  font-weight: 600 !important;
+  font-size: 0.72rem !important;
+  padding: 0.25rem 0.75rem !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* Modals */
+[data-theme-scope="soft-fintech"] .modal-content {
+  border-radius: 20px !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 20px 50px rgba(91, 75, 219, 0.16) !important;
+  background: #FFFFFF !important;
+}
+
+/* ── 9. MOBILE NAVIGATION & SHEETS (Scoped) ── */
+
+/* Mobile Bottom Navigation Bar */
+[data-theme-scope="soft-fintech"] .mobile-bottom-nav {
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-top: 1px solid #ECEBF7 !important;
+  box-shadow: 0 -4px 24px rgba(91, 75, 219, 0.07) !important;
+  padding-bottom: env(safe-area-inset-bottom, 10px) !important;
+  height: auto !important;
+  z-index: 1000 !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-bottom-nav-inner {
+  height: 52px !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-nav-tab {
+  color: #8B8FA8 !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-nav-tab:hover {
+  color: var(--primary) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-nav-tab.active {
+  color: var(--primary) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-nav-tab.active .mobile-nav-icon-wrap {
+  background: var(--primary-light) !important;
+  color: var(--primary) !important;
+  border-radius: 12px !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-nav-tab.active .mobile-nav-label {
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+}
+
+/* Mobile Menu Sheet (More & Switcher Drawer) */
+[data-theme-scope="soft-fintech"] .mobile-sheet-backdrop {
+  background: rgba(30, 27, 75, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-sheet-container {
+  background: #FFFFFF !important;
+  border-radius: 24px 24px 0 0 !important;
+  border-top: 1px solid #ECEBF7 !important;
+  box-shadow: 0 -12px 48px rgba(91, 75, 219, 0.16) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-sheet-handle {
+  background: #D9D7F4 !important;
+  width: 44px !important;
+  height: 5px !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-sheet-header {
+  border-bottom: 1px solid #ECEBF7 !important;
+  padding: 0.65rem 1.25rem 0.85rem !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-sheet-header h3 {
+  color: var(--text-main) !important;
+  font-weight: 800 !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-sheet-close-btn {
+  background: #F0EEFD !important;
+  color: var(--primary) !important;
+  border-radius: 10px !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-section-label {
+  color: var(--text-muted) !important;
+  font-size: 0.68rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-module-card {
+  background: #F8F9FD !important;
+  border: 1.5px solid #ECEBF7 !important;
+  border-radius: 16px !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-module-card.active {
+  background: #FFFFFF !important;
+  box-shadow: 0 4px 18px rgba(91, 75, 219, 0.12) !important;
+  border-color: var(--primary) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-links-list {
+  background: #F8F9FD !important;
+  border: 1px solid #ECEBF7 !important;
+  border-radius: 16px !important;
+  padding: 0.4rem !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-link-item {
+  color: var(--text-main) !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-link-item:hover,
+[data-theme-scope="soft-fintech"] .mobile-link-item:active {
+  background: #F0EEFD !important;
+  color: var(--primary) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-link-arrow {
+  color: var(--text-muted) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-sheet-user-footer {
+  border-top: 1px solid #ECEBF7 !important;
+  padding-top: 0.85rem !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-user-avatar {
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #5B4BDB 0%, #7E6FF3 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 3px 10px rgba(91, 75, 219, 0.22) !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-logout-btn {
+  border-radius: 12px !important;
+  background: #FDF0F0 !important;
+  border: 1px solid #FBCFD1 !important;
+  color: #E5484D !important;
+}
+
+/* ── 10. UNIVERSAL MOBILE ENTITY CARDS (Scoped to Soft Fintech) ── */
+[data-theme-scope="soft-fintech"] .mobile-entity-card {
+  background: #FFFFFF !important;
+  border: 1px solid #ECEBF7 !important;
+  border-radius: 16px !important;
+  padding: 0.95rem 1rem !important;
+  box-shadow: 0 4px 14px rgba(91, 75, 219, 0.04) !important;
+  margin-bottom: 0.65rem !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  text-decoration: none !important;
+  display: block !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-entity-card:hover,
+[data-theme-scope="soft-fintech"] .mobile-entity-card:active {
+  background: #F8F7FD !important;
+  border-color: #DCDDFB !important;
+  box-shadow: 0 6px 18px rgba(91, 75, 219, 0.08) !important;
+  transform: translateY(-1px) scale(0.995);
+}
+
+[data-theme-scope="soft-fintech"] .mobile-card-title {
+  color: var(--text-main) !important;
+  font-weight: 700 !important;
+  font-size: 0.88rem !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-card-sub {
+  color: #6E6893 !important;
+  font-size: 0.74rem !important;
+}
+
+[data-theme-scope="soft-fintech"] .fintech-order-tag {
+  display: inline-block !important;
+  background: #F0EEFD !important;
+  color: var(--primary) !important;
+  border-radius: 999px !important;
+  padding: 2px 8px !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  border: 1px solid #E4E1FB !important;
+}
+
+[data-theme-scope="soft-fintech"] .mobile-card-badge {
+  background: #F0EEFD !important;
+  color: var(--primary) !important;
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+  padding: 2px 8px !important;
+  font-size: 0.65rem !important;
+  border: 1px solid #E4E1FB !important;
+}
+
+/* ── 11. RESPONSIVE BREAKPOINT RULES (<= 768px Tablet & Mobile) ── */
+@media (max-width: 768px) {
+  /* 1. Page Shell & Body Spacing — Eliminates excess blank areas */
+  [data-theme-scope="soft-fintech"] .dashboard-body {
+    margin-top: 50px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .content-area {
+    padding: 0.5rem 0.75rem calc(68px + env(safe-area-inset-bottom, 12px)) !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  /* 2. Top Header Mobile Refinement */
+  [data-theme-scope="soft-fintech"] .header.zoho-header,
+  [data-theme-scope="soft-fintech"] .soft-fintech-header {
+    height: 50px !important;
+    padding: 0 0.75rem !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 1010 !important;
+  }
+
+  /* Dark contrast logo for white mobile header */
+  [data-theme-scope="soft-fintech"] .header-logo-img,
+  [data-theme-scope="soft-fintech"] .header-logo-link img {
+    height: 24px !important;
+    max-height: 24px !important;
+    filter: brightness(0.12) !important;
+    display: block !important;
+  }
+
+  /* Harmonious 32px squircle button geometry across topbar */
+  [data-theme-scope="soft-fintech"] .mobile-header-menu-btn {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .soft-fintech-mobile-pill {
+    height: 30px !important;
+    padding: 0 9px !important;
+    font-size: 0.72rem !important;
+    border-radius: 999px !important;
+    max-width: 125px !important;
+    flex-shrink: 0 !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .header-actions {
+    gap: 0.35rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .soft-fintech-icon-btn,
+  [data-theme-scope="soft-fintech"] .soft-fintech-add-btn,
+  [data-theme-scope="soft-fintech"] .soft-fintech-avatar > div {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Prevent absolute dropdowns from overflowing mobile viewport */
+  [data-theme-scope="soft-fintech"] .header-actions > div > div[style*="position: absolute"] {
+    max-width: calc(100vw - 16px) !important;
+    right: -8px !important;
+    border-radius: 16px !important;
+    border: 1px solid #ECEBF7 !important;
+    box-shadow: 0 12px 36px rgba(91, 75, 219, 0.16) !important;
+  }
+
+  /* 3. Dashboard Filter Bar — Compact inline layout without giant empty box */
+  [data-theme-scope="soft-fintech"] .dashboard-filter-bar {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 0.35rem 0.5rem !important;
+    margin-bottom: 0.65rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-filter-bar-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    flex-wrap: wrap !important;
+    flex: 1 1 auto !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-filter-select {
+    height: 34px !important;
+    font-size: 0.78rem !important;
+    padding: 0.35rem 1.85rem 0.35rem 1.85rem !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-refresh-btn {
+    height: 34px !important;
+    font-size: 0.76rem !important;
+    padding: 0.35rem 0.75rem !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+    border-radius: 999px !important;
+    margin-left: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-refresh-btn span {
+    display: inline !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-filter-date-range {
+    font-size: 0.72rem !important;
+    color: var(--text-muted) !important;
+    width: 100% !important;
+    order: 3 !important;
+    margin-top: 1px !important;
+    padding-left: 2px !important;
+  }
+
+  /* 4. Dashboard Rows Spacing — Tighter, cohesive gap */
+  [data-theme-scope="soft-fintech"] .dashboard-row-3 {
+    gap: 0.65rem !important;
+    margin-bottom: 0.65rem !important;
+  }
+
+  /* 5. Row 1: Hero Cards (Receivables & Payables) */
+  [data-theme-scope="soft-fintech"] .dashboard-receivable-card,
+  [data-theme-scope="soft-fintech"] .dashboard-payables-card {
+    padding: 1rem 1rem !important;
+    border-radius: 18px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-card-hero-amount {
+    font-size: clamp(1.4rem, 6vw, 1.85rem) !important;
+    margin: 0.2rem 0 0.55rem !important;
+    word-break: break-word !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-card-sub-pill {
+    font-size: 0.68rem !important;
+    padding: 3px 9px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-progress-track {
+    margin-bottom: 0.65rem !important;
+    height: 6px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-metric-pill {
+    padding: 4px 8px !important;
+    border-radius: 10px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-metric-pill div:last-child {
+    font-size: clamp(0.9rem, 4vw, 1.15rem) !important;
+  }
+
+  /* 6. Row 2: Cash Flow Card & Tiles */
+  [data-theme-scope="soft-fintech"] .dashboard-cashflow-card {
+    padding: 1rem 1rem !important;
+    border-radius: 18px !important;
+    margin-bottom: 0.65rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-cashflow-card > div:first-child {
+    margin-bottom: 0.75rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-cashflow-card > div:last-child {
+    gap: 0.55rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .cashflow-tile-opening,
+  [data-theme-scope="soft-fintech"] .cashflow-tile-incoming,
+  [data-theme-scope="soft-fintech"] .cashflow-tile-outgoing,
+  [data-theme-scope="soft-fintech"] .cashflow-tile-closing {
+    padding: 0.75rem 0.85rem !important;
+    border-radius: 14px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .cashflow-tile-amount {
+    font-size: clamp(1.15rem, 4.5vw, 1.35rem) !important;
+    margin: 0.25rem 0 0.1rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .cashflow-pill-badge {
+    font-size: 0.66rem !important;
+    padding: 2px 7px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .cashflow-tile-sub {
+    font-size: 0.68rem !important;
+  }
+
+  /* 7. Row 3: Income & Expense Card */
+  [data-theme-scope="soft-fintech"] .dashboard-income-card,
+  [data-theme-scope="soft-fintech"] .dashboard-status-card {
+    padding: 1rem 1rem !important;
+    border-radius: 18px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-income-card > div:first-child,
+  [data-theme-scope="soft-fintech"] .dashboard-status-card > div:first-child {
+    margin-bottom: 0.75rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .income-expense-icon-tile {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 9px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .income-expense-row,
+  [data-theme-scope="soft-fintech"] .income-expense-total-row {
+    padding: 0.6rem 0.75rem !important;
+  }
+
+  /* 8. Row 3: Operational Status Metric Tiles */
+  [data-theme-scope="soft-fintech"] .status-metric-tile {
+    padding: 0.65rem 0.65rem !important;
+    border-radius: 12px !important;
+    gap: 0.25rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .status-pill-badge {
+    font-size: 0.66rem !important;
+    padding: 2px 7px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .status-metric-tile > div:nth-child(2) {
+    font-size: clamp(1.35rem, 5.5vw, 1.65rem) !important;
+    margin-top: 0.2rem !important;
+  }
+
+  /* 9. Row 4: Recent Active Contracts Table Card */
+  [data-theme-scope="soft-fintech"] .dashboard-table-card {
+    border-radius: 18px !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-table-header {
+    padding: 0.85rem 1rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-view-all-btn {
+    padding: 0.3rem 0.75rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .mobile-entity-card {
+    padding: 0.85rem 0.9rem !important;
+    border-radius: 14px !important;
+    margin-bottom: 0.5rem !important;
+  }
+}
+
+/* ── 12. ULTRA-COMPACT MOBILE BREAKPOINT (<= 480px) ── */
+@media (max-width: 480px) {
+  /* Extra space efficiency for small phones (320px - 480px) */
+  [data-theme-scope="soft-fintech"] .content-area {
+    padding: 0.45rem 0.65rem calc(68px + env(safe-area-inset-bottom, 12px)) !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .header.zoho-header,
+  [data-theme-scope="soft-fintech"] .soft-fintech-header {
+    padding: 0 0.55rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .soft-fintech-mobile-pill {
+    max-width: 100px !important;
+    font-size: 0.7rem !important;
+    padding: 0 6px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .dashboard-receivable-card,
+  [data-theme-scope="soft-fintech"] .dashboard-payables-card,
+  [data-theme-scope="soft-fintech"] .dashboard-cashflow-card,
+  [data-theme-scope="soft-fintech"] .dashboard-income-card,
+  [data-theme-scope="soft-fintech"] .dashboard-status-card,
+  [data-theme-scope="soft-fintech"] .dashboard-table-card {
+    padding: 0.85rem 0.85rem !important;
+    border-radius: 16px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .fintech-card-hero-amount {
+    font-size: clamp(1.3rem, 5.5vw, 1.65rem) !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .status-metric-tile {
+    padding: 0.55rem 0.55rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .status-metric-tile > div:nth-child(2) {
+    font-size: 1.45rem !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .mobile-entity-card {
+    padding: 0.75rem 0.8rem !important;
+    border-radius: 12px !important;
+  }
+
+  [data-theme-scope="soft-fintech"] .modal-content {
+    border-radius: 16px !important;
+  }
+}
+
+
