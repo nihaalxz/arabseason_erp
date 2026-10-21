@@ -22,3 +22,8 @@ frontend/*.local
 *.suo
 *.sln
 *.sw?
+
+# Add this to .gitignore
+**/venv/
+venv/
+ENV/

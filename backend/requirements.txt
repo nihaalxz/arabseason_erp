@@ -17,3 +17,5 @@ charset-normalizer
 idna
 urllib3
 reportlab
+arabic_reshaper
+python-bidi
