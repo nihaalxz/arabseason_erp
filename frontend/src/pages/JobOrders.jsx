@@ -1980,7 +1980,7 @@ const JobOrders = ({ embedded = false }) => {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isCancelledView ? '#ea580c' : '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {isCancelledView ? 'Advances Retained / Held' : 'Amount Collected'}
+                  {isCancelledView ? 'Money Collected' : 'Amount Collected'}
                 </span>
                 <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isCancelledView ? '#fff7ed' : '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCancelledView ? '#ea580c' : '#059669' }}>
                   <CreditCard size={16} />
@@ -1990,7 +1990,7 @@ const JobOrders = ({ embedded = false }) => {
                 {formatCurrency(currentTotalPaid)}
               </div>
               <div style={{ fontSize: '0.75rem', color: isCancelledView ? '#ea580c' : '#059669', marginTop: '2px' }}>
-                {isCancelledView ? (currentTotalPaid > 0 ? 'Customer credit / subject to refund' : 'No payments collected') : 'Payments collected to date'}
+                {isCancelledView ? (currentTotalPaid > 0 ? 'Money collected from clients on cancelled jobs' : 'No money collected') : 'Payments collected to date'}
               </div>
             </div>
 
@@ -2458,8 +2458,8 @@ const JobOrders = ({ embedded = false }) => {
                                 CANCELLED
                               </div>
                               {parseFloat(job.paid_amount || 0) > 0 ? (
-                                <div style={{ fontSize: '0.72rem', color: '#ea580c', fontWeight: '700', marginTop: '2px' }} title="Advance/Payment retained on cancelled contract">
-                                  Advance Held: {formatCurrency(job.paid_amount)}
+                                <div style={{ fontSize: '0.72rem', color: '#ea580c', fontWeight: '700', marginTop: '2px' }} title="Money collected from customer on this cancelled contract">
+                                  Money Collected: {formatCurrency(job.paid_amount)}
                                 </div>
                               ) : (
                                 <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>
@@ -2677,7 +2677,7 @@ const JobOrders = ({ embedded = false }) => {
                             </span>
                             {parseFloat(job.paid_amount || 0) > 0 && (
                               <span style={{ fontSize: '0.65rem', color: '#ea580c', display: 'block', fontWeight: '700', marginTop: '1px' }}>
-                                Adv: {formatCurrency(job.paid_amount)}
+                                Collected: {formatCurrency(job.paid_amount)}
                               </span>
                             )}
                           </>
