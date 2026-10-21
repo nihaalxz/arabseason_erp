@@ -144,7 +144,34 @@ function App() {
 
   const isAdmin = currentUser?.role === 'Admin' || currentUser?.is_admin || currentUser?.is_superuser
 
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: '#0f172a',
+        color: '#94a3b8',
+        gap: '12px',
+        fontFamily: 'system-ui, sans-serif'
+      }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          border: '3px solid #334155',
+          borderTopColor: '#38bdf8',
+          borderRadius: '50%',
+          animation: 'appSpin 0.8s linear infinite'
+        }} />
+        <style>{`@keyframes appSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
   return (
+
     <ThemeProvider>
       <WorkspaceProvider>
         <ModuleProvider>
