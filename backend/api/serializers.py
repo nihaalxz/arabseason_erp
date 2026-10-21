@@ -52,7 +52,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         paid = getattr(obj, 'paid_amount', None)
         if billed is not None and paid is not None:
             return round(float(billed) - float(paid), 2)
-        job_billed = sum(float(j.total_amount) for j in obj.job_orders.all())
+        job_billed = sum(float(j.total_amount) for j in obj.job_orders.exclude(status='Cancelled'))
         inv_billed = sum(float(i.total_amount) for i in obj.invoices.filter(job_order__isnull=True))
         cn_credited = sum(float(c.total_amount) for c in obj.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
         billed = job_billed + inv_billed - cn_credited
@@ -65,7 +65,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         paid = getattr(obj, 'paid_amount', None)
         if billed is not None and paid is not None:
             return round(float(billed) - float(paid), 2)
-        total_billed = sum(float(j.total_amount) for j in obj.job_orders.all())
+        total_billed = sum(float(j.total_amount) for j in obj.job_orders.exclude(status='Cancelled'))
         inv_billed = sum(float(i.total_amount) for i in obj.invoices.filter(job_order__isnull=True))
         cn_credited = sum(float(c.total_amount) for c in obj.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
         total_paid = sum(float(p.amount) for p in obj.payments.all())
@@ -122,7 +122,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         cn_credited = sum(float(c.total_amount) for c in instance.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
         tb = getattr(instance, 'total_billed', None)
         if tb is None:
-            job_billed = sum(float(j.total_amount) for j in instance.job_orders.all())
+            job_billed = sum(float(j.total_amount) for j in instance.job_orders.exclude(status='Cancelled'))
             inv_billed = sum(float(i.total_amount) for i in instance.invoices.filter(job_order__isnull=True))
             tb = job_billed + inv_billed - cn_credited
         ret['total_billed'] = round(float(tb), 2)
@@ -263,6 +263,7 @@ class JobOrderSerializer(serializers.ModelSerializer):
     gross_margin = serializers.SerializerMethodField()
     margin_percentage = serializers.SerializerMethodField()
     linked_project = serializers.SerializerMethodField()
+    cancelled_advance_retained = serializers.SerializerMethodField()
 
     class Meta:
         model = JobOrder
@@ -316,13 +317,23 @@ class JobOrderSerializer(serializers.ModelSerializer):
 
     def get_balance(self, obj):
         """Balance remaining on THIS job order only (job total - payments on this job)."""
+        if obj.status == 'Cancelled':
+            return 0.0
         paid = self.get_paid_amount(obj)
         return max(0.0, float(obj.total_amount or 0) - paid)
 
     def get_due_amount(self, obj):
         return self.get_balance(obj)
 
+    def get_cancelled_advance_retained(self, obj):
+        if obj.status == 'Cancelled':
+            return self.get_paid_amount(obj)
+        return 0.0
+
     def get_payment_status(self, obj):
+        if obj.status == 'Cancelled':
+            paid = self.get_paid_amount(obj)
+            return 'credit_retained' if paid > 0 else 'cancelled'
         due = self.get_due_amount(obj)
         paid = self.get_paid_amount(obj)
         total = float(obj.total_amount or 0)
@@ -335,11 +346,13 @@ class JobOrderSerializer(serializers.ModelSerializer):
     def get_outstanding_balance(self, obj):
         """True outstanding = prior carried balance + this job's remaining balance."""
         balance_this_job = self.get_balance(obj)
-        return round(float(obj.prior_balance) + balance_this_job, 2)
+        return round(float(obj.prior_balance or 0) + balance_this_job, 2)
 
     def get_grand_total(self, obj):
         """Grand total customer owes = prior balance + this job's total."""
-        return round(float(obj.prior_balance) + float(obj.total_amount), 2)
+        if obj.status == 'Cancelled':
+            return round(float(obj.prior_balance or 0), 2)
+        return round(float(obj.prior_balance or 0) + float(obj.total_amount or 0), 2)
 
     def get_payment_history(self, obj):
         # Limit history in list view to keep it fast

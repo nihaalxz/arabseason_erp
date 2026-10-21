@@ -81,7 +81,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
+        jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).exclude(status='Cancelled').values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         invs_sub = Invoice.objects.filter(customer=OuterRef('pk'), job_order__isnull=True).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         cns_sub = CreditNote.objects.filter(customer=OuterRef('pk')).exclude(status__in=['Draft', 'Cancelled']).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         pays_sub = CustomerPayment.objects.filter(customer=OuterRef('pk')).values('customer').annotate(
@@ -131,7 +131,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def summary(self, request):
         is_admin = is_admin_user(request.user)
-        job_qs = JobOrder.objects.all() if is_admin else JobOrder.objects.filter(customer__created_by=request.user)
+        job_qs = JobOrder.objects.exclude(status='Cancelled') if is_admin else JobOrder.objects.filter(customer__created_by=request.user).exclude(status='Cancelled')
         inv_qs = Invoice.objects.filter(job_order__isnull=True) if is_admin else Invoice.objects.filter(customer__created_by=request.user, job_order__isnull=True)
         cn_qs = CreditNote.objects.exclude(status__in=['Draft', 'Cancelled']) if is_admin else CreditNote.objects.filter(customer__created_by=request.user).exclude(status__in=['Draft', 'Cancelled'])
         pay_qs = CustomerPayment.objects.all() if is_admin else CustomerPayment.objects.filter(customer__created_by=request.user)
@@ -148,7 +148,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         cust_qs = Customer.objects.all() if is_admin else Customer.objects.filter(created_by=request.user)
         total_count = cust_qs.count()
 
-        jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
+        jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).exclude(status='Cancelled').values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         invs_sub = Invoice.objects.filter(customer=OuterRef('pk'), job_order__isnull=True).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         cns_sub = CreditNote.objects.filter(customer=OuterRef('pk')).exclude(status__in=['Draft', 'Cancelled']).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         pays_sub = CustomerPayment.objects.filter(customer=OuterRef('pk')).values('customer').annotate(
@@ -621,7 +621,7 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         if not customer_id:
             return Response({'prior_balance': 0.0, 'total_billed': 0.0, 'total_paid': 0.0})
         
-        jobs_tot = JobOrder.objects.filter(customer_id=customer_id).aggregate(
+        jobs_tot = JobOrder.objects.filter(customer_id=customer_id).exclude(status='Cancelled').aggregate(
             tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=DecimalField())
         )['tot']
         inv_tot = Invoice.objects.filter(customer_id=customer_id, job_order__isnull=True).aggregate(
@@ -761,12 +761,22 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         from .models import Customer
         qs = self.get_queryset()
         
-        total_val = qs.aggregate(tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=DecimalField()))['tot']
-        total_paid = CustomerPayment.objects.filter(job_order__in=qs).aggregate(
+        active_qs = qs.exclude(status='Cancelled')
+        cancelled_qs = qs.filter(status='Cancelled')
+
+        total_val = active_qs.aggregate(tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=DecimalField()))['tot']
+        total_paid = CustomerPayment.objects.filter(job_order__in=active_qs).aggregate(
             tot=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField())
         )['tot']
         total_balance = max(Decimal('0'), total_val - total_paid)
-        count = qs.count()
+        count = active_qs.count()
+
+        # Cancelled metrics
+        cancelled_val = cancelled_qs.aggregate(tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=DecimalField()))['tot']
+        cancelled_paid = CustomerPayment.objects.filter(job_order__in=cancelled_qs).aggregate(
+            tot=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField())
+        )['tot']
+        cancelled_count = cancelled_qs.count()
 
         # Build client breakdown
         customers = Customer.objects.all()
@@ -775,7 +785,7 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         
         client_breakdown = []
         for cust in customers:
-            cust_jobs = JobOrder.objects.filter(customer=cust)
+            cust_jobs = JobOrder.objects.filter(customer=cust).exclude(status='Cancelled')
             if not is_admin_user(request.user):
                 cust_jobs = cust_jobs.filter(created_by=request.user)
             c_count = cust_jobs.count()
@@ -798,7 +808,12 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             'total_paid': float(total_paid),
             'total_balance': float(total_balance),
             'count': count,
-            'by_client': client_breakdown
+            'by_client': client_breakdown,
+            'cancelled_summary': {
+                'count': cancelled_count,
+                'total_value': float(cancelled_val),
+                'total_paid': float(cancelled_paid),
+            }
         })
 
     @action(detail=False, methods=['get'], url_path='assignable-admins')
@@ -911,7 +926,14 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
         job.status = 'Cancelled'
         job.assignment_status = 'cancelled'
-        job.save(update_fields=['order_id', 'status', 'assignment_status'])
+
+        reason = request.data.get('reason') or request.data.get('cancellation_reason')
+        if reason:
+            prefix = f"\n[Cancelled]: {str(reason).strip()}"
+            job.description = ((job.description or '') + prefix).strip()
+            job.save(update_fields=['order_id', 'status', 'assignment_status', 'description'])
+        else:
+            job.save(update_fields=['order_id', 'status', 'assignment_status'])
 
         # Notify the original creator / staff member
         target_recipient = job.assigned_by or (job.created_by if job.created_by != user else None)
@@ -922,7 +944,33 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                 actor=user,
                 notification_type='job_order_cancelled',
                 title=f"Job Order Cancelled: {job.order_id}",
-                message=f"Job Order {job.order_id} ({job.title}) has been marked as Cancelled by {actor_name}.",
+                message=f"Job Order {job.order_id} ({job.title}) has been marked as Cancelled by {actor_name}." + (f" Reason: {reason}" if reason else ""),
+                action_type='view_job_order',
+                action_data={'job_order_id': job.id, 'order_id': job.order_id}
+            )
+
+        return Response(JobOrderSerializer(job, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='restore-job')
+    def restore_job_order(self, request, pk=None):
+        job = self.get_object()
+        user = request.user
+        if not is_admin_user(user):
+            return Response({'error': 'Only administrators can restore cancelled job orders.'}, status=status.HTTP_403_FORBIDDEN)
+
+        job.status = 'Pending'
+        job.assignment_status = 'accepted' if job.assigned_to == user else ('pending' if job.assigned_to else 'accepted')
+        job.save(update_fields=['status', 'assignment_status'])
+
+        target_recipient = job.assigned_by or (job.created_by if job.created_by != user else None)
+        if target_recipient and target_recipient != user:
+            actor_name = user.get_full_name() or user.username
+            Notification.objects.create(
+                recipient=target_recipient,
+                actor=user,
+                notification_type='job_order_restored',
+                title=f"Job Order Restored: {job.order_id}",
+                message=f"Job Order {job.order_id} ({job.title}) has been restored to active status by {actor_name}.",
                 action_type='view_job_order',
                 action_data={'job_order_id': job.id, 'order_id': job.order_id}
             )

@@ -442,7 +442,7 @@ const JobOrders = ({ embedded = false }) => {
   const handleCancelJob = async (job) => {
     const confirmed = await showConfirm({
       title: 'Cancel Job Order?',
-      text: `Are you sure you want to cancel Job Order ${job.order_id || `#${job.id}`}? The job order number will be retained under Cancelled status and the creator will receive a cancellation notification.`,
+      text: `Are you sure you want to cancel Job Order ${job.order_id || `#${job.id}`}? The job order number will be retained under Cancelled status and the receivable balance will be cleared.`,
       confirmButtonText: 'Yes, Cancel Job',
       isDangerous: true
     })
@@ -452,12 +452,37 @@ const JobOrders = ({ embedded = false }) => {
       setLoading(true)
       await api.post(`job-orders/${job.id}/cancel-job/`)
       showToast(`Job Order ${job.order_id || `#${job.id}`} has been cancelled.`, 'info')
+      if (isModalOpen) setIsModalOpen(false)
       fetchJobs()
       fetchAssignedCount()
       fetchJobSummary()
     } catch (err) {
       console.error('Failed to cancel job order', err)
       showError('Cancellation Failed', err.response?.data?.error || 'Failed to cancel job order.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRestoreJob = async (job) => {
+    const confirmed = await showConfirm({
+      title: 'Restore Job Order?',
+      text: `Are you sure you want to restore Job Order ${job.order_id || `#${job.id}`} back to active status?`,
+      confirmButtonText: 'Yes, Restore Job',
+    })
+    if (!confirmed) return
+
+    try {
+      setLoading(true)
+      await api.post(`job-orders/${job.id}/restore-job/`)
+      showToast(`Job Order ${job.order_id || `#${job.id}`} restored to active status.`, 'success')
+      if (isModalOpen) setIsModalOpen(false)
+      fetchJobs()
+      fetchAssignedCount()
+      fetchJobSummary()
+    } catch (err) {
+      console.error('Failed to restore job order', err)
+      showError('Restore Failed', err.response?.data?.error || 'Failed to restore job order.')
     } finally {
       setLoading(false)
     }
@@ -1259,17 +1284,30 @@ const JobOrders = ({ embedded = false }) => {
     }
   }
 
+  const isCancelledView = filterStatus === 'Cancelled'
+
   const activeClientStat = jobSummary.by_client?.find(cl => String(cl.customer_id) === String(selectedClientBook))
-  const currentJobCount = selectedClientBook === 'all' ? (jobSummary.count || jobs.length) : (activeClientStat?.count || jobs.length)
-  const currentTotalVal = selectedClientBook === 'all' 
-    ? (jobSummary.total_value || jobs.reduce((s, j) => s + (parseFloat(j.total_amount) || 0), 0))
-    : (activeClientStat ? activeClientStat.total_value : jobs.reduce((s, j) => s + (parseFloat(j.total_amount) || 0), 0))
-  const currentTotalPaid = selectedClientBook === 'all'
-    ? (jobSummary.total_paid || jobs.reduce((s, j) => s + (parseFloat(j.paid_amount) || 0), 0))
-    : (activeClientStat ? activeClientStat.total_paid : jobs.reduce((s, j) => s + (parseFloat(j.paid_amount) || 0), 0))
-  const currentTotalBalance = selectedClientBook === 'all'
-    ? (jobSummary.total_balance || jobs.reduce((s, j) => s + (parseFloat(j.balance) || 0), 0))
-    : (activeClientStat ? activeClientStat.total_balance : jobs.reduce((s, j) => s + (parseFloat(j.balance) || 0), 0))
+  const currentJobCount = isCancelledView
+    ? (jobSummary.cancelled_summary?.count ?? jobs.filter(j => j.status === 'Cancelled').length)
+    : (selectedClientBook === 'all' ? (jobSummary.count || jobs.length) : (activeClientStat?.count || jobs.length))
+
+  const currentTotalVal = isCancelledView
+    ? (jobSummary.cancelled_summary?.total_value ?? jobs.reduce((s, j) => s + (parseFloat(j.total_amount) || 0), 0))
+    : (selectedClientBook === 'all' 
+        ? (jobSummary.total_value || jobs.reduce((s, j) => s + (parseFloat(j.total_amount) || 0), 0))
+        : (activeClientStat ? activeClientStat.total_value : jobs.reduce((s, j) => s + (parseFloat(j.total_amount) || 0), 0)))
+
+  const currentTotalPaid = isCancelledView
+    ? (jobSummary.cancelled_summary?.total_paid ?? jobs.reduce((s, j) => s + (parseFloat(j.paid_amount) || 0), 0))
+    : (selectedClientBook === 'all'
+        ? (jobSummary.total_paid || jobs.reduce((s, j) => s + (parseFloat(j.paid_amount) || 0), 0))
+        : (activeClientStat ? activeClientStat.total_paid : jobs.reduce((s, j) => s + (parseFloat(j.paid_amount) || 0), 0)))
+
+  const currentTotalBalance = isCancelledView
+    ? 0
+    : (selectedClientBook === 'all'
+        ? (jobSummary.total_balance || jobs.reduce((s, j) => s + (parseFloat(j.balance) || 0), 0))
+        : (activeClientStat ? activeClientStat.total_balance : jobs.reduce((s, j) => s + (parseFloat(j.balance) || 0), 0)))
 
   return (
     <div className={`jobs-page erp-page-container ${embedded ? 'embedded-job-orders' : ''}`} style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', padding: embedded ? '0' : undefined }}>
@@ -1891,22 +1929,22 @@ const JobOrders = ({ embedded = false }) => {
               background: '#ffffff',
               borderRadius: '12px',
               padding: '1rem 1.15rem',
-              border: '1px solid #e2e8f0',
+              border: isCancelledView ? '1px solid #fecaca' : '1px solid #e2e8f0',
               boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Total Contracts
+                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isCancelledView ? '#dc2626' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {isCancelledView ? 'Cancelled Contracts' : 'Total Contracts'}
                 </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(91, 75, 219, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary, #5B4BDB)' }}>
-                  <Briefcase size={16} />
+                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isCancelledView ? '#fef2f2' : 'rgba(91, 75, 219, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCancelledView ? '#dc2626' : 'var(--primary, #5B4BDB)' }}>
+                  {isCancelledView ? <XCircle size={16} /> : <Briefcase size={16} />}
                 </div>
               </div>
-              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: isCancelledView ? '#dc2626' : '#0f172a', letterSpacing: '-0.02em' }}>
                 {currentJobCount}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                {selectedClientBook === 'all' ? 'All client engagements' : (customers.find(c => String(c.id) === String(selectedClientBook))?.name || 'Selected client')}
+                {isCancelledView ? 'Terminated / Void Orders' : (selectedClientBook === 'all' ? 'All client engagements' : (customers.find(c => String(c.id) === String(selectedClientBook))?.name || 'Selected client'))}
               </div>
             </div>
 
@@ -1914,14 +1952,14 @@ const JobOrders = ({ embedded = false }) => {
               background: '#ffffff',
               borderRadius: '12px',
               padding: '1rem 1.15rem',
-              border: '1px solid #e2e8f0',
+              border: isCancelledView ? '1px solid #fed7aa' : '1px solid #e2e8f0',
               boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Total Contract Value
+                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isCancelledView ? '#ea580c' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {isCancelledView ? 'Cancelled Contract Value' : 'Total Contract Value'}
                 </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
+                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isCancelledView ? '#fff7ed' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCancelledView ? '#ea580c' : '#2563eb' }}>
                   <FileText size={16} />
                 </div>
               </div>
@@ -1929,7 +1967,7 @@ const JobOrders = ({ embedded = false }) => {
                 {formatCurrency(currentTotalVal)}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                Cumulative contract commitments
+                {isCancelledView ? 'Void contract commitments' : 'Cumulative contract commitments'}
               </div>
             </div>
 
@@ -1937,22 +1975,22 @@ const JobOrders = ({ embedded = false }) => {
               background: '#ffffff',
               borderRadius: '12px',
               padding: '1rem 1.15rem',
-              border: '1px solid #e2e8f0',
+              border: isCancelledView ? '1px solid #fed7aa' : '1px solid #e2e8f0',
               boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Amount Collected
+                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isCancelledView ? '#ea580c' : '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {isCancelledView ? 'Advances Retained / Held' : 'Amount Collected'}
                 </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
-                  <CheckCircle2 size={16} />
+                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isCancelledView ? '#fff7ed' : '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCancelledView ? '#ea580c' : '#059669' }}>
+                  <CreditCard size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#059669', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: isCancelledView ? '#ea580c' : '#059669', letterSpacing: '-0.02em' }}>
                 {formatCurrency(currentTotalPaid)}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: '2px' }}>
-                Payments collected to date
+              <div style={{ fontSize: '0.75rem', color: isCancelledView ? '#ea580c' : '#059669', marginTop: '2px' }}>
+                {isCancelledView ? (currentTotalPaid > 0 ? 'Customer credit / subject to refund' : 'No payments collected') : 'Payments collected to date'}
               </div>
             </div>
 
@@ -1960,22 +1998,22 @@ const JobOrders = ({ embedded = false }) => {
               background: '#ffffff',
               borderRadius: '12px',
               padding: '1rem 1.15rem',
-              border: currentTotalBalance > 0 ? '1px solid #fecaca' : '1px solid #e2e8f0',
+              border: (!isCancelledView && currentTotalBalance > 0) ? '1px solid #fecaca' : '1px solid #e2e8f0',
               boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: currentTotalBalance > 0 ? '#dc2626' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Pending Balance
+                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {isCancelledView ? 'Net Receivable Due' : 'Pending Balance'}
                 </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: currentTotalBalance > 0 ? '#fef2f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: currentTotalBalance > 0 ? '#dc2626' : '#64748b' }}>
+                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: (!isCancelledView && currentTotalBalance > 0) ? '#fef2f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#64748b' }}>
                   <AlertCircle size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: currentTotalBalance > 0 ? '#dc2626' : '#059669', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#059669', letterSpacing: '-0.02em' }}>
                 {formatCurrency(currentTotalBalance)}
               </div>
-              <div style={{ fontSize: '0.75rem', color: currentTotalBalance > 0 ? '#dc2626' : '#64748b', marginTop: '2px' }}>
-                {currentTotalBalance > 0 ? 'Outstanding client receivables' : 'All contracts fully settled'}
+              <div style={{ fontSize: '0.75rem', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#64748b', marginTop: '2px' }}>
+                {isCancelledView ? 'Cancelled orders carry 0 receivable' : (currentTotalBalance > 0 ? 'Outstanding client receivables' : 'All contracts fully settled')}
               </div>
             </div>
           </div>
@@ -2000,14 +2038,44 @@ const JobOrders = ({ embedded = false }) => {
                 fontWeight: '600',
                 whiteSpace: 'nowrap',
                 cursor: 'pointer',
-                border: selectedClientBook === 'all' ? '1px solid var(--primary, #5B4BDB)' : '1px solid #e2e8f0',
-                background: selectedClientBook === 'all' ? 'var(--primary, #5B4BDB)' : '#ffffff',
-                color: selectedClientBook === 'all' ? '#ffffff' : '#475569',
-                boxShadow: selectedClientBook === 'all' ? '0 2px 6px rgba(91, 75, 219, 0.25)' : 'none',
+                border: selectedClientBook === 'all' && !isCancelledView ? '1px solid var(--primary, #5B4BDB)' : '1px solid #e2e8f0',
+                background: selectedClientBook === 'all' && !isCancelledView ? 'var(--primary, #5B4BDB)' : '#ffffff',
+                color: selectedClientBook === 'all' && !isCancelledView ? '#ffffff' : '#475569',
+                boxShadow: selectedClientBook === 'all' && !isCancelledView ? '0 2px 6px rgba(91, 75, 219, 0.25)' : 'none',
                 transition: 'all 0.15s ease'
               }}
             >
-              All Clients ({jobSummary.count || jobs.length})
+              All Active Clients ({jobSummary.count || jobs.length})
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                if (filterStatus === 'Cancelled') {
+                  setFilterStatus('')
+                } else {
+                  setFilterStatus('Cancelled')
+                }
+                setPage(1)
+              }}
+              style={{
+                padding: '0.35rem 0.85rem',
+                borderRadius: '20px',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                border: filterStatus === 'Cancelled' ? '1px solid #dc2626' : '1px solid #fecaca',
+                background: filterStatus === 'Cancelled' ? '#dc2626' : '#fff1f2',
+                color: filterStatus === 'Cancelled' ? '#ffffff' : '#dc2626',
+                boxShadow: filterStatus === 'Cancelled' ? '0 2px 6px rgba(220, 38, 38, 0.25)' : 'none',
+                transition: 'all 0.15s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+            >
+              <XCircle size={13} />
+              Cancelled Orders ({jobSummary.cancelled_summary?.count || 0})
             </button>
             {customers.map(c => {
               const isSelected = String(selectedClientBook) === String(c.id)
@@ -2384,13 +2452,32 @@ const JobOrders = ({ embedded = false }) => {
                           )}
                         </td>
                         <td style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontWeight: '800', color: job.balance > 0 ? '#dc2626' : '#16a34a', fontSize: '0.88rem' }}>
-                            {job.balance > 0 ? formatCurrency(job.balance) : 'SETTLED'}
-                          </div>
-                          {parseFloat(job.prior_balance || 0) > 0 && (
-                            <div style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: '600', marginTop: '1px' }} title="Prior outstanding carried forward">
-                              + Prior: {formatCurrency(job.prior_balance)}
+                          {job.status === 'Cancelled' ? (
+                            <div>
+                              <div style={{ fontWeight: '800', color: '#64748b', fontSize: '0.8rem', letterSpacing: '0.02em' }}>
+                                CANCELLED
+                              </div>
+                              {parseFloat(job.paid_amount || 0) > 0 ? (
+                                <div style={{ fontSize: '0.72rem', color: '#ea580c', fontWeight: '700', marginTop: '2px' }} title="Advance/Payment retained on cancelled contract">
+                                  Advance Held: {formatCurrency(job.paid_amount)}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>
+                                  No Due (SAR 0.00)
+                                </div>
+                              )}
                             </div>
+                          ) : (
+                            <>
+                              <div style={{ fontWeight: '800', color: job.balance > 0 ? '#dc2626' : '#16a34a', fontSize: '0.88rem' }}>
+                                {job.balance > 0 ? formatCurrency(job.balance) : 'SETTLED'}
+                              </div>
+                              {parseFloat(job.prior_balance || 0) > 0 && (
+                                <div style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: '600', marginTop: '1px' }} title="Prior outstanding carried forward">
+                                  + Prior: {formatCurrency(job.prior_balance)}
+                                </div>
+                              )}
+                            </>
                           )}
                         </td>
                         {customColumns.map(col => (
@@ -2446,7 +2533,7 @@ const JobOrders = ({ embedded = false }) => {
                               </button>
                             </div>
                           ) : (
-                            <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
+                            <div style={{ display: 'inline-flex', gap: '0.375rem', alignItems: 'center' }}>
                               <button 
                                 className="btn-icon" 
                                 style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569' }}
@@ -2455,6 +2542,27 @@ const JobOrders = ({ embedded = false }) => {
                               >
                                 <Edit size={14} />
                               </button>
+                              {job.status !== 'Cancelled' ? (
+                                <button 
+                                  className="btn-icon" 
+                                  style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #fed7aa', background: '#fff7ed', color: '#ea580c' }}
+                                  onClick={() => handleCancelJob(job)}
+                                  title="Cancel Job Order"
+                                >
+                                  <XCircle size={14} />
+                                </button>
+                              ) : (
+                                isAdmin && (
+                                  <button 
+                                    className="btn-icon" 
+                                    style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#16a34a' }}
+                                    onClick={() => handleRestoreJob(job)}
+                                    title="Restore Cancelled Job Order"
+                                  >
+                                    <RefreshCw size={13} />
+                                  </button>
+                                )
+                              )}
                               <button 
                                 className="btn-icon" 
                                 style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fff1f2', color: '#dc2626' }}
@@ -2562,13 +2670,28 @@ const JobOrders = ({ embedded = false }) => {
                       </div>
                       <div className="mobile-card-metric">
                         <span className="mobile-card-metric-label">Balance</span>
-                        <span className="mobile-card-metric-value" style={{ color: balance > 0 ? '#dc2626' : '#16a34a' }}>
-                          {balance > 0 ? formatCurrency(balance) : 'SETTLED'}
-                        </span>
-                        {parseFloat(job.prior_balance || 0) > 0 && (
-                          <span style={{ fontSize: '0.65rem', color: '#b45309', display: 'block', marginTop: '1px' }}>
-                            + Prior: {formatCurrency(job.prior_balance)}
-                          </span>
+                        {job.status === 'Cancelled' ? (
+                          <>
+                            <span className="mobile-card-metric-value" style={{ color: '#64748b' }}>
+                              CANCELLED
+                            </span>
+                            {parseFloat(job.paid_amount || 0) > 0 && (
+                              <span style={{ fontSize: '0.65rem', color: '#ea580c', display: 'block', fontWeight: '700', marginTop: '1px' }}>
+                                Adv: {formatCurrency(job.paid_amount)}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span className="mobile-card-metric-value" style={{ color: balance > 0 ? '#dc2626' : '#16a34a' }}>
+                              {balance > 0 ? formatCurrency(balance) : 'SETTLED'}
+                            </span>
+                            {parseFloat(job.prior_balance || 0) > 0 && (
+                              <span style={{ fontSize: '0.65rem', color: '#b45309', display: 'block', marginTop: '1px' }}>
+                                + Prior: {formatCurrency(job.prior_balance)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -2626,6 +2749,27 @@ const JobOrders = ({ embedded = false }) => {
                             >
                               <Edit size={14} />
                             </button>
+                            {job.status !== 'Cancelled' ? (
+                              <button 
+                                className="mobile-card-action-btn" 
+                                style={{ color: '#ea580c' }}
+                                onClick={() => handleCancelJob(job)}
+                                title="Cancel Job Order"
+                              >
+                                <XCircle size={14} />
+                              </button>
+                            ) : (
+                              isAdmin && (
+                                <button 
+                                  className="mobile-card-action-btn" 
+                                  style={{ color: '#16a34a' }}
+                                  onClick={() => handleRestoreJob(job)}
+                                  title="Restore Cancelled Job Order"
+                                >
+                                  <RefreshCw size={14} />
+                                </button>
+                              )
+                            )}
                             <button 
                               className="mobile-card-action-btn delete" 
                               onClick={() => handleDelete(job.id)}
@@ -3186,16 +3330,40 @@ const JobOrders = ({ embedded = false }) => {
               />
             </div>
 
-            <div className="col-span-2 job-form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
-              <button type="button" className="btn" onClick={() => { setIsModalOpen(false); setSubmitting(false) }}>Close</button>
-              <button type="submit" className="btn btn-primary" disabled={submitting}>
-                {submitting ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }}></span>
-                    Processing...
-                  </span>
-                ) : (editingJob ? 'Update Contract' : 'Create Job Order')}
-              </button>
+            <div className="col-span-2 job-form-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+              <div>
+                {editingJob && editingJob.status !== 'Cancelled' && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600', fontSize: '0.82rem' }}
+                    onClick={() => handleCancelJob(editingJob)}
+                  >
+                    <XCircle size={15} /> Cancel This Job Order
+                  </button>
+                )}
+                {editingJob && editingJob.status === 'Cancelled' && isAdmin && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600', fontSize: '0.82rem' }}
+                    onClick={() => handleRestoreJob(editingJob)}
+                  >
+                    <RefreshCw size={15} /> Restore Job Order
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button type="button" className="btn" onClick={() => { setIsModalOpen(false); setSubmitting(false) }}>Close</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }}></span>
+                      Processing...
+                    </span>
+                  ) : (editingJob ? 'Update Contract' : 'Create Job Order')}
+                </button>
+              </div>
             </div>
           </form>
 
