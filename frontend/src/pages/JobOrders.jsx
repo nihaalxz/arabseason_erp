@@ -18,6 +18,19 @@ import { showConfirm, showAlert, showSuccess, showError, showWarning, showToast 
 const MONTH_CHOICES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 const getCurrentMonthCode = () => MONTH_CHOICES[new Date().getMonth()]
 
+const getLinkedProjectTitle = (job) => {
+  if (!job) return ''
+  if (job.project_name) {
+    if (typeof job.project_name === 'object') return job.project_name.title || ''
+    return String(job.project_name)
+  }
+  if (job.linked_project) {
+    if (typeof job.linked_project === 'object') return job.linked_project.title || ''
+    return String(job.linked_project)
+  }
+  return ''
+}
+
 const JobOrders = ({ embedded = false }) => {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -672,7 +685,7 @@ const JobOrders = ({ embedded = false }) => {
         quotation_number: job.quotation_number || '',
         title: job.title,
         description: job.description || '',
-        project_name: job.project_name || job.linked_project || '',
+        project_name: getLinkedProjectTitle(job),
         customer: job.customer,
         vendor: job.vendor || '',
         status: job.status,
@@ -2297,14 +2310,14 @@ const JobOrders = ({ embedded = false }) => {
                         </td>
                         <td style={{ padding: '0.85rem 1rem', maxWidth: '300px' }}>
                           <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.88rem', lineHeight: 1.35 }}>{job.title}</div>
-                          {(job.project_name || job.linked_project) && (
+                          {getLinkedProjectTitle(job) && (
                             <div style={{ marginTop: '4px' }}>
                               <span style={{ 
                                 display: 'inline-flex', alignItems: 'center', gap: '0.3rem', 
                                 fontSize: '0.72rem', fontWeight: '600', color: '#4338ca', 
                                 background: '#e0e7ff', padding: '2px 7px', borderRadius: '4px' 
                               }}>
-                                <Folder size={11} /> {job.project_name || job.linked_project}
+                                <Folder size={11} /> {getLinkedProjectTitle(job)}
                               </span>
                             </div>
                           )}
@@ -2498,14 +2511,14 @@ const JobOrders = ({ embedded = false }) => {
                           <div className="mobile-card-title" style={{ fontSize: '0.95rem' }}>
                             {job.title}
                           </div>
-                          {(job.project_name || job.linked_project) && (
+                          {getLinkedProjectTitle(job) && (
                             <div style={{ marginTop: '2px', marginBottom: '3px' }}>
                               <span style={{ 
                                 display: 'inline-flex', alignItems: 'center', gap: '0.25rem', 
                                 fontSize: '0.7rem', fontWeight: '700', color: '#4338ca', 
                                 background: '#e0e7ff', padding: '1px 6px', borderRadius: '4px' 
                               }}>
-                                <Folder size={10} /> {job.project_name || job.linked_project}
+                                <Folder size={10} /> {getLinkedProjectTitle(job)}
                               </span>
                             </div>
                           )}
@@ -3212,7 +3225,7 @@ const JobOrders = ({ embedded = false }) => {
             const grossMargin = sellingPrice - totalDirectCost
             const marginPct = sellingPrice > 0 ? ((grossMargin / sellingPrice) * 100).toFixed(1) : '0.0'
 
-            const linkedProj = formData.project_name || (editingJob ? (editingJob.project_name || editingJob.linked_project) : '')
+            const linkedProj = formData.project_name || (editingJob ? getLinkedProjectTitle(editingJob) : '')
 
             return (
               <div className="glass-panel job-embedded-card" style={{ padding: '1.25rem 1.35rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main, #f8fafc)', marginTop: '-0.5rem' }}>
