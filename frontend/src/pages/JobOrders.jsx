@@ -2,7 +2,7 @@ import React from 'react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
-import { Clock, Paperclip, Download, Eye as LucideEye, ExternalLink } from 'lucide-react'
+import { Clock, Paperclip, Download, Eye as LucideEye, ExternalLink, UploadCloud } from 'lucide-react'
 import { Edit, Trash2, Plus, Eye, RefreshCw, AlertCircle, CreditCard, CheckCircle2, XCircle, UserPlus, User, FileText, ArrowUpDown, ArrowUp, ArrowDown, Briefcase, Layers, BookOpen, Folder, ChevronRight } from '../components/icons'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import Select from 'react-select'
@@ -334,7 +334,10 @@ const JobOrders = ({ embedded = false }) => {
     created_by_staff: '',
     payment_collected_by: '',
     assigned_to: '',
-    custom_fields: {}
+    custom_fields: {},
+    attachment: '',
+    attachment_name: '',
+    attachment_type: ''
   })
   const [projectOptions, setProjectOptions] = useState([])
   const [staffOptions, setStaffOptions] = useState([])
@@ -720,7 +723,10 @@ const JobOrders = ({ embedded = false }) => {
         created_by_staff: job.created_by_staff || job.created_by_name || '',
         payment_collected_by: job.payment_collected_by || '',
         assigned_to: job.assigned_to || '',
-        custom_fields: job.custom_fields || {}
+        custom_fields: job.custom_fields || {},
+        attachment: job.attachment || '',
+        attachment_name: job.attachment_name || '',
+        attachment_type: job.attachment_type || ''
       })
       setCustomerPriorBalance(parseFloat(job.prior_balance || 0))
       api.get('expenses/', { params: { job_order: job.id } }).then(res => {
@@ -766,7 +772,10 @@ const JobOrders = ({ embedded = false }) => {
         created_by_staff: defaultCreator,
         payment_collected_by: '',
         assigned_to: '',
-        custom_fields: {}
+        custom_fields: {},
+        attachment: '',
+        attachment_name: '',
+        attachment_type: ''
       })
       setCustomerPriorBalance(0)
     }
@@ -824,7 +833,10 @@ const JobOrders = ({ embedded = false }) => {
       payment_type: initDeposit > 0 ? 'advance' : 'full',
       created_by_staff: creatorName,
       payment_collected_by: '',
-      custom_fields: {}
+      custom_fields: {},
+      attachment: '',
+      attachment_name: '',
+      attachment_type: ''
     })
 
     const initialDescriptions = pending?.description 
@@ -859,6 +871,34 @@ const JobOrders = ({ embedded = false }) => {
       console.error('Failed to dismiss pending entry:', err)
       showError('Failed to dismiss entry.')
     }
+  }
+
+  const handleAttachmentChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      showError('File Too Large', 'Please select an image or PDF smaller than 10MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      setFormData(prev => ({
+        ...prev,
+        attachment: reader.result,
+        attachment_name: file.name,
+        attachment_type: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
+      }))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveAttachment = () => {
+    setFormData(prev => ({
+      ...prev,
+      attachment: '',
+      attachment_name: '',
+      attachment_type: ''
+    }))
   }
 
   const handleSubmit = async (e) => {
@@ -3328,6 +3368,119 @@ const JobOrders = ({ embedded = false }) => {
                   }))
                 }}
               />
+            </div>
+
+            {/* Attachment / File Upload Section */}
+            <div className="col-span-2" style={{ marginTop: '0.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.45rem' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-main)', fontWeight: '700', fontSize: '0.85rem' }}>
+                  <Paperclip size={14} style={{ color: 'var(--primary, #5B4BDB)' }} />
+                  Attach File (Image or PDF)
+                </span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Supports PDF, JPG, PNG up to 10MB</span>
+              </div>
+
+              {!formData.attachment ? (
+                <label style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '1.25rem',
+                  borderRadius: '10px',
+                  border: '2px dashed var(--border-color)',
+                  background: 'var(--bg-card, #f8fafc)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  textAlign: 'center',
+                  gap: '0.35rem'
+                }}>
+                  <input 
+                    type="file" 
+                    accept="image/*,.pdf,application/pdf"
+                    onChange={handleAttachmentChange}
+                    style={{ display: 'none' }}
+                  />
+                  <UploadCloud size={26} style={{ color: 'var(--primary, #5B4BDB)' }} />
+                  <div style={{ fontSize: '0.84rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                    Click to upload document or image
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Signed contract, quotation copy, drawings or work order photo
+                  </div>
+                </label>
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-card, #f1f5f9)',
+                  gap: '0.75rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+                    {formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf') ? (
+                      <FileText size={24} style={{ color: '#ef4444', flexShrink: 0 }} />
+                    ) : (
+                      <img 
+                        src={formData.attachment} 
+                        alt="Preview" 
+                        style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', flexShrink: 0 }} 
+                      />
+                    )}
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {formData.attachment_name || 'Attached File'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        {formData.attachment_type?.includes('pdf') ? 'PDF Document' : 'Image File'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const w = window.open('')
+                        if (formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf')) {
+                          w.document.write(`<iframe src="${formData.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
+                        } else {
+                          w.document.write(`<img src="${formData.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
+                        }
+                      }}
+                      title="Preview File"
+                      className="btn"
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.74rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                    >
+                      <LucideEye size={13} /> Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveAttachment}
+                      title="Remove File"
+                      className="btn"
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.74rem',
+                        color: '#ef4444',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                    >
+                      <Trash2 size={13} /> Remove
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="col-span-2 job-form-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap' }}>

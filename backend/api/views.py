@@ -2005,27 +2005,38 @@ class CashBookViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = CashBook.objects.all()
-        # Seed initial default books if none exist
-        if not qs.exists():
-            default_books = [
-                {'name': 'Petty Cash', 'description': 'Daily office expenses and petty cash disbursements', 'color': '#10b981', 'icon': 'wallet'},
-                {'name': 'Customer Payments', 'description': 'Client cash collections and direct receipts', 'color': '#3b82f6', 'icon': 'banknote'},
-                {'name': 'General Expenses', 'description': 'Operational and business expenditure book', 'color': '#ef4444', 'icon': 'receipt'},
-                {'name': 'September 2026', 'description': 'Current monthly consolidated cash ledger', 'color': '#8b5cf6', 'icon': 'calendar'},
-            ]
-            for b in default_books:
-                CashBook.objects.create(
-                    name=b['name'],
-                    description=b['description'],
-                    color=b['color'],
-                    icon=b['icon'],
-                    opening_balance=Decimal('0.00'),
-                    created_by=user if user.is_authenticated else None
-                )
-            qs = CashBook.objects.all()
+        if not user or not user.is_authenticated:
+            return CashBook.objects.none()
 
-        show_archived = self.request.query_params.get('archived') == 'true'
+        qp = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
+        view_scope = qp.get('view_scope', 'my')
+        staff_filter = qp.get('staff')
+
+        if is_admin_user(user) and view_scope == 'all':
+            qs = CashBook.objects.all()
+            if staff_filter and staff_filter != 'all':
+                qs = qs.filter(created_by_id=staff_filter)
+        else:
+            qs = CashBook.objects.filter(created_by=user)
+            # Seed initial personal default books if this user has no books yet
+            if not qs.exists() and view_scope != 'all':
+                default_books = [
+                    {'name': 'Petty Cash', 'description': 'Daily office expenses and petty cash disbursements', 'color': '#10b981', 'icon': 'wallet'},
+                    {'name': 'Customer Payments', 'description': 'Client cash collections and direct receipts', 'color': '#3b82f6', 'icon': 'banknote'},
+                    {'name': 'General Expenses', 'description': 'Operational and business expenditure book', 'color': '#ef4444', 'icon': 'receipt'},
+                ]
+                for b in default_books:
+                    CashBook.objects.create(
+                        name=b['name'],
+                        description=b['description'],
+                        color=b['color'],
+                        icon=b['icon'],
+                        opening_balance=Decimal('0.00'),
+                        created_by=user
+                    )
+                qs = CashBook.objects.filter(created_by=user)
+
+        show_archived = qp.get('archived') == 'true'
         if not show_archived:
             qs = qs.filter(is_archived=False)
         return qs.order_by('-created_at')
@@ -2085,47 +2096,63 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, HasCashbookAccess]
 
     def get_queryset(self):
-        qs = CashBookEntry.objects.all().select_related('cashbook', 'created_by')
-        book_id = self.request.query_params.get('cashbook')
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return CashBookEntry.objects.none()
+
+        qp = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
+        view_scope = qp.get('view_scope', 'my')
+        staff_filter = qp.get('staff')
+
+        if is_admin_user(user) and view_scope == 'all':
+            qs = CashBookEntry.objects.all().select_related('cashbook', 'created_by')
+            if staff_filter and staff_filter != 'all':
+                qs = qs.filter(created_by_id=staff_filter)
+        else:
+            qs = CashBookEntry.objects.filter(
+                Q(created_by=user) | Q(cashbook__created_by=user)
+            ).select_related('cashbook', 'created_by')
+
+        book_id = qp.get('cashbook')
         if book_id:
             qs = qs.filter(cashbook_id=book_id)
 
-        entry_type = self.request.query_params.get('entry_type')
+        entry_type = qp.get('entry_type')
         if entry_type in ['in', 'out']:
             qs = qs.filter(entry_type=entry_type)
 
-        category = self.request.query_params.get('category')
+        category = qp.get('category')
         if category and category != 'all':
             qs = qs.filter(category__iexact=category)
 
-        payment_mode = self.request.query_params.get('payment_mode')
+        payment_mode = qp.get('payment_mode')
         if payment_mode and payment_mode != 'all':
             if payment_mode.lower() == 'petty cash':
                 qs = qs.filter(Q(payment_mode__iexact='Petty Cash') | Q(payment_mode__iexact='Cash') | Q(payment_mode__iexact='Self Account'))
             else:
                 qs = qs.filter(payment_mode__iexact=payment_mode)
 
-        tx_type = self.request.query_params.get('transaction_type')
+        tx_type = qp.get('transaction_type')
         if tx_type and tx_type != 'all':
             qs = qs.filter(transaction_type__iexact=tx_type)
 
-        bank_acc = self.request.query_params.get('bank_account')
+        bank_acc = qp.get('bank_account')
         if bank_acc and bank_acc != 'all':
             qs = qs.filter(bank_account_id=bank_acc)
 
-        petty_acc = self.request.query_params.get('petty_cash_account')
+        petty_acc = qp.get('petty_cash_account')
         if petty_acc and petty_acc != 'all':
             qs = qs.filter(petty_cash_account_id=petty_acc)
 
-        start_date = self.request.query_params.get('start_date')
+        start_date = qp.get('start_date')
         if start_date:
             qs = qs.filter(date__gte=start_date)
 
-        end_date = self.request.query_params.get('end_date')
+        end_date = qp.get('end_date')
         if end_date:
             qs = qs.filter(date__lte=end_date)
 
-        entity = self.request.query_params.get('entity')
+        entity = qp.get('entity')
         if entity and entity != 'all':
             e_lower = entity.lower()
             if e_lower in ['customer', 'customers']:
@@ -2165,31 +2192,31 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                     Q(category__in=['Food', 'Petrol', 'Office Supplies', 'Rent', 'Maintenance', 'Utility', 'General', 'Expense'])
                 )
 
-        customer_param = self.request.query_params.get('customer')
+        customer_param = qp.get('customer')
         if customer_param and customer_param != 'all':
             qs = qs.filter(customer_id=customer_param)
 
-        vendor_param = self.request.query_params.get('vendor')
+        vendor_param = qp.get('vendor')
         if vendor_param and vendor_param != 'all':
             qs = qs.filter(vendor_id=vendor_param)
 
-        labour_param = self.request.query_params.get('labour')
+        labour_param = qp.get('labour')
         if labour_param and labour_param != 'all':
             qs = qs.filter(labour_id=labour_param)
 
-        job_param = self.request.query_params.get('job_order')
+        job_param = qp.get('job_order')
         if job_param and job_param != 'all':
             qs = qs.filter(job_order_id=job_param)
 
-        expense_param = self.request.query_params.get('expense')
+        expense_param = qp.get('expense')
         if expense_param and expense_param != 'all':
             qs = qs.filter(expense_id=expense_param)
 
-        ledger_only = self.request.query_params.get('ledger_only')
+        ledger_only = qp.get('ledger_only')
         if ledger_only in ['true', '1', True]:
             qs = qs.filter(cashbook__isnull=True)
 
-        search = self.request.query_params.get('search')
+        search = qp.get('search')
         if search:
             qs = qs.filter(
                 Q(remark__icontains=search) |
@@ -2840,10 +2867,15 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
         if not book_id:
             return Response({'error': 'cashbook query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        user = request.user
+        view_scope = request.query_params.get('view_scope', 'my')
         try:
-            book = CashBook.objects.get(pk=book_id)
+            if is_admin_user(user) and view_scope == 'all':
+                book = CashBook.objects.get(pk=book_id)
+            else:
+                book = CashBook.objects.get(pk=book_id, created_by=user)
         except CashBook.DoesNotExist:
-            return Response({'error': 'CashBook not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'CashBook not found or access denied'}, status=status.HTTP_404_NOT_FOUND)
 
         # Precompute chronological running balance map for ALL entries of this book
         all_book_entries = CashBookEntry.objects.filter(cashbook_id=book_id).exclude(approval_status='rejected').order_by('date', 'time', 'created_at', 'id')

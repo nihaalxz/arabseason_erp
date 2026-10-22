@@ -81,6 +81,9 @@ class JobOrder(models.Model):
     assigned_at = models.DateTimeField(null=True, blank=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
     original_creator_name = models.CharField(max_length=255, blank=True, null=True, help_text="Historical record of staff creator name retained after acceptance")
+    attachment = models.TextField(blank=True, default='')
+    attachment_name = models.CharField(max_length=255, blank=True, default='')
+    attachment_type = models.CharField(max_length=50, blank=True, default='')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

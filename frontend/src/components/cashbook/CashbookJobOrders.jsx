@@ -5,7 +5,8 @@ import {
   Briefcase, User, Calendar, CreditCard, Receipt 
 } from '../icons'
 import { 
-  Pencil, CheckCircle2, Folder, ArrowDownRight, Clock, UserPlus
+  Pencil, CheckCircle2, Folder, ArrowDownRight, Clock, UserPlus,
+  UploadCloud, Paperclip, FileText, Eye
 } from 'lucide-react'
 import api from '../../api'
 import Modal from '../common/Modal'
@@ -199,7 +200,10 @@ export default function CashbookJobOrders({
     project_name: '',
     created_by_staff: '',
     assigned_to: '',
-    description: ''
+    description: '',
+    attachment: '',
+    attachment_name: '',
+    attachment_type: ''
   })
 
   // Assignable Admins State
@@ -347,13 +351,15 @@ export default function CashbookJobOrders({
   }, [jobOrders])
 
   const totalDue = useMemo(() => {
-    return jobOrders.reduce((sum, j) => {
-      const bal = parseFloat(j.balance)
-      if (!isNaN(bal) && bal > 0) return sum + bal
-      const total = parseFloat(j.total_amount) || 0
-      const paid = parseFloat(j.paid_amount) || 0
-      return sum + Math.max(0, total - paid)
-    }, 0)
+    return jobOrders
+      .filter(j => (j.status || '').toLowerCase() !== 'cancelled')
+      .reduce((sum, j) => {
+        const bal = parseFloat(j.balance)
+        if (!isNaN(bal) && bal > 0) return sum + bal
+        const total = parseFloat(j.total_amount) || 0
+        const paid = parseFloat(j.paid_amount) || 0
+        return sum + Math.max(0, total - paid)
+      }, 0)
   }, [jobOrders])
 
   const inProgressOrders = useMemo(() => {
@@ -368,8 +374,13 @@ export default function CashbookJobOrders({
     return jobOrders.filter(j => (j.status || '').toLowerCase() === 'pending')
   }, [jobOrders])
 
+  const cancelledOrders = useMemo(() => {
+    return jobOrders.filter(j => (j.status || '').toLowerCase() === 'cancelled')
+  }, [jobOrders])
+
   const dueOrders = useMemo(() => {
     return jobOrders.filter(j => {
+      if ((j.status || '').toLowerCase() === 'cancelled') return false
       const bal = parseFloat(j.balance)
       if (!isNaN(bal)) return bal > 0.01
       const total = parseFloat(j.total_amount) || 0
@@ -380,6 +391,7 @@ export default function CashbookJobOrders({
 
   const settledOrders = useMemo(() => {
     return jobOrders.filter(j => {
+      if ((j.status || '').toLowerCase() === 'cancelled') return false
       const total = parseFloat(j.total_amount) || 0
       const paid = parseFloat(j.paid_amount) || 0
       const bal = parseFloat(j.balance)
@@ -395,12 +407,15 @@ export default function CashbookJobOrders({
       if (statusFilter === 'In Progress' && (j.status || '').toLowerCase() !== 'in progress') return false
       if (statusFilter === 'Completed' && (j.status || '').toLowerCase() !== 'completed') return false
       if (statusFilter === 'Pending' && (j.status || '').toLowerCase() !== 'pending') return false
+      if (statusFilter === 'Cancelled' && (j.status || '').toLowerCase() !== 'cancelled') return false
       if (statusFilter === 'Payment Due') {
+        if ((j.status || '').toLowerCase() === 'cancelled') return false
         const bal = parseFloat(j.balance)
         const due = !isNaN(bal) ? bal : ((parseFloat(j.total_amount) || 0) - (parseFloat(j.paid_amount) || 0))
         if (due <= 0.01) return false
       }
       if (statusFilter === 'Settled') {
+        if ((j.status || '').toLowerCase() === 'cancelled') return false
         const total = parseFloat(j.total_amount) || 0
         const bal = parseFloat(j.balance)
         const due = !isNaN(bal) ? bal : (total - (parseFloat(j.paid_amount) || 0))
@@ -427,7 +442,8 @@ export default function CashbookJobOrders({
     { id: 'In Progress', label: 'In Progress', count: inProgressOrders.length },
     { id: 'Payment Due', label: 'Payment Due', count: dueOrders.length },
     { id: 'Completed', label: 'Completed', count: completedOrders.length },
-    { id: 'Pending', label: 'Pending', count: pendingOrders.length }
+    { id: 'Pending', label: 'Pending', count: pendingOrders.length },
+    { id: 'Cancelled', label: 'Cancelled', count: cancelledOrders.length }
   ]
 
   // Modal open / edit
@@ -461,7 +477,10 @@ export default function CashbookJobOrders({
       project_name: '',
       created_by_staff: defaultStaff,
       assigned_to: '',
-      description: ''
+      description: '',
+      attachment: '',
+      attachment_name: '',
+      attachment_type: ''
     })
     setModalError('')
     setIsModalOpen(true)
@@ -483,10 +502,41 @@ export default function CashbookJobOrders({
       project_name: job.project_name || '',
       created_by_staff: job.created_by_staff || '',
       assigned_to: job.assigned_to || '',
-      description: job.description || ''
+      description: job.description || '',
+      attachment: job.attachment || '',
+      attachment_name: job.attachment_name || '',
+      attachment_type: job.attachment_type || ''
     })
     setModalError('')
     setIsModalOpen(true)
+  }
+
+  const handleAttachmentChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      showError('File Too Large', 'Please select an image or PDF smaller than 10MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      setFormData(prev => ({
+        ...prev,
+        attachment: reader.result,
+        attachment_name: file.name,
+        attachment_type: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
+      }))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveAttachment = () => {
+    setFormData(prev => ({
+      ...prev,
+      attachment: '',
+      attachment_name: '',
+      attachment_type: ''
+    }))
   }
 
   const handleSaveJobOrder = async (e) => {
@@ -529,6 +579,9 @@ export default function CashbookJobOrders({
         created_by_staff: formData.created_by_staff.trim(),
         assigned_to: formData.assigned_to ? formData.assigned_to : null,
         description: formData.description.trim(),
+        attachment: formData.attachment || '',
+        attachment_name: formData.attachment_name || '',
+        attachment_type: formData.attachment_type || '',
         ...(parsedAdv > 0 && formData.account_type === 'bank' ? { bank_account: formData.selected_account_id, payment_mode: 'Bank Transfer' } : {}),
         ...(parsedAdv > 0 && formData.account_type === 'pca' ? { petty_cash_account: formData.selected_account_id, payment_mode: 'Petty Cash' } : {}),
         cashbook: formData.cashbook || null
@@ -816,7 +869,7 @@ export default function CashbookJobOrders({
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {inProgressOrders.length} in progress · {completedOrders.length} completed
+              {inProgressOrders.length} in progress · {completedOrders.length} completed{cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}
             </div>
           )}
         </div>
@@ -985,14 +1038,19 @@ export default function CashbookJobOrders({
           }}>
             {filterPills.map(tab => {
               const active = statusFilter === tab.id
+              const isCancelledTab = tab.id === 'Cancelled'
               return (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setStatusFilter(tab.id)}
                   style={{
-                    background: active ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-                    color: active ? (isDarkMode ? '#0c0d0e' : '#ffffff') : textMuted,
+                    background: active 
+                      ? (isCancelledTab ? '#dc2626' : (isDarkMode ? '#ffffff' : '#0f172a')) 
+                      : 'transparent',
+                    color: active 
+                      ? '#ffffff' 
+                      : (isCancelledTab && tab.count > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted),
                     border: 'none',
                     borderRadius: '999px',
                     padding: '5px 14px',
@@ -1012,11 +1070,11 @@ export default function CashbookJobOrders({
                     padding: '1px 5px',
                     borderRadius: '999px',
                     background: active 
-                      ? (isDarkMode ? '#232528' : 'rgba(255, 255, 255, 0.25)')
-                      : (isDarkMode ? '#1c1e21' : '#e2e8f0'),
+                      ? (isCancelledTab ? 'rgba(255, 255, 255, 0.25)' : (isDarkMode ? '#232528' : 'rgba(255, 255, 255, 0.25)'))
+                      : (isCancelledTab && tab.count > 0 ? (isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2') : (isDarkMode ? '#1c1e21' : '#e2e8f0')),
                     color: active 
-                      ? (isDarkMode ? '#ffffff' : '#ffffff')
-                      : textMuted,
+                      ? '#ffffff' 
+                      : (isCancelledTab && tab.count > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted),
                     fontWeight: '700'
                   }}>
                     {tab.count}
@@ -1155,7 +1213,8 @@ export default function CashbookJobOrders({
             const paid = parseFloat(job.paid_amount) || 0
             const bal = parseFloat(job.balance)
             const due = !isNaN(bal) ? bal : (total - paid)
-            const hasDue = due > 0.01
+            const isCancelled = (job.status || '').toLowerCase() === 'cancelled'
+            const hasDue = !isCancelled && due > 0.01
 
             return (
               <div
@@ -1230,8 +1289,8 @@ export default function CashbookJobOrders({
                   </div>
                   <div>
                     <div style={{ fontSize: '0.65rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase' }}>Due</div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted }}>
-                      {hasDue ? safeFormatAmount(due) : '0.00'}
+                    <div style={{ fontSize: '0.8rem', fontWeight: '800', color: isCancelled ? '#94a3b8' : hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted }}>
+                      {isCancelled ? 'Cancelled' : hasDue ? safeFormatAmount(due) : '0.00'}
                     </div>
                   </div>
                 </div>
@@ -1256,6 +1315,35 @@ export default function CashbookJobOrders({
                       }}
                     >
                       <CreditCard size={12} strokeWidth={2.5} /> Receive Payment
+                    </button>
+                  )}
+                  {job.attachment && (
+                    <button
+                      type="button"
+                      title={job.attachment_name || 'View Attachment'}
+                      onClick={() => {
+                        const w = window.open('')
+                        if (job.attachment_type?.includes('pdf') || job.attachment_name?.toLowerCase().endsWith('.pdf')) {
+                          w.document.write(`<iframe src="${job.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
+                        } else {
+                          w.document.write(`<img src="${job.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
+                        }
+                      }}
+                      style={{
+                        background: isDarkMode ? '#1e2025' : '#eef2ff',
+                        border: `1px solid ${isDarkMode ? '#4f46e5' : '#c7d2fe'}`,
+                        borderRadius: '8px',
+                        padding: '0.35rem 0.65rem',
+                        color: '#6366f1',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Paperclip size={12} /> File
                     </button>
                   )}
                   <button
@@ -1350,7 +1438,8 @@ export default function CashbookJobOrders({
                 const paid = parseFloat(job.paid_amount) || 0
                 const bal = parseFloat(job.due_amount != null ? job.due_amount : job.balance)
                 const due = !isNaN(bal) ? bal : Math.max(0, total - paid)
-                const hasDue = due > 0.01
+                const isCancelled = (job.status || '').toLowerCase() === 'cancelled'
+                const hasDue = !isCancelled && due > 0.01
 
                 return (
                   <tr
@@ -1462,8 +1551,8 @@ export default function CashbookJobOrders({
                     </td>
 
                     {/* Due Amount (Customer Owed) */}
-                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : '#10b981', whiteSpace: 'nowrap' }}>
-                      {hasDue ? `SAR ${safeFormatAmount(due)}` : 'SAR 0.00 (Settled)'}
+                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '800', color: isCancelled ? '#94a3b8' : hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : '#10b981', whiteSpace: 'nowrap' }}>
+                      {isCancelled ? 'SAR 0.00 (Cancelled)' : hasDue ? `SAR ${safeFormatAmount(due)}` : 'SAR 0.00 (Settled)'}
                     </td>
 
                     {/* Created Date */}
@@ -1495,6 +1584,34 @@ export default function CashbookJobOrders({
                             }}
                           >
                             <CreditCard size={12} strokeWidth={2.5} /> Receive Payment
+                          </button>
+                        )}
+                        {job.attachment && (
+                          <button
+                            type="button"
+                            title={job.attachment_name || 'View Attachment'}
+                            onClick={() => {
+                              const w = window.open('')
+                              if (job.attachment_type?.includes('pdf') || job.attachment_name?.toLowerCase().endsWith('.pdf')) {
+                                w.document.write(`<iframe src="${job.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
+                              } else {
+                                w.document.write(`<img src="${job.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
+                              }
+                            }}
+                            style={{
+                              background: isDarkMode ? '#1e2025' : '#eef2ff',
+                              border: `1px solid ${isDarkMode ? '#4f46e5' : '#c7d2fe'}`,
+                              borderRadius: '8px',
+                              padding: '0.4rem 0.55rem',
+                              color: '#6366f1',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <Paperclip size={13} />
                           </button>
                         )}
                         <button
@@ -1560,7 +1677,7 @@ export default function CashbookJobOrders({
       {/* ========================================================= */}
       {isModalOpen && typeof document !== 'undefined' && createPortal(
         <div
-          className="modal-overlay cb-modal-overlay"
+          className="cb-modal-overlay"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               e.preventDefault()
@@ -1570,23 +1687,21 @@ export default function CashbookJobOrders({
           style={{
             position: 'fixed',
             inset: 0,
-            width: '100%',
-            height: '100%',
-            background: isDarkMode ? 'rgba(0, 0, 0, 0.75)' : 'rgba(11, 27, 68, 0.50)',
+            width: '100vw',
+            height: '100vh',
+            background: isDarkMode ? 'rgba(0, 0, 0, 0.78)' : 'rgba(11, 27, 68, 0.50)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             zIndex: 99999,
             display: 'flex',
             alignItems: effectiveIsMobile ? 'flex-end' : 'center',
             justifyContent: 'center',
-            padding: effectiveIsMobile ? 0 : '2rem 1rem',
-            boxSizing: 'border-box',
-            overflowY: 'auto',
-            WebkitOverflowScrolling: 'touch'
+            padding: effectiveIsMobile ? 0 : '1.5rem',
+            boxSizing: 'border-box'
           }}
         >
           <div
-            className="modal-container cb-expense-modal-sheet"
+            className="cb-expense-modal-sheet"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: cardBg,
@@ -1594,20 +1709,18 @@ export default function CashbookJobOrders({
               border: effectiveIsMobile ? 'none' : `1px solid ${borderColor}`,
               borderRadius: effectiveIsMobile ? '24px 24px 0 0' : '20px',
               padding: effectiveIsMobile 
-                ? '0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
-                : '2rem 2.25rem',
-              boxShadow: isDarkMode ? '0 20px 60px rgba(0,0,0,0.6)' : '0 20px 60px rgba(15,23,42,0.18)',
+                ? '1rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
+                : '1.75rem 2rem 1.25rem',
+              boxShadow: isDarkMode ? '0 24px 64px rgba(0,0,0,0.7)' : '0 20px 60px rgba(15,23,42,0.18)',
               maxWidth: effectiveIsMobile ? '100%' : '800px',
               width: '100%',
-              maxHeight: effectiveIsMobile ? '90vh' : 'calc(100vh - 3.5rem)',
-              overflowX: 'hidden',
-              overflowY: 'auto',
-              WebkitOverflowScrolling: 'touch',
+              maxHeight: effectiveIsMobile ? '92vh' : 'calc(100vh - 3.5rem)',
+              display: 'flex',
+              flexDirection: 'column',
               position: 'relative',
               margin: effectiveIsMobile ? 0 : 'auto',
               boxSizing: 'border-box',
-              overscrollBehavior: 'contain',
-              touchAction: 'pan-y'
+              overflow: 'hidden'
             }}
           >
             {/* Close Button Top Right */}
@@ -1616,8 +1729,8 @@ export default function CashbookJobOrders({
               onClick={() => setIsModalOpen(false)}
               style={{
                 position: 'absolute',
-                top: effectiveIsMobile ? '1rem' : '1.5rem',
-                right: effectiveIsMobile ? '1rem' : '1.5rem',
+                top: effectiveIsMobile ? '1rem' : '1.25rem',
+                right: effectiveIsMobile ? '1rem' : '1.25rem',
                 background: isDarkMode ? '#1e2025' : '#f1f5f9',
                 border: 'none',
                 borderRadius: '50%',
@@ -1635,7 +1748,7 @@ export default function CashbookJobOrders({
               <X size={16} />
             </button>
 
-            <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ flexShrink: 0, marginBottom: '1.25rem', paddingRight: '2.5rem' }}>
               <h3 style={{
                 fontSize: '1.25rem',
                 fontWeight: '800',
@@ -1652,6 +1765,7 @@ export default function CashbookJobOrders({
 
             {modalError && (
               <div style={{
+                flexShrink: 0,
                 background: isDarkMode ? 'rgba(239,68,68,0.15)' : '#fee2e2',
                 border: '1px solid #ef4444',
                 borderRadius: '10px',
@@ -1665,7 +1779,19 @@ export default function CashbookJobOrders({
               </div>
             )}
 
-            <form onSubmit={handleSaveJobOrder} autoComplete="off">
+            <form 
+              onSubmit={handleSaveJobOrder} 
+              autoComplete="off"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                paddingRight: '6px'
+              }}
+            >
               {/* Order ID & Status in 2 columns */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
                 <div>
@@ -1929,13 +2055,13 @@ export default function CashbookJobOrders({
                   border: `1px solid ${borderColor}`,
                   marginBottom: '1rem'
                 }}>
-                  <label style={{ ...fieldLabelStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: textPrimary, fontWeight: '700' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.45rem' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: textPrimary, fontWeight: '700', fontSize: '0.88rem' }}>
                       <User size={14} style={{ color: '#6366f1' }} />
                       Assign to Admin (Optional)
                     </span>
                     <span style={{ fontSize: '0.75rem', color: textMuted, fontWeight: 'normal' }}>Delegates order to Admin for ownership</span>
-                  </label>
+                  </div>
                   <select
                     value={formData.assigned_to || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, assigned_to: e.target.value }))}
@@ -1951,13 +2077,14 @@ export default function CashbookJobOrders({
                 </div>
               )}
 
-              {/* Description */}
+              {/* Scope of Work / Description */}
               <div style={{ marginBottom: '1.25rem' }}>
                 <label style={fieldLabelStyle}>Scope of Work / Description</label>
                 <textarea
                   rows={3}
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Details of contract deliverables, tasks, milestones..."
                   style={{
                     ...inputControlStyle,
                     height: 'auto',
@@ -1968,15 +2095,143 @@ export default function CashbookJobOrders({
                 />
               </div>
 
-              {/* Modal Action Buttons */}
+              {/* Attachment / File Upload Section */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.45rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: textPrimary, fontWeight: '700', fontSize: '0.88rem' }}>
+                    <Paperclip size={14} style={{ color: '#6366f1' }} />
+                    Attach File (Image or PDF)
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: textMuted }}>Supports PDF, JPG, PNG up to 10MB</span>
+                </div>
+
+                {!formData.attachment ? (
+                  <label style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '12px',
+                    border: `2px dashed ${borderColor}`,
+                    background: isDarkMode ? '#17191d' : '#f8fafc',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'center',
+                    gap: '0.35rem'
+                  }}>
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf,application/pdf"
+                      onChange={handleAttachmentChange}
+                      style={{ display: 'none' }}
+                    />
+                    <UploadCloud size={28} style={{ color: '#6366f1', marginBottom: '0.15rem' }} />
+                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: textPrimary }}>
+                      Click to upload document or image
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: textMuted }}>
+                      Signed contract, quotation copy, drawings or work order photo
+                    </div>
+                  </label>
+                ) : (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '12px',
+                    border: `1px solid ${borderColor}`,
+                    background: isDarkMode ? '#1e2025' : '#f1f5f9',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+                      {formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf') ? (
+                        <FileText size={26} style={{ color: '#ef4444', flexShrink: 0 }} />
+                      ) : (
+                        <img 
+                          src={formData.attachment} 
+                          alt="Preview" 
+                          style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: `1px solid ${borderColor}`, flexShrink: 0 }} 
+                        />
+                      )}
+                      <div style={{ overflow: 'hidden' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: '700', color: textPrimary, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {formData.attachment_name || 'Attached File'}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: textMuted }}>
+                          {formData.attachment_type?.includes('pdf') ? 'PDF Document' : 'Image File'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const w = window.open('')
+                          if (formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf')) {
+                            w.document.write(`<iframe src="${formData.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
+                          } else {
+                            w.document.write(`<img src="${formData.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
+                          }
+                        }}
+                        title="Preview File"
+                        style={{
+                          background: isDarkMode ? '#282b30' : '#e2e8f0',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: '#6366f1',
+                          cursor: 'pointer',
+                          padding: '6px 10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600'
+                        }}
+                      >
+                        <Eye size={14} /> Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveAttachment}
+                        title="Remove File"
+                        style={{
+                          background: isDarkMode ? 'rgba(239,68,68,0.15)' : '#fee2e2',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          padding: '6px 10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600'
+                        }}
+                      >
+                        <Trash2 size={14} /> Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Action Buttons (Sticky at bottom) */}
               <div style={{
+                flexShrink: 0,
+                position: 'sticky',
+                bottom: 0,
+                background: cardBg,
+                paddingTop: '1rem',
+                paddingBottom: '0.25rem',
+                marginTop: '1.25rem',
+                borderTop: `1px solid ${borderColor}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-end',
                 gap: '0.65rem',
-                marginTop: '1.5rem',
-                paddingTop: '1rem',
-                borderTop: `1px solid ${borderColor}`
+                zIndex: 10
               }}>
                 <button
                   type="button"
@@ -2015,11 +2270,11 @@ export default function CashbookJobOrders({
                 >
                   {modalSubmitting ? (
                     <>
-                      <RefreshCw size={14} className="animate-spin" />
+                      <RefreshCw size={14} className="spin" />
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>{editingJob ? 'Update Job Order' : 'Create Job Order'}</span>
+                    <span>{editingJob ? 'Save Changes' : 'Create Job Order'}</span>
                   )}
                 </button>
               </div>
