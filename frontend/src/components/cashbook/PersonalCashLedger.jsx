@@ -6,11 +6,10 @@ import {
 import { 
   Pencil, CheckCircle2, ArrowDownLeft, ArrowUpRight, ArrowDownRight, Clock, 
   ExternalLink, ChevronRight, FileText, Check, DollarSign,
-  Filter, ChevronDown, RotateCcw, Wallet, Download, Layers, ArrowRightLeft,
+  Filter, ChevronDown, RotateCcw, Wallet, Download, ArrowRightLeft,
   Building2, Phone, Mail, FolderOpen, HardHat, Users, Landmark, Minus
 } from 'lucide-react'
 import api from '../../api'
-import CashbookSelect from '../common/CashbookSelect'
 import { showConfirm, showError, showToast, showSuccess } from '../../utils/swal'
 
 // Reusable Mobile Card Carousel matching Customers tab exactly
@@ -165,7 +164,6 @@ export default function PersonalCashLedger({
 }) {
   // Account scope: '__all__' = Consolidated Master Ledger across entire ERP, or specific account ID
   const isAdmin = Boolean(currentUser?.is_superuser || currentUser?.is_staff || currentUser?.role === 'Admin')
-  const [selectedAccountId, setSelectedAccountId] = useState('__all__')
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -247,26 +245,13 @@ export default function PersonalCashLedger({
     return null
   }, [pettyCashAccounts, currentUser])
 
-  const activeAccount = useMemo(() => {
-    if (selectedAccountId === '__all__') {
-      return { 
-        id: '__all__', 
-        name: 'All Ledger Payments', 
-        holder_name: 'Consolidated Cash Ledger',
-        balance: pettyCashAccounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0) 
-      }
-    }
-    return pettyCashAccounts.find(p => String(p.id) === String(selectedAccountId)) || matchedUserAccount || null
-  }, [pettyCashAccounts, selectedAccountId, matchedUserAccount])
+  const activeAccount = matchedUserAccount
 
   // Fetch entries with ledger_only=true so books transactions are not pulled into ledger
   const fetchEntries = useCallback(async () => {
     setLoading(true)
     try {
       const params = { page_size: 2000, ledger_only: 'true' }
-      if (selectedAccountId && selectedAccountId !== '__all__') {
-        params.petty_cash_account = selectedAccountId
-      }
       if (entityFilter && entityFilter !== 'all') {
         params.entity = entityFilter
       }
@@ -283,7 +268,7 @@ export default function PersonalCashLedger({
     } finally {
       setLoading(false)
     }
-  }, [selectedAccountId, entityFilter])
+  }, [entityFilter])
 
   useEffect(() => {
     fetchEntries()
@@ -512,66 +497,37 @@ export default function PersonalCashLedger({
         {/* Right Action Bar */}
         <div style={{
           display: 'flex',
-          flexDirection: isMobileScreen ? 'column' : 'row',
-          alignItems: isMobileScreen ? 'stretch' : 'center',
-          gap: isMobileScreen ? '0.5rem' : '0.55rem',
+          alignItems: 'center',
+          justifyContent: isMobileScreen ? 'flex-end' : 'flex-start',
+          gap: '0.55rem',
           width: isMobileScreen ? '100%' : 'auto'
         }}>
-          {/* Top Row on Mobile: Account Switcher + Export */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            width: isMobileScreen ? '100%' : 'auto',
-            minWidth: 0
-          }}>
-            {/* Petty Cash Account Switcher */}
-            <div style={{ minWidth: isMobileScreen ? 0 : '230px', flex: 1 }}>
-              <CashbookSelect
-                value={selectedAccountId}
-                onChange={(val) => setSelectedAccountId(val)}
-                options={[
-                  { id: '__all__', label: 'All Ledger Payments', icon: <Layers size={14} strokeWidth={2} /> },
-                  ...pettyCashAccounts.map(p => ({
-                    id: String(p.id),
-                    label: `${p.name} (${fmt(p.balance)} SAR)`,
-                    icon: <Wallet size={14} strokeWidth={2} />
-                  }))
-                ]}
-                variant="desktop-toolbar"
-                ariaLabel="Select Ledger Scope"
-                isDark={isDarkMode}
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            {/* Export CSV */}
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              title="Export CSV Statement"
-              style={{
-                background: cardBg,
-                color: textPrimary,
-                border: `1px solid ${borderColor}`,
-                borderRadius: '10px',
-                height: '38px',
-                padding: '0 0.85rem',
-                fontSize: '0.82rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Download size={14} />
-              <span>Export</span>
-            </button>
-          </div>
+          {/* Export CSV */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            title="Export CSV Statement"
+            style={{
+              background: cardBg,
+              color: textPrimary,
+              border: `1px solid ${borderColor}`,
+              borderRadius: '10px',
+              height: '38px',
+              padding: '0 0.85rem',
+              fontSize: '0.82rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Download size={14} />
+            <span>Export CSV</span>
+          </button>
 
           {/* Action Buttons: desktop only since mobile has persistent bottom bar floating (+) action button */}
           {!isMobileScreen && (
@@ -585,8 +541,8 @@ export default function PersonalCashLedger({
               <button
                 type="button"
                 onClick={() => onOpenEntryModal('in', {
-                  petty_cash_account: (activeAccount?.id && activeAccount.id !== '__all__') ? activeAccount.id : '',
-                  petty_cash_account_name: (activeAccount?.id && activeAccount.id !== '__all__') ? activeAccount.name : '',
+                  petty_cash_account: activeAccount?.id || '',
+                  petty_cash_account_name: activeAccount?.name || '',
                   payment_mode: 'Petty Cash'
                 })}
                 style={{
@@ -621,8 +577,8 @@ export default function PersonalCashLedger({
                 type="button"
                 id="btn-record-expense"
                 onClick={() => onOpenEntryModal('out', {
-                  petty_cash_account: (activeAccount?.id && activeAccount.id !== '__all__') ? activeAccount.id : '',
-                  petty_cash_account_name: (activeAccount?.id && activeAccount.id !== '__all__') ? activeAccount.name : '',
+                  petty_cash_account: activeAccount?.id || '',
+                  petty_cash_account_name: activeAccount?.name || '',
                   payment_mode: 'Petty Cash'
                 })}
                 style={{
@@ -703,7 +659,9 @@ export default function PersonalCashLedger({
               textTransform: 'uppercase',
               color: typeFilter === 'all' ? (isDarkMode ? '#55585d' : '#94a3b8') : (isDarkMode ? '#71767b' : '#64748b')
             }}>
-              {entityFilter === 'all' ? (selectedAccountId === '__all__' ? 'Total Ledger Flow' : 'Ledger Balance') : `${entityFilter.toUpperCase()} VOLUME`}
+              {entityFilter === 'all' 
+                ? (activeAccount?.balance != null ? 'In-Hand Cash Balance' : 'Personal Cash Flow') 
+                : `${entityFilter.toUpperCase()} VOLUME`}
             </span>
             <div style={{
               width: '30px',
@@ -725,7 +683,7 @@ export default function PersonalCashLedger({
             color: typeFilter === 'all' ? (isDarkMode ? '#0c0d0e' : '#ffffff') : (isDarkMode ? '#ffffff' : '#0f172a'),
             margin: isMobileScreen ? '0.25rem 0 0' : '0.45rem 0 0.2rem 0'
           }}>
-            SAR {fmt(selectedAccountId === '__all__' ? (totalIn + totalOut) : activeAccount?.balance)}
+            SAR {fmt(activeAccount?.balance != null ? activeAccount.balance : (totalIn - totalOut))}
           </div>
           {!isMobileScreen && (
             <div style={{
