@@ -2008,34 +2008,27 @@ class CashBookViewSet(viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return CashBook.objects.none()
 
-        qp = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
-        view_scope = qp.get('view_scope', 'my')
-        staff_filter = qp.get('staff')
-
-        if is_admin_user(user) and view_scope == 'all':
-            qs = CashBook.objects.all()
-            if staff_filter and staff_filter != 'all':
-                qs = qs.filter(created_by_id=staff_filter)
-        else:
+        # Strict user isolation for EVERY user regardless of admin privilege
+        qs = CashBook.objects.filter(created_by=user)
+        # Seed initial personal default books if this user has no books yet
+        if not qs.exists():
+            default_books = [
+                {'name': 'Petty Cash', 'description': 'Daily office expenses and petty cash disbursements', 'color': '#10b981', 'icon': 'wallet'},
+                {'name': 'Customer Payments', 'description': 'Client cash collections and direct receipts', 'color': '#3b82f6', 'icon': 'banknote'},
+                {'name': 'General Expenses', 'description': 'Operational and business expenditure book', 'color': '#ef4444', 'icon': 'receipt'},
+            ]
+            for b in default_books:
+                CashBook.objects.create(
+                    name=b['name'],
+                    description=b['description'],
+                    color=b['color'],
+                    icon=b['icon'],
+                    opening_balance=Decimal('0.00'),
+                    created_by=user
+                )
             qs = CashBook.objects.filter(created_by=user)
-            # Seed initial personal default books if this user has no books yet
-            if not qs.exists() and view_scope != 'all':
-                default_books = [
-                    {'name': 'Petty Cash', 'description': 'Daily office expenses and petty cash disbursements', 'color': '#10b981', 'icon': 'wallet'},
-                    {'name': 'Customer Payments', 'description': 'Client cash collections and direct receipts', 'color': '#3b82f6', 'icon': 'banknote'},
-                    {'name': 'General Expenses', 'description': 'Operational and business expenditure book', 'color': '#ef4444', 'icon': 'receipt'},
-                ]
-                for b in default_books:
-                    CashBook.objects.create(
-                        name=b['name'],
-                        description=b['description'],
-                        color=b['color'],
-                        icon=b['icon'],
-                        opening_balance=Decimal('0.00'),
-                        created_by=user
-                    )
-                qs = CashBook.objects.filter(created_by=user)
 
+        qp = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
         show_archived = qp.get('archived') == 'true'
         if not show_archived:
             qs = qs.filter(is_archived=False)
@@ -2101,17 +2094,11 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
             return CashBookEntry.objects.none()
 
         qp = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
-        view_scope = qp.get('view_scope', 'my')
-        staff_filter = qp.get('staff')
 
-        if is_admin_user(user) and view_scope == 'all':
-            qs = CashBookEntry.objects.all().select_related('cashbook', 'created_by')
-            if staff_filter and staff_filter != 'all':
-                qs = qs.filter(created_by_id=staff_filter)
-        else:
-            qs = CashBookEntry.objects.filter(
-                Q(created_by=user) | Q(cashbook__created_by=user)
-            ).select_related('cashbook', 'created_by')
+        # Strict user isolation for EVERY user regardless of admin privilege
+        qs = CashBookEntry.objects.filter(
+            Q(created_by=user) | Q(cashbook__created_by=user)
+        ).select_related('cashbook', 'created_by')
 
         book_id = qp.get('cashbook')
         if book_id:
@@ -2868,12 +2855,9 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
             return Response({'error': 'cashbook query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = request.user
-        view_scope = request.query_params.get('view_scope', 'my')
         try:
-            if is_admin_user(user) and view_scope == 'all':
-                book = CashBook.objects.get(pk=book_id)
-            else:
-                book = CashBook.objects.get(pk=book_id, created_by=user)
+            # Strict user isolation for EVERY user regardless of admin privilege
+            book = CashBook.objects.get(pk=book_id, created_by=user)
         except CashBook.DoesNotExist:
             return Response({'error': 'CashBook not found or access denied'}, status=status.HTTP_404_NOT_FOUND)
 

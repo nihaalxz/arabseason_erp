@@ -165,7 +165,6 @@ export default function PersonalCashLedger({
 }) {
   // Account scope: '__all__' = Consolidated Master Ledger across entire ERP, or specific account ID
   const isAdmin = Boolean(currentUser?.is_superuser || currentUser?.is_staff || currentUser?.role === 'Admin')
-  const [adminScope, setAdminScope] = useState('my') // 'my' | 'all'
   const [selectedAccountId, setSelectedAccountId] = useState('__all__')
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(false)
@@ -265,11 +264,6 @@ export default function PersonalCashLedger({
     setLoading(true)
     try {
       const params = { page_size: 2000, ledger_only: 'true' }
-      if (isAdmin && adminScope === 'all') {
-        params.view_scope = 'all'
-      } else {
-        params.view_scope = 'my'
-      }
       if (selectedAccountId && selectedAccountId !== '__all__') {
         params.petty_cash_account = selectedAccountId
       }
@@ -289,7 +283,7 @@ export default function PersonalCashLedger({
     } finally {
       setLoading(false)
     }
-  }, [selectedAccountId, entityFilter, isAdmin, adminScope])
+  }, [selectedAccountId, entityFilter])
 
   useEffect(() => {
     fetchEntries()
@@ -512,52 +506,6 @@ export default function PersonalCashLedger({
             }}>
               Cash Ledger
             </h2>
-            {isAdmin && (
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                background: isDarkMode ? '#17191d' : '#f1f5f9',
-                border: `1px solid ${borderColor}`,
-                borderRadius: '999px',
-                padding: '2px',
-                gap: '2px'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setAdminScope('my')}
-                  style={{
-                    background: adminScope === 'my' ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-                    color: adminScope === 'my' ? (isDarkMode ? '#0c0d0e' : '#ffffff') : textMuted,
-                    border: 'none',
-                    borderRadius: '999px',
-                    padding: '3px 10px',
-                    fontSize: '0.74rem',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  My Ledger
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdminScope('all')}
-                  style={{
-                    background: adminScope === 'all' ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-                    color: adminScope === 'all' ? (isDarkMode ? '#0c0d0e' : '#ffffff') : textMuted,
-                    border: 'none',
-                    borderRadius: '999px',
-                    padding: '3px 10px',
-                    fontSize: '0.74rem',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  All Staff
-                </button>
-              </div>
-            )}
           </div>
         </div>
 

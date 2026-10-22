@@ -496,7 +496,6 @@ const Cashbook = ({ currentUser = null }) => {
     return <Navigate to="/" replace />
   }
 
-  const [adminBooksScope, setAdminBooksScope] = useState('my') // 'my' | 'all'
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [books, setBooks] = useState([])
@@ -1948,17 +1947,10 @@ const Cashbook = ({ currentUser = null }) => {
   }
 
   // Fetch all books
-  const fetchBooks = async (selectBookId = null, overrideScope = null) => {
+  const fetchBooks = async (selectBookId = null) => {
     try {
       setLoading(true)
-      const scopeToUse = overrideScope || adminBooksScope
-      const params = {}
-      if (isAdmin && scopeToUse === 'all') {
-        params.view_scope = 'all'
-      } else {
-        params.view_scope = 'my'
-      }
-      const res = await api.get('cashbooks/', { params })
+      const res = await api.get('cashbooks/')
       const data = res.data.results || res.data || []
       setBooks(data)
       setError('')
@@ -14920,30 +14912,7 @@ const Cashbook = ({ currentUser = null }) => {
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}>
-                <span>{adminBooksScope === 'all' ? 'All Books' : 'Your Books'} ({books.length})</span>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const next = adminBooksScope === 'my' ? 'all' : 'my'
-                      setAdminBooksScope(next)
-                      fetchBooks(null, next)
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: isDarkMode ? '#94a3b8' : '#64748b',
-                      fontSize: '0.65rem',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      padding: 0,
-                      textTransform: 'none'
-                    }}
-                  >
-                    {adminBooksScope === 'my' ? 'View All' : 'View Mine'}
-                  </button>
-                )}
+                <span>Your Books ({books.length})</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                 {books.length === 0 ? (
