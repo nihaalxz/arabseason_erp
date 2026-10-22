@@ -17242,15 +17242,20 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
           </div>
         ) : (
-          <div style={{ padding: '4rem', textAlign: 'center', color: '#64748b' }}>
-            <CashbookIcon size={48} color="#94a3b8" />
-            <h3 style={{ marginTop: '1rem', color: '#0f172a' }}>No Cash Book Selected</h3>
-            <p>Select a book from the left sidebar or create a new one to begin recording.</p>
+          <div style={{ padding: '4rem 1rem', textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+            <CashbookIcon size={48} color={isDarkMode ? '#475569' : '#94a3b8'} />
+            <h3 style={{ marginTop: '1rem', color: isDarkMode ? '#f8fafc' : '#0f172a', fontWeight: '700' }}>No Cash Book Selected</h3>
+            <p style={{ maxWidth: '420px', margin: '0.5rem auto 1.25rem' }}>Select a book from the left sidebar or create your own cash book to begin recording transactions.</p>
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => handleOpenBookModal()}
-              style={{ marginTop: '1rem' }}
+              style={{
+                borderRadius: '8px',
+                padding: '0.65rem 1.25rem',
+                fontSize: '0.85rem',
+                fontWeight: '700'
+              }}
             >
               + Create New Book
             </button>

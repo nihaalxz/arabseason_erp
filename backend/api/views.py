@@ -2010,23 +2010,6 @@ class CashBookViewSet(viewsets.ModelViewSet):
 
         # Strict user isolation for EVERY user regardless of admin privilege
         qs = CashBook.objects.filter(created_by=user)
-        # Seed initial personal default books if this user has no books yet
-        if not qs.exists():
-            default_books = [
-                {'name': 'Petty Cash', 'description': 'Daily office expenses and petty cash disbursements', 'color': '#10b981', 'icon': 'wallet'},
-                {'name': 'Customer Payments', 'description': 'Client cash collections and direct receipts', 'color': '#3b82f6', 'icon': 'banknote'},
-                {'name': 'General Expenses', 'description': 'Operational and business expenditure book', 'color': '#ef4444', 'icon': 'receipt'},
-            ]
-            for b in default_books:
-                CashBook.objects.create(
-                    name=b['name'],
-                    description=b['description'],
-                    color=b['color'],
-                    icon=b['icon'],
-                    opening_balance=Decimal('0.00'),
-                    created_by=user
-                )
-            qs = CashBook.objects.filter(created_by=user)
 
         qp = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
         show_archived = qp.get('archived') == 'true'
