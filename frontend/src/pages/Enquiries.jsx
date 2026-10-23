@@ -10,6 +10,7 @@ import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
 import SearchBar from '../components/common/SearchBar'
 import SkeletonLoader from '../components/common/SkeletonLoader'
+import Modal from '../components/common/Modal'
 import { showConfirm, showError, showToast, showSuccess } from '../utils/swal'
 
 const CHANNEL_CONFIG = {
@@ -1168,660 +1169,447 @@ export default function Enquiries({ currentUser }) {
         )}
       </div>
 
-      {/* ── 6. CREATE / EDIT ENQUIRY MODAL ── */}
-      {isModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: 'var(--card-bg, #ffffff)',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '640px',
-            maxHeight: 'calc(100vh - 3rem)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
-          }}>
-            {/* Modal Header */}
-            <div style={{
-              padding: '1rem 1.25rem',
-              borderBottom: '1px solid var(--border-color, #e2e8f0)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexShrink: 0
-            }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                  {isEditing ? `Edit Enquiry (${selectedEnquiry?.enquiry_number})` : 'New Customer Enquiry'}
-                </h3>
-                <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  Capture customer request details, channel, and reference photo.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="btn-icon"
-                style={{ width: '32px', height: '32px' }}
+      {/* ── 6. CREATE / EDIT ENQUIRY MODAL (Using ERP Modal component) ── */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={isEditing ? `Edit Enquiry: ${selectedEnquiry?.enquiry_number}` : 'New Customer Enquiry'}
+        maxWidth="680px"
+      >
+        <form onSubmit={handleSaveEnquiry}>
+          {formError && (
+            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <AlertCircle size={18} /> {formError}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+            {/* Existing Customer (Optional dropdown) */}
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Existing Customer (Optional)</label>
+              <select
+                className="input-field"
+                value={formData.customer_id}
+                onChange={(e) => {
+                  const cId = e.target.value
+                  const found = customers.find(c => String(c.id) === String(cId))
+                  setFormData(prev => ({
+                    ...prev,
+                    customer_id: cId,
+                    customer_name: found ? found.name : prev.customer_name,
+                    phone: found && found.phone ? found.phone : prev.phone,
+                    email: found && found.email ? found.email : prev.email
+                  }))
+                }}
               >
-                <X size={16} />
-              </button>
+                <option value="">-- Or type new prospect name below --</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} {c.company_name ? `(${c.company_name})` : ''}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSaveEnquiry} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem' }}>
-              {formError && (
-                <div className="error-message" style={{ marginBottom: '1rem', fontSize: '0.8rem' }}>
-                  {formError}
-                </div>
-              )}
+            {/* Customer / Prospect Name */}
+            <div className="form-group">
+              <label>Customer / Prospect Name *</label>
+              <input
+                type="text"
+                required
+                className="input-field"
+                placeholder="e.g. Abdullah Al-Otaibi"
+                value={formData.customer_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, customer_name: e.target.value }))}
+              />
+            </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
-                {/* Existing Customer (Optional dropdown) */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Existing Customer (Optional)
-                  </label>
-                  <select
-                    className="form-control"
-                    value={formData.customer_id}
-                    onChange={(e) => {
-                      const cId = e.target.value
-                      const found = customers.find(c => String(c.id) === String(cId))
-                      setFormData(prev => ({
-                        ...prev,
-                        customer_id: cId,
-                        customer_name: found ? found.name : prev.customer_name,
-                        phone: found && found.phone ? found.phone : prev.phone,
-                        email: found && found.email ? found.email : prev.email
-                      }))
-                    }}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  >
-                    <option value="">-- Or type new prospect name below --</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} {c.company_name ? `(${c.company_name})` : ''}</option>
-                    ))}
-                  </select>
-                </div>
+            {/* Phone / WhatsApp */}
+            <div className="form-group">
+              <label>Phone / WhatsApp Number</label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="e.g. +966 50 123 4567"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
 
-                {/* Customer / Prospect Name */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Customer / Prospect Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="form-control"
-                    placeholder="e.g. Abdullah Al-Otaibi"
-                    value={formData.customer_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customer_name: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  />
-                </div>
+            {/* Channel */}
+            <div className="form-group">
+              <label>Inquiry Channel</label>
+              <select
+                className="input-field"
+                value={formData.channel}
+                onChange={(e) => setFormData(prev => ({ ...prev, channel: e.target.value }))}
+              >
+                <option value="whatsapp">WhatsApp</option>
+                <option value="phone_call">Phone Call</option>
+                <option value="email">Email</option>
+                <option value="walk_in">Walk-in</option>
+                <option value="website">Website / Online</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
 
-                {/* Phone / WhatsApp */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Phone / WhatsApp Number
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g. +966 50 123 4567"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  />
-                </div>
+            {/* Date */}
+            <div className="form-group">
+              <label>Enquiry Date</label>
+              <input
+                type="date"
+                className="input-field"
+                value={formData.date}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              />
+            </div>
 
-                {/* Channel */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Inquiry Channel
-                  </label>
-                  <select
-                    className="form-control"
-                    value={formData.channel}
-                    onChange={(e) => setFormData(prev => ({ ...prev, channel: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  >
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="phone_call">Phone Call</option>
-                    <option value="email">Email</option>
-                    <option value="walk_in">Walk-in</option>
-                    <option value="website">Website / Online</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
+            {/* Subject / Title */}
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Subject / Project Summary</label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="e.g. 3D Acrylic Glow Signboard for Riyadh Branch"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
 
-                {/* Date */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Enquiry Date
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={formData.date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  />
-                </div>
+            {/* Specific Work Requested / Description */}
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Specific Work Requested / Customer Requirements *</label>
+              <textarea
+                rows={4}
+                required
+                className="input-field"
+                placeholder="Describe what the customer asked for (dimensions, materials, quantity, specifications)..."
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                style={{ minHeight: '90px', height: 'auto', resize: 'vertical' }}
+              />
+            </div>
 
-                {/* Subject / Title */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Subject / Project Summary
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g. 3D Acrylic Glow Signboard for Riyadh Branch"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  />
-                </div>
+            {/* Estimated Budget / Value */}
+            <div className="form-group">
+              <label>Estimated Value (SAR)</label>
+              <input
+                type="number"
+                step="0.01"
+                className="input-field"
+                placeholder="e.g. 4500"
+                value={formData.estimated_value}
+                onChange={(e) => setFormData(prev => ({ ...prev, estimated_value: e.target.value }))}
+              />
+            </div>
 
-                {/* Specific Work Requested / Description */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Specific Work Requested / Customer Requirements *
-                  </label>
-                  <textarea
-                    rows={4}
-                    required
-                    className="form-control"
-                    placeholder="Describe what the customer asked for (dimensions, materials, quantity, specifications)..."
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    style={{ width: '100%', borderRadius: 'var(--radius-sm, 6px)', resize: 'vertical' }}
-                  />
-                </div>
+            {/* Next Follow-up Reminder Date */}
+            <div className="form-group">
+              <label>Next Follow-up Call Date</label>
+              <input
+                type="date"
+                className="input-field"
+                value={formData.next_follow_up_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
+              />
+            </div>
 
-                {/* Estimated Budget / Value */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Estimated Value (SAR)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-control"
-                    placeholder="e.g. 4500"
-                    value={formData.estimated_value}
-                    onChange={(e) => setFormData(prev => ({ ...prev, estimated_value: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  />
-                </div>
-
-                {/* Next Follow-up Reminder Date */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Next Follow-up Call Date
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={formData.next_follow_up_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  />
-                </div>
-
-                {/* Reference Photo / Attachment Upload */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
-                    Reference Photo / Site Attachment (Image or PDF)
-                  </label>
-                  
-                  {formData.attachment ? (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      background: 'rgba(0,0,0,0.03)',
-                      border: '1px solid var(--border-color, #e2e8f0)',
-                      borderRadius: '8px',
-                      padding: '0.65rem 0.85rem'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', overflow: 'hidden' }}>
-                        {formData.attachment_type?.includes('pdf') ? (
-                          <FileText size={20} color="#dc2626" />
-                        ) : (
-                          <img
-                            src={formData.attachment}
-                            alt="preview"
-                            style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }}
-                          />
-                        )}
-                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                          {formData.attachment_name || 'Uploaded Reference'}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRemoveAttachment}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--danger, #dc2626)',
-                          cursor: 'pointer',
-                          padding: '4px'
-                        }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{
-                        border: '2px dashed var(--border-color, #e2e8f0)',
-                        borderRadius: '8px',
-                        padding: '1.25rem',
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        background: 'rgba(0,0,0,0.02)',
-                        transition: 'border-color 0.15s ease'
-                      }}
-                    >
-                      <UploadCloud size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }} />
-                      <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                        Click to upload sample photo or drawing
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        JPG, PNG, WebP, or PDF up to 10MB
-                      </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,.pdf,application/pdf"
-                        style={{ display: 'none' }}
-                        onChange={handleAttachmentChange}
+            {/* Reference Photo / Attachment Upload */}
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Reference Photo / Site Attachment (Image or PDF)</label>
+              
+              {formData.attachment ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'rgba(0,0,0,0.03)',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  borderRadius: '8px',
+                  padding: '0.65rem 0.85rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', overflow: 'hidden' }}>
+                    {formData.attachment_type?.includes('pdf') ? (
+                      <FileText size={20} color="#dc2626" />
+                    ) : (
+                      <img
+                        src={formData.attachment}
+                        alt="preview"
+                        style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }}
                       />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: '0.65rem',
-                paddingTop: '0.85rem',
-                borderTop: '1px solid var(--border-color, #e2e8f0)'
-              }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Enquiry')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── 7. LOG FOLLOW-UP MODAL ── */}
-      {isFollowUpModalOpen && selectedEnquiry && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: 'var(--card-bg, #ffffff)',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '520px',
-            padding: '1.25rem',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                  Log Follow-up Call / Interaction
-                </h3>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                  {selectedEnquiry.enquiry_number} • {selectedEnquiry.customer_name || selectedEnquiry.customer_detail?.name}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsFollowUpModalOpen(false)}
-                className="btn-icon"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveFollowUp}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '1rem' }}>
-                {/* Contact Mode */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
-                    Contact Channel
-                  </label>
-                  <select
-                    className="form-control"
-                    value={followUpData.contact_mode}
-                    onChange={(e) => setFollowUpData(prev => ({ ...prev, contact_mode: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  >
-                    <option value="phone_call">Phone Call</option>
-                    <option value="whatsapp">WhatsApp Message</option>
-                    <option value="email">Email</option>
-                    <option value="meeting">In-Person Meeting</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                {/* Outcome */}
-                <div>
-                  <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
-                    Call Outcome
-                  </label>
-                  <select
-                    className="form-control"
-                    value={followUpData.outcome}
-                    onChange={(e) => setFollowUpData(prev => ({ ...prev, outcome: e.target.value }))}
-                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                  >
-                    <option value="interested">Interested / In Discussion</option>
-                    <option value="requested_discount">Asked for Price Discount</option>
-                    <option value="quotation_requested">Asked for Formal Quotation</option>
-                    <option value="will_revert">Will Revert Later</option>
-                    <option value="ready_to_close">Ready to Confirm (Won!)</option>
-                    <option value="not_interested">Declined / Not Interested</option>
-                    <option value="unreachable">Unreachable / No Answer</option>
-                  </select>
-                </div>
-
-                {/* Next Follow-up Date */}
-                {followUpData.outcome !== 'not_interested' && followUpData.outcome !== 'ready_to_close' && (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
-                      Schedule Next Follow-up Call
-                    </label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={followUpData.next_follow_up_date}
-                      onChange={(e) => setFollowUpData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
-                      style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                    />
+                    )}
+                    <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      {formData.attachment_name || 'Uploaded Reference'}
+                    </span>
                   </div>
-                )}
-
-                {/* Notes */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
-                    Conversation Notes & Updates *
-                  </label>
-                  <textarea
-                    rows={3}
-                    required
-                    className="form-control"
-                    placeholder="e.g. Spoke to client. They requested a 5% discount on the quote. Will confirm order tomorrow."
-                    value={followUpData.notes}
-                    onChange={(e) => setFollowUpData(prev => ({ ...prev, notes: e.target.value }))}
-                    style={{ width: '100%', borderRadius: 'var(--radius-sm, 6px)', resize: 'vertical' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsFollowUpModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Logging...' : 'Log Follow-up Call'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── 8. CANCEL / LOST MODAL ── */}
-      {isCancelModalOpen && selectedEnquiry && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: 'var(--card-bg, #ffffff)',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '480px',
-            padding: '1.25rem',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', color: 'var(--danger, #dc2626)' }}>
-                  Cancel / Mark Lead as Lost
-                </h3>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                  Capture why the customer decided not to proceed.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCancelModalOpen(false)}
-                className="btn-icon"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCancel}>
-              <div style={{ marginBottom: '0.9rem' }}>
-                <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
-                  Primary Loss Reason *
-                </label>
-                <select
-                  className="form-control"
-                  value={cancelData.cancellation_reason}
-                  onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_reason: e.target.value }))}
-                  style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
-                >
-                  {CANCELLATION_REASONS.map(r => (
-                    <option key={r.id} value={r.id}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '1.1rem' }}>
-                <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
-                  Additional Notes (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  className="form-control"
-                  placeholder="e.g. Customer stated another company offered 15% cheaper for acrylic signage."
-                  value={cancelData.cancellation_notes}
-                  onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_notes: e.target.value }))}
-                  style={{ width: '100%', borderRadius: 'var(--radius-sm, 6px)', resize: 'vertical' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsCancelModalOpen(false)}
-                >
-                  Keep Active
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-danger"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Cancelling...' : 'Confirm Cancellation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── 9. TIMELINE HISTORY MODAL ── */}
-      {isDetailModalOpen && selectedEnquiry && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: 'var(--card-bg, #ffffff)',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '560px',
-            maxHeight: 'calc(100vh - 4rem)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
-          }}>
-            <div style={{
-              padding: '1rem 1.25rem',
-              borderBottom: '1px solid var(--border-color, #e2e8f0)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexShrink: 0
-            }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                  Follow-up Timeline
-                </h3>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                  {selectedEnquiry.enquiry_number} • {selectedEnquiry.customer_name || selectedEnquiry.customer_detail?.name}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDetailModalOpen(false)}
-                className="btn-icon"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem' }}>
-              {selectedEnquiry.follow_ups && selectedEnquiry.follow_ups.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  {selectedEnquiry.follow_ups.map((fu, idx) => (
-                    <div
-                      key={fu.id || idx}
-                      style={{
-                        background: 'rgba(0,0,0,0.02)',
-                        border: '1px solid var(--border-color, #e2e8f0)',
-                        borderRadius: '8px',
-                        padding: '0.75rem 0.9rem'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1366d9' }}>
-                          Follow-up #{fu.follow_up_number} • {fu.contact_mode_display || fu.contact_mode}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          {fu.date ? new Date(fu.date).toLocaleDateString() : '---'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', lineHeight: '1.4', marginBottom: '0.35rem' }}>
-                        "{fu.notes}"
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        <span>Outcome: <strong>{fu.outcome_display || fu.outcome}</strong></span>
-                        {fu.created_by_name && <span>Logged by: {fu.created_by_name}</span>}
-                      </div>
-                    </div>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={handleRemoveAttachment}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--danger, #dc2626)',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
-                  No follow-up calls logged yet.
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    border: '2px dashed var(--border-color, #e2e8f0)',
+                    borderRadius: '8px',
+                    padding: '1.25rem',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(0,0,0,0.02)',
+                    transition: 'border-color 0.15s ease'
+                  }}
+                >
+                  <UploadCloud size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }} />
+                  <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                    Click to upload sample photo or drawing
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    JPG, PNG, WebP, or PDF up to 10MB
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf,application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={handleAttachmentChange}
+                  />
                 </div>
               )}
             </div>
+          </div>
 
-            <div style={{
-              padding: '0.85rem 1.25rem',
-              borderTop: '1px solid var(--border-color, #e2e8f0)',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              flexShrink: 0
-            }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setIsDetailModalOpen(false)}
+          {/* Modal Footer Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.65rem 1.25rem' }}
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ padding: '0.65rem 1.75rem' }}
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Enquiry')}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── 7. LOG FOLLOW-UP MODAL ── */}
+      <Modal
+        isOpen={isFollowUpModalOpen && !!selectedEnquiry}
+        onClose={() => setIsFollowUpModalOpen(false)}
+        title={`Log Follow-up Call: ${selectedEnquiry?.enquiry_number || ''}`}
+        maxWidth="540px"
+      >
+        <form onSubmit={handleSaveFollowUp}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+            {/* Contact Mode */}
+            <div className="form-group">
+              <label>Contact Channel</label>
+              <select
+                className="input-field"
+                value={followUpData.contact_mode}
+                onChange={(e) => setFollowUpData(prev => ({ ...prev, contact_mode: e.target.value }))}
               >
-                Close
-              </button>
+                <option value="phone_call">Phone Call</option>
+                <option value="whatsapp">WhatsApp Message</option>
+                <option value="email">Email</option>
+                <option value="meeting">In-Person Meeting</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {/* Outcome */}
+            <div className="form-group">
+              <label>Call Outcome</label>
+              <select
+                className="input-field"
+                value={followUpData.outcome}
+                onChange={(e) => setFollowUpData(prev => ({ ...prev, outcome: e.target.value }))}
+              >
+                <option value="interested">Interested / In Discussion</option>
+                <option value="requested_discount">Asked for Price Discount</option>
+                <option value="quotation_requested">Asked for Formal Quotation</option>
+                <option value="will_revert">Will Revert Later</option>
+                <option value="ready_to_close">Ready to Confirm (Won!)</option>
+                <option value="not_interested">Declined / Not Interested</option>
+                <option value="unreachable">Unreachable / No Answer</option>
+              </select>
+            </div>
+
+            {/* Next Follow-up Date */}
+            {followUpData.outcome !== 'not_interested' && followUpData.outcome !== 'ready_to_close' && (
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label>Schedule Next Follow-up Call</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={followUpData.next_follow_up_date}
+                  onChange={(e) => setFollowUpData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
+                />
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Conversation Notes & Updates *</label>
+              <textarea
+                rows={3}
+                required
+                className="input-field"
+                placeholder="e.g. Spoke to client. They requested a 5% discount on the quote. Will confirm order tomorrow."
+                value={followUpData.notes}
+                onChange={(e) => setFollowUpData(prev => ({ ...prev, notes: e.target.value }))}
+                style={{ minHeight: '80px', height: 'auto', resize: 'vertical' }}
+              />
             </div>
           </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.65rem 1.25rem' }}
+              onClick={() => setIsFollowUpModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ padding: '0.65rem 1.75rem' }}
+              disabled={submitting}
+            >
+              {submitting ? 'Logging...' : 'Log Follow-up Call'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── 8. CANCEL / LOST MODAL ── */}
+      <Modal
+        isOpen={isCancelModalOpen && !!selectedEnquiry}
+        onClose={() => setIsCancelModalOpen(false)}
+        title="Cancel / Mark Lead as Lost"
+        maxWidth="480px"
+      >
+        <form onSubmit={handleSaveCancel}>
+          <div className="form-group">
+            <label>Primary Loss Reason *</label>
+            <select
+              className="input-field"
+              value={cancelData.cancellation_reason}
+              onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_reason: e.target.value }))}
+            >
+              {CANCELLATION_REASONS.map(r => (
+                <option key={r.id} value={r.id}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Additional Notes (Optional)</label>
+            <textarea
+              rows={3}
+              className="input-field"
+              placeholder="e.g. Customer stated another company offered 15% cheaper for acrylic signage."
+              value={cancelData.cancellation_notes}
+              onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_notes: e.target.value }))}
+              style={{ minHeight: '80px', height: 'auto', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.65rem 1.25rem' }}
+              onClick={() => setIsCancelModalOpen(false)}
+            >
+              Keep Active
+            </button>
+            <button
+              type="submit"
+              className="btn"
+              style={{ background: 'var(--danger, #dc2626)', color: '#ffffff', border: 'none', padding: '0.65rem 1.75rem', borderRadius: 'var(--radius-sm)' }}
+              disabled={submitting}
+            >
+              {submitting ? 'Cancelling...' : 'Confirm Cancellation'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── 9. TIMELINE HISTORY MODAL ── */}
+      <Modal
+        isOpen={isDetailModalOpen && !!selectedEnquiry}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={`Follow-up Timeline: ${selectedEnquiry?.enquiry_number || ''}`}
+        maxWidth="560px"
+      >
+        <div>
+          {selectedEnquiry?.follow_ups && selectedEnquiry.follow_ups.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {selectedEnquiry.follow_ups.map((fu, idx) => (
+                <div
+                  key={fu.id || idx}
+                  style={{
+                    background: 'rgba(0,0,0,0.02)',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    borderRadius: '8px',
+                    padding: '0.75rem 0.9rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1366d9' }}>
+                      Follow-up #{fu.follow_up_number} • {fu.contact_mode_display || fu.contact_mode}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {fu.date ? new Date(fu.date).toLocaleDateString() : '---'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', lineHeight: '1.4', marginBottom: '0.35rem' }}>
+                    "{fu.notes}"
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    <span>Outcome: <strong>{fu.outcome_display || fu.outcome}</strong></span>
+                    {fu.created_by_name && <span>Logged by: {fu.created_by_name}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+              No follow-up calls logged yet.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.65rem 1.5rem' }}
+              onClick={() => setIsDetailModalOpen(false)}
+            >
+              Close
+            </button>
+          </div>
         </div>
-      )}
+      </Modal>
 
       {/* ── 10. FULL PHOTO PREVIEW MODAL ── */}
       {previewMediaUrl && (
