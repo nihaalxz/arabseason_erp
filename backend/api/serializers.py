@@ -7,7 +7,7 @@ from .models import (
     Invoice, InvoiceItem, CustomFormField,
     MaterialCategory, Material, Estimation, EstimationItem,
     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
-    Notification, RecycleBinItem
+    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp
 )
 from decimal import Decimal
 from django.db import models
@@ -1548,5 +1548,29 @@ class RecycleBinItemSerializer(serializers.ModelSerializer):
         return data
 
 
+class EnquiryFollowUpSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.ReadOnlyField(source='created_by.username')
+    outcome_display = serializers.CharField(source='get_outcome_display', read_only=True)
+    contact_mode_display = serializers.CharField(source='get_contact_mode_display', read_only=True)
+
+    class Meta:
+        model = EnquiryFollowUp
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
 
 
+class EnquirySerializer(serializers.ModelSerializer):
+    follow_ups = EnquiryFollowUpSerializer(many=True, read_only=True)
+    customer_detail = CustomerSerializer(source='customer', read_only=True)
+    created_by_name = serializers.ReadOnlyField(source='created_by.username')
+    assigned_to_name = serializers.ReadOnlyField(source='assigned_to.username')
+    channel_display = serializers.CharField(source='get_channel_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    cancellation_reason_display = serializers.CharField(source='get_cancellation_reason_display', read_only=True)
+    converted_job_order_title = serializers.ReadOnlyField(source='converted_job_order.title')
+    converted_quotation_number = serializers.ReadOnlyField(source='converted_quotation.quotation_number')
+
+    class Meta:
+        model = Enquiry
+        fields = '__all__'
+        read_only_fields = ['enquiry_number', 'created_by', 'created_at', 'updated_at']

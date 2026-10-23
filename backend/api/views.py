@@ -21,7 +21,7 @@ from .models import (Customer, Vendor, JobOrder, PendingJobOrder, CustomerPaymen
                     Invoice, InvoiceItem, CustomFormField,
                     MaterialCategory, Material, Estimation, EstimationItem,
                     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
-                    Notification, RecycleBinItem)
+                    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp)
 from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializer, PendingJobOrderSerializer, 
                         CustomerPaymentSerializer, VendorPaymentSerializer,
                         ExpenseSerializer, SiteSettingsSerializer,
@@ -36,7 +36,8 @@ from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializ
                         QuotationSerializer, QuotationItemSerializer,
                         CreditNoteSerializer, CreditNoteItemSerializer,
                         DeliveryNoteSerializer, DeliveryNoteItemSerializer,
-                        NotificationSerializer, RecycleBinItemSerializer)
+                        NotificationSerializer, RecycleBinItemSerializer,
+                        EnquirySerializer, EnquiryFollowUpSerializer)
 
 def is_admin_user(user):
     return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'Admin'))
@@ -4723,5 +4724,164 @@ class PendingJobOrderViewSet(viewsets.ModelViewSet):
                 vp.save(update_fields=['job_order'])
 
         return Response(self.get_serializer(pending_obj).data)
+
+
+class EnquiryViewSet(viewsets.ModelViewSet):
+    queryset = Enquiry.objects.all().select_related('customer', 'created_by', 'assigned_to', 'converted_job_order', 'converted_quotation').prefetch_related('follow_ups')
+    serializer_class = EnquirySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qp = self.request.query_params
+        
+        status_filter = qp.get('status')
+        if status_filter:
+            if status_filter == 'active':
+                qs = qs.filter(status__in=['enquiry', 'quotation_pending', 'quotation_sent', 'under_followup'])
+            elif status_filter in ['completed', 'converted']:
+                qs = qs.filter(status='converted')
+            elif status_filter in ['cancelled', 'lost']:
+                qs = qs.filter(status='cancelled')
+            else:
+                qs = qs.filter(status=status_filter)
+
+        channel = qp.get('channel')
+        if channel and channel != 'all':
+            qs = qs.filter(channel=channel)
+
+        follow_up_filter = qp.get('follow_up')
+        today = timezone.localdate()
+        if follow_up_filter == 'due_today':
+            qs = qs.filter(status__in=['enquiry', 'quotation_pending', 'quotation_sent', 'under_followup'], next_follow_up_date=today)
+        elif follow_up_filter == 'overdue':
+            qs = qs.filter(status__in=['enquiry', 'quotation_pending', 'quotation_sent', 'under_followup'], next_follow_up_date__lt=today)
+        elif follow_up_filter == 'pending':
+            qs = qs.filter(status__in=['enquiry', 'quotation_pending', 'quotation_sent', 'under_followup'])
+
+        search = qp.get('search')
+        if search:
+            search = search.strip()
+            qs = qs.filter(
+                Q(enquiry_number__icontains=search) |
+                Q(customer_name__icontains=search) |
+                Q(customer__name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(title__icontains=search) |
+                Q(description__icontains=search)
+            )
+
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+
+    @action(detail=False, methods=['get'])
+    def metrics(self, request):
+        today = timezone.localdate()
+        all_qs = Enquiry.objects.all()
+        active_count = all_qs.filter(status__in=['enquiry', 'quotation_pending', 'quotation_sent', 'under_followup']).count()
+        due_today_count = all_qs.filter(
+            status__in=['enquiry', 'quotation_pending', 'quotation_sent', 'under_followup'],
+            next_follow_up_date=today
+        ).count()
+        overdue_count = all_qs.filter(
+            status__in=['enquiry', 'quotation_pending', 'quotation_sent', 'under_followup'],
+            next_follow_up_date__lt=today
+        ).count()
+        converted_count = all_qs.filter(status='converted').count()
+        cancelled_count = all_qs.filter(status='cancelled').count()
+        total_closed = converted_count + cancelled_count
+        conversion_rate = round((converted_count / total_closed * 100), 1) if total_closed > 0 else 0.0
+
+        return Response({
+            'active_count': active_count,
+            'due_today_count': due_today_count,
+            'overdue_count': overdue_count,
+            'converted_count': converted_count,
+            'cancelled_count': cancelled_count,
+            'conversion_rate': conversion_rate,
+        })
+
+    @action(detail=True, methods=['post'], url_path='log-follow-up')
+    def log_follow_up(self, request, pk=None):
+        enquiry = self.get_object()
+        data = request.data
+        contact_mode = data.get('contact_mode', 'phone_call')
+        outcome = data.get('outcome', 'interested')
+        notes = data.get('notes', '')
+        next_follow_up_date = data.get('next_follow_up_date') or None
+
+        current_count = enquiry.follow_up_count + 1
+        EnquiryFollowUp.objects.create(
+            enquiry=enquiry,
+            follow_up_number=current_count,
+            contact_mode=contact_mode,
+            outcome=outcome,
+            notes=notes,
+            next_follow_up_date=next_follow_up_date,
+            created_by=request.user if request.user.is_authenticated else None
+        )
+
+        enquiry.follow_up_count = current_count
+        enquiry.last_follow_up_date = timezone.localdate()
+        if next_follow_up_date:
+            enquiry.next_follow_up_date = next_follow_up_date
+        
+        # Status progression based on outcome
+        if outcome == 'ready_to_close':
+            enquiry.status = 'converted'
+            enquiry.converted_at = timezone.now()
+        elif outcome == 'not_interested':
+            enquiry.status = 'cancelled'
+            enquiry.cancellation_reason = data.get('cancellation_reason', 'other')
+            enquiry.cancellation_notes = notes
+        elif outcome == 'quotation_requested':
+            enquiry.status = 'quotation_pending'
+        else:
+            if enquiry.status in ['enquiry', 'quotation_pending', 'quotation_sent']:
+                enquiry.status = 'under_followup'
+
+        enquiry.save()
+        return Response(EnquirySerializer(enquiry).data)
+
+    @action(detail=True, methods=['post'], url_path='mark-converted')
+    def mark_converted(self, request, pk=None):
+        enquiry = self.get_object()
+        enquiry.status = 'converted'
+        enquiry.converted_at = timezone.now()
+        job_order_id = request.data.get('job_order_id')
+        if job_order_id:
+            try:
+                enquiry.converted_job_order = JobOrder.objects.get(id=job_order_id)
+            except JobOrder.DoesNotExist:
+                pass
+        quotation_id = request.data.get('quotation_id')
+        if quotation_id:
+            try:
+                enquiry.converted_quotation = Quotation.objects.get(id=quotation_id)
+            except Quotation.DoesNotExist:
+                pass
+        enquiry.save()
+        return Response(EnquirySerializer(enquiry).data)
+
+    @action(detail=True, methods=['post'], url_path='mark-cancelled')
+    def mark_cancelled(self, request, pk=None):
+        enquiry = self.get_object()
+        enquiry.status = 'cancelled'
+        enquiry.cancellation_reason = request.data.get('cancellation_reason', 'other')
+        enquiry.cancellation_notes = request.data.get('cancellation_notes', '')
+        enquiry.save()
+        return Response(EnquirySerializer(enquiry).data)
+
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request, pk=None):
+        enquiry = self.get_object()
+        enquiry.status = 'enquiry'
+        enquiry.cancellation_reason = ''
+        enquiry.cancellation_notes = ''
+        enquiry.save()
+        return Response(EnquirySerializer(enquiry).data)
+
 
 

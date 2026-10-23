@@ -22,6 +22,7 @@ import UserManagement from './pages/UserManagement'
 import Cashbook from './pages/Cashbook'
 import Banks from './pages/Banks'
 import Invoices from './pages/Invoices'
+import Enquiries from './pages/Enquiries'
 import InvoiceBuilder from './pages/InvoiceBuilder'
 import Quotations from './pages/Quotations'
 import QuotationBuilder from './pages/QuotationBuilder'
@@ -139,6 +140,7 @@ function App() {
     }
     if (moduleKey === 'salary') return list.includes('salary') || list.includes('reports')
     if (moduleKey === 'planning') return list.includes('planning') || list.includes('jobs')
+    if (moduleKey === 'enquiries') return true
     return list.includes(moduleKey)
   }
 
@@ -196,6 +198,7 @@ function App() {
             >
               <Route index element={<Dashboard />} />
               <Route path="accounting" element={canAccess('payments') ? <AccountingDashboard /> : <Navigate to="/" />} />
+              <Route path="enquiries" element={<Enquiries currentUser={currentUser} />} />
               <Route path="customers" element={canAccess('customers') ? <Customers /> : <Navigate to="/" />} />
               <Route path="customers/:id" element={canAccess('customers') ? <CustomerDetail /> : <Navigate to="/" />} />
               <Route path="vendors" element={canAccess('vendors') ? <Vendors /> : <Navigate to="/" />} />

@@ -5,13 +5,14 @@ import {
   Layers, CreditCard, ShieldCheck, Receipt, FileBarChart, 
   Banknote, Settings, UserCog, Pin, PinOff, X, BookOpen, Landmark, FileText, Trash2 
 } from '../icons'
-import { Truck, RotateCcw, ChevronLeft, ChevronRight, HardHat } from 'lucide-react'
+import { Truck, RotateCcw, ChevronLeft, ChevronRight, HardHat, MessageSquareQuote } from 'lucide-react'
 import { useModule } from '../../contexts/ModuleContext'
 import { useWorkspace } from '../../contexts/WorkspaceContext'
 import api from '../../api'
 
 const MODULE_KEY_MAP = {
   '/accounting': 'payments',
+  '/enquiries': 'enquiries',
   '/customers': 'customers',
   '/vendors': 'vendors',
   '/estimations': 'estimations',
@@ -42,14 +43,23 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
 
   // Track pending job order entries for red dot notification
   const [pendingJobCount, setPendingJobCount] = useState(0)
+  const [dueEnquiriesCount, setDueEnquiriesCount] = useState(0)
 
   useEffect(() => {
     let isMounted = true
     const fetchPendingCount = async () => {
       try {
-        const res = await api.get('pending-job-orders/pending-count/')
+        const [jobRes, enqRes] = await Promise.allSettled([
+          api.get('pending-job-orders/pending-count/'),
+          api.get('enquiries/metrics/')
+        ])
         if (isMounted) {
-          setPendingJobCount(res.data?.pending_count || 0)
+          if (jobRes.status === 'fulfilled') {
+            setPendingJobCount(jobRes.value?.data?.pending_count || 0)
+          }
+          if (enqRes.status === 'fulfilled') {
+            setDueEnquiriesCount(enqRes.value?.data?.due_today_count || 0)
+          }
         }
       } catch (err) {
         // quiet fallback
@@ -142,6 +152,7 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
     allNavItems = [
       { name: 'ERP Dashboard', path: '/', icon: LayoutDashboard },
       { type: 'divider', label: 'CRM & DIRECTORY' },
+      { name: 'Enquiries', path: '/enquiries', icon: MessageSquareQuote },
       { name: 'Customers', path: '/customers', icon: Users },
       { name: 'Vendors', path: '/vendors', icon: Building2 },
       { type: 'divider', label: 'SALES & ESTIMATION' },
@@ -297,6 +308,23 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
                       flexShrink: 0
                     }}
                   />
+                )}
+                {item.path === '/enquiries' && dueEnquiriesCount > 0 && (
+                  <span
+                    title={`${dueEnquiriesCount} follow-up ${dueEnquiriesCount === 1 ? 'call' : 'calls'} due today`}
+                    style={{
+                      background: '#f59e0b',
+                      color: '#ffffff',
+                      fontSize: '0.65rem',
+                      fontWeight: '800',
+                      padding: '1px 6px',
+                      borderRadius: '10px',
+                      marginLeft: 'auto',
+                      flexShrink: 0
+                    }}
+                  >
+                    {dueEnquiriesCount}
+                  </span>
                 )}
               </Link>
             )

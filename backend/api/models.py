@@ -962,6 +962,7 @@ class RecycleBinItem(models.Model):
         ('petty_cash', 'Petty Cash Account'),
         ('staff_timesheet', 'Staff Timesheet'),
         ('project_plan', 'Project Plan'),
+        ('enquiry', 'Enquiry'),
         ('other', 'Other Record'),
     )
 
@@ -991,4 +992,125 @@ class RecycleBinItem(models.Model):
 
     def __str__(self):
         return f"{self.get_entity_type_display()}: {self.item_name} ({'Restored' if self.is_restored else 'In Bin'})"
+
+
+class Enquiry(models.Model):
+    CHANNEL_CHOICES = (
+        ('whatsapp', 'WhatsApp'),
+        ('phone_call', 'Phone Call'),
+        ('email', 'Email'),
+        ('walk_in', 'Walk-in'),
+        ('website', 'Website / Online'),
+        ('other', 'Other'),
+    )
+
+    STATUS_CHOICES = (
+        ('enquiry', 'New Enquiry'),
+        ('quotation_pending', 'Quotation Pending'),
+        ('quotation_sent', 'Quotation Sent'),
+        ('under_followup', 'Under Follow-up'),
+        ('converted', 'Lead Converted'),
+        ('cancelled', 'Cancelled / Lost'),
+    )
+
+    CANCELLATION_REASON_CHOICES = (
+        ('price_high', 'Price Too High / Competitor Cheaper'),
+        ('client_postponed', 'Client Postponed / Event Cancelled'),
+        ('unresponsive', 'Client Unresponsive'),
+        ('specs_unmet', 'Specifications Could Not Be Met'),
+        ('turnaround_time', 'Delivery Time / Deadline Too Tight'),
+        ('other', 'Other Reason'),
+    )
+
+    enquiry_number = models.CharField(max_length=50, unique=True, blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='enquiries')
+    customer_name = models.CharField(max_length=255, blank=True, help_text="Prospect name if not existing customer")
+    phone = models.CharField(max_length=50, blank=True)
+    email = models.CharField(max_length=150, blank=True)
+    channel = models.CharField(max_length=30, choices=CHANNEL_CHOICES, default='whatsapp')
+    date = models.DateField(default=timezone.localdate)
+    
+    title = models.CharField(max_length=255, blank=True, help_text="Short summary of requirement")
+    description = models.TextField(blank=True, help_text="Specific work requested by customer")
+    estimated_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    
+    # Attachment / Reference Photo
+    attachment = models.TextField(blank=True, default='', help_text="Base64 DataURL or URL for photo/spec doc")
+    attachment_name = models.CharField(max_length=255, blank=True, default='')
+    attachment_type = models.CharField(max_length=100, blank=True, default='')
+
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='enquiry')
+    
+    # Follow-up tracking
+    follow_up_count = models.PositiveIntegerField(default=0)
+    last_follow_up_date = models.DateField(null=True, blank=True)
+    next_follow_up_date = models.DateField(null=True, blank=True)
+    
+    # Cancellation tracking
+    cancellation_reason = models.CharField(max_length=50, choices=CANCELLATION_REASON_CHOICES, blank=True, default='')
+    cancellation_notes = models.TextField(blank=True, default='')
+    
+    # Converted reference (optional link to created job order or quotation)
+    converted_job_order = models.ForeignKey('JobOrder', on_delete=models.SET_NULL, null=True, blank=True, related_name='source_enquiries')
+    converted_quotation = models.ForeignKey('Quotation', on_delete=models.SET_NULL, null=True, blank=True, related_name='source_enquiries')
+    converted_at = models.DateTimeField(null=True, blank=True)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_enquiries')
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_enquiries')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.enquiry_number:
+            count = Enquiry.objects.count() + 1
+            self.enquiry_number = f"ENQ-{count:04d}"
+            while Enquiry.objects.filter(enquiry_number=self.enquiry_number).exists():
+                count += 1
+                self.enquiry_number = f"ENQ-{count:04d}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        cname = self.customer.name if self.customer else (self.customer_name or "Unknown")
+        return f"{self.enquiry_number} - {cname} ({self.get_status_display()})"
+
+
+class EnquiryFollowUp(models.Model):
+    CONTACT_MODE_CHOICES = (
+        ('phone_call', 'Phone Call'),
+        ('whatsapp', 'WhatsApp'),
+        ('email', 'Email'),
+        ('meeting', 'In-Person Meeting'),
+        ('other', 'Other'),
+    )
+
+    OUTCOME_CHOICES = (
+        ('interested', 'Interested / Considering'),
+        ('requested_discount', 'Requested Price Discount'),
+        ('will_revert', 'Will Revert Later'),
+        ('quotation_requested', 'Asked for Formal Quotation'),
+        ('ready_to_close', 'Ready to Confirm / Won'),
+        ('not_interested', 'Declined / Not Interested'),
+        ('unreachable', 'Unreachable / No Answer'),
+        ('other', 'Other'),
+    )
+
+    enquiry = models.ForeignKey(Enquiry, on_delete=models.CASCADE, related_name='follow_ups')
+    follow_up_number = models.PositiveIntegerField(default=1)
+    date = models.DateTimeField(default=timezone.now)
+    contact_mode = models.CharField(max_length=50, choices=CONTACT_MODE_CHOICES, default='phone_call')
+    outcome = models.CharField(max_length=50, choices=OUTCOME_CHOICES, default='interested')
+    notes = models.TextField(blank=True, default='')
+    next_follow_up_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='enquiry_follow_ups')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"Follow-up #{self.follow_up_number} for {self.enquiry.enquiry_number} ({self.get_outcome_display()})"
+
 
