@@ -4,7 +4,7 @@ import {
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
   Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
   FileText, Trash2, Edit3, Eye, UploadCloud, 
-  X, ChevronRight, Check
+  X, ChevronRight, Check, RotateCcw
 } from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
@@ -784,19 +784,19 @@ export default function Enquiries({ currentUser }) {
                 {/* Desktop Table View */}
                 <div className="desktop-only-table">
                   <div className="table-container">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="enquiries-table" style={{ width: '100%', minWidth: '1140px', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
-                          <th>Enquiry #</th>
-                          <th>Customer / Prospect</th>
-                          <th>Specific Work Requested</th>
-                          <th>Channel</th>
-                          <th>Enquiry Date</th>
-                          <th>Follow-Up Status</th>
-                          <th style={{ textAlign: 'right' }}>Est. Value</th>
-                          <th style={{ textAlign: 'center' }}>Photo</th>
-                          <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
+                          <th style={{ width: '95px' }}>Enquiry #</th>
+                          <th style={{ minWidth: '150px' }}>Customer / Prospect</th>
+                          <th style={{ minWidth: '180px' }}>Specific Work Requested</th>
+                          <th style={{ width: '90px' }}>Channel</th>
+                          <th style={{ width: '90px' }}>Date</th>
+                          <th style={{ width: '125px' }}>Follow-Up</th>
+                          <th style={{ width: '100px', textAlign: 'right' }}>Est. Value</th>
+                          <th style={{ width: '45px', textAlign: 'center' }}>Photo</th>
+                          <th style={{ width: '120px' }}>Status</th>
+                          <th style={{ width: '145px', textAlign: 'right', paddingRight: '0.9rem' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -854,7 +854,7 @@ export default function Enquiries({ currentUser }) {
                               </td>
 
                               {/* Specific Work Requested */}
-                              <td style={{ maxWidth: '280px' }}>
+                              <td style={{ maxWidth: '220px' }}>
                                 {enq.title && (
                                   <div style={{ fontWeight: '700', fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '0.15rem' }}>
                                     {enq.title}
@@ -1000,48 +1000,43 @@ export default function Enquiries({ currentUser }) {
                               </td>
 
                               {/* Actions */}
-                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                                <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap', paddingRight: '0.9rem' }} onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', justifyContent: 'flex-end' }}>
                                   {/* Log Follow-up button */}
                                   {enq.status !== 'converted' && enq.status !== 'cancelled' && (
                                     <>
                                       <button
                                         type="button"
-                                        className="btn btn-secondary"
+                                        className="btn-icon"
                                         onClick={() => handleOpenFollowUp(enq)}
                                         title="Log Follow-up Call"
                                         style={{
-                                          padding: '0.25rem 0.55rem',
-                                          fontSize: '0.72rem',
-                                          fontWeight: '700',
+                                          width: '28px',
+                                          height: '28px',
                                           borderRadius: '6px',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '0.25rem'
+                                          color: '#2563eb',
+                                          background: 'rgba(37, 99, 235, 0.08)',
+                                          border: '1px solid rgba(37, 99, 235, 0.2)'
                                         }}
                                       >
-                                        <Phone size={11} /> Call
+                                        <Phone size={13} />
                                       </button>
 
                                       <button
                                         type="button"
+                                        className="btn-icon"
                                         onClick={() => handleMarkConverted(enq)}
-                                        title="Mark as Converted"
+                                        title="Mark as Converted (Won)"
                                         style={{
-                                          background: '#0f7638',
-                                          color: '#ffffff',
-                                          border: 'none',
-                                          padding: '0.25rem 0.6rem',
-                                          fontSize: '0.72rem',
-                                          fontWeight: '700',
+                                          width: '28px',
+                                          height: '28px',
                                           borderRadius: '6px',
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '0.25rem'
+                                          color: '#0f7638',
+                                          background: 'rgba(15, 118, 56, 0.08)',
+                                          border: '1px solid rgba(15, 118, 56, 0.25)'
                                         }}
                                       >
-                                        <CheckCircle2 size={11} /> Won
+                                        <CheckCircle2 size={13} />
                                       </button>
                                     </>
                                   )}
@@ -1050,24 +1045,27 @@ export default function Enquiries({ currentUser }) {
                                   {enq.status === 'cancelled' && (
                                     <button
                                       type="button"
-                                      className="btn btn-secondary"
+                                      className="btn-icon"
                                       onClick={() => handleRestore(enq)}
-                                      title="Restore to Active"
+                                      title="Restore to Active Pipeline"
                                       style={{
-                                        padding: '0.25rem 0.55rem',
-                                        fontSize: '0.72rem',
-                                        fontWeight: '600',
-                                        borderRadius: '6px'
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '6px',
+                                        color: 'var(--primary, #1366d9)',
+                                        background: 'rgba(19, 102, 217, 0.08)',
+                                        border: '1px solid rgba(19, 102, 217, 0.25)'
                                       }}
                                     >
-                                      Restore
+                                      <RotateCcw size={13} />
                                     </button>
                                   )}
 
                                   {/* Edit button */}
                                   <button
+                                    type="button"
                                     className="btn-icon"
-                                    style={{ width: '30px', height: '30px' }}
+                                    style={{ width: '28px', height: '28px', borderRadius: '6px' }}
                                     onClick={() => handleOpenModal(enq)}
                                     title="Edit Enquiry"
                                   >
@@ -1076,8 +1074,16 @@ export default function Enquiries({ currentUser }) {
 
                                   {/* Delete button */}
                                   <button
+                                    type="button"
                                     className="btn-icon"
-                                    style={{ width: '30px', height: '30px', color: 'var(--danger, #dc2626)' }}
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px',
+                                      color: 'var(--danger, #dc2626)',
+                                      background: 'rgba(220, 38, 38, 0.05)',
+                                      border: '1px solid rgba(220, 38, 38, 0.2)'
+                                    }}
                                     onClick={() => handleDeleteEnquiry(enq.id, enq.enquiry_number)}
                                     title="Move to Recycle Bin"
                                   >

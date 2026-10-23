@@ -813,6 +813,11 @@ tbody tr:last-child td {
   background-color: #f0f6fd !important;
 }
 
+.enquiries-table th,
+.enquiries-table td {
+  padding: 0.55rem 0.65rem;
+}
+
 /* ─────────────────────────────────────────────────────
    STATUS BADGES — ZOHO BOOKS PRECISE PALETTE
 ───────────────────────────────────────────────────── */
