@@ -1,15 +1,15 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
   Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
-  Filter, FileText, ExternalLink, Trash2, Edit3, Eye, 
-  ArrowRight, UploadCloud, Paperclip, X, ChevronRight,
-  TrendingUp, Users, DollarSign, Send, ArrowUpRight, Check
+  FileText, Trash2, Edit3, Eye, ArrowUpRight, UploadCloud, 
+  X, ChevronRight, Check
 } from 'lucide-react'
 import api from '../api'
-import { useTheme } from '../contexts/ThemeContext'
 import { useSettings } from '../contexts/SettingsContext'
+import SearchBar from '../components/common/SearchBar'
+import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm, showError, showToast, showSuccess } from '../utils/swal'
 
 const CHANNEL_CONFIG = {
@@ -22,12 +22,12 @@ const CHANNEL_CONFIG = {
 }
 
 const STATUS_CONFIG = {
-  enquiry: { label: 'New Enquiry', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
-  quotation_pending: { label: 'Quotation Pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
-  quotation_sent: { label: 'Quotation Sent', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
-  under_followup: { label: 'Under Follow-up', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.1)' },
-  converted: { label: 'Lead Converted', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
-  cancelled: { label: 'Cancelled / Lost', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
+  enquiry: { label: 'New Enquiry', color: '#1366d9', bg: '#ebf3fc' },
+  quotation_pending: { label: 'Quotation Pending', color: '#d97706', bg: '#fef3c7' },
+  quotation_sent: { label: 'Quotation Sent', color: '#7c3aed', bg: '#ede9fe' },
+  under_followup: { label: 'Under Follow-up', color: '#0284c7', bg: '#e0f2fe' },
+  converted: { label: 'Lead Converted', color: '#0f7638', bg: '#dcfce7' },
+  cancelled: { label: 'Cancelled / Lost', color: '#dc2626', bg: '#fee2e2' },
 }
 
 const CANCELLATION_REASONS = [
@@ -35,12 +35,11 @@ const CANCELLATION_REASONS = [
   { id: 'client_postponed', label: 'Client Postponed / Event Cancelled' },
   { id: 'unresponsive', label: 'Client Unresponsive' },
   { id: 'specs_unmet', label: 'Specifications Could Not Be Met' },
-  { id: 'turnaround_time', 'label': 'Delivery Deadline Too Tight' },
+  { id: 'turnaround_time', label: 'Delivery Deadline Too Tight' },
   { id: 'other', label: 'Other Reason' },
 ]
 
 export default function Enquiries({ currentUser }) {
-  const { isDarkMode } = useTheme()
   const { formatCurrency } = useSettings()
   const navigate = useNavigate()
 
@@ -56,13 +55,16 @@ export default function Enquiries({ currentUser }) {
     conversion_rate: 0
   })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('active') // 'active' | 'converted' | 'cancelled'
+  const [error, setError] = useState('')
+
+  // Section Switcher State: 'active' | 'converted' | 'cancelled'
+  const [activeSection, setActiveSection] = useState('active')
   const [selectedChannel, setSelectedChannel] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [dueTodayOnly, setDueTodayOnly] = useState(false)
 
   // Modals
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false)
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -87,7 +89,8 @@ export default function Enquiries({ currentUser }) {
     attachment_type: ''
   })
   const [isEditing, setIsEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState('')
 
   // Form State for Log Follow-Up
   const [followUpData, setFollowUpData] = useState({
@@ -106,14 +109,7 @@ export default function Enquiries({ currentUser }) {
 
   const fileInputRef = useRef(null)
 
-  // Colors & Theme Tokens
-  const cardBg = isDarkMode ? '#111317' : '#ffffff'
-  const borderColor = isDarkMode ? '#22252a' : '#e2e8f0'
-  const textPrimary = isDarkMode ? '#f8fafc' : '#0f172a'
-  const textMuted = isDarkMode ? '#94a3b8' : '#64748b'
-  const bgSubtle = isDarkMode ? '#1a1d23' : '#f8fafc'
-
-  // Fetch Initial Data
+  // Fetch initial data
   useEffect(() => {
     fetchCustomers()
     fetchMetrics()
@@ -121,7 +117,7 @@ export default function Enquiries({ currentUser }) {
 
   useEffect(() => {
     fetchEnquiries()
-  }, [activeTab, selectedChannel, searchQuery, dueTodayOnly])
+  }, [activeSection, selectedChannel, searchQuery, dueTodayOnly])
 
   const fetchCustomers = async () => {
     try {
@@ -144,13 +140,14 @@ export default function Enquiries({ currentUser }) {
 
   const fetchEnquiries = async () => {
     setLoading(true)
+    setError('')
     try {
       const params = { page_size: 200 }
-      if (activeTab === 'active') {
+      if (activeSection === 'active') {
         params.status = 'active'
-      } else if (activeTab === 'converted') {
+      } else if (activeSection === 'converted') {
         params.status = 'completed'
-      } else if (activeTab === 'cancelled') {
+      } else if (activeSection === 'cancelled') {
         params.status = 'cancelled'
       }
 
@@ -171,7 +168,7 @@ export default function Enquiries({ currentUser }) {
       setEnquiries(raw)
     } catch (err) {
       console.error('Failed to load enquiries:', err)
-      showError('Failed to load enquiries', err?.message)
+      setError('Failed to load enquiries. Please check connection.')
     } finally {
       setLoading(false)
     }
@@ -209,15 +206,61 @@ export default function Enquiries({ currentUser }) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // Save / Edit Enquiry
+  // Open Create / Edit Modal
+  const handleOpenModal = (enq = null) => {
+    setFormError('')
+    if (enq) {
+      setSelectedEnquiry(enq)
+      setIsEditing(true)
+      setFormData({
+        customer_id: enq.customer || '',
+        customer_name: enq.customer_name || enq.customer_detail?.name || '',
+        phone: enq.phone || enq.customer_detail?.phone || '',
+        email: enq.email || enq.customer_detail?.email || '',
+        channel: enq.channel || 'whatsapp',
+        date: enq.date || new Date().toISOString().split('T')[0],
+        title: enq.title || '',
+        description: enq.description || '',
+        estimated_value: enq.estimated_value || '',
+        status: enq.status || 'enquiry',
+        next_follow_up_date: enq.next_follow_up_date || '',
+        attachment: enq.attachment || '',
+        attachment_name: enq.attachment_name || '',
+        attachment_type: enq.attachment_type || ''
+      })
+    } else {
+      setSelectedEnquiry(null)
+      setIsEditing(false)
+      setFormData({
+        customer_id: '',
+        customer_name: '',
+        phone: '',
+        email: '',
+        channel: 'whatsapp',
+        date: new Date().toISOString().split('T')[0],
+        title: '',
+        description: '',
+        estimated_value: '',
+        status: 'enquiry',
+        next_follow_up_date: '',
+        attachment: '',
+        attachment_name: '',
+        attachment_type: ''
+      })
+    }
+    setIsModalOpen(true)
+  }
+
+  // Save Enquiry
   const handleSaveEnquiry = async (e) => {
     e.preventDefault()
     if (!formData.customer_name.trim() && !formData.customer_id) {
-      showError('Customer Required', 'Please select an existing customer or enter a prospect name.')
+      setFormError('Please select an existing customer or enter a customer name.')
       return
     }
 
-    setSaving(true)
+    setSubmitting(true)
+    setFormError('')
     try {
       const payload = {
         customer: formData.customer_id || null,
@@ -238,43 +281,25 @@ export default function Enquiries({ currentUser }) {
 
       if (isEditing && selectedEnquiry) {
         await api.patch(`enquiries/${selectedEnquiry.id}/`, payload)
-        showSuccess('Enquiry Updated', 'Enquiry details have been updated.')
+        showToast('Enquiry updated successfully', 'success')
       } else {
         await api.post('enquiries/', payload)
-        showSuccess('Enquiry Created', 'New customer enquiry has been captured.')
+        showToast('New enquiry recorded', 'success')
       }
 
-      setIsCreateModalOpen(false)
+      setIsModalOpen(false)
       fetchEnquiries()
       fetchMetrics()
     } catch (err) {
-      showError('Failed to save enquiry', err?.response?.data?.detail || err?.message)
+      const errRes = err.response?.data
+      let msg = 'Failed to save enquiry.'
+      if (typeof errRes === 'object') {
+        msg = Object.entries(errRes).map(([k, v]) => `${k}: ${v}`).join(' | ')
+      }
+      setFormError(msg)
     } finally {
-      setSaving(false)
+      setSubmitting(false)
     }
-  }
-
-  // Open Edit Modal
-  const handleOpenEdit = (enq) => {
-    setSelectedEnquiry(enq)
-    setIsEditing(true)
-    setFormData({
-      customer_id: enq.customer || '',
-      customer_name: enq.customer_name || enq.customer_detail?.name || '',
-      phone: enq.phone || enq.customer_detail?.phone || '',
-      email: enq.email || enq.customer_detail?.email || '',
-      channel: enq.channel || 'whatsapp',
-      date: enq.date || new Date().toISOString().split('T')[0],
-      title: enq.title || '',
-      description: enq.description || '',
-      estimated_value: enq.estimated_value || '',
-      status: enq.status || 'enquiry',
-      next_follow_up_date: enq.next_follow_up_date || '',
-      attachment: enq.attachment || '',
-      attachment_name: enq.attachment_name || '',
-      attachment_type: enq.attachment_type || ''
-    })
-    setIsCreateModalOpen(true)
   }
 
   // Open Log Follow-up Modal
@@ -290,39 +315,40 @@ export default function Enquiries({ currentUser }) {
     setIsFollowUpModalOpen(true)
   }
 
-  // Submit Follow-Up
+  // Submit Follow-up
   const handleSaveFollowUp = async (e) => {
     e.preventDefault()
     if (!followUpData.notes.trim()) {
-      showError('Notes Required', 'Please enter a summary of the follow-up call/conversation.')
+      showError('Notes Required', 'Please enter a summary of the follow-up conversation.')
       return
     }
 
-    setSaving(true)
+    setSubmitting(true)
     try {
       await api.post(`enquiries/${selectedEnquiry.id}/log-follow-up/`, followUpData)
-      showSuccess('Follow-up Logged', 'Follow-up call notes saved and counter incremented.')
+      showToast('Follow-up call logged', 'success')
       setIsFollowUpModalOpen(false)
       fetchEnquiries()
       fetchMetrics()
     } catch (err) {
       showError('Failed to log follow-up', err?.message)
     } finally {
-      setSaving(false)
+      setSubmitting(false)
     }
   }
 
   // Mark Converted (Won)
   const handleMarkConverted = async (enq) => {
-    const confirmed = await showConfirm(
-      'Mark Lead as Converted?',
-      `Are you sure you want to mark ${enq.enquiry_number} for "${enq.customer_name || enq.customer_detail?.name}" as converted?`
-    )
+    const confirmed = await showConfirm({
+      title: 'Convert Lead?',
+      text: `Confirm converting ${enq.enquiry_number} for "${enq.customer_name || enq.customer_detail?.name}" to Won?`,
+      confirmButtonText: 'Yes, Convert Lead'
+    })
     if (!confirmed) return
 
     try {
       await api.post(`enquiries/${enq.id}/mark-converted/`, {})
-      showSuccess('Lead Converted!', 'The deal has been marked as won and moved to Converted list.')
+      showToast('Lead marked as converted!', 'success')
       fetchEnquiries()
       fetchMetrics()
     } catch (err) {
@@ -343,17 +369,17 @@ export default function Enquiries({ currentUser }) {
   // Submit Cancel
   const handleSaveCancel = async (e) => {
     e.preventDefault()
-    setSaving(true)
+    setSubmitting(true)
     try {
       await api.post(`enquiries/${selectedEnquiry.id}/mark-cancelled/`, cancelData)
-      showToast('Enquiry marked as cancelled / lost.')
+      showToast('Enquiry moved to Cancelled / Lost', 'info')
       setIsCancelModalOpen(false)
       fetchEnquiries()
       fetchMetrics()
     } catch (err) {
       showError('Failed to cancel enquiry', err?.message)
     } finally {
-      setSaving(false)
+      setSubmitting(false)
     }
   }
 
@@ -361,7 +387,7 @@ export default function Enquiries({ currentUser }) {
   const handleRestore = async (enq) => {
     try {
       await api.post(`enquiries/${enq.id}/restore/`, {})
-      showSuccess('Enquiry Restored', 'Enquiry has been restored to active pipeline.')
+      showToast('Enquiry restored to active pipeline', 'success')
       fetchEnquiries()
       fetchMetrics()
     } catch (err) {
@@ -370,16 +396,18 @@ export default function Enquiries({ currentUser }) {
   }
 
   // Delete Enquiry
-  const handleDeleteEnquiry = async (enq) => {
-    const confirmed = await showConfirm(
-      'Delete Enquiry?',
-      `Are you sure you want to delete ${enq.enquiry_number}? This action can be undone in Recycle Bin.`
-    )
+  const handleDeleteEnquiry = async (id, enqNumber) => {
+    const confirmed = await showConfirm({
+      title: 'Delete Enquiry?',
+      text: `Are you sure you want to delete ${enqNumber}? It can be restored from Recycle Bin.`,
+      confirmButtonText: 'Delete Record',
+      isDangerous: true
+    })
     if (!confirmed) return
 
     try {
-      await api.delete(`enquiries/${enq.id}/`)
-      showToast('Enquiry deleted.')
+      await api.delete(`enquiries/${id}/`)
+      showToast('Enquiry moved to Recycle Bin', 'success')
       fetchEnquiries()
       fetchMetrics()
     } catch (err) {
@@ -394,22 +422,6 @@ export default function Enquiries({ currentUser }) {
     navigate(`/jobs?action=new&customerId=${customerId}&desc=${description}&ref=${enq.enquiry_number}`)
   }
 
-  // Format date helper
-  const fmtDate = (d) => {
-    if (!d) return '—'
-    try {
-      return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    } catch {
-      return d
-    }
-  }
-
-  // Format currency helper
-  const fmt = (v) => {
-    if (v === null || v === undefined || isNaN(v)) return '—'
-    return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
-
   // WhatsApp click handler
   const openWhatsApp = (phone, text = '') => {
     if (!phone) return
@@ -422,423 +434,302 @@ export default function Enquiries({ currentUser }) {
   const getFollowUpStatus = (dateStr) => {
     if (!dateStr) return null
     const today = new Date().toISOString().split('T')[0]
-    if (dateStr < today) return { label: 'Overdue', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)' }
-    if (dateStr === today) return { label: 'Due Today', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' }
-    return { label: `Due: ${fmtDate(dateStr)}`, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }
+    if (dateStr < today) return { label: 'Overdue', color: '#dc2626', bg: '#fee2e2' }
+    if (dateStr === today) return { label: 'Due Today', color: '#d97706', bg: '#fef3c7' }
+    return { label: `Due: ${dateStr}`, color: '#0f7638', bg: '#dcfce7' }
   }
 
   return (
-    <div style={{
-      maxWidth: '1440px',
-      margin: '0 auto',
-      padding: '1.25rem 1.5rem 4rem',
-      color: textPrimary
-    }}>
-      {/* ── 1. HEADER SECTION ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        marginBottom: '1.5rem'
-      }}>
+    <div className="enquiries-page erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
+      
+      {/* ── 1. PAGE HEADER (Matches Customers.jsx exactly) ── */}
+      <div className="page-header" style={{ marginBottom: '0.85rem' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
-              Enquiries
-            </h1>
-            <span style={{
-              background: 'rgba(59, 130, 246, 0.12)',
-              color: '#3b82f6',
-              fontSize: '0.75rem',
-              fontWeight: '700',
-              padding: '0.2rem 0.6rem',
-              borderRadius: '6px'
-            }}>
-              Sales Pipeline
-            </span>
-          </div>
-          <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: textMuted }}>
-            Capture incoming customer inquiries from WhatsApp, calls & emails. Follow up seamlessly and convert leads.
+          <h2 style={{ fontWeight: '700', letterSpacing: '-0.01em', fontSize: '1.35rem' }}>Enquiries</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>
+            Capture client inquiries from WhatsApp, calls & emails. Follow up seamlessly and convert quality leads.
           </p>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <button
-            type="button"
-            onClick={() => { fetchEnquiries(); fetchMetrics() }}
-            title="Refresh Enquiries"
-            style={{
-              background: cardBg,
-              color: textPrimary,
-              border: `1px solid ${borderColor}`,
-              borderRadius: '10px',
-              height: '40px',
-              padding: '0 0.85rem',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.15s ease'
-            }}
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => handleOpenModal()} 
+            style={{ borderRadius: 'var(--radius-sm)' }}
           >
-            <RefreshCw size={15} />
-            <span>Refresh</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsEditing(false)
-              setFormData({
-                customer_id: '',
-                customer_name: '',
-                phone: '',
-                email: '',
-                channel: 'whatsapp',
-                date: new Date().toISOString().split('T')[0],
-                title: '',
-                description: '',
-                estimated_value: '',
-                status: 'enquiry',
-                next_follow_up_date: '',
-                attachment: '',
-                attachment_name: '',
-                attachment_type: ''
-              })
-              setIsCreateModalOpen(true)
-            }}
-            style={{
-              background: isDarkMode ? '#ffffff' : '#0f172a',
-              color: isDarkMode ? '#0f172a' : '#ffffff',
-              border: 'none',
-              borderRadius: '10px',
-              height: '40px',
-              padding: '0 1.25rem',
-              fontSize: '0.875rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <Plus size={16} strokeWidth={2.8} />
-            <span>New Enquiry</span>
+            <Plus size={16} /> New Enquiry
           </button>
         </div>
       </div>
 
-      {/* ── 2. TOP METRIC CARDS ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-        gap: '0.85rem',
-        marginBottom: '1.5rem'
-      }}>
-        {/* Metric 1: Follow-ups Due Today */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => {
-            setDueTodayOnly(!dueTodayOnly)
-            if (!dueTodayOnly) setActiveTab('active')
-          }}
-          style={{
-            background: dueTodayOnly ? 'rgba(245, 158, 11, 0.08)' : cardBg,
-            border: `1px solid ${dueTodayOnly ? '#f59e0b' : borderColor}`,
-            borderRadius: '12px',
-            padding: '1rem',
+      {/* ── 2. SUMMARY CARDS GRID (Matches Customers.jsx glass-panel grid) ── */}
+      <div className="summary-cards-grid" style={{ marginBottom: '0.85rem' }}>
+        {/* Card 1: Follow-ups Due Today */}
+        <div 
+          className="glass-panel" 
+          onClick={() => { setDueTodayOnly(!dueTodayOnly); if (!dueTodayOnly) setActiveSection('active') }}
+          style={{ 
+            textAlign: 'left', 
+            padding: '0.75rem 1rem', 
+            borderTop: '3px solid #d97706',
             cursor: 'pointer',
-            transition: 'all 0.15s ease'
+            background: dueTodayOnly ? 'rgba(217, 119, 6, 0.08)' : undefined
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', color: '#f59e0b' }}>
-              Follow-ups Due Today
-            </span>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '7px',
-              background: 'rgba(245, 158, 11, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#f59e0b'
-            }}>
-              <AlertCircle size={15} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0.4rem 0 0.15rem' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Follow-ups Due Today
+          </p>
+          <h2 style={{ color: '#d97706', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
             {metrics.due_today_count}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: textMuted }}>
-            {dueTodayOnly ? '✓ Filter Active (Click to reset)' : 'Click to filter calls due today'}
-          </div>
+          </h2>
         </div>
 
-        {/* Metric 2: Active Pipeline */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => { setActiveTab('active'); setDueTodayOnly(false) }}
-          style={{
-            background: activeTab === 'active' && !dueTodayOnly ? 'rgba(59, 130, 246, 0.08)' : cardBg,
-            border: `1px solid ${activeTab === 'active' && !dueTodayOnly ? '#3b82f6' : borderColor}`,
-            borderRadius: '12px',
-            padding: '1rem',
+        {/* Card 2: Active Pipeline */}
+        <div 
+          className="glass-panel" 
+          onClick={() => { setActiveSection('active'); setDueTodayOnly(false) }}
+          style={{ 
+            textAlign: 'left', 
+            padding: '0.75rem 1rem', 
+            borderTop: '3px solid #1366d9',
             cursor: 'pointer',
-            transition: 'all 0.15s ease'
+            background: activeSection === 'active' && !dueTodayOnly ? 'rgba(19, 102, 217, 0.05)' : undefined
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', color: '#3b82f6' }}>
-              Active Enquiries
-            </span>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '7px',
-              background: 'rgba(59, 130, 246, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#3b82f6'
-            }}>
-              <Clock size={15} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0.4rem 0 0.15rem' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Active Enquiries
+          </p>
+          <h2 style={{ color: 'var(--text-main)', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
             {metrics.active_count}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: textMuted }}>
-            Under enquiry, quote or follow-up
-          </div>
+          </h2>
         </div>
 
-        {/* Metric 3: Converted Leads */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => { setActiveTab('converted'); setDueTodayOnly(false) }}
-          style={{
-            background: activeTab === 'converted' ? 'rgba(16, 185, 129, 0.08)' : cardBg,
-            border: `1px solid ${activeTab === 'converted' ? '#10b981' : borderColor}`,
-            borderRadius: '12px',
-            padding: '1rem',
+        {/* Card 3: Converted (Won) */}
+        <div 
+          className="glass-panel" 
+          onClick={() => { setActiveSection('converted'); setDueTodayOnly(false) }}
+          style={{ 
+            textAlign: 'left', 
+            padding: '0.75rem 1rem', 
+            borderTop: '3px solid #0f7638',
             cursor: 'pointer',
-            transition: 'all 0.15s ease'
+            background: activeSection === 'converted' ? 'rgba(15, 118, 56, 0.05)' : undefined
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', color: '#10b981' }}>
-              Lead Converted (Won)
-            </span>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '7px',
-              background: 'rgba(16, 185, 129, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#10b981'
-            }}>
-              <CheckCircle2 size={15} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0.4rem 0 0.15rem', color: '#10b981' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Lead Converted (Won)
+          </p>
+          <h2 style={{ color: '#0f7638', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
             {metrics.converted_count}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: textMuted }}>
-            {metrics.conversion_rate}% Win Rate
-          </div>
+          </h2>
         </div>
 
-        {/* Metric 4: Cancelled / Lost */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => { setActiveTab('cancelled'); setDueTodayOnly(false) }}
-          style={{
-            background: activeTab === 'cancelled' ? 'rgba(239, 68, 68, 0.08)' : cardBg,
-            border: `1px solid ${activeTab === 'cancelled' ? '#ef4444' : borderColor}`,
-            borderRadius: '12px',
-            padding: '1rem',
+        {/* Card 4: Cancelled / Lost */}
+        <div 
+          className="glass-panel" 
+          onClick={() => { setActiveSection('cancelled'); setDueTodayOnly(false) }}
+          style={{ 
+            textAlign: 'left', 
+            padding: '0.75rem 1rem', 
+            borderTop: '3px solid #dc2626',
             cursor: 'pointer',
-            transition: 'all 0.15s ease'
+            background: activeSection === 'cancelled' ? 'rgba(220, 38, 38, 0.05)' : undefined
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', color: '#ef4444' }}>
-              Cancelled / Lost
-            </span>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '7px',
-              background: 'rgba(239, 68, 68, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ef4444'
-            }}>
-              <XCircle size={15} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0.4rem 0 0.15rem' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Cancelled / Lost
+          </p>
+          <h2 style={{ color: '#dc2626', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
             {metrics.cancelled_count}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: textMuted }}>
-            Archived with loss reasons
-          </div>
+          </h2>
         </div>
       </div>
 
-      {/* ── 3. TABS & FILTER BAR ── */}
+      {/* ── 3. SECTION TABS BAR (Matches Customers.jsx pill tabs exactly) ── */}
       <div style={{
-        background: cardBg,
-        border: `1px solid ${borderColor}`,
-        borderRadius: '14px',
-        padding: '0.85rem 1rem',
-        marginBottom: '1.25rem',
         display: 'flex',
-        flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '0.75rem'
+        gap: '0.75rem',
+        marginBottom: '0.85rem',
+        flexWrap: 'wrap'
       }}>
-        {/* Left: Tab Switcher (As requested: Pending Tasks vs Completed) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+        <div style={{ 
+          display: 'inline-flex', 
+          gap: '0.4rem', 
+          background: 'rgba(0,0,0,0.04)', 
+          padding: '0.3rem', 
+          borderRadius: '10px' 
+        }}>
+          {/* Tab A: Active Enquiries */}
           <button
             type="button"
-            onClick={() => { setActiveTab('active'); setDueTodayOnly(false) }}
+            className="btn"
+            id="tab-active-enquiries"
+            onClick={() => { setActiveSection('active'); setDueTodayOnly(false) }}
             style={{
-              background: activeTab === 'active' && !dueTodayOnly ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-              color: activeTab === 'active' && !dueTodayOnly ? (isDarkMode ? '#0f172a' : '#ffffff') : textMuted,
-              border: 'none',
-              borderRadius: '8px',
-              padding: '0.45rem 0.95rem',
+              padding: '0.55rem 1.1rem',
               fontSize: '0.85rem',
-              fontWeight: '700',
-              cursor: 'pointer',
+              fontWeight: activeSection === 'active' && !dueTodayOnly ? '700' : '600',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeSection === 'active' && !dueTodayOnly ? '#ffffff' : 'transparent',
+              color: activeSection === 'active' && !dueTodayOnly ? 'var(--primary, #1366d9)' : 'var(--text-muted)',
+              boxShadow: activeSection === 'active' && !dueTodayOnly ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
+              gap: '0.5rem',
+              cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
           >
-            <span>Active Enquiries</span>
             <span style={{
-              background: activeTab === 'active' && !dueTodayOnly ? (isDarkMode ? 'rgba(15, 23, 42, 0.2)' : 'rgba(255, 255, 255, 0.25)') : bgSubtle,
-              fontSize: '0.72rem',
-              padding: '0.1rem 0.45rem',
-              borderRadius: '10px'
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: activeSection === 'active' && !dueTodayOnly ? '#1366d9' : '#94a3b8',
+              display: 'inline-block'
+            }} />
+            (a) Active Enquiries
+            <span style={{
+              background: activeSection === 'active' && !dueTodayOnly ? '#ebf3fc' : 'rgba(0,0,0,0.06)',
+              color: activeSection === 'active' && !dueTodayOnly ? '#1366d9' : 'inherit',
+              padding: '0.15rem 0.55rem',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: '800'
             }}>
               {metrics.active_count}
             </span>
           </button>
 
+          {/* Tab B: Converted Leads */}
           <button
             type="button"
-            onClick={() => { setActiveTab('converted'); setDueTodayOnly(false) }}
+            className="btn"
+            id="tab-converted-enquiries"
+            onClick={() => { setActiveSection('converted'); setDueTodayOnly(false) }}
             style={{
-              background: activeTab === 'converted' ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-              color: activeTab === 'converted' ? (isDarkMode ? '#0f172a' : '#ffffff') : textMuted,
-              border: 'none',
-              borderRadius: '8px',
-              padding: '0.45rem 0.95rem',
+              padding: '0.55rem 1.1rem',
               fontSize: '0.85rem',
-              fontWeight: '700',
-              cursor: 'pointer',
+              fontWeight: activeSection === 'converted' ? '700' : '600',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeSection === 'converted' ? '#ffffff' : 'transparent',
+              color: activeSection === 'converted' ? 'var(--success, #0f7638)' : 'var(--text-muted)',
+              boxShadow: activeSection === 'converted' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
+              gap: '0.5rem',
+              cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
           >
-            <span>Lead Converted</span>
             <span style={{
-              background: activeTab === 'converted' ? (isDarkMode ? 'rgba(15, 23, 42, 0.2)' : 'rgba(255, 255, 255, 0.25)') : bgSubtle,
-              fontSize: '0.72rem',
-              padding: '0.1rem 0.45rem',
-              borderRadius: '10px'
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: activeSection === 'converted' ? '#0f7638' : '#94a3b8',
+              display: 'inline-block'
+            }} />
+            (b) Converted Leads (Won)
+            <span style={{
+              background: activeSection === 'converted' ? '#dcfce7' : 'rgba(0,0,0,0.06)',
+              color: activeSection === 'converted' ? '#0f7638' : 'inherit',
+              padding: '0.15rem 0.55rem',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: '800'
             }}>
               {metrics.converted_count}
             </span>
           </button>
 
+          {/* Tab C: Cancelled / Lost */}
           <button
             type="button"
-            onClick={() => { setActiveTab('cancelled'); setDueTodayOnly(false) }}
+            className="btn"
+            id="tab-cancelled-enquiries"
+            onClick={() => { setActiveSection('cancelled'); setDueTodayOnly(false) }}
             style={{
-              background: activeTab === 'cancelled' ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-              color: activeTab === 'cancelled' ? (isDarkMode ? '#0f172a' : '#ffffff') : textMuted,
-              border: 'none',
-              borderRadius: '8px',
-              padding: '0.45rem 0.95rem',
+              padding: '0.55rem 1.1rem',
               fontSize: '0.85rem',
-              fontWeight: '700',
-              cursor: 'pointer',
+              fontWeight: activeSection === 'cancelled' ? '700' : '600',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeSection === 'cancelled' ? '#ffffff' : 'transparent',
+              color: activeSection === 'cancelled' ? 'var(--danger, #dc2626)' : 'var(--text-muted)',
+              boxShadow: activeSection === 'cancelled' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
+              gap: '0.5rem',
+              cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
           >
-            <span>Cancelled / Lost</span>
             <span style={{
-              background: activeTab === 'cancelled' ? (isDarkMode ? 'rgba(15, 23, 42, 0.2)' : 'rgba(255, 255, 255, 0.25)') : bgSubtle,
-              fontSize: '0.72rem',
-              padding: '0.1rem 0.45rem',
-              borderRadius: '10px'
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: activeSection === 'cancelled' ? '#dc2626' : '#94a3b8',
+              display: 'inline-block'
+            }} />
+            (c) Cancelled / Lost
+            <span style={{
+              background: activeSection === 'cancelled' ? '#fee2e2' : 'rgba(0,0,0,0.06)',
+              color: activeSection === 'cancelled' ? '#b91c1c' : 'inherit',
+              padding: '0.15rem 0.55rem',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: '800'
             }}>
               {metrics.cancelled_count}
             </span>
           </button>
         </div>
 
-        {/* Right: Search & Channel Filters */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end', minWidth: '280px' }}>
-          {/* Search Input */}
-          <div style={{ position: 'relative', width: '220px' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: textMuted }} />
-            <input
-              type="text"
-              placeholder="Search enquiry or client..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                background: bgSubtle,
-                border: `1px solid ${borderColor}`,
-                borderRadius: '8px',
-                height: '36px',
-                padding: '0 0.75rem 0 2rem',
-                fontSize: '0.82rem',
-                color: textPrimary,
-                outline: 'none'
-              }}
-            />
+        {/* Highlight notification if follow-ups are due */}
+        {metrics.due_today_count > 0 && (
+          <div 
+            onClick={() => { setDueTodayOnly(!dueTodayOnly); setActiveSection('active') }}
+            style={{
+              fontSize: '0.8rem',
+              color: '#b45309',
+              background: '#fef3c7',
+              border: '1px solid #fde68a',
+              padding: '0.45rem 0.9rem',
+              borderRadius: '8px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              cursor: 'pointer'
+            }}
+          >
+            <AlertCircle size={15} />
+            <span>Follow-up Calls Due Today: <strong>{metrics.due_today_count}</strong></span>
           </div>
+        )}
+      </div>
 
-          {/* Channel Filter Dropdown */}
+      {/* ── 4. SEARCH & FILTER PANEL (Matches Customers.jsx exactly) ── */}
+      <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: '260px', maxWidth: '640px' }}>
+          <SearchBar
+            value={searchQuery}
+            onChange={(val) => setSearchQuery(val)}
+            style={{ flex: 1 }}
+          />
+
+          {/* Channel Filter */}
           <select
             value={selectedChannel}
             onChange={(e) => setSelectedChannel(e.target.value)}
             style={{
-              background: bgSubtle,
-              color: textPrimary,
-              border: `1px solid ${borderColor}`,
-              borderRadius: '8px',
-              height: '36px',
+              background: 'var(--card-bg, #ffffff)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--border-color, #e2e8f0)',
+              borderRadius: 'var(--radius-sm, 6px)',
+              height: '38px',
               padding: '0 0.75rem',
               fontSize: '0.82rem',
               fontWeight: '600',
@@ -854,500 +745,459 @@ export default function Enquiries({ currentUser }) {
             <option value="website">Website</option>
           </select>
         </div>
+
+        <button
+          className="btn btn-secondary"
+          onClick={() => { fetchEnquiries(); fetchMetrics() }}
+          title="Refresh table"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
+        >
+          <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+        </button>
       </div>
 
-      {/* ── 4. ENQUIRIES LIST / TABLE ── */}
-      {loading ? (
-        <div style={{
-          background: cardBg,
-          border: `1px solid ${borderColor}`,
-          borderRadius: '14px',
-          padding: '3rem',
-          textAlign: 'center',
-          color: textMuted
-        }}>
-          <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.5rem' }} />
-          <div>Loading enquiries...</div>
-          <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-        </div>
-      ) : enquiries.length === 0 ? (
-        <div style={{
-          background: cardBg,
-          border: `1px solid ${borderColor}`,
-          borderRadius: '14px',
-          padding: '3.5rem 1.5rem',
-          textAlign: 'center',
-          color: textMuted
-        }}>
-          <MessageSquare size={36} style={{ color: textMuted, opacity: 0.5, marginBottom: '0.75rem' }} />
-          <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: textPrimary, margin: '0 0 0.35rem' }}>
-            No Enquiries Found
-          </h3>
-          <p style={{ fontSize: '0.85rem', margin: '0 0 1.25rem', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
-            {activeTab === 'active' 
-              ? 'No active enquiries in progress. Click "New Enquiry" to log incoming WhatsApp, call or email requests.'
-              : activeTab === 'converted'
-              ? 'No converted leads yet. As client orders get confirmed, mark them converted to show here.'
-              : 'No cancelled enquiries recorded.'}
-          </p>
-          {activeTab === 'active' && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditing(false)
-                setIsCreateModalOpen(true)
-              }}
-              style={{
-                background: '#0f172a',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.55rem 1.15rem',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              + Create First Enquiry
-            </button>
-          )}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {enquiries.map((enq) => {
-            const chCfg = CHANNEL_CONFIG[enq.channel] || CHANNEL_CONFIG.other
-            const stCfg = STATUS_CONFIG[enq.status] || STATUS_CONFIG.enquiry
-            const followStatus = getFollowUpStatus(enq.next_follow_up_date)
-            const clientName = enq.customer_name || enq.customer_detail?.name || 'Walk-in Prospect'
-            const phone = enq.phone || enq.customer_detail?.phone || ''
-
-            return (
-              <div
-                key={enq.id}
-                style={{
-                  background: cardBg,
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: '12px',
-                  padding: '1.1rem 1.25rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.85rem',
-                  transition: 'border-color 0.15s ease'
-                }}
-              >
-                {/* Top Row: Ref #, Channel Badge, Status Badge, Date & Actions */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
-                    <span style={{
-                      fontWeight: '800',
-                      fontSize: '0.9rem',
-                      letterSpacing: '-0.01em',
-                      color: textPrimary
-                    }}>
-                      {enq.enquiry_number}
-                    </span>
-
-                    {/* Channel Badge */}
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: '700',
-                      padding: '0.2rem 0.55rem',
-                      borderRadius: '6px',
-                      background: chCfg.bg,
-                      color: chCfg.color,
-                      border: `1px solid ${chCfg.border}`,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.3rem'
-                    }}>
-                      {chCfg.label}
-                    </span>
-
-                    {/* Status Badge */}
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: '700',
-                      padding: '0.2rem 0.55rem',
-                      borderRadius: '6px',
-                      background: stCfg.bg,
-                      color: stCfg.color
-                    }}>
-                      {stCfg.label}
-                    </span>
-
-                    {/* Follow-up Reminder Badge */}
-                    {followStatus && enq.status !== 'converted' && enq.status !== 'cancelled' && (
-                      <span style={{
-                        fontSize: '0.72rem',
-                        fontWeight: '700',
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '6px',
-                        background: followStatus.bg,
-                        color: followStatus.color,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.3rem'
-                      }}>
-                        <Clock size={11} />
-                        {followStatus.label}
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <span style={{ fontSize: '0.75rem', color: textMuted }}>
-                      {fmtDate(enq.date)}
-                    </span>
-
-                    {/* Edit button */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEdit(enq)}
-                      title="Edit Enquiry"
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: textMuted,
-                        cursor: 'pointer',
-                        padding: '4px',
-                        borderRadius: '4px'
-                      }}
-                    >
-                      <Edit3 size={15} />
-                    </button>
-
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteEnquiry(enq)}
-                      title="Delete Enquiry"
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: textMuted,
-                        cursor: 'pointer',
-                        padding: '4px',
-                        borderRadius: '4px'
-                      }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Middle Content: Client Info, Requirement, Attachment Thumbnail */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: enq.attachment ? '1fr 100px' : '1fr',
-                  gap: '1rem',
-                  alignItems: 'start'
-                }}>
-                  <div>
-                    {/* Customer Row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                      <span style={{ fontSize: '1rem', fontWeight: '800', color: textPrimary }}>
-                        {clientName}
-                      </span>
-
-                      {phone && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <span style={{ fontSize: '0.8rem', color: textMuted }}>
-                            {phone}
-                          </span>
-
-                          {/* WhatsApp Chat Button */}
-                          <button
-                            type="button"
-                            onClick={() => openWhatsApp(phone, `Hello ${clientName}, regarding your enquiry ${enq.enquiry_number} with Arab Season:`)}
-                            title="Open WhatsApp Chat"
-                            style={{
-                              background: 'rgba(22, 163, 74, 0.12)',
-                              border: 'none',
-                              color: '#16a34a',
-                              borderRadius: '5px',
-                              padding: '2px 6px',
-                              fontSize: '0.72rem',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem'
-                            }}
-                          >
-                            <MessageSquare size={11} />
-                            <span>WhatsApp</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Specific Work Requested / Title & Description */}
-                    {enq.title && (
-                      <div style={{ fontSize: '0.875rem', fontWeight: '700', color: textPrimary, marginBottom: '0.2rem' }}>
-                        {enq.title}
-                      </div>
-                    )}
-
-                    <div style={{
-                      fontSize: '0.84rem',
-                      color: textMuted,
-                      lineHeight: '1.45',
-                      whiteSpace: 'pre-wrap',
-                      background: bgSubtle,
-                      padding: '0.65rem 0.85rem',
-                      borderRadius: '8px',
-                      border: `1px solid ${borderColor}`
-                    }}>
-                      {enq.description || 'No work description specified.'}
-                    </div>
-
-                    {/* Cancellation Note if cancelled */}
-                    {enq.status === 'cancelled' && (
-                      <div style={{
-                        marginTop: '0.5rem',
-                        fontSize: '0.8rem',
-                        background: 'rgba(239, 68, 68, 0.08)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '6px',
-                        color: '#ef4444'
-                      }}>
-                        <strong>Cancellation Reason:</strong> {enq.cancellation_reason_display || 'Other'}
-                        {enq.cancellation_notes && ` — "${enq.cancellation_notes}"`}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Reference Attachment Preview */}
-                  {enq.attachment && (
-                    <div style={{
-                      width: '100px',
-                      height: '90px',
-                      borderRadius: '8px',
-                      border: `1px solid ${borderColor}`,
-                      overflow: 'hidden',
-                      position: 'relative',
-                      background: bgSubtle,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => setPreviewMediaUrl(enq.attachment)}
-                    title="Click to view reference photo"
-                    >
-                      {enq.attachment_type?.includes('pdf') ? (
-                        <div style={{ textAlign: 'center', color: '#ef4444' }}>
-                          <FileText size={28} />
-                          <div style={{ fontSize: '0.65rem', fontWeight: '700', marginTop: '2px' }}>PDF SPEC</div>
-                        </div>
-                      ) : (
-                        <img
-                          src={enq.attachment}
-                          alt="Reference preview"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      )}
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        background: 'rgba(0,0,0,0.65)',
-                        color: '#ffffff',
-                        fontSize: '0.65rem',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                        padding: '2px 0'
-                      }}>
-                        View Photo
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom Action Footer */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem',
-                  paddingTop: '0.65rem',
-                  borderTop: `1px solid ${borderColor}`
-                }}>
-                  {/* Follow-up Counter and History info */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      color: enq.follow_up_count > 0 ? '#3b82f6' : textMuted,
-                      background: bgSubtle,
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: '6px',
-                      border: `1px solid ${borderColor}`
-                    }}>
-                      📞 {enq.follow_up_count} {enq.follow_up_count === 1 ? 'Follow-up' : 'Follow-ups'} Done
-                    </span>
-
-                    {enq.estimated_value && (
-                      <span style={{ fontSize: '0.78rem', fontWeight: '700', color: textPrimary }}>
-                        Est. SAR {fmt(enq.estimated_value)}
-                      </span>
-                    )}
-
-                    {enq.follow_ups && enq.follow_ups.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => { setSelectedEnquiry(enq); setIsDetailModalOpen(true) }}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#3b82f6',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          textDecoration: 'underline'
-                        }}
-                      >
-                        View History ({enq.follow_ups.length})
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Action Buttons depending on status */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                    {enq.status !== 'converted' && enq.status !== 'cancelled' && (
-                      <>
-                        {/* Log Follow-up Call */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenFollowUp(enq)}
-                          style={{
-                            background: bgSubtle,
-                            color: textPrimary,
-                            border: `1px solid ${borderColor}`,
-                            borderRadius: '8px',
-                            height: '34px',
-                            padding: '0 0.85rem',
-                            fontSize: '0.8rem',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.35rem'
-                          }}
-                        >
-                          <Phone size={13} />
-                          <span>+ Log Call</span>
-                        </button>
-
-                        {/* Mark Converted (Won) */}
-                        <button
-                          type="button"
-                          onClick={() => handleMarkConverted(enq)}
-                          style={{
-                            background: '#10b981',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '8px',
-                            height: '34px',
-                            padding: '0 0.95rem',
-                            fontSize: '0.8rem',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                            boxShadow: '0 1px 4px rgba(16, 185, 129, 0.25)'
-                          }}
-                        >
-                          <CheckCircle2 size={13} />
-                          <span>Convert Lead</span>
-                        </button>
-
-                        {/* Cancel / Lost */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCancel(enq)}
-                          style={{
-                            background: 'transparent',
-                            color: '#ef4444',
-                            border: `1px solid rgba(239, 68, 68, 0.3)`,
-                            borderRadius: '8px',
-                            height: '34px',
-                            padding: '0 0.75rem',
-                            fontSize: '0.78rem',
-                            fontWeight: '600',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
-
-                    {/* If Converted: Give 1-click Create Job Order button */}
-                    {enq.status === 'converted' && (
-                      <button
-                        type="button"
-                        onClick={() => handleCreateJobOrder(enq)}
-                        style={{
-                          background: isDarkMode ? '#ffffff' : '#0f172a',
-                          color: isDarkMode ? '#0f172a' : '#ffffff',
-                          border: 'none',
-                          borderRadius: '8px',
-                          height: '34px',
-                          padding: '0 1rem',
-                          fontSize: '0.8rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.4rem'
-                        }}
-                      >
-                        <span>+ Create Job Order</span>
-                        <ArrowUpRight size={13} />
-                      </button>
-                    )}
-
-                    {/* If Cancelled: Allow Restore */}
-                    {enq.status === 'cancelled' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRestore(enq)}
-                        style={{
-                          background: bgSubtle,
-                          color: textPrimary,
-                          border: `1px solid ${borderColor}`,
-                          borderRadius: '8px',
-                          height: '34px',
-                          padding: '0 0.85rem',
-                          fontSize: '0.78rem',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Restore to Pipeline
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+      {error && (
+        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          <AlertCircle size={18} /> {error}
         </div>
       )}
 
-      {/* ── 5. NEW / EDIT ENQUIRY MODAL ── */}
-      {isCreateModalOpen && (
+      {/* ── 5. MAIN DATA TABLE (Matches Customers.jsx desktop-only-table and table-container) ── */}
+      <div className="glass-panel" style={{ overflowX: 'auto', minHeight: '200px', position: 'relative' }}>
+        {loading ? (
+          <div style={{ padding: '1.5rem' }}>
+            <SkeletonLoader type="table" />
+          </div>
+        ) : (
+          <>
+            {enquiries.length === 0 && !error && (
+              <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <MessageSquare size={32} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
+                <div style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                  {searchQuery 
+                    ? `No enquiries matching "${searchQuery}"`
+                    : activeSection === 'active'
+                    ? 'No active enquiries in progress. Click "+ New Enquiry" to record an inquiry.'
+                    : activeSection === 'converted'
+                    ? 'No converted leads yet. As enquiries confirm orders, they will appear here.'
+                    : 'No cancelled enquiries recorded.'}
+                </div>
+              </div>
+            )}
+
+            {enquiries.length > 0 && (
+              <>
+                {/* Desktop Table View */}
+                <div className="desktop-only-table">
+                  <div className="table-container">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th>Enquiry #</th>
+                          <th>Customer / Prospect</th>
+                          <th>Specific Work Requested</th>
+                          <th>Channel</th>
+                          <th>Enquiry Date</th>
+                          <th>Follow-Up Status</th>
+                          <th style={{ textAlign: 'right' }}>Est. Value</th>
+                          <th style={{ textAlign: 'center' }}>Photo</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {enquiries.map((enq) => {
+                          const chCfg = CHANNEL_CONFIG[enq.channel] || CHANNEL_CONFIG.other
+                          const stCfg = STATUS_CONFIG[enq.status] || STATUS_CONFIG.enquiry
+                          const followStatus = getFollowUpStatus(enq.next_follow_up_date)
+                          const clientName = enq.customer_name || enq.customer_detail?.name || 'Walk-in Prospect'
+                          const phone = enq.phone || enq.customer_detail?.phone || ''
+
+                          return (
+                            <tr key={enq.id} className="hover-row">
+                              {/* Enquiry Number */}
+                              <td>
+                                <div style={{ fontWeight: '700', color: 'var(--primary, #1366d9)' }}>
+                                  {enq.enquiry_number}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '0.15rem' }}>
+                                  ID-{enq.id.toString().padStart(4, '0')}
+                                </div>
+                              </td>
+
+                              {/* Customer / Prospect */}
+                              <td>
+                                <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>
+                                  {clientName}
+                                </div>
+                                {phone && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                      {phone}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); openWhatsApp(phone, `Hello ${clientName}, regarding your enquiry ${enq.enquiry_number} with Arab Season:`) }}
+                                      title="Open WhatsApp Chat"
+                                      style={{
+                                        background: 'rgba(22, 163, 74, 0.1)',
+                                        border: 'none',
+                                        color: '#16a34a',
+                                        borderRadius: '4px',
+                                        padding: '1px 5px',
+                                        fontSize: '0.68rem',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.2rem'
+                                      }}
+                                    >
+                                      <MessageSquare size={10} /> WA
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Specific Work Requested */}
+                              <td style={{ maxWidth: '280px' }}>
+                                {enq.title && (
+                                  <div style={{ fontWeight: '700', fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '0.15rem' }}>
+                                    {enq.title}
+                                  </div>
+                                )}
+                                <div style={{ 
+                                  fontSize: '0.78rem', 
+                                  color: 'var(--text-muted)', 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis', 
+                                  whiteSpace: 'nowrap' 
+                                }}
+                                title={enq.description}
+                                >
+                                  {enq.description || '---'}
+                                </div>
+                              </td>
+
+                              {/* Channel */}
+                              <td>
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: '700',
+                                  padding: '0.2rem 0.55rem',
+                                  borderRadius: '6px',
+                                  background: chCfg.bg,
+                                  color: chCfg.color,
+                                  border: `1px solid ${chCfg.border}`,
+                                  display: 'inline-flex',
+                                  alignItems: 'center'
+                                }}>
+                                  {chCfg.label}
+                                </span>
+                              </td>
+
+                              {/* Enquiry Date */}
+                              <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                {enq.date}
+                              </td>
+
+                              {/* Follow-Up Status */}
+                              <td style={{ whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: '700',
+                                    padding: '0.15rem 0.5rem',
+                                    borderRadius: '4px',
+                                    background: 'rgba(0,0,0,0.05)',
+                                    color: 'var(--text-main)'
+                                  }}>
+                                    📞 {enq.follow_up_count} {enq.follow_up_count === 1 ? 'call' : 'calls'}
+                                  </span>
+
+                                  {followStatus && enq.status !== 'converted' && enq.status !== 'cancelled' && (
+                                    <span style={{
+                                      fontSize: '0.7rem',
+                                      fontWeight: '700',
+                                      padding: '0.15rem 0.45rem',
+                                      borderRadius: '4px',
+                                      background: followStatus.bg,
+                                      color: followStatus.color
+                                    }}>
+                                      {followStatus.label}
+                                    </span>
+                                  )}
+
+                                  {enq.follow_ups && enq.follow_ups.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setSelectedEnquiry(enq); setIsDetailModalOpen(true) }}
+                                      title="View History Timeline"
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--primary, #1366d9)',
+                                        fontSize: '0.72rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline',
+                                        padding: 0
+                                      }}
+                                    >
+                                      History
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Estimated Value */}
+                              <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                                {enq.estimated_value ? formatCurrency(enq.estimated_value) : '---'}
+                              </td>
+
+                              {/* Reference Photo / Attachment */}
+                              <td style={{ textAlign: 'center' }}>
+                                {enq.attachment ? (
+                                  <div
+                                    onClick={() => setPreviewMediaUrl(enq.attachment)}
+                                    title="Click to view reference attachment"
+                                    style={{
+                                      width: '34px',
+                                      height: '34px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--border-color, #e2e8f0)',
+                                      overflow: 'hidden',
+                                      margin: '0 auto',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      background: '#f8fafc'
+                                    }}
+                                  >
+                                    {enq.attachment_type?.includes('pdf') ? (
+                                      <FileText size={18} color="#dc2626" />
+                                    ) : (
+                                      <img
+                                        src={enq.attachment}
+                                        alt="thumbnail"
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                      />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>---</span>
+                                )}
+                              </td>
+
+                              {/* Status Badge */}
+                              <td>
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: '700',
+                                  padding: '0.2rem 0.55rem',
+                                  borderRadius: '6px',
+                                  background: stCfg.bg,
+                                  color: stCfg.color,
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {stCfg.label}
+                                </span>
+                              </td>
+
+                              {/* Actions */}
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                                  {/* Log Follow-up button */}
+                                  {enq.status !== 'converted' && enq.status !== 'cancelled' && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={() => handleOpenFollowUp(enq)}
+                                        title="Log Follow-up Call"
+                                        style={{
+                                          padding: '0.25rem 0.55rem',
+                                          fontSize: '0.72rem',
+                                          fontWeight: '700',
+                                          borderRadius: '6px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '0.25rem'
+                                        }}
+                                      >
+                                        <Phone size={11} /> Call
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleMarkConverted(enq)}
+                                        title="Mark as Converted"
+                                        style={{
+                                          background: '#0f7638',
+                                          color: '#ffffff',
+                                          border: 'none',
+                                          padding: '0.25rem 0.6rem',
+                                          fontSize: '0.72rem',
+                                          fontWeight: '700',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '0.25rem'
+                                        }}
+                                      >
+                                        <CheckCircle2 size={11} /> Won
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {/* If Converted: 1-click Create Job Order */}
+                                  {enq.status === 'converted' && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-primary"
+                                      onClick={() => handleCreateJobOrder(enq)}
+                                      title="Create Job Order from Lead"
+                                      style={{
+                                        padding: '0.25rem 0.65rem',
+                                        fontSize: '0.72rem',
+                                        fontWeight: '700',
+                                        borderRadius: '6px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.3rem'
+                                      }}
+                                    >
+                                      <ArrowUpRight size={12} /> Job Order
+                                    </button>
+                                  )}
+
+                                  {/* If Cancelled: Allow Restore */}
+                                  {enq.status === 'cancelled' && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary"
+                                      onClick={() => handleRestore(enq)}
+                                      title="Restore to Active"
+                                      style={{
+                                        padding: '0.25rem 0.55rem',
+                                        fontSize: '0.72rem',
+                                        fontWeight: '600',
+                                        borderRadius: '6px'
+                                      }}
+                                    >
+                                      Restore
+                                    </button>
+                                  )}
+
+                                  {/* Edit button */}
+                                  <button
+                                    className="btn-icon"
+                                    style={{ width: '30px', height: '30px' }}
+                                    onClick={() => handleOpenModal(enq)}
+                                    title="Edit Enquiry"
+                                  >
+                                    <Edit3 size={13} />
+                                  </button>
+
+                                  {/* Delete button */}
+                                  <button
+                                    className="btn-icon"
+                                    style={{ width: '30px', height: '30px', color: 'var(--danger, #dc2626)' }}
+                                    onClick={() => handleDeleteEnquiry(enq.id, enq.enquiry_number)}
+                                    title="Move to Recycle Bin"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Mobile Native Cards View (Matches Customers.jsx mobile-only-cards) */}
+                <div className="mobile-only-cards" style={{ padding: '0.75rem' }}>
+                  {enquiries.map((enq) => {
+                    const clientName = enq.customer_name || enq.customer_detail?.name || 'Walk-in Prospect'
+                    const phone = enq.phone || enq.customer_detail?.phone || ''
+                    const stCfg = STATUS_CONFIG[enq.status] || STATUS_CONFIG.enquiry
+                    const initials = clientName
+                      ? clientName.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+                      : 'EN'
+
+                    return (
+                      <div key={enq.id} className="mobile-entity-card" style={{ marginBottom: '0.75rem' }}>
+                        <div className="mobile-card-header">
+                          <div className="mobile-card-title-group">
+                            <div className="mobile-card-avatar" style={{ background: '#ebf3fc', color: '#1366d9' }}>
+                              {initials}
+                            </div>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div className="mobile-card-title">{clientName}</div>
+                              <div className="mobile-card-sub">
+                                <span style={{ fontWeight: '700', color: '#1366d9' }}>{enq.enquiry_number}</span>
+                                {phone && <span> • {phone}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '0.7rem',
+                            fontWeight: '700',
+                            padding: '0.15rem 0.45rem',
+                            borderRadius: '4px',
+                            background: stCfg.bg,
+                            color: stCfg.color
+                          }}>
+                            {stCfg.label}
+                          </span>
+                        </div>
+
+                        <div className="mobile-card-body" style={{ padding: '0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {enq.title && <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.2rem' }}>{enq.title}</div>}
+                          <div style={{ lineHeight: '1.4' }}>{enq.description}</div>
+                        </div>
+
+                        <div className="mobile-card-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                            {enq.estimated_value ? formatCurrency(enq.estimated_value) : `📞 ${enq.follow_up_count} Calls`}
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            {enq.status !== 'converted' && enq.status !== 'cancelled' && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => handleOpenFollowUp(enq)}
+                                style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
+                              >
+                                + Call
+                              </button>
+                            )}
+                            <button
+                              className="btn-icon"
+                              style={{ width: '28px', height: '28px' }}
+                              onClick={() => handleOpenModal(enq)}
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── 6. CREATE / EDIT ENQUIRY MODAL ── */}
+      {isModalOpen && (
         <div style={{
           position: 'fixed',
           inset: 0,
@@ -1360,59 +1210,60 @@ export default function Enquiries({ currentUser }) {
           padding: '1rem'
         }}>
           <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
+            background: 'var(--card-bg, #ffffff)',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            borderRadius: '12px',
             width: '100%',
-            maxWidth: '620px',
-            maxHeight: 'calc(100vh - 3.5rem)',
+            maxWidth: '640px',
+            maxHeight: 'calc(100vh - 3rem)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)'
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
           }}>
             {/* Modal Header */}
             <div style={{
-              padding: '1.1rem 1.4rem',
-              borderBottom: `1px solid ${borderColor}`,
+              padding: '1rem 1.25rem',
+              borderBottom: '1px solid var(--border-color, #e2e8f0)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexShrink: 0
             }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: textPrimary }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-main)' }}>
                   {isEditing ? `Edit Enquiry (${selectedEnquiry?.enquiry_number})` : 'New Customer Enquiry'}
-                </h2>
-                <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: textMuted }}>
-                  Record customer inquiry details, channel, and reference photo.
+                </h3>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Capture customer request details, channel, and reference photo.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                style={{
-                  background: bgSubtle,
-                  border: 'none',
-                  color: textMuted,
-                  borderRadius: '6px',
-                  padding: '5px',
-                  cursor: 'pointer'
-                }}
+                onClick={() => setIsModalOpen(false)}
+                className="btn-icon"
+                style={{ width: '32px', height: '32px' }}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            {/* Modal Form Scroll Area */}
-            <form onSubmit={handleSaveEnquiry} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.4rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.9rem', marginBottom: '0.9rem' }}>
+            {/* Modal Body */}
+            <form onSubmit={handleSaveEnquiry} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem' }}>
+              {formError && (
+                <div className="error-message" style={{ marginBottom: '1rem', fontSize: '0.8rem' }}>
+                  {formError}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
                 {/* Existing Customer (Optional dropdown) */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Existing Customer (Optional)
                   </label>
                   <select
+                    className="form-control"
                     value={formData.customer_id}
                     onChange={(e) => {
                       const cId = e.target.value
@@ -1425,95 +1276,56 @@ export default function Enquiries({ currentUser }) {
                         email: found && found.email ? found.email : prev.email
                       }))
                     }}
-                    style={{
-                      width: '100%',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   >
-                    <option value="">-- Or type new prospect below --</option>
+                    <option value="">-- Or type new prospect name below --</option>
                     {customers.map(c => (
                       <option key={c.id} value={c.id}>{c.name} {c.company_name ? `(${c.company_name})` : ''}</option>
                     ))}
                   </select>
                 </div>
 
-                {/* Prospect / Client Name */}
+                {/* Customer / Prospect Name */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Customer / Prospect Name *
                   </label>
                   <input
                     type="text"
                     required
+                    className="form-control"
                     placeholder="e.g. Abdullah Al-Otaibi"
                     value={formData.customer_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, customer_name: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   />
                 </div>
 
                 {/* Phone / WhatsApp */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Phone / WhatsApp Number
                   </label>
                   <input
                     type="text"
+                    className="form-control"
                     placeholder="e.g. +966 50 123 4567"
                     value={formData.phone}
                     onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   />
                 </div>
 
                 {/* Channel */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Inquiry Channel
                   </label>
                   <select
+                    className="form-control"
                     value={formData.channel}
                     onChange={(e) => setFormData(prev => ({ ...prev, channel: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   >
                     <option value="whatsapp">WhatsApp</option>
                     <option value="phone_call">Phone Call</option>
@@ -1526,133 +1338,82 @@ export default function Enquiries({ currentUser }) {
 
                 {/* Date */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Enquiry Date
                   </label>
                   <input
                     type="date"
+                    className="form-control"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   />
                 </div>
 
-                {/* Short Title */}
+                {/* Subject / Title */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Subject / Project Summary
                   </label>
                   <input
                     type="text"
+                    className="form-control"
                     placeholder="e.g. 3D Acrylic Glow Signboard for Riyadh Branch"
                     value={formData.title}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   />
                 </div>
 
-                {/* Work Requested / Description */}
+                {/* Specific Work Requested / Description */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Specific Work Requested / Customer Requirements *
                   </label>
                   <textarea
                     rows={4}
                     required
+                    className="form-control"
                     placeholder="Describe what the customer asked for (dimensions, materials, quantity, specifications)..."
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      padding: '0.65rem 0.75rem',
-                      fontSize: '0.85rem',
-                      lineHeight: '1.45',
-                      outline: 'none',
-                      resize: 'vertical'
-                    }}
+                    style={{ width: '100%', borderRadius: 'var(--radius-sm, 6px)', resize: 'vertical' }}
                   />
                 </div>
 
                 {/* Estimated Budget / Value */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Estimated Value (SAR)
                   </label>
                   <input
                     type="number"
                     step="0.01"
+                    className="form-control"
                     placeholder="e.g. 4500"
                     value={formData.estimated_value}
                     onChange={(e) => setFormData(prev => ({ ...prev, estimated_value: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   />
                 </div>
 
                 {/* Next Follow-up Reminder Date */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Next Follow-up Call Date
                   </label>
                   <input
                     type="date"
+                    className="form-control"
                     value={formData.next_follow_up_date}
                     onChange={(e) => setFormData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   />
                 </div>
 
                 {/* Reference Photo / Attachment Upload */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.78rem', fontWeight: '700' }}>
                     Reference Photo / Site Attachment (Image or PDF)
                   </label>
                   
@@ -1661,14 +1422,14 @@ export default function Enquiries({ currentUser }) {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: bgSubtle,
-                      border: `1px solid ${borderColor}`,
+                      background: 'rgba(0,0,0,0.03)',
+                      border: '1px solid var(--border-color, #e2e8f0)',
                       borderRadius: '8px',
                       padding: '0.65rem 0.85rem'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', overflow: 'hidden' }}>
                         {formData.attachment_type?.includes('pdf') ? (
-                          <FileText size={20} color="#ef4444" />
+                          <FileText size={20} color="#dc2626" />
                         ) : (
                           <img
                             src={formData.attachment}
@@ -1676,7 +1437,7 @@ export default function Enquiries({ currentUser }) {
                             style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }}
                           />
                         )}
-                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: textPrimary, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                           {formData.attachment_name || 'Uploaded Reference'}
                         </span>
                       </div>
@@ -1686,7 +1447,7 @@ export default function Enquiries({ currentUser }) {
                         style={{
                           background: 'transparent',
                           border: 'none',
-                          color: '#ef4444',
+                          color: 'var(--danger, #dc2626)',
                           cursor: 'pointer',
                           padding: '4px'
                         }}
@@ -1698,20 +1459,20 @@ export default function Enquiries({ currentUser }) {
                     <div
                       onClick={() => fileInputRef.current?.click()}
                       style={{
-                        border: `2px dashed ${borderColor}`,
+                        border: '2px dashed var(--border-color, #e2e8f0)',
                         borderRadius: '8px',
                         padding: '1.25rem',
                         textAlign: 'center',
                         cursor: 'pointer',
-                        background: bgSubtle,
+                        background: 'rgba(0,0,0,0.02)',
                         transition: 'border-color 0.15s ease'
                       }}
                     >
-                      <UploadCloud size={24} style={{ color: textMuted, marginBottom: '0.25rem' }} />
-                      <div style={{ fontSize: '0.82rem', fontWeight: '700', color: textPrimary }}>
+                      <UploadCloud size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }} />
+                      <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
                         Click to upload sample photo or drawing
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: textMuted }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                         JPG, PNG, WebP, or PDF up to 10MB
                       </div>
                       <input
@@ -1726,49 +1487,28 @@ export default function Enquiries({ currentUser }) {
                 </div>
               </div>
 
-              {/* Modal Action Buttons */}
+              {/* Modal Footer */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-end',
                 gap: '0.65rem',
-                paddingTop: '1rem',
-                borderTop: `1px solid ${borderColor}`
+                paddingTop: '0.85rem',
+                borderTop: '1px solid var(--border-color, #e2e8f0)'
               }}>
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  style={{
-                    background: bgSubtle,
-                    color: textPrimary,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '8px',
-                    height: '38px',
-                    padding: '0 1rem',
-                    fontSize: '0.85rem',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="btn btn-secondary"
+                  onClick={() => setIsModalOpen(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  style={{
-                    background: isDarkMode ? '#ffffff' : '#0f172a',
-                    color: isDarkMode ? '#0f172a' : '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    height: '38px',
-                    padding: '0 1.35rem',
-                    fontSize: '0.85rem',
-                    fontWeight: '700',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    opacity: saving ? 0.7 : 1
-                  }}
+                  className="btn btn-primary"
+                  disabled={submitting}
                 >
-                  {saving ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Enquiry')}
+                  {submitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Enquiry')}
                 </button>
               </div>
             </form>
@@ -1776,7 +1516,7 @@ export default function Enquiries({ currentUser }) {
         </div>
       )}
 
-      {/* ── 6. LOG FOLLOW-UP MODAL ── */}
+      {/* ── 7. LOG FOLLOW-UP MODAL ── */}
       {isFollowUpModalOpen && selectedEnquiry && (
         <div style={{
           position: 'fixed',
@@ -1790,29 +1530,29 @@ export default function Enquiries({ currentUser }) {
           padding: '1rem'
         }}>
           <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
+            background: 'var(--card-bg, #ffffff)',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '520px',
-            padding: '1.4rem',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)'
+            padding: '1.25rem',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: textPrimary }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)' }}>
                   Log Follow-up Call / Interaction
                 </h3>
-                <div style={{ fontSize: '0.78rem', color: textMuted, marginTop: '0.15rem' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                   {selectedEnquiry.enquiry_number} • {selectedEnquiry.customer_name || selectedEnquiry.customer_detail?.name}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsFollowUpModalOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: textMuted, cursor: 'pointer' }}
+                className="btn-icon"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
@@ -1820,23 +1560,14 @@ export default function Enquiries({ currentUser }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '1rem' }}>
                 {/* Contact Mode */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
                     Contact Channel
                   </label>
                   <select
+                    className="form-control"
                     value={followUpData.contact_mode}
                     onChange={(e) => setFollowUpData(prev => ({ ...prev, contact_mode: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   >
                     <option value="phone_call">Phone Call</option>
                     <option value="whatsapp">WhatsApp Message</option>
@@ -1848,23 +1579,14 @@ export default function Enquiries({ currentUser }) {
 
                 {/* Outcome */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
                     Call Outcome
                   </label>
                   <select
+                    className="form-control"
                     value={followUpData.outcome}
                     onChange={(e) => setFollowUpData(prev => ({ ...prev, outcome: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      height: '38px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.85rem',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                   >
                     <option value="interested">Interested / In Discussion</option>
                     <option value="requested_discount">Asked for Price Discount</option>
@@ -1879,53 +1601,32 @@ export default function Enquiries({ currentUser }) {
                 {/* Next Follow-up Date */}
                 {followUpData.outcome !== 'not_interested' && followUpData.outcome !== 'ready_to_close' && (
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                    <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
                       Schedule Next Follow-up Call
                     </label>
                     <input
                       type="date"
+                      className="form-control"
                       value={followUpData.next_follow_up_date}
                       onChange={(e) => setFollowUpData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        background: bgSubtle,
-                        color: textPrimary,
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: '8px',
-                        height: '38px',
-                        padding: '0 0.75rem',
-                        fontSize: '0.85rem',
-                        outline: 'none'
-                      }}
+                      style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                     />
                   </div>
                 )}
 
                 {/* Notes */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                  <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
                     Conversation Notes & Updates *
                   </label>
                   <textarea
                     rows={3}
                     required
+                    className="form-control"
                     placeholder="e.g. Spoke to client. They requested a 5% discount on the quote. Will confirm order tomorrow."
                     value={followUpData.notes}
                     onChange={(e) => setFollowUpData(prev => ({ ...prev, notes: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: bgSubtle,
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      padding: '0.65rem 0.75rem',
-                      fontSize: '0.85rem',
-                      lineHeight: '1.4',
-                      outline: 'none',
-                      resize: 'vertical'
-                    }}
+                    style={{ width: '100%', borderRadius: 'var(--radius-sm, 6px)', resize: 'vertical' }}
                   />
                 </div>
               </div>
@@ -1933,37 +1634,17 @@ export default function Enquiries({ currentUser }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.6rem' }}>
                 <button
                   type="button"
+                  className="btn btn-secondary"
                   onClick={() => setIsFollowUpModalOpen(false)}
-                  style={{
-                    background: bgSubtle,
-                    color: textPrimary,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '8px',
-                    height: '36px',
-                    padding: '0 0.95rem',
-                    fontSize: '0.85rem',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  style={{
-                    background: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    height: '36px',
-                    padding: '0 1.25rem',
-                    fontSize: '0.85rem',
-                    fontWeight: '700',
-                    cursor: saving ? 'not-allowed' : 'pointer'
-                  }}
+                  className="btn btn-primary"
+                  disabled={submitting}
                 >
-                  {saving ? 'Logging...' : 'Log Follow-up Call'}
+                  {submitting ? 'Logging...' : 'Log Follow-up Call'}
                 </button>
               </div>
             </form>
@@ -1971,7 +1652,7 @@ export default function Enquiries({ currentUser }) {
         </div>
       )}
 
-      {/* ── 7. CANCEL / LOST MODAL ── */}
+      {/* ── 8. CANCEL / LOST MODAL ── */}
       {isCancelModalOpen && selectedEnquiry && (
         <div style={{
           position: 'fixed',
@@ -1985,51 +1666,42 @@ export default function Enquiries({ currentUser }) {
           padding: '1rem'
         }}>
           <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
+            background: 'var(--card-bg, #ffffff)',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '480px',
-            padding: '1.4rem',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)'
+            padding: '1.25rem',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#ef4444' }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', color: 'var(--danger, #dc2626)' }}>
                   Cancel / Mark Lead as Lost
                 </h3>
-                <div style={{ fontSize: '0.78rem', color: textMuted, marginTop: '0.15rem' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                   Capture why the customer decided not to proceed.
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCancelModalOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: textMuted, cursor: 'pointer' }}
+                className="btn-icon"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
             <form onSubmit={handleSaveCancel}>
               <div style={{ marginBottom: '0.9rem' }}>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
                   Primary Loss Reason *
                 </label>
                 <select
+                  className="form-control"
                   value={cancelData.cancellation_reason}
                   onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_reason: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    background: bgSubtle,
-                    color: textPrimary,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '8px',
-                    height: '38px',
-                    padding: '0 0.75rem',
-                    fontSize: '0.85rem',
-                    outline: 'none'
-                  }}
+                  style={{ width: '100%', height: '38px', borderRadius: 'var(--radius-sm, 6px)' }}
                 >
                   {CANCELLATION_REASONS.map(r => (
                     <option key={r.id} value={r.id}>{r.label}</option>
@@ -2038,63 +1710,33 @@ export default function Enquiries({ currentUser }) {
               </div>
 
               <div style={{ marginBottom: '1.1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem', color: textMuted }}>
+                <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.35rem' }}>
                   Additional Notes (Optional)
                 </label>
                 <textarea
                   rows={3}
+                  className="form-control"
                   placeholder="e.g. Customer stated another company offered 15% cheaper for acrylic signage."
                   value={cancelData.cancellation_notes}
                   onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_notes: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    background: bgSubtle,
-                    color: textPrimary,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '8px',
-                    padding: '0.65rem 0.75rem',
-                    fontSize: '0.85rem',
-                    outline: 'none',
-                    resize: 'vertical'
-                  }}
+                  style={{ width: '100%', borderRadius: 'var(--radius-sm, 6px)', resize: 'vertical' }}
                 />
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.6rem' }}>
                 <button
                   type="button"
+                  className="btn btn-secondary"
                   onClick={() => setIsCancelModalOpen(false)}
-                  style={{
-                    background: bgSubtle,
-                    color: textPrimary,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '8px',
-                    height: '36px',
-                    padding: '0 0.95rem',
-                    fontSize: '0.85rem',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
                 >
                   Keep Active
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  style={{
-                    background: '#ef4444',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    height: '36px',
-                    padding: '0 1.25rem',
-                    fontSize: '0.85rem',
-                    fontWeight: '700',
-                    cursor: saving ? 'not-allowed' : 'pointer'
-                  }}
+                  className="btn btn-danger"
+                  disabled={submitting}
                 >
-                  {saving ? 'Cancelling...' : 'Confirm Cancellation'}
+                  {submitting ? 'Cancelling...' : 'Confirm Cancellation'}
                 </button>
               </div>
             </form>
@@ -2102,7 +1744,7 @@ export default function Enquiries({ currentUser }) {
         </div>
       )}
 
-      {/* ── 8. FOLLOW-UP HISTORY DETAIL MODAL ── */}
+      {/* ── 9. TIMELINE HISTORY MODAL ── */}
       {isDetailModalOpen && selectedEnquiry && (
         <div style={{
           position: 'fixed',
@@ -2116,67 +1758,67 @@ export default function Enquiries({ currentUser }) {
           padding: '1rem'
         }}>
           <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
+            background: 'var(--card-bg, #ffffff)',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '560px',
             maxHeight: 'calc(100vh - 4rem)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)'
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)'
           }}>
             <div style={{
-              padding: '1.1rem 1.4rem',
-              borderBottom: `1px solid ${borderColor}`,
+              padding: '1rem 1.25rem',
+              borderBottom: '1px solid var(--border-color, #e2e8f0)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexShrink: 0
             }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: textPrimary }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-main)' }}>
                   Follow-up Timeline
                 </h3>
-                <div style={{ fontSize: '0.78rem', color: textMuted, marginTop: '0.15rem' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                   {selectedEnquiry.enquiry_number} • {selectedEnquiry.customer_name || selectedEnquiry.customer_detail?.name}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsDetailModalOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: textMuted, cursor: 'pointer' }}
+                className="btn-icon"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.4rem' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem' }}>
               {selectedEnquiry.follow_ups && selectedEnquiry.follow_ups.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                   {selectedEnquiry.follow_ups.map((fu, idx) => (
                     <div
                       key={fu.id || idx}
                       style={{
-                        background: bgSubtle,
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: '10px',
-                        padding: '0.85rem 1rem'
+                        background: 'rgba(0,0,0,0.02)',
+                        border: '1px solid var(--border-color, #e2e8f0)',
+                        borderRadius: '8px',
+                        padding: '0.75rem 0.9rem'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#3b82f6' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1366d9' }}>
                           Follow-up #{fu.follow_up_number} • {fu.contact_mode_display || fu.contact_mode}
                         </span>
-                        <span style={{ fontSize: '0.72rem', color: textMuted }}>
-                          {fmtDate(fu.date)}
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          {fu.date ? new Date(fu.date).toLocaleDateString() : '---'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: textPrimary, lineHeight: '1.4', marginBottom: '0.4rem' }}>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', lineHeight: '1.4', marginBottom: '0.35rem' }}>
                         "{fu.notes}"
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: textMuted }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                         <span>Outcome: <strong>{fu.outcome_display || fu.outcome}</strong></span>
                         {fu.created_by_name && <span>Logged by: {fu.created_by_name}</span>}
                       </div>
@@ -2184,33 +1826,23 @@ export default function Enquiries({ currentUser }) {
                   ))}
                 </div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: textMuted }}>
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
                   No follow-up calls logged yet.
                 </div>
               )}
             </div>
 
             <div style={{
-              padding: '0.9rem 1.4rem',
-              borderTop: `1px solid ${borderColor}`,
+              padding: '0.85rem 1.25rem',
+              borderTop: '1px solid var(--border-color, #e2e8f0)',
               display: 'flex',
               justifyContent: 'flex-end',
               flexShrink: 0
             }}>
               <button
                 type="button"
+                className="btn btn-secondary"
                 onClick={() => setIsDetailModalOpen(false)}
-                style={{
-                  background: isDarkMode ? '#ffffff' : '#0f172a',
-                  color: isDarkMode ? '#0f172a' : '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  height: '36px',
-                  padding: '0 1.25rem',
-                  fontSize: '0.85rem',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
               >
                 Close
               </button>
@@ -2219,7 +1851,7 @@ export default function Enquiries({ currentUser }) {
         </div>
       )}
 
-      {/* ── 9. FULL IMAGE PREVIEW MODAL ── */}
+      {/* ── 10. FULL PHOTO PREVIEW MODAL ── */}
       {previewMediaUrl && (
         <div
           onClick={() => setPreviewMediaUrl(null)}
@@ -2267,6 +1899,7 @@ export default function Enquiries({ currentUser }) {
           </div>
         </div>
       )}
+
     </div>
   )
 }
