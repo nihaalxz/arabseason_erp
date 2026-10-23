@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
   Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
-  FileText, Trash2, Edit3, Eye, ArrowUpRight, UploadCloud, 
+  FileText, Trash2, Edit3, Eye, UploadCloud, 
   X, ChevronRight, Check
 } from 'lucide-react'
 import api from '../api'
@@ -413,13 +413,6 @@ export default function Enquiries({ currentUser }) {
     } catch (err) {
       showError('Failed to delete enquiry', err?.message)
     }
-  }
-
-  // 1-Click Navigate to Create Job Order from Converted Lead
-  const handleCreateJobOrder = (enq) => {
-    const customerId = enq.customer || ''
-    const description = encodeURIComponent(enq.description || enq.title || '')
-    navigate(`/jobs?action=new&customerId=${customerId}&desc=${description}&ref=${enq.enquiry_number}`)
   }
 
   // WhatsApp click handler
@@ -1050,27 +1043,6 @@ export default function Enquiries({ currentUser }) {
                                         <CheckCircle2 size={11} /> Won
                                       </button>
                                     </>
-                                  )}
-
-                                  {/* If Converted: 1-click Create Job Order */}
-                                  {enq.status === 'converted' && (
-                                    <button
-                                      type="button"
-                                      className="btn btn-primary"
-                                      onClick={() => handleCreateJobOrder(enq)}
-                                      title="Create Job Order from Lead"
-                                      style={{
-                                        padding: '0.25rem 0.65rem',
-                                        fontSize: '0.72rem',
-                                        fontWeight: '700',
-                                        borderRadius: '6px',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '0.3rem'
-                                      }}
-                                    >
-                                      <ArrowUpRight size={12} /> Job Order
-                                    </button>
                                   )}
 
                                   {/* If Cancelled: Allow Restore */}
