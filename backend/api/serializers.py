@@ -7,7 +7,7 @@ from .models import (
     Invoice, InvoiceItem, CustomFormField,
     MaterialCategory, Material, Estimation, EstimationItem,
     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
-    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp
+    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson
 )
 from decimal import Decimal
 from django.db import models
@@ -1559,9 +1559,18 @@ class EnquiryFollowUpSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_by', 'created_at']
 
 
+class SalespersonSerializer(serializers.ModelSerializer):
+    enquiries_count = serializers.IntegerField(source='enquiries.count', read_only=True)
+
+    class Meta:
+        model = Salesperson
+        fields = '__all__'
+
+
 class EnquirySerializer(serializers.ModelSerializer):
     follow_ups = EnquiryFollowUpSerializer(many=True, read_only=True)
     customer_detail = CustomerSerializer(source='customer', read_only=True)
+    salesperson_detail = SalespersonSerializer(source='salesperson', read_only=True)
     created_by_name = serializers.ReadOnlyField(source='created_by.username')
     assigned_to_name = serializers.ReadOnlyField(source='assigned_to.username')
     channel_display = serializers.CharField(source='get_channel_display', read_only=True)

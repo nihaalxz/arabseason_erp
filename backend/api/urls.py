@@ -11,10 +11,11 @@ from .views import (
     MaterialCategoryViewSet, MaterialViewSet, EstimationViewSet,
     PettyCashAccountViewSet,
     QuotationViewSet, CreditNoteViewSet, DeliveryNoteViewSet,
-    NotificationViewSet, RecycleBinViewSet, EnquiryViewSet
+    NotificationViewSet, RecycleBinViewSet, EnquiryViewSet, SalespersonViewSet
 )
 
 router = DefaultRouter()
+router.register(r'salespersons', SalespersonViewSet, basename='salespersons')
 router.register(r'enquiries', EnquiryViewSet, basename='enquiries')
 router.register(r'customers', CustomerViewSet, basename='customers')
 router.register(r'vendors', VendorViewSet, basename='vendors')

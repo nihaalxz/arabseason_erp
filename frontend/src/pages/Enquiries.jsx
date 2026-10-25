@@ -4,7 +4,7 @@ import {
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
   Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
   FileText, Trash2, Edit3, Eye, UploadCloud, 
-  X, ChevronRight, Check, RotateCcw
+  X, ChevronRight, Check, RotateCcw, UserCheck, User
 } from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
@@ -47,6 +47,7 @@ export default function Enquiries({ currentUser }) {
   // Primary State
   const [enquiries, setEnquiries] = useState([])
   const [customers, setCustomers] = useState([])
+  const [salespersons, setSalespersons] = useState([])
   const [metrics, setMetrics] = useState({
     active_count: 0,
     due_today_count: 0,
@@ -61,6 +62,7 @@ export default function Enquiries({ currentUser }) {
   // Section Switcher State: 'active' | 'converted' | 'cancelled'
   const [activeSection, setActiveSection] = useState('active')
   const [selectedChannel, setSelectedChannel] = useState('all')
+  const [salespersonFilter, setSalespersonFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [dueTodayOnly, setDueTodayOnly] = useState(false)
 
@@ -69,8 +71,13 @@ export default function Enquiries({ currentUser }) {
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false)
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isSalespersonModalOpen, setIsSalespersonModalOpen] = useState(false)
   const [selectedEnquiry, setSelectedEnquiry] = useState(null)
   const [previewMediaUrl, setPreviewMediaUrl] = useState(null)
+
+  // Form State for Quick Salesperson Creation
+  const [newSalespersonForm, setNewSalespersonForm] = useState({ name: '', phone: '', email: '' })
+  const [savingSalesperson, setSavingSalesperson] = useState(false)
 
   // Form State for Create / Edit
   const [formData, setFormData] = useState({
@@ -78,6 +85,8 @@ export default function Enquiries({ currentUser }) {
     customer_name: '',
     phone: '',
     email: '',
+    salesperson: '',
+    salesperson_name: '',
     channel: 'whatsapp',
     date: new Date().toISOString().split('T')[0],
     title: '',
@@ -113,12 +122,13 @@ export default function Enquiries({ currentUser }) {
   // Fetch initial data
   useEffect(() => {
     fetchCustomers()
+    fetchSalespersons()
     fetchMetrics()
   }, [])
 
   useEffect(() => {
     fetchEnquiries()
-  }, [activeSection, selectedChannel, searchQuery, dueTodayOnly])
+  }, [activeSection, selectedChannel, salespersonFilter, searchQuery, dueTodayOnly])
 
   const fetchCustomers = async () => {
     try {
@@ -127,6 +137,16 @@ export default function Enquiries({ currentUser }) {
       setCustomers(raw)
     } catch (err) {
       console.error('Failed to load customers:', err)
+    }
+  }
+
+  const fetchSalespersons = async () => {
+    try {
+      const res = await api.get('salespersons/?page_size=200')
+      const raw = res.data.results || res.data || []
+      setSalespersons(raw)
+    } catch (err) {
+      console.error('Failed to load salespersons:', err)
     }
   }
 
@@ -154,6 +174,10 @@ export default function Enquiries({ currentUser }) {
 
       if (selectedChannel !== 'all') {
         params.channel = selectedChannel
+      }
+
+      if (salespersonFilter !== 'all') {
+        params.salesperson = salespersonFilter
       }
 
       if (searchQuery.trim()) {
@@ -218,6 +242,8 @@ export default function Enquiries({ currentUser }) {
         customer_name: enq.customer_name || enq.customer_detail?.name || '',
         phone: enq.phone || enq.customer_detail?.phone || '',
         email: enq.email || enq.customer_detail?.email || '',
+        salesperson: enq.salesperson || '',
+        salesperson_name: enq.salesperson_name || enq.salesperson_detail?.name || '',
         channel: enq.channel || 'whatsapp',
         date: enq.date || new Date().toISOString().split('T')[0],
         title: enq.title || '',
@@ -237,6 +263,8 @@ export default function Enquiries({ currentUser }) {
         customer_name: '',
         phone: '',
         email: '',
+        salesperson: '',
+        salesperson_name: '',
         channel: 'whatsapp',
         date: new Date().toISOString().split('T')[0],
         title: '',
@@ -250,6 +278,38 @@ export default function Enquiries({ currentUser }) {
       })
     }
     setIsModalOpen(true)
+  }
+
+  // Quick Create Salesperson Handler
+  const handleQuickCreateSalesperson = async (e) => {
+    e.preventDefault()
+    const name = newSalespersonForm.name.trim()
+    if (!name) return
+    setSavingSalesperson(true)
+    try {
+      const res = await api.post('salespersons/', {
+        name,
+        phone: newSalespersonForm.phone.trim(),
+        email: newSalespersonForm.email.trim()
+      })
+      const created = res.data
+      setSalespersons(prev => [...prev.filter(s => s.id !== created.id), created].sort((a, b) => a.name.localeCompare(b.name)))
+      setFormData(prev => ({
+        ...prev,
+        salesperson: created.id,
+        salesperson_name: created.name
+      }))
+      setIsSalespersonModalOpen(false)
+      setNewSalespersonForm({ name: '', phone: '', email: '' })
+      showToast(`Salesperson "${created.name}" created and selected!`, 'success')
+    } catch (err) {
+      console.error('Failed to create salesperson:', err)
+      const errRes = err.response?.data
+      const msg = errRes?.name?.[0] || 'Failed to create salesperson. Name might already exist.'
+      showError('Salesperson Error', msg)
+    } finally {
+      setSavingSalesperson(false)
+    }
   }
 
   // Save Enquiry
@@ -268,6 +328,8 @@ export default function Enquiries({ currentUser }) {
         customer_name: formData.customer_name.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim(),
+        salesperson: formData.salesperson || null,
+        salesperson_name: formData.salesperson_name || '',
         channel: formData.channel,
         date: formData.date,
         title: formData.title.trim(),
@@ -738,6 +800,29 @@ export default function Enquiries({ currentUser }) {
             <option value="walk_in">Walk-in</option>
             <option value="website">Website</option>
           </select>
+
+          {/* Salesperson Filter */}
+          <select
+            value={salespersonFilter}
+            onChange={(e) => setSalespersonFilter(e.target.value)}
+            style={{
+              background: 'var(--card-bg, #ffffff)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--border-color, #e2e8f0)',
+              borderRadius: 'var(--radius-sm, 6px)',
+              height: '38px',
+              padding: '0 0.75rem',
+              fontSize: '0.82rem',
+              fontWeight: '600',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="all">All Salespersons</option>
+            {salespersons.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         </div>
 
         <button
@@ -849,6 +934,20 @@ export default function Enquiries({ currentUser }) {
                                     >
                                       <MessageSquare size={10} /> WA
                                     </button>
+                                  </div>
+                                )}
+
+                                {(enq.salesperson_name || enq.salesperson_detail?.name) && (
+                                  <div style={{
+                                    fontSize: '0.72rem',
+                                    color: 'var(--primary, #1366d9)',
+                                    fontWeight: '600',
+                                    marginTop: '0.2rem',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem'
+                                  }}>
+                                    <UserCheck size={11} /> {enq.salesperson_name || enq.salesperson_detail?.name}
                                   </div>
                                 )}
                               </td>
@@ -1121,6 +1220,9 @@ export default function Enquiries({ currentUser }) {
                               <div className="mobile-card-sub">
                                 <span style={{ fontWeight: '700', color: '#1366d9' }}>{enq.enquiry_number}</span>
                                 {phone && <span> • {phone}</span>}
+                                {(enq.salesperson_name || enq.salesperson_detail?.name) && (
+                                  <span> • 👤 {enq.salesperson_name || enq.salesperson_detail?.name}</span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1268,8 +1370,64 @@ export default function Enquiries({ currentUser }) {
               />
             </div>
 
+            {/* Salesperson (Dropdown with in-dropdown create capability) */}
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <label style={{ margin: 0 }}>Salesperson (Lead Brought By)</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewSalespersonForm({ name: '', phone: '', email: '' })
+                    setIsSalespersonModalOpen(true)
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary, #1366d9)',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.2rem',
+                    padding: '0 2px'
+                  }}
+                >
+                  <Plus size={13} /> Add New Salesman
+                </button>
+              </div>
+              <select
+                className="input-field"
+                value={formData.salesperson || ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === '__add_new__') {
+                    setNewSalespersonForm({ name: '', phone: '', email: '' })
+                    setIsSalespersonModalOpen(true)
+                    return
+                  }
+                  const sp = salespersons.find(s => String(s.id) === String(val))
+                  setFormData(prev => ({
+                    ...prev,
+                    salesperson: val,
+                    salesperson_name: sp ? sp.name : ''
+                  }))
+                }}
+              >
+                <option value="">-- Select Salesperson / Lead Owner --</option>
+                <option value="__add_new__" style={{ color: '#1366d9', fontWeight: '700', background: 'rgba(19, 102, 217, 0.08)' }}>
+                  ➕ + Add New Salesman...
+                </option>
+                {salespersons.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} {s.phone ? `(${s.phone})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Subject / Title */}
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+            <div className="form-group">
               <label>Subject / Project Summary</label>
               <input
                 type="text"
@@ -1564,10 +1722,51 @@ export default function Enquiries({ currentUser }) {
       <Modal
         isOpen={isDetailModalOpen && !!selectedEnquiry}
         onClose={() => setIsDetailModalOpen(false)}
-        title={`Follow-up Timeline: ${selectedEnquiry?.enquiry_number || ''}`}
-        maxWidth="560px"
+        title={`Enquiry Timeline: ${selectedEnquiry?.enquiry_number || ''}`}
+        maxWidth="580px"
       >
         <div>
+          {/* Quick Lead & Salesperson Overview */}
+          {selectedEnquiry && (
+            <div style={{
+              background: 'rgba(19, 102, 217, 0.04)',
+              border: '1px solid rgba(19, 102, 217, 0.15)',
+              borderRadius: '8px',
+              padding: '0.75rem 1rem',
+              marginBottom: '1.25rem',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '0.75rem'
+            }}>
+              <div>
+                <div style={{ fontSize: '0.68rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Customer / Prospect</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: '700', color: 'var(--text-main)', marginTop: '0.1rem' }}>
+                  {selectedEnquiry.customer_name || selectedEnquiry.customer_detail?.name || 'Walk-in Prospect'}
+                </div>
+                {selectedEnquiry.phone && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                    {selectedEnquiry.phone}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: '0.68rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Salesperson (Lead Brought By)</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: '700', color: '#1366d9', marginTop: '0.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <UserCheck size={14} /> {selectedEnquiry.salesperson_name || selectedEnquiry.salesperson_detail?.name || 'Not Assigned'}
+                </div>
+                {selectedEnquiry.date && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                    Enquiry Date: {selectedEnquiry.date}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '0.65rem' }}>
+            Follow-up Call History
+          </div>
+
           {selectedEnquiry?.follow_ups && selectedEnquiry.follow_ups.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               {selectedEnquiry.follow_ups.map((fu, idx) => (
@@ -1615,6 +1814,72 @@ export default function Enquiries({ currentUser }) {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* ── QUICK-CREATE SALESPERSON MODAL ── */}
+      <Modal
+        isOpen={isSalespersonModalOpen}
+        onClose={() => setIsSalespersonModalOpen(false)}
+        title="Add New Salesperson"
+        maxWidth="450px"
+      >
+        <form onSubmit={handleQuickCreateSalesperson}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="form-group">
+              <label>Salesperson Name *</label>
+              <input
+                type="text"
+                required
+                autoFocus
+                className="input-field"
+                placeholder="e.g. Tariq Mansoor"
+                value={newSalespersonForm.name}
+                onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Phone / WhatsApp Number (Optional)</label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="e.g. +966 55 987 6543"
+                value={newSalespersonForm.phone}
+                onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Email Address (Optional)</label>
+              <input
+                type="email"
+                className="input-field"
+                placeholder="e.g. tariq@arabseason.com"
+                value={newSalespersonForm.email}
+                onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsSalespersonModalOpen(false)}
+              disabled={savingSalesperson}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={savingSalesperson}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              {savingSalesperson ? 'Saving...' : <><Check size={16} /> Save & Select</>}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* ── 10. FULL PHOTO PREVIEW MODAL ── */}

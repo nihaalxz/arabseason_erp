@@ -21,7 +21,7 @@ from .models import (Customer, Vendor, JobOrder, PendingJobOrder, CustomerPaymen
                     Invoice, InvoiceItem, CustomFormField,
                     MaterialCategory, Material, Estimation, EstimationItem,
                     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
-                    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp)
+                    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson)
 from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializer, PendingJobOrderSerializer, 
                         CustomerPaymentSerializer, VendorPaymentSerializer,
                         ExpenseSerializer, SiteSettingsSerializer,
@@ -37,7 +37,7 @@ from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializ
                         CreditNoteSerializer, CreditNoteItemSerializer,
                         DeliveryNoteSerializer, DeliveryNoteItemSerializer,
                         NotificationSerializer, RecycleBinItemSerializer,
-                        EnquirySerializer, EnquiryFollowUpSerializer)
+                        EnquirySerializer, EnquiryFollowUpSerializer, SalespersonSerializer)
 
 def is_admin_user(user):
     return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'Admin'))
@@ -4726,8 +4726,25 @@ class PendingJobOrderViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(pending_obj).data)
 
 
+class SalespersonViewSet(viewsets.ModelViewSet):
+    queryset = Salesperson.objects.all().order_by('name')
+    serializer_class = SalespersonSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        active_only = self.request.query_params.get('active_only')
+        if active_only == 'true':
+            qs = qs.filter(is_active=True)
+        search = self.request.query_params.get('search')
+        if search:
+            search = search.strip()
+            qs = qs.filter(Q(name__icontains=search) | Q(phone__icontains=search) | Q(email__icontains=search))
+        return qs
+
+
 class EnquiryViewSet(viewsets.ModelViewSet):
-    queryset = Enquiry.objects.all().select_related('customer', 'created_by', 'assigned_to', 'converted_job_order', 'converted_quotation').prefetch_related('follow_ups')
+    queryset = Enquiry.objects.all().select_related('customer', 'salesperson', 'created_by', 'assigned_to', 'converted_job_order', 'converted_quotation').prefetch_related('follow_ups')
     serializer_class = EnquirySerializer
     permission_classes = [IsAuthenticated]
 
@@ -4750,6 +4767,10 @@ class EnquiryViewSet(viewsets.ModelViewSet):
         if channel and channel != 'all':
             qs = qs.filter(channel=channel)
 
+        salesperson_id = qp.get('salesperson')
+        if salesperson_id:
+            qs = qs.filter(salesperson_id=salesperson_id)
+
         follow_up_filter = qp.get('follow_up')
         today = timezone.localdate()
         if follow_up_filter == 'due_today':
@@ -4766,6 +4787,8 @@ class EnquiryViewSet(viewsets.ModelViewSet):
                 Q(enquiry_number__icontains=search) |
                 Q(customer_name__icontains=search) |
                 Q(customer__name__icontains=search) |
+                Q(salesperson__name__icontains=search) |
+                Q(salesperson_name__icontains=search) |
                 Q(phone__icontains=search) |
                 Q(title__icontains=search) |
                 Q(description__icontains=search)

@@ -994,6 +994,22 @@ class RecycleBinItem(models.Model):
         return f"{self.get_entity_type_display()}: {self.item_name} ({'Restored' if self.is_restored else 'In Bin'})"
 
 
+class Salesperson(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    phone = models.CharField(max_length=50, blank=True, default='')
+    email = models.EmailField(blank=True, default='')
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, blank=True, null=True, help_text="Commission % (optional)")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Enquiry(models.Model):
     CHANNEL_CHOICES = (
         ('whatsapp', 'WhatsApp'),
@@ -1025,6 +1041,8 @@ class Enquiry(models.Model):
     enquiry_number = models.CharField(max_length=50, unique=True, blank=True)
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='enquiries')
     customer_name = models.CharField(max_length=255, blank=True, help_text="Prospect name if not existing customer")
+    salesperson = models.ForeignKey('Salesperson', on_delete=models.SET_NULL, null=True, blank=True, related_name='enquiries', help_text="Salesperson who brought the lead")
+    salesperson_name = models.CharField(max_length=255, blank=True, default='', help_text="Cached/historical salesperson name")
     phone = models.CharField(max_length=50, blank=True)
     email = models.CharField(max_length=150, blank=True)
     channel = models.CharField(max_length=30, choices=CHANNEL_CHOICES, default='whatsapp')
