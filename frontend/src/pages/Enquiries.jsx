@@ -1860,12 +1860,11 @@ export default function Enquiries({ currentUser }) {
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                              Follow-up #{fu.follow_up_number}
-                            </span>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              via {fu.contact_mode_display || fu.contact_mode}
-                            </span>
+                            {(fu.contact_mode_display || fu.contact_mode) && (
+                              <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                                Via {fu.contact_mode_display || fu.contact_mode}
+                              </span>
+                            )}
                             <span style={{
                               fontSize: '0.7rem',
                               fontWeight: '700',
