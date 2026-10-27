@@ -4,8 +4,7 @@ import {
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
   Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
   FileText, Trash2, Edit3, Eye, UploadCloud, 
-  X, ChevronRight, Check, RotateCcw, UserCheck, User,
-  Sparkles, History
+  X, ChevronRight, Check, RotateCcw, UserCheck, User
 } from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
@@ -1695,11 +1694,12 @@ export default function Enquiries({ currentUser }) {
       <Modal
         isOpen={isDetailModalOpen && !!selectedEnquiry}
         onClose={() => setIsDetailModalOpen(false)}
-        title={`Lead Journey & History: ${selectedEnquiry?.enquiry_number || ''}`}
-        maxWidth="740px"
+        title={`Enquiry Lifecycle: ${selectedEnquiry?.enquiry_number || ''}`}
+        maxWidth="680px"
       >
         {selectedEnquiry && (() => {
           const chCfg = CHANNEL_CONFIG[selectedEnquiry.channel] || CHANNEL_CONFIG.other
+          const stCfg = STATUS_CONFIG[selectedEnquiry.status] || STATUS_CONFIG.enquiry
           const salespersonName = selectedEnquiry.salesperson_name || selectedEnquiry.salesperson_detail?.name
           const followStatus = getFollowUpStatus(selectedEnquiry.next_follow_up_date)
 
@@ -1707,297 +1707,136 @@ export default function Enquiries({ currentUser }) {
           const sortedFollowUps = [...(selectedEnquiry.follow_ups || [])].sort((a, b) => new Date(a.date) - new Date(b.date))
 
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {/* TIMELINE / HISTORY TRAIL SECTION */}
-              <div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '1rem'
-                }}>
-                  <div style={{
-                    fontWeight: '800',
-                    fontSize: '0.92rem',
-                    color: 'var(--text-main)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem'
-                  }}>
-                    <History size={16} color="#1366d9" />
-                    Complete Lead History & Timeline
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: '700',
-                      padding: '0.1rem 0.5rem',
-                      borderRadius: '10px',
-                      background: 'rgba(19, 102, 217, 0.1)',
-                      color: '#1366d9'
-                    }}>
-                      {sortedFollowUps.length + (selectedEnquiry.status === 'converted' || selectedEnquiry.status === 'cancelled' ? 2 : 1)} Milestones
-                    </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Compact Summary Header Card */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.75rem 1rem',
+                background: 'var(--bg-subtle, #f8fafc)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                gap: '1rem'
+              }}>
+                <div>
+                  <div style={{ fontWeight: '700', fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                    {selectedEnquiry.customer_name || selectedEnquiry.customer_detail?.name || 'Walk-in Prospect'}
+                    {selectedEnquiry.phone ? ` • ${selectedEnquiry.phone}` : ''}
                   </div>
-
-                  {selectedEnquiry.status !== 'converted' && selectedEnquiry.status !== 'cancelled' && (
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        setIsDetailModalOpen(false)
-                        handleOpenFollowUp(selectedEnquiry)
-                      }}
-                      style={{
-                        padding: '0.35rem 0.85rem',
-                        fontSize: '0.76rem',
-                        background: 'rgba(37, 99, 235, 0.1)',
-                        color: '#2563eb',
-                        border: '1px solid rgba(37, 99, 235, 0.25)',
-                        borderRadius: '6px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.3rem'
-                      }}
-                    >
-                      <Plus size={13} /> Log New Call
-                    </button>
-                  )}
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                    {selectedEnquiry.title || selectedEnquiry.description || 'General Enquiry'}
+                  </div>
                 </div>
+                <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {selectedEnquiry.estimated_value && (
+                    <div style={{ fontWeight: '800', fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                      {formatCurrency(selectedEnquiry.estimated_value)}
+                    </div>
+                  )}
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: '700',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '4px',
+                    background: stCfg.bg,
+                    color: stCfg.color,
+                    display: 'inline-block',
+                    marginTop: '0.2rem'
+                  }}>
+                    {stCfg.label}
+                  </span>
+                </div>
+              </div>
 
-                {/* Continuous Timeline track container */}
-                <div style={{ position: 'relative', paddingLeft: '28px' }}>
-                  {/* Vertical Track Line */}
+              {/* Sequential Lifecycle Stepper */}
+              <div style={{ position: 'relative', paddingLeft: '32px', margin: '0.25rem 0' }}>
+                {/* Vertical continuous line */}
+                <div style={{
+                  position: 'absolute',
+                  left: '14px',
+                  top: '12px',
+                  bottom: '16px',
+                  width: '2px',
+                  background: '#e2e8f0',
+                  zIndex: 0
+                }} />
+
+                {/* ── STEP 1: INCEPTION / ENQUIRY RECEIVED ── */}
+                <div style={{ position: 'relative', zIndex: 1 }}>
                   <div style={{
                     position: 'absolute',
-                    left: '13px',
-                    top: '12px',
-                    bottom: '16px',
-                    width: '2px',
-                    background: '#e2e8f0',
-                    zIndex: 0
-                  }} />
-
-                  {/* ── EVENT 1: INCEPTION / CREATION ── */}
-                  <div style={{ position: 'relative', marginBottom: '1.25rem', zIndex: 1 }}>
-                    {/* Circle Node */}
-                    <div style={{
-                      position: 'absolute',
-                      left: '-28px',
-                      top: '0',
-                      width: '26px',
-                      height: '26px',
-                      borderRadius: '50%',
-                      background: '#1366d9',
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 0 0 3px #ffffff'
-                    }}>
-                      <Sparkles size={13} />
-                    </div>
-
-                    <div style={{
-                      background: '#ffffff',
-                      border: '1px solid var(--border-color, #e2e8f0)',
-                      borderRadius: '8px',
-                      padding: '0.75rem 0.95rem'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        <span style={{ fontWeight: '700', fontSize: '0.82rem', color: 'var(--text-main)' }}>
-                          Enquiry Received via {chCfg.label}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          {selectedEnquiry.date}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                        Lead recorded in system{selectedEnquiry.created_by_name ? ` by ${selectedEnquiry.created_by_name}` : ''}.
-                        {salespersonName && ` Brought by ${salespersonName}.`}
-                      </div>
-                    </div>
+                    left: '-32px',
+                    top: '2px',
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    background: '#1366d9',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    fontSize: '0.75rem',
+                    boxShadow: '0 0 0 3px #ffffff'
+                  }}>
+                    1
                   </div>
 
-                  {/* ── EVENTS 2..K: FOLLOW-UP CALLS IN ORDER ── */}
-                  {sortedFollowUps.map((fu, idx) => {
-                    const modeCfg = CONTACT_MODE_CONFIG[fu.contact_mode] || CONTACT_MODE_CONFIG.other
-                    const ModeIcon = modeCfg.icon
-                    const outcomeCfg = OUTCOME_CONFIG[fu.outcome] || OUTCOME_CONFIG.other
-
-                    return (
-                      <div key={fu.id || idx} style={{ position: 'relative', marginBottom: '1.25rem', zIndex: 1 }}>
-                        {/* Circle Node */}
-                        <div style={{
-                          position: 'absolute',
-                          left: '-28px',
-                          top: '0',
-                          width: '26px',
-                          height: '26px',
-                          borderRadius: '50%',
-                          background: modeCfg.color,
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 0 0 3px #ffffff'
-                        }}>
-                          <ModeIcon size={13} />
-                        </div>
-
-                        <div style={{
-                          background: '#ffffff',
-                          border: '1px solid var(--border-color, #e2e8f0)',
-                          borderRadius: '8px',
-                          padding: '0.75rem 0.95rem'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.35rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: '700', fontSize: '0.82rem', color: 'var(--text-main)' }}>
-                                Follow-up #{fu.follow_up_number} • {fu.contact_mode_display || fu.contact_mode}
-                              </span>
-                              <span style={{
-                                fontSize: '0.7rem',
-                                fontWeight: '700',
-                                padding: '0.12rem 0.45rem',
-                                borderRadius: '4px',
-                                background: outcomeCfg.bg,
-                                color: outcomeCfg.color
-                              }}>
-                                {fu.outcome_display || outcomeCfg.label}
-                              </span>
-                            </div>
-
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              {fu.date ? new Date(fu.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '---'}
-                            </span>
-                          </div>
-
-                          {/* Notes */}
-                          <div style={{
-                            fontSize: '0.82rem',
-                            color: 'var(--text-main)',
-                            lineHeight: '1.45',
-                            background: 'rgba(0,0,0,0.02)',
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: '6px',
-                            borderLeft: `3px solid ${modeCfg.color}`,
-                            margin: '0.4rem 0'
-                          }}>
-                            "{fu.notes}"
-                          </div>
-
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            {fu.created_by_name && <span>Logged by: <strong>{fu.created_by_name}</strong></span>}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  {/* ── FINAL RESOLUTION / MILESTONE ── */}
-                  {selectedEnquiry.status === 'converted' ? (
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{
-                        position: 'absolute',
-                        left: '-28px',
-                        top: '0',
-                        width: '26px',
-                        height: '26px',
-                        borderRadius: '50%',
-                        background: '#0f7638',
-                        color: '#ffffff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 0 0 3px #ffffff'
-                      }}>
-                        <CheckCircle2 size={14} />
-                      </div>
-
-                      <div style={{
-                        background: '#f0fdf4',
-                        border: '1px solid #bbf7d0',
-                        borderRadius: '8px',
-                        padding: '0.85rem 1rem'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
-                          <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#166534' }}>
-                            🎉 Lead Successfully Converted (Deal Won)
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '600' }}>
-                            {selectedEnquiry.converted_at ? new Date(selectedEnquiry.converted_at).toLocaleDateString() : 'Won'}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: '#15803d', marginTop: '0.25rem' }}>
-                          The client agreed to proceed. Job Order / Quotation confirmed.
-                          {selectedEnquiry.converted_quotation_number && (
-                            <span style={{ display: 'block', fontWeight: '700', marginTop: '0.2rem' }}>
-                              Linked Quotation: {selectedEnquiry.converted_quotation_number}
-                            </span>
-                          )}
-                          {selectedEnquiry.converted_job_order_title && (
-                            <span style={{ display: 'block', fontWeight: '700', marginTop: '0.2rem' }}>
-                              Linked Job Order: {selectedEnquiry.converted_job_order_title}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    borderRadius: '8px',
+                    padding: '0.75rem 0.95rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
+                      <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                        Enquiry Received
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {selectedEnquiry.date}
+                      </span>
                     </div>
-                  ) : selectedEnquiry.status === 'cancelled' ? (
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{
-                        position: 'absolute',
-                        left: '-28px',
-                        top: '0',
-                        width: '26px',
-                        height: '26px',
-                        borderRadius: '50%',
-                        background: '#dc2626',
-                        color: '#ffffff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 0 0 3px #ffffff'
-                      }}>
-                        <XCircle size={14} />
-                      </div>
-
-                      <div style={{
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        borderRadius: '8px',
-                        padding: '0.85rem 1rem'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
-                          <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#991b1b' }}>
-                            Lead Cancelled / Lost
-                          </span>
-                          <span style={{
-                            fontSize: '0.7rem',
-                            fontWeight: '700',
-                            padding: '0.1rem 0.5rem',
-                            borderRadius: '4px',
-                            background: '#fee2e2',
-                            color: '#dc2626'
-                          }}>
-                            {selectedEnquiry.cancellation_reason_display || selectedEnquiry.cancellation_reason || 'Lost'}
-                          </span>
-                        </div>
-                        {selectedEnquiry.cancellation_notes && (
-                          <div style={{ fontSize: '0.78rem', color: '#7f1d1d', marginTop: '0.35rem', fontStyle: 'italic' }}>
-                            "{selectedEnquiry.cancellation_notes}"
-                          </div>
-                        )}
-                      </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      Received via <strong style={{ color: chCfg.color }}>{chCfg.label}</strong>
+                      {selectedEnquiry.created_by_name && ` • Logged by ${selectedEnquiry.created_by_name}`}
+                      {salespersonName && ` • Lead owner: ${salespersonName}`}
                     </div>
-                  ) : (
-                    /* Active Next Step Milestone */
-                    <div style={{ position: 'relative', zIndex: 1 }}>
+                    {selectedEnquiry.attachment && (
+                      <div style={{ marginTop: '0.4rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewMediaUrl(selectedEnquiry.attachment)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#1366d9',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            padding: 0,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}
+                        >
+                          <FileText size={13} /> View Attached File
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── STEPS 2..N: FOLLOW-UP CALLS & INTERACTIONS ── */}
+                {sortedFollowUps.map((fu, idx) => {
+                  const outcomeCfg = OUTCOME_CONFIG[fu.outcome] || OUTCOME_CONFIG.other
+
+                  return (
+                    <div key={fu.id || idx} style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
                       <div style={{
                         position: 'absolute',
-                        left: '-28px',
-                        top: '0',
+                        left: '-32px',
+                        top: '2px',
                         width: '26px',
                         height: '26px',
                         borderRadius: '50%',
@@ -2006,45 +1845,205 @@ export default function Enquiries({ currentUser }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        fontWeight: '700',
+                        fontSize: '0.75rem',
                         boxShadow: '0 0 0 3px #ffffff'
                       }}>
-                        <Clock size={13} />
+                        {idx + 2}
                       </div>
 
                       <div style={{
-                        background: '#f0f9ff',
-                        border: '1px solid #bae6fd',
+                        background: '#ffffff',
+                        border: '1px solid var(--border-color, #e2e8f0)',
                         borderRadius: '8px',
-                        padding: '0.85rem 1rem'
+                        padding: '0.75rem 0.95rem'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
-                          <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0369a1' }}>
-                            Active Pipeline • Next Follow-Up
-                          </span>
-                          {followStatus && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                              Follow-up #{fu.follow_up_number}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              via {fu.contact_mode_display || fu.contact_mode}
+                            </span>
                             <span style={{
                               fontSize: '0.7rem',
                               fontWeight: '700',
-                              padding: '0.15rem 0.5rem',
+                              padding: '0.12rem 0.45rem',
                               borderRadius: '4px',
-                              background: followStatus.bg,
-                              color: followStatus.color
+                              background: outcomeCfg.bg,
+                              color: outcomeCfg.color
                             }}>
-                              {followStatus.label}
+                              {fu.outcome_display || outcomeCfg.label}
                             </span>
-                          )}
+                          </div>
+
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {fu.date ? new Date(fu.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '---'}
+                          </span>
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: '#075985', marginTop: '0.3rem' }}>
-                          {selectedEnquiry.next_follow_up_date ? (
-                            <span>Scheduled date: <strong>{selectedEnquiry.next_follow_up_date}</strong></span>
-                          ) : (
-                            <span>No follow-up date currently scheduled.</span>
-                          )}
-                        </div>
+
+                        {fu.notes && (
+                          <div style={{
+                            fontSize: '0.82rem',
+                            color: 'var(--text-main)',
+                            marginTop: '0.35rem',
+                            lineHeight: '1.4'
+                          }}>
+                            {fu.notes}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
+                  )
+                })}
+
+                {/* ── FINAL STEP: RESOLUTION OR ACTIVE STATUS ── */}
+                {selectedEnquiry.status === 'converted' ? (
+                  <div style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: '-32px',
+                      top: '2px',
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '50%',
+                      background: '#0f7638',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '800',
+                      fontSize: '0.85rem',
+                      boxShadow: '0 0 0 3px #ffffff'
+                    }}>
+                      ✓
+                    </div>
+
+                    <div style={{
+                      background: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
+                      borderRadius: '8px',
+                      padding: '0.75rem 0.95rem'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
+                        <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#166534' }}>
+                          Deal Won (Converted)
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '600' }}>
+                          {selectedEnquiry.converted_at ? new Date(selectedEnquiry.converted_at).toLocaleDateString() : 'Won'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#15803d', marginTop: '0.2rem' }}>
+                        Client confirmed order.
+                        {selectedEnquiry.converted_quotation_number && ` Linked Quotation: ${selectedEnquiry.converted_quotation_number}.`}
+                        {selectedEnquiry.converted_job_order_title && ` Linked Job: ${selectedEnquiry.converted_job_order_title}.`}
+                      </div>
+                    </div>
+                  </div>
+                ) : selectedEnquiry.status === 'cancelled' ? (
+                  <div style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: '-32px',
+                      top: '2px',
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '50%',
+                      background: '#dc2626',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '800',
+                      fontSize: '0.85rem',
+                      boxShadow: '0 0 0 3px #ffffff'
+                    }}>
+                      ✕
+                    </div>
+
+                    <div style={{
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '8px',
+                      padding: '0.75rem 0.95rem'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
+                        <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#991b1b' }}>
+                          Closed / Lost
+                        </span>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: '700',
+                          padding: '0.1rem 0.45rem',
+                          borderRadius: '4px',
+                          background: '#fee2e2',
+                          color: '#dc2626'
+                        }}>
+                          {selectedEnquiry.cancellation_reason_display || selectedEnquiry.cancellation_reason || 'Lost'}
+                        </span>
+                      </div>
+                      {selectedEnquiry.cancellation_notes && (
+                        <div style={{ fontSize: '0.78rem', color: '#7f1d1d', marginTop: '0.25rem' }}>
+                          {selectedEnquiry.cancellation_notes}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Active Pipeline Node */
+                  <div style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: '-32px',
+                      top: '2px',
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '50%',
+                      background: '#f1f5f9',
+                      border: '2px dashed #0284c7',
+                      color: '#0284c7',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '800',
+                      fontSize: '0.9rem',
+                      boxShadow: '0 0 0 3px #ffffff'
+                    }}>
+                      •
+                    </div>
+
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px dashed #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '0.75rem 0.95rem'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
+                        <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                          Current Status: Under Follow-up
+                        </span>
+                        {followStatus && (
+                          <span style={{
+                            fontSize: '0.7rem',
+                            fontWeight: '700',
+                            padding: '0.12rem 0.45rem',
+                            borderRadius: '4px',
+                            background: followStatus.bg,
+                            color: followStatus.color
+                          }}>
+                            {followStatus.label}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        {selectedEnquiry.next_follow_up_date
+                          ? `Next contact scheduled for: ${selectedEnquiry.next_follow_up_date}`
+                          : 'Awaiting next follow-up action'}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* MODAL ACTION BUTTONS FOOTER */}
