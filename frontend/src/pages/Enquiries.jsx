@@ -888,7 +888,7 @@ export default function Enquiries({ currentUser }) {
                 {/* Desktop Table View */}
                 <div className="desktop-only-table">
                   <div className="table-container">
-                    <table className="enquiries-table" style={{ width: '100%', minWidth: '1140px', borderCollapse: 'collapse' }}>
+                    <table className="enquiries-table" style={{ width: '100%', minWidth: '1020px', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
                           <th style={{ width: '95px' }}>Enquiry #</th>
@@ -899,7 +899,6 @@ export default function Enquiries({ currentUser }) {
                           <th style={{ minWidth: '140px' }}>Call Outcome</th>
                           <th style={{ width: '100px', textAlign: 'right' }}>Est. Value</th>
                           <th style={{ width: '45px', textAlign: 'center' }}>Photo</th>
-                          <th style={{ width: '120px' }}>Status</th>
                           <th style={{ width: '145px', textAlign: 'right', paddingRight: '0.9rem' }}>Actions</th>
                         </tr>
                       </thead>
@@ -1099,20 +1098,7 @@ export default function Enquiries({ currentUser }) {
                                 )}
                               </td>
 
-                              {/* Status Badge */}
-                              <td>
-                                <span style={{
-                                  fontSize: '0.72rem',
-                                  fontWeight: '700',
-                                  padding: '0.2rem 0.55rem',
-                                  borderRadius: '6px',
-                                  background: stCfg.bg,
-                                  color: stCfg.color,
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  {stCfg.label}
-                                </span>
-                              </td>
+
 
                               {/* Actions */}
                               <td style={{ textAlign: 'right', whiteSpace: 'nowrap', paddingRight: '0.9rem' }} onClick={(e) => e.stopPropagation()}>
