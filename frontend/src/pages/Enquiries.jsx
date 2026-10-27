@@ -896,7 +896,7 @@ export default function Enquiries({ currentUser }) {
                           <th style={{ minWidth: '180px' }}>Specific Work Requested</th>
                           <th style={{ width: '90px' }}>Channel</th>
                           <th style={{ width: '90px' }}>Date</th>
-                          <th style={{ width: '125px' }}>Follow-Up</th>
+                          <th style={{ minWidth: '140px' }}>Call Outcome</th>
                           <th style={{ width: '100px', textAlign: 'right' }}>Est. Value</th>
                           <th style={{ width: '45px', textAlign: 'center' }}>Photo</th>
                           <th style={{ width: '120px' }}>Status</th>
@@ -910,6 +910,13 @@ export default function Enquiries({ currentUser }) {
                           const followStatus = getFollowUpStatus(enq.next_follow_up_date)
                           const clientName = enq.customer_name || enq.customer_detail?.name || 'Walk-in Prospect'
                           const phone = enq.phone || enq.customer_detail?.phone || ''
+                          
+                          // Determine latest call / follow-up outcome
+                          const sortedFollowUps = (enq.follow_ups && enq.follow_ups.length > 0)
+                            ? [...enq.follow_ups].sort((a, b) => (a.id || 0) - (b.id || 0))
+                            : []
+                          const latestFollowUp = sortedFollowUps.length > 0 ? sortedFollowUps[sortedFollowUps.length - 1] : null
+                          const outcomeCfg = latestFollowUp ? (OUTCOME_CONFIG[latestFollowUp.outcome] || OUTCOME_CONFIG.other) : null
 
                           return (
                             <tr 
@@ -1018,57 +1025,35 @@ export default function Enquiries({ currentUser }) {
                                 {enq.date}
                               </td>
 
-                              {/* Follow-Up Status */}
+                              {/* Call Outcome */}
                               <td style={{ whiteSpace: 'nowrap' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                {latestFollowUp ? (
                                   <span style={{
                                     fontSize: '0.72rem',
                                     fontWeight: '700',
-                                    padding: '0.15rem 0.5rem',
-                                    borderRadius: '4px',
-                                    background: 'rgba(0,0,0,0.05)',
-                                    color: 'var(--text-main)'
+                                    padding: '0.22rem 0.55rem',
+                                    borderRadius: '6px',
+                                    background: outcomeCfg.bg,
+                                    color: outcomeCfg.color,
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
                                   }}>
-                                    📞 {enq.follow_up_count} {enq.follow_up_count === 1 ? 'call' : 'calls'}
+                                    {latestFollowUp.outcome_display || outcomeCfg.label}
                                   </span>
-
-                                  {followStatus && enq.status !== 'converted' && enq.status !== 'cancelled' && (
-                                    <span style={{
-                                      fontSize: '0.7rem',
-                                      fontWeight: '700',
-                                      padding: '0.15rem 0.45rem',
-                                      borderRadius: '4px',
-                                      background: followStatus.bg,
-                                      color: followStatus.color
-                                    }}>
-                                      {followStatus.label}
-                                    </span>
-                                  )}
-
-                                  {enq.follow_ups && enq.follow_ups.length > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        setSelectedEnquiry(enq); 
-                                        setIsDetailModalOpen(true) 
-                                      }}
-                                      title="View History Timeline"
-                                      style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: 'var(--primary, #1366d9)',
-                                        fontSize: '0.72rem',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        textDecoration: 'underline',
-                                        padding: 0
-                                      }}
-                                    >
-                                      History
-                                    </button>
-                                  )}
-                                </div>
+                                ) : (
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: '600',
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '6px',
+                                    background: 'rgba(0,0,0,0.04)',
+                                    color: 'var(--text-muted)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}>
+                                    No Calls Yet
+                                  </span>
+                                )}
                               </td>
 
                               {/* Estimated Value */}
