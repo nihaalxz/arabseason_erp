@@ -888,18 +888,18 @@ export default function Enquiries({ currentUser }) {
                 {/* Desktop Table View */}
                 <div className="desktop-only-table">
                   <div className="table-container">
-                    <table className="enquiries-table" style={{ width: '100%', minWidth: '1020px', borderCollapse: 'collapse' }}>
+                    <table className="enquiries-table" style={{ width: '100%', minWidth: '1020px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                       <thead>
                         <tr>
                           <th style={{ width: '95px' }}>Enquiry #</th>
-                          <th style={{ minWidth: '150px' }}>Customer / Prospect</th>
-                          <th style={{ minWidth: '180px' }}>Specific Work Requested</th>
-                          <th style={{ width: '90px' }}>Channel</th>
-                          <th style={{ width: '90px' }}>Date</th>
-                          <th style={{ minWidth: '140px' }}>Call Outcome</th>
-                          <th style={{ width: '100px', textAlign: 'right' }}>Est. Value</th>
-                          <th style={{ width: '45px', textAlign: 'center' }}>Photo</th>
-                          <th style={{ width: '145px', textAlign: 'right', paddingRight: '0.9rem' }}>Actions</th>
+                          <th style={{ width: '220px' }}>Customer / Prospect</th>
+                          <th>Specific Work Requested</th>
+                          <th style={{ width: '95px', textAlign: 'center' }}>Channel</th>
+                          <th style={{ width: '95px', textAlign: 'center' }}>Date</th>
+                          <th style={{ width: '110px', textAlign: 'right' }}>Est. Value</th>
+                          <th style={{ width: '55px', textAlign: 'center' }}>Photo</th>
+                          <th style={{ width: '155px' }}>Call Outcome</th>
+                          <th style={{ width: '65px', textAlign: 'center' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -983,9 +983,9 @@ export default function Enquiries({ currentUser }) {
                               </td>
 
                               {/* Specific Work Requested */}
-                              <td style={{ maxWidth: '220px' }}>
+                              <td style={{ overflow: 'hidden' }}>
                                 {enq.title && (
-                                  <div style={{ fontWeight: '700', fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '0.15rem' }}>
+                                  <div style={{ fontWeight: '700', fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {enq.title}
                                   </div>
                                 )}
@@ -1003,7 +1003,7 @@ export default function Enquiries({ currentUser }) {
                               </td>
 
                               {/* Channel */}
-                              <td>
+                              <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                                 <span style={{
                                   fontSize: '0.72rem',
                                   fontWeight: '700',
@@ -1020,39 +1020,8 @@ export default function Enquiries({ currentUser }) {
                               </td>
 
                               {/* Enquiry Date */}
-                              <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                              <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                                 {enq.date}
-                              </td>
-
-                              {/* Call Outcome */}
-                              <td style={{ whiteSpace: 'nowrap' }}>
-                                {latestFollowUp ? (
-                                  <span style={{
-                                    fontSize: '0.72rem',
-                                    fontWeight: '700',
-                                    padding: '0.22rem 0.55rem',
-                                    borderRadius: '6px',
-                                    background: outcomeCfg.bg,
-                                    color: outcomeCfg.color,
-                                    display: 'inline-flex',
-                                    alignItems: 'center'
-                                  }}>
-                                    {latestFollowUp.outcome_display || outcomeCfg.label}
-                                  </span>
-                                ) : (
-                                  <span style={{
-                                    fontSize: '0.72rem',
-                                    fontWeight: '600',
-                                    padding: '0.2rem 0.5rem',
-                                    borderRadius: '6px',
-                                    background: 'rgba(0,0,0,0.04)',
-                                    color: 'var(--text-muted)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center'
-                                  }}>
-                                    No Calls Yet
-                                  </span>
-                                )}
                               </td>
 
                               {/* Estimated Value */}
@@ -1098,11 +1067,40 @@ export default function Enquiries({ currentUser }) {
                                 )}
                               </td>
 
-
+                              {/* Call Outcome */}
+                              <td style={{ whiteSpace: 'nowrap' }}>
+                                {latestFollowUp ? (
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: '700',
+                                    padding: '0.22rem 0.55rem',
+                                    borderRadius: '6px',
+                                    background: outcomeCfg.bg,
+                                    color: outcomeCfg.color,
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}>
+                                    {latestFollowUp.outcome_display || outcomeCfg.label}
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: '600',
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '6px',
+                                    background: 'rgba(0,0,0,0.04)',
+                                    color: 'var(--text-muted)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}>
+                                    No Calls Yet
+                                  </span>
+                                )}
+                              </td>
 
                               {/* Actions */}
-                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap', paddingRight: '0.9rem' }} onClick={(e) => e.stopPropagation()}>
-                                <div style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', justifyContent: 'flex-end' }}>
+                              <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                   {/* Delete button */}
                                   <button
                                     type="button"
