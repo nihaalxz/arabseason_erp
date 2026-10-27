@@ -813,6 +813,25 @@ tbody tr:last-child td {
   background-color: #f0f6fd !important;
 }
 
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.clickable-row:hover td {
+  background-color: #ebf3fd !important;
+}
+
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.clickable-card:hover {
+  border-color: #1366d9 !important;
+  box-shadow: 0 4px 12px rgba(19, 102, 217, 0.08) !important;
+}
+
 .enquiries-table th,
 .enquiries-table td {
   padding: 0.55rem 0.65rem;
