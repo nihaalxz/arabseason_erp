@@ -1694,7 +1694,7 @@ export default function Enquiries({ currentUser }) {
       <Modal
         isOpen={isDetailModalOpen && !!selectedEnquiry}
         onClose={() => setIsDetailModalOpen(false)}
-        title={`Enquiry Lifecycle: ${selectedEnquiry?.enquiry_number || ''}`}
+        title={`Enquiry Details: ${selectedEnquiry?.enquiry_number || ''}`}
         maxWidth="680px"
       >
         {selectedEnquiry && (() => {
