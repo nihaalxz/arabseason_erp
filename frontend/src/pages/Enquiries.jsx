@@ -1136,76 +1136,6 @@ export default function Enquiries({ currentUser }) {
                               {/* Actions */}
                               <td style={{ textAlign: 'right', whiteSpace: 'nowrap', paddingRight: '0.9rem' }} onClick={(e) => e.stopPropagation()}>
                                 <div style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', justifyContent: 'flex-end' }}>
-                                  {/* Log Follow-up button */}
-                                  {enq.status !== 'converted' && enq.status !== 'cancelled' && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="btn-icon"
-                                        onClick={() => handleOpenFollowUp(enq)}
-                                        title="Log Follow-up Call"
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          borderRadius: '6px',
-                                          color: '#2563eb',
-                                          background: 'rgba(37, 99, 235, 0.08)',
-                                          border: '1px solid rgba(37, 99, 235, 0.2)'
-                                        }}
-                                      >
-                                        <Phone size={13} />
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        className="btn-icon"
-                                        onClick={() => handleMarkConverted(enq)}
-                                        title="Mark as Converted (Won)"
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          borderRadius: '6px',
-                                          color: '#0f7638',
-                                          background: 'rgba(15, 118, 56, 0.08)',
-                                          border: '1px solid rgba(15, 118, 56, 0.25)'
-                                        }}
-                                      >
-                                        <CheckCircle2 size={13} />
-                                      </button>
-                                    </>
-                                  )}
-
-                                  {/* If Cancelled: Allow Restore */}
-                                  {enq.status === 'cancelled' && (
-                                    <button
-                                      type="button"
-                                      className="btn-icon"
-                                      onClick={() => handleRestore(enq)}
-                                      title="Restore to Active Pipeline"
-                                      style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        borderRadius: '6px',
-                                        color: 'var(--primary, #1366d9)',
-                                        background: 'rgba(19, 102, 217, 0.08)',
-                                        border: '1px solid rgba(19, 102, 217, 0.25)'
-                                      }}
-                                    >
-                                      <RotateCcw size={13} />
-                                    </button>
-                                  )}
-
-                                  {/* Edit button */}
-                                  <button
-                                    type="button"
-                                    className="btn-icon"
-                                    style={{ width: '28px', height: '28px', borderRadius: '6px' }}
-                                    onClick={() => handleOpenModal(enq)}
-                                    title="Edit Enquiry"
-                                  >
-                                    <Edit3 size={13} />
-                                  </button>
-
                                   {/* Delete button */}
                                   <button
                                     type="button"
@@ -1292,22 +1222,21 @@ export default function Enquiries({ currentUser }) {
                             {enq.estimated_value ? formatCurrency(enq.estimated_value) : `📞 ${enq.follow_up_count} Calls`}
                           </span>
                           <div style={{ display: 'flex', gap: '0.4rem' }} onClick={(e) => e.stopPropagation()}>
-                            {enq.status !== 'converted' && enq.status !== 'cancelled' && (
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => handleOpenFollowUp(enq)}
-                                style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
-                              >
-                                + Call
-                              </button>
-                            )}
                             <button
+                              type="button"
                               className="btn-icon"
-                              style={{ width: '28px', height: '28px' }}
-                              onClick={() => handleOpenModal(enq)}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '6px',
+                                color: 'var(--danger, #dc2626)',
+                                background: 'rgba(220, 38, 38, 0.05)',
+                                border: '1px solid rgba(220, 38, 38, 0.2)'
+                              }}
+                              onClick={() => handleDeleteEnquiry(enq.id, enq.enquiry_number)}
+                              title="Move to Recycle Bin"
                             >
-                              <Edit3 size={13} />
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         </div>
