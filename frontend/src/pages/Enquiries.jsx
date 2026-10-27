@@ -922,12 +922,9 @@ export default function Enquiries({ currentUser }) {
                               title="Click row to view full timeline & lead history"
                             >
                               {/* Enquiry Number */}
-                              <td>
+                              <td style={{ whiteSpace: 'nowrap' }}>
                                 <div style={{ fontWeight: '700', color: 'var(--primary, #1366d9)' }}>
                                   {enq.enquiry_number}
-                                </div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '0.15rem' }}>
-                                  ID-{enq.id.toString().padStart(4, '0')}
                                 </div>
                               </td>
 
