@@ -66,34 +66,44 @@ const Settings = () => {
   })
 
   useEffect(() => {
-    fetchSettings()
-    fetchProfile()
-  }, [])
+    const tabParam = searchParams.get('tab')
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
 
-  const fetchSettings = async () => {
-    try {
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    setSearchParams({ tab: tabId })
+  }
+
+  useEffect(() => {
+    let isMounted = true
+    const loadAll = async () => {
       setLoading(true)
-      const response = await api.get('settings/')
-      setFormData(response.data)
-      setError('')
-    } catch (err) {
-      console.error('Failed to fetch settings', err)
-      setError('Could not load settings. Please try again.')
-    } finally {
-      if (profileData.email) setLoading(false)
+      try {
+        const [settingsRes, profileRes] = await Promise.allSettled([
+          api.get('settings/'),
+          api.get('accounts/profile/')
+        ])
+        if (!isMounted) return
+        if (settingsRes.status === 'fulfilled' && settingsRes.value?.data) {
+          setFormData(settingsRes.value.data)
+        }
+        if (profileRes.status === 'fulfilled' && profileRes.value?.data) {
+          setProfileData(profileRes.value.data)
+        }
+        setError('')
+      } catch (err) {
+        console.error('Failed to load settings data', err)
+        if (isMounted) setError('Could not load settings. Please try again.')
+      } finally {
+        if (isMounted) setLoading(false)
+      }
     }
-  }
-
-  const fetchProfile = async () => {
-    try {
-      const response = await api.get('accounts/profile/')
-      setProfileData(response.data)
-    } catch (err) {
-      console.error('Failed to fetch profile', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+    loadAll()
+    return () => { isMounted = false }
+  }, [])
 
   const handleSave = async () => {
     try {
@@ -216,7 +226,7 @@ const Settings = () => {
             {tabs.map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`settings-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <tab.icon size={18} />
@@ -532,7 +542,7 @@ const Settings = () => {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => setActiveTab('manage-banks-cash')}
+                  onClick={() => handleTabChange('manage-banks-cash')}
                   style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
                 >
                   Manage Accounts &rarr;
