@@ -15,6 +15,7 @@ import {
   ArrowRight, Moon, Sun, 
   BookMarked, ChevronLeft, ChevronRight as LucideChevronRight, 
   ChevronDown as LucideChevronDown, ArrowLeftRight, ArrowUpDown, 
+  ArrowDownLeft,
   Settings as LucideSettings, Settings2, ShieldCheck, LayoutDashboard,
   ArrowUpRight as LucideArrowUpRight,
   ArrowDownRight as LucideArrowDownRight,
@@ -33,7 +34,7 @@ import {
   Search as LucideSearch,
   FileSpreadsheet as LucideFileSpreadsheet,
   Coins, Briefcase, Pencil, Phone, Mail, Paperclip, HardHat, Clock,
-  Menu as LucideMenu
+  Menu as LucideMenu, Library
 } from 'lucide-react'
 import api from '../api'
 import Modal from '../components/common/Modal'
@@ -49,6 +50,21 @@ import RecycleBin from './RecycleBin'
 import CashbookJobOrders from '../components/cashbook/CashbookJobOrders'
 import CashbookLabour from '../components/cashbook/CashbookLabour'
 import PersonalCashLedger from '../components/cashbook/PersonalCashLedger'
+import AppShell from '../components/cashbook/cred/AppShell'
+import TopBar from '../components/cashbook/cred/TopBar'
+import BottomNav from '../components/cashbook/cred/BottomNav'
+import SideRail from '../components/cashbook/cred/SideRail'
+import CredHomeView from '../components/cashbook/cred/pages/CredHomeView'
+import CredBooksView from '../components/cashbook/cred/pages/CredBooksView'
+import CredOverviewView from '../components/cashbook/cred/pages/CredOverviewView'
+import CredMoreView from '../components/cashbook/cred/pages/CredMoreView'
+import CredCashLedgerView from '../components/cashbook/cred/pages/CredCashLedgerView'
+import CredListPageView from '../components/cashbook/cred/pages/CredListPageView'
+import CredExpensesView from '../components/cashbook/cred/pages/CredExpensesView'
+import CredCustomersView from '../components/cashbook/cred/pages/CredCustomersView'
+import CredVendorsView from '../components/cashbook/cred/pages/CredVendorsView'
+import CredAccountsView from '../components/cashbook/cred/pages/CredAccountsView'
+import Snackbar from '../components/cashbook/cred/Snackbar'
 
 const DURATION_CHOICES = [
   { id: 'all', label: 'All Time' },
@@ -528,11 +544,18 @@ const Cashbook = ({ currentUser = null }) => {
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
 
-  // View mode tab: 'bank_dashboard' | 'ledger'
+  // View mode tab: 'bank_dashboard' | 'ledger' | 'books' | 'more' | 'cash_ledger' | list views
   const [activeTab, setActiveTab] = useState(() => {
     const t = searchParams.get('tab')
-    return t === 'books' ? 'ledger' : (t || 'bank_dashboard')
+    return t || 'ledger'
   })
+
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t && t !== activeTab) {
+      setActiveTab(t)
+    }
+  }, [searchParams])
 
   // Bank Flow Dashboard State
   const [bankFlowData, setBankFlowData] = useState(null)
@@ -564,7 +587,7 @@ const Cashbook = ({ currentUser = null }) => {
   const [vendorSubmitting, setVendorSubmitting] = useState(false)
   const [jobOrders, setJobOrders] = useState([])
   const [customerSearch, setCustomerSearch] = useState('')
-  const [customerTypeFilter, setCustomerTypeFilter] = useState('All') // 'All' | 'Credit Due' | 'Settled'
+  const [customerTypeFilter, setCustomerTypeFilter] = useState(() => searchParams.get('due') === '1' ? 'Credit Due' : 'All') // 'All' | 'Credit Due' | 'Settled'
   const [customerSummary, setCustomerSummary] = useState({ total_billed: 0, paid_amount: 0, pending_balance: 0, total_count: 0, pending_count: 0 })
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null)
@@ -1341,6 +1364,51 @@ const Cashbook = ({ currentUser = null }) => {
     }
   }
 
+  const handleOpenExpenseModal = (expenseItem = null) => {
+    if (expenseItem) {
+      setExpenseFormData({
+        type: expenseItem.type || 'Project',
+        category: expenseItem.category || 'Materials',
+        amount: expenseItem.amount || '',
+        date: expenseItem.date || new Date().toISOString().split('T')[0],
+        payment_method: expenseItem.payment_method || 'Petty Cash',
+        bank_account: expenseItem.bank_account || expenseItem.custom_fields?.bank_account || '',
+        bank_account_name: expenseItem.bank_account_name || expenseItem.custom_fields?.bank_account_name || '',
+        petty_cash_account: expenseItem.petty_cash_account || expenseItem.custom_fields?.petty_cash_account || '',
+        petty_cash_account_name: expenseItem.petty_cash_account_name || expenseItem.custom_fields?.petty_cash_account_name || '',
+        project: expenseItem.job_order ? String(expenseItem.job_order) : '',
+        vendor: expenseItem.vendor ? String(expenseItem.vendor) : '',
+        payee: expenseItem.custom_fields?.payee || expenseItem.vendor_name || expenseItem.payee || '',
+        invoice_number: expenseItem.custom_fields?.invoice_number || expenseItem.reference_number || '',
+        recurring: expenseItem.custom_fields?.recurring || 'No',
+        description: expenseItem.description || '',
+        notes: expenseItem.notes || '',
+        syncCashbook: false
+      })
+    } else {
+      setExpenseFormData({
+        type: 'Project',
+        category: 'Materials',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        payment_method: 'Petty Cash',
+        bank_account: '',
+        bank_account_name: '',
+        petty_cash_account: '',
+        petty_cash_account_name: '',
+        project: '',
+        vendor: '',
+        payee: '',
+        invoice_number: '',
+        recurring: 'No',
+        description: '',
+        notes: '',
+        syncCashbook: false
+      })
+    }
+    setIsExpenseModalOpen(true)
+  }
+
   // Entry Modal
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false)
   const [entryType, setEntryType] = useState('in')
@@ -1496,22 +1564,26 @@ const Cashbook = ({ currentUser = null }) => {
       if (isDarkMode) {
         document.documentElement.classList.add('cb-dark-bw')
         document.body.classList.add('cb-dark-bw')
+        document.documentElement.setAttribute('data-theme', 'dark')
         document.documentElement.style.colorScheme = 'dark'
       } else {
         document.documentElement.classList.remove('cb-dark-bw')
         document.body.classList.remove('cb-dark-bw')
+        document.documentElement.setAttribute('data-theme', 'light')
         document.documentElement.style.colorScheme = 'light'
       }
     } catch (e) {}
     return () => {
       document.documentElement.classList.remove('cb-dark-bw')
       document.body.classList.remove('cb-dark-bw')
+      document.documentElement.removeAttribute('data-theme')
       document.documentElement.style.colorScheme = ''
     }
   }, [isDarkMode])
 
   // Collapsed Bank Accounts State (UPDATE 2.5)
   const [isBankAccountsExpanded, setIsBankAccountsExpanded] = useState(false)
+  const [showBankTrackingSnackbar, setShowBankTrackingSnackbar] = useState(false)
 
   // Mobile Drawer & Viewport Responsiveness
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -1531,6 +1603,52 @@ const Cashbook = ({ currentUser = null }) => {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Desktop redirection: Task 2 removes "More" from desktop navigation entirely. If ?tab=more on desktop, redirect to Home.
+  useEffect(() => {
+    if (!isMobileScreen && activeTab === 'more') {
+      setActiveTab('ledger')
+      setSearchParams(prev => {
+        const p = new URLSearchParams(prev)
+        p.set('tab', 'ledger')
+        return p
+      }, { replace: true })
+    }
+  }, [isMobileScreen, activeTab, setSearchParams])
+
+  // Desktop Book selection & URL backward-compatibility redirect (Task 4)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    const bookParam = searchParams.get('book')
+    const bookIdParam = searchParams.get('bookId')
+
+    // Task 4: Accept old links: tab=book&book=<id> and bookId=<id> must redirect (replace) to ?tab=books&book=<id>
+    if (tabParam === 'book' || bookIdParam) {
+      const effectiveBook = bookParam || bookIdParam
+      setSearchParams(prev => {
+        const p = new URLSearchParams(prev)
+        if (tabParam === 'book') p.set('tab', 'books')
+        if (bookIdParam) p.delete('bookId')
+        if (effectiveBook) p.set('book', effectiveBook)
+        return p
+      }, { replace: true })
+      return
+    }
+
+    if (activeTab === 'books') {
+      if (bookParam && books.length > 0) {
+        const found = books.find(b => String(b.id) === String(bookParam))
+        if (found && (!selectedBook || String(selectedBook.id) !== String(found.id))) {
+          setSelectedBook(found)
+        }
+      } else if (!bookParam) {
+        // Task 2: ?tab=books shows the LIST. Do NOT auto-select a book.
+        if (selectedBook !== null) {
+          setSelectedBook(null)
+        }
+      }
+    }
+  }, [activeTab, books, searchParams, selectedBook, setSearchParams])
 
   // Settings Quick Dropdown Menu State (UPDATE 2.6)
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false)
@@ -2474,6 +2592,67 @@ const Cashbook = ({ currentUser = null }) => {
     return { totalIn, totalOut, outBank, outCash, netBal, opening }
   }, [selectedBook, periodEntries, entries, duration])
 
+  // CRED Design System: Home KPI metrics derived across all entries (or active book) with duration & search
+  const credHomeKpi = useMemo(() => {
+    const sourceEntries = selectedBook ? entries : allCashEntries
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+    const currentMonthPrefix = todayStr.substring(0, 7)
+
+    const filtered = (sourceEntries || []).filter(e => {
+      if (!e) return false
+      if (duration === 'today') return (e.date || '').startsWith(todayStr)
+      if (duration === 'this_month') return (e.date || '').startsWith(currentMonthPrefix)
+      if (duration === 'yesterday') {
+        const yest = new Date(today)
+        yest.setDate(yest.getDate() - 1)
+        return (e.date || '').startsWith(yest.toISOString().split('T')[0])
+      }
+      return true
+    })
+
+    const q = (searchQuery || '').trim().toLowerCase()
+    const finalEntries = q ? filtered.filter(e => {
+      const party = (e.party_name || e.party || e.customer_name || e.vendor_name || '').toLowerCase()
+      const remark = (e.remark || e.category || '').toLowerCase()
+      const mode = (e.payment_mode || '').toLowerCase()
+      const amt = String(e.amount || '')
+      return party.includes(q) || remark.includes(q) || mode.includes(q) || amt.includes(q)
+    }) : filtered
+
+    let inSum = 0
+    let outSum = 0
+    let inCount = 0
+    let outCount = 0
+
+    finalEntries.forEach(e => {
+      const amt = parseFloat(e.amount || 0) || 0
+      if (e.entry_type === 'in') {
+        inSum += amt
+        inCount += 1
+      } else {
+        outSum += amt
+        outCount += 1
+      }
+    })
+
+    const totalFlowVal = inSum + outSum
+    const netBalVal = selectedBook 
+      ? (parseFloat(selectedBook.opening_balance || 0) || 0) + inSum - outSum 
+      : (inSum - outSum)
+
+    return {
+      totalFlow: safeFormatAmount(totalFlowVal),
+      cashIn: safeFormatAmount(inSum),
+      cashOut: safeFormatAmount(outSum),
+      netFlow: safeFormatAmount(netBalVal),
+      entriesCount: finalEntries.length,
+      inCount,
+      outCount,
+      filteredTransactions: finalEntries
+    }
+  }, [selectedBook, entries, allCashEntries, duration, searchQuery])
+
   // Filter period entries according to Type, Mode, Category, Outflow Channel, and Search
   const filteredEntries = useMemo(() => {
     return periodEntries.filter(e => {
@@ -2621,10 +2800,15 @@ const Cashbook = ({ currentUser = null }) => {
     }
     const tabParam = searchParams.get('tab')
     if (tabParam === 'ledger' || tabParam === 'book' || tabParam === 'books' || tabParam === 'bank_dashboard' || tabParam === 'expenses' || tabParam === 'customers' || tabParam === 'vendors' || tabParam === 'labour' || tabParam === 'job_orders' || tabParam === 'jobs' || tabParam === 'recycle_bin' || tabParam === 'bank_accounts') {
-      setActiveTab(tabParam === 'books' ? 'ledger' : ((tabParam === 'jobs' || tabParam === 'job_orders') ? 'job_orders' : tabParam))
+      setActiveTab((tabParam === 'jobs' || tabParam === 'job_orders') ? 'job_orders' : tabParam)
     }
-    if (tabParam === 'customers' && (searchParams.get('openCreate') === '1' || searchParams.get('action') === 'new')) {
-      handleOpenCustomerModal()
+    if (tabParam === 'customers') {
+      if (searchParams.get('due') === '1') {
+        setCustomerTypeFilter('Credit Due')
+      }
+      if (searchParams.get('openCreate') === '1' || searchParams.get('action') === 'new') {
+        handleOpenCustomerModal()
+      }
     }
     if (tabParam === 'vendors' && (searchParams.get('openCreate') === '1' || searchParams.get('action') === 'new')) {
       handleOpenVendorModal()
@@ -2638,7 +2822,7 @@ const Cashbook = ({ currentUser = null }) => {
       if (found) {
         setSelectedBook(found)
       }
-    } else if (tabParam === 'ledger' && !bId) {
+    } else if ((tabParam === 'ledger' || tabParam === 'books') && !bId) {
       setSelectedBook(null)
     }
   }, [searchParams, books])
@@ -6514,45 +6698,23 @@ const Cashbook = ({ currentUser = null }) => {
                     Select any petty cash account to inspect and filter its transactions
                   </p>
                 </div>
-                {pettyCashAccountFilter !== 'All' ? (
-                  <button
-                    type="button"
-                    onClick={() => setPettyCashAccountFilter('All')}
-                    style={{
-                      background: '#eff6ff',
-                      border: '1px solid #E5EAF3',
-                      borderRadius: '6px',
-                      padding: '4px 10px',
-                      fontSize: '0.78rem',
-                      fontWeight: '700',
-                      color: '#1366D9',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    Clear Filter <X size={12} />
-                  </button>
-                ) : (
-                  <span
-                    onClick={() => {
-                      const el = document.getElementById('petty-cash-entries-table');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    style={{
-                      color: '#1366D9',
-                      fontSize: '0.825rem',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    View All <ArrowRight size={14} />
-                  </span>
-                )}
+                <span
+                  onClick={() => {
+                    const el = document.getElementById('petty-cash-entries-table');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  style={{
+                    color: '#1366D9',
+                    fontSize: '0.825rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  View All <ArrowRight size={14} />
+                </span>
               </div>
 
               {pettyCashAccounts.length === 0 ? (
@@ -7714,28 +7876,7 @@ const Cashbook = ({ currentUser = null }) => {
                   </span>
                 </div>
 
-                {bankFlowBankId !== 'all' && selectedBank && (
-                  <button
-                    type="button"
-                    onClick={() => setBankFlowBankId('all')}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      background: '#fee2e2',
-                      color: '#b91c1c',
-                      border: 'none',
-                      padding: '4px 10px',
-                      borderRadius: '999px',
-                      fontSize: '0.7rem',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <span>Clear Filter ({selectedBank.bank_name})</span>
-                    <X size={12} />
-                  </button>
-                )}
+
               </div>
 
               {/* Transaction Search Input */}
@@ -9914,6 +10055,951 @@ const Cashbook = ({ currentUser = null }) => {
   // =========================================================
   // RENDER EXPENSES SECTION (COMPACT & USER-FRIENDLY WITH MODAL)
   // =========================================================
+  // =========================================================
+  // EXISTING EXPENSE MODAL FORM (APPEARS ON CLICKING "ADD EXPENSE")
+  // =========================================================
+  const renderExpenseModal = () => {
+    if (!isExpenseModalOpen || typeof document === "undefined") return null
+
+    const cardBg = isDarkMode ? "#121417" : "#ffffff"
+    const borderColor = isDarkMode ? "#232528" : "#e2e8f0"
+    const textPrimary = isDarkMode ? "#ffffff" : "#000000"
+    const textMuted = isDarkMode ? "#8b9096" : "#64748b"
+    const inputBg = isDarkMode ? "#17191d" : "#ffffff"
+    const inputBorder = isDarkMode ? "#282b32" : "#e2e8f0"
+
+    const fieldLabelStyle = {
+      display: "block",
+      fontSize: "0.88rem",
+      fontWeight: "700",
+      color: textPrimary,
+      marginBottom: "0.45rem",
+      letterSpacing: "-0.01em"
+    }
+
+    const inputControlStyle = {
+      width: "100%",
+      height: "46px",
+      padding: "0 0.95rem",
+      borderRadius: "12px",
+      border: `1px solid ${inputBorder}`,
+      background: inputBg,
+      color: textPrimary,
+      fontSize: "0.92rem",
+      fontFamily: "inherit",
+      outline: "none",
+      boxSizing: "border-box",
+      transition: "border-color 0.15s ease, box-shadow 0.15s ease"
+    }
+
+    const selectArrowBg = 'url("data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E")'
+
+    const activeExpenseType = expenseFormData.type || "Project"
+    const activeGroupCategories = Array.from(new Set([
+      ...(EXPENSE_CATEGORY_GROUPS[activeExpenseType] || EXPENSE_CATEGORY_GROUPS.Other),
+      ...expenseCustomCategories,
+      expenseFormData.category
+    ].filter(Boolean)))
+
+    const expPills = ["Project", "Salary", "Company", "Venture", "Other"]
+
+    return createPortal(
+          <div
+            className="modal-overlay cb-modal-overlay"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100%',
+              height: '100%',
+              background: isDarkMode ? 'rgba(0, 0, 0, 0.75)' : 'rgba(11, 27, 68, 0.50)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              zIndex: 99999,
+              display: 'flex',
+              alignItems: isMobileScreen ? 'flex-end' : 'center',
+              justifyContent: 'center',
+              padding: isMobileScreen ? 0 : '1.5rem',
+              boxSizing: 'border-box',
+              animation: 'mobileBackdropFade 0.2s ease'
+            }}
+          >
+            <div
+              className="cb-expense-modal-sheet"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: cardBg,
+                border: 'none',
+                outline: 'none',
+                borderRadius: isMobileScreen ? '24px 24px 0 0' : '20px',
+                padding: isMobileScreen 
+                  ? '0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
+                  : '1.5rem 2rem',
+                boxShadow: isDarkMode ? '0 24px 64px rgba(0, 0, 0, 0.85)' : '0 20px 50px rgba(15, 23, 42, 0.18)',
+                maxWidth: isMobileScreen ? '100%' : '780px',
+                width: '100%',
+                maxHeight: isMobileScreen ? '90vh' : 'min(88vh, 680px)',
+                overflowX: 'hidden',
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                position: 'relative',
+                margin: isMobileScreen ? 0 : 'auto',
+                boxSizing: 'border-box',
+                animation: isMobileScreen ? 'mobileSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1)' : 'modalScale 0.22s var(--ease-out)'
+              }}
+            >
+              {/* Close Button Top Right */}
+              <button
+                type="button"
+                onClick={() => setIsExpenseModalOpen(false)}
+                style={{
+                  position: 'absolute',
+                  top: isMobileScreen ? '0.85rem' : '1.25rem',
+                  right: isMobileScreen ? '0.85rem' : '1.25rem',
+                  background: isDarkMode ? '#1e2025' : '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: textMuted,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  zIndex: 10
+                }}
+              >
+                <X size={16} />
+              </button>
+
+              <form onSubmit={handleSaveExpense}>
+                {/* Form Title & Subtitle */}
+                <div style={{
+                  marginBottom: isMobileScreen ? '0.75rem' : '0.85rem',
+                  marginTop: isMobileScreen ? '0.25rem' : 0,
+                  paddingRight: isMobileScreen ? '2.5rem' : 0
+                }}>
+                  <h2 style={{
+                    fontSize: isMobileScreen ? '1.3rem' : '1.45rem',
+                    fontWeight: '800',
+                    color: textPrimary,
+                    margin: '0 0 0.15rem 0',
+                    letterSpacing: '-0.02em'
+                  }}>
+                    New expense
+                  </h2>
+                  <p style={{
+                    fontSize: isMobileScreen ? '0.8rem' : '0.85rem',
+                    color: textMuted,
+                    margin: 0,
+                    fontWeight: '500'
+                  }}>
+                    Record a project or company cost.
+                  </p>
+                </div>
+
+                {/* Type Pills Selector: [Project] [Salary] [Company] [Venture] [Other] */}
+                <div style={{
+                  display: 'flex',
+                  gap: '0.45rem',
+                  marginBottom: '0.95rem',
+                  overflowX: 'auto',
+                  paddingBottom: '2px',
+                  scrollbarWidth: 'none'
+                }}>
+                  {expPills.map(pill => {
+                    const isSelected = (expenseFormData.type || 'Project').toLowerCase() === pill.toLowerCase()
+                    return (
+                      <button
+                        key={pill}
+                        type="button"
+                        onClick={() => {
+                          const groupCats = EXPENSE_CATEGORY_GROUPS[pill] || ['Other']
+                          setExpenseFormData(prev => ({
+                            ...prev,
+                            type: pill,
+                            category: groupCats[0]
+                          }))
+                        }}
+                        style={{
+                          padding: '0.42rem 1rem',
+                          borderRadius: '10px',
+                          border: isSelected 
+                            ? `1px solid ${isDarkMode ? '#ffffff' : '#000000'}`
+                            : `1px solid ${borderColor}`,
+                          background: isSelected 
+                            ? (isDarkMode ? '#ffffff' : '#000000')
+                            : (isDarkMode ? '#17191d' : '#ffffff'),
+                          color: isSelected 
+                            ? (isDarkMode ? '#000000' : '#ffffff')
+                            : (isDarkMode ? '#a1a7b0' : '#1e293b'),
+                          fontSize: '0.82rem',
+                          fontWeight: isSelected ? '700' : '600',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected 
+                            ? (isDarkMode ? '0 2px 8px rgba(255,255,255,0.18)' : '0 2px 8px rgba(0,0,0,0.15)')
+                            : 'none'
+                        }}
+                      >
+                        {pill}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Row 1: Category * | Date * */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
+                  gap: '0.85rem',
+                  marginBottom: '0.85rem'
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Category *</label>
+                      {!isAddingExpenseCategory && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingExpenseCategory(true)
+                            setNewExpenseCategoryInput('')
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: isDarkMode ? '#ffffff' : '#0f172a',
+                            fontSize: '0.78rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            padding: 0
+                          }}
+                        >
+                          <Plus size={13} strokeWidth={2.5} /> Add Category
+                        </button>
+                      )}
+                    </div>
+
+                    {isAddingExpenseCategory ? (
+                      <div style={{
+                        background: isDarkMode ? '#16181b' : '#f8fafc',
+                        border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
+                        borderRadius: '12px',
+                        padding: '0.65rem 0.75rem',
+                        marginBottom: '0.5rem'
+                      }}>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '700', color: textPrimary, marginBottom: '0.35rem' }}>
+                          Add New Category
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            value={newExpenseCategoryInput}
+                            onChange={(e) => setNewExpenseCategoryInput(e.target.value)}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                handleAddCustomExpenseCategory()
+                              } else if (e.key === 'Escape') {
+                                setIsAddingExpenseCategory(false)
+                                setNewExpenseCategoryInput('')
+                              }
+                            }}
+                            style={{ ...inputControlStyle, flex: 1, minWidth: 0, height: '38px', fontSize: '0.82rem' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCustomExpenseCategory}
+                            disabled={!newExpenseCategoryInput.trim()}
+                            style={{
+                              background: isDarkMode ? '#ffffff' : '#000000',
+                              color: isDarkMode ? '#000000' : '#ffffff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '0 0.8rem',
+                              height: '38px',
+                              fontSize: '0.8rem',
+                              fontWeight: '700',
+                              cursor: newExpenseCategoryInput.trim() ? 'pointer' : 'not-allowed',
+                              opacity: newExpenseCategoryInput.trim() ? 1 : 0.6,
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingExpenseCategory(false)
+                              setNewExpenseCategoryInput('')
+                            }}
+                            style={{
+                              background: isDarkMode ? '#1e2024' : '#f1f5f9',
+                              color: textMuted,
+                              border: `1px solid ${borderColor}`,
+                              borderRadius: '8px',
+                              padding: '0 0.6rem',
+                              height: '38px',
+                              fontSize: '0.8rem',
+                              fontWeight: '600',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <select
+                        value={expenseFormData.category}
+                        onChange={(e) => {
+                          if (e.target.value === '__add_new_cat__') {
+                            setIsAddingExpenseCategory(true)
+                            setNewExpenseCategoryInput('')
+                          } else {
+                            setExpenseFormData(prev => ({ ...prev, category: e.target.value }))
+                          }
+                        }}
+                        style={{
+                          ...inputControlStyle,
+                          appearance: 'none',
+                          backgroundImage: selectArrowBg,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 14px center',
+                          paddingRight: '2.5rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {activeGroupCategories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                        <option value="__add_new_cat__" style={{ fontWeight: '700' }}>
+                          + Add New Category...
+                        </option>
+                      </select>
+                    )}
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <label style={fieldLabelStyle}>Date *</label>
+                    <input
+                      type="date"
+                      value={expenseFormData.date}
+                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, date: e.target.value }))}
+                      style={inputControlStyle}
+                    />
+                  </div>
+                </div>
+
+
+                {/* Row 2: Vendor / Payee & Project (Job Order) Structured like Customers */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
+                  gap: '0.85rem',
+                  marginBottom: '0.85rem'
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Vendor / Payee</label>
+                      {expenseFormData.vendor && (
+                        <button
+                          type="button"
+                          onClick={() => setExpenseFormData(prev => ({ ...prev, vendor: '', payee: '' }))}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: isDarkMode ? '#94a3b8' : '#64748b',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
+                        >
+                          ✕ Clear
+                        </button>
+                      )}
+                    </div>
+                    <VendorCombobox
+                      value={expenseFormData.payee}
+                      onChange={(name) => {
+                        const qName = (name || '').trim().toLowerCase()
+                        const matchedVen = vendors.find(v => (v.name || '').trim().toLowerCase() === qName)
+                        const vId = matchedVen ? String(matchedVen.id) : ''
+                        
+                        const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
+                        const matchingJobs = allJobList.filter(j => {
+                          if (vId && (String(j.vendor) === vId || String(j.vendor_id) === vId)) return true
+                          if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (matchedVen?.name || qName)) return true
+                          return false
+                        })
+
+                        setExpenseFormData(prev => ({
+                          ...prev,
+                          payee: name,
+                          vendor: matchedVen ? matchedVen.id : '',
+                          project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (
+                            matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : ''
+                          )
+                        }))
+                      }}
+                      onSelectVendor={(v) => {
+                        if (v) {
+                          const vId = String(v.id)
+                          const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
+                          const matchingJobs = allJobList.filter(j => {
+                            if (String(j.vendor) === vId || String(j.vendor_id) === vId) return true
+                            if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (v.name || '').trim().toLowerCase()) return true
+                            return false
+                          })
+
+                          setExpenseFormData(prev => ({
+                            ...prev,
+                            payee: v.name,
+                            vendor: v.id,
+                            project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (
+                              matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : ''
+                            )
+                          }))
+                        }
+                      }}
+                      vendors={vendors}
+                      isDarkMode={isDarkMode}
+                      compact={true}
+                      showPayable={false}
+                    />
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Project / Job Order</label>
+                      {expenseFormData.project && (
+                        <button
+                          type="button"
+                          onClick={() => setExpenseFormData(prev => ({ ...prev, project: '' }))}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: isDarkMode ? '#94a3b8' : '#64748b',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
+                        >
+                          ✕ Clear link
+                        </button>
+                      )}
+                    </div>
+                    <CashbookSelect
+                      value={expenseFormData.project || ''}
+                      onChange={(val) => setExpenseFormData(prev => ({ ...prev, project: val }))}
+                      options={
+                        (expenseFormData.vendor || expenseFormData.payee?.trim()) ? [
+                          { 
+                            id: '', 
+                            label: expenseVendorJobOrders.length > 0 
+                              ? '-- Select Project / Job Order --' 
+                              : `No job orders assigned to ${expenseFormData.payee || 'this vendor'}` 
+                          },
+                          ...expenseVendorJobOrders.map(job => {
+                            const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
+                            return {
+                              id: String(job.id),
+                              label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}`
+                            }
+                          })
+                        ] : [
+                          { id: '', label: 'Select project (optional)' },
+                          ...(jobOrdersList.length > 0 ? jobOrdersList : jobOrders).map(job => {
+                            const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
+                            return {
+                              id: String(job.id),
+                              label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}`
+                            }
+                          })
+                        ]
+                      }
+                      variant="modal-field"
+                      isDark={isDarkMode}
+                      clearable={true}
+                    />
+
+                    {/* Inline Job Order summary text (keeps vertical height constant) */}
+                    {(() => {
+                      const currentJobId = expenseFormData.project
+                      if (!currentJobId) return null
+                      const allJobs = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
+                      const selectedJob = allJobs.find(j => String(j.id) === String(currentJobId))
+                      if (!selectedJob) return null
+                      const totalAmt = parseFloat(selectedJob.total_amount) || 0
+                      const vendorCosts = parseFloat(selectedJob.vendor_labor_costs || 0)
+                      const purchaseCosts = parseFloat(selectedJob.purchase_expenses || 0)
+                      const directCosts = vendorCosts + purchaseCosts
+                      return (
+                        <div style={{
+                          fontSize: '0.71rem',
+                          color: textMuted,
+                          marginTop: '3px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          Total: <strong style={{ color: textPrimary }}>SAR {safeFormatAmount(totalAmt)}</strong> • Direct Costs: <strong style={{ color: textPrimary }}>SAR {safeFormatAmount(directCosts)}</strong>
+                          {selectedJob.status && <span> • {selectedJob.status}</span>}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+
+                {/* Row 3: Invoice / receipt | Recurring? */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
+                  gap: '0.85rem',
+                  marginBottom: '0.85rem'
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Invoice / receipt</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsManualInvoiceInput(prev => !prev)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: isDarkMode ? '#ffffff' : '#0f172a',
+                          fontSize: '0.78rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        {isManualInvoiceInput ? 'Choose from list' : '+ Enter manual #'}
+                      </button>
+                    </div>
+
+                    {isManualInvoiceInput ? (
+                      <input
+                        type="text"
+                        value={expenseFormData.invoice_number}
+                        onChange={(e) => setExpenseFormData(prev => ({ ...prev, invoice_number: e.target.value }))}
+                        style={inputControlStyle}
+                        autoFocus
+                      />
+                    ) : (
+                      <CashbookSelect
+                        value={expenseFormData.invoice_number || ''}
+                        onChange={(val) => {
+                          if (val === '__enter_manual__') {
+                            setIsManualInvoiceInput(true)
+                          } else {
+                            const invObj = invoicesList.find(i => String(i.invoice_number) === String(val))
+                            setExpenseFormData(prev => ({
+                              ...prev,
+                              invoice_number: val,
+                              ...(invObj?.job_order && !prev.project ? { project: String(invObj.job_order) } : {}),
+                              ...(invObj?.customer_name && !prev.payee ? { payee: invObj.customer_name } : {})
+                            }))
+                          }
+                        }}
+                        options={[
+                          { id: '', label: 'Select invoice (optional)' },
+                          ...invoicesList.map(inv => {
+                            const clientPart = inv.customer_name || inv.customer?.name || ''
+                            const totalPart = inv.total_amount ? ` (${safeFormatAmount(inv.total_amount)} SAR)` : ''
+                            return {
+                              id: inv.invoice_number,
+                              label: `${inv.invoice_number}${clientPart ? ` - ${clientPart}` : ''}${totalPart}`
+                            }
+                          }),
+                          { id: '__enter_manual__', label: '+ Enter manual / custom invoice #' }
+                        ]}
+                        variant="modal-field"
+                        isDark={isDarkMode}
+                        clearable={true}
+                      />
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={fieldLabelStyle}>Recurring?</label>
+                    <CashbookSelect
+                      value={expenseFormData.recurring || 'No'}
+                      onChange={(val) => setExpenseFormData(prev => ({ ...prev, recurring: val }))}
+                      options={[
+                        { id: 'No', label: 'No' },
+                        { id: 'Yes - Weekly', label: 'Yes - Weekly' },
+                        { id: 'Yes - Monthly', label: 'Yes - Monthly' },
+                        { id: 'Yes - Quarterly', label: 'Yes - Quarterly' },
+                        { id: 'Yes - Yearly', label: 'Yes - Yearly' }
+                      ]}
+                      variant="modal-field"
+                      isDark={isDarkMode}
+                    />
+                  </div>
+                </div>
+
+                {/* Row 4: Description | Notes */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
+                  gap: '0.85rem',
+                  marginBottom: '0.85rem'
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={fieldLabelStyle}>Description</label>
+                    <input
+                      type="text"
+                      placeholder="Optional brief description"
+                      value={expenseFormData.description}
+                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, description: e.target.value }))}
+                      style={inputControlStyle}
+                    />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={fieldLabelStyle}>Notes</label>
+                    <input
+                      type="text"
+                      placeholder="Optional remarks / memo"
+                      value={expenseFormData.notes}
+                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      style={inputControlStyle}
+                    />
+                  </div>
+                </div>
+
+                {/* Row 4: Payment method (Column 1) & Bank / Petty Cash Account Selector (Column 2) */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
+                  gap: '0.85rem',
+                  marginBottom: '0.85rem'
+                }}>
+                  <div style={{
+                    minWidth: 0,
+                    gridColumn: (expenseFormData.payment_method === 'Petty Cash' || expenseFormData.payment_method === 'Bank Transfer')
+                      ? (isMobileScreen ? '1' : '1')
+                      : (isMobileScreen ? '1' : '1 / -1')
+                  }}>
+                    <label style={fieldLabelStyle}>Payment method</label>
+                    <select
+                      value={expenseFormData.payment_method}
+                      onChange={(e) => {
+                        const mode = e.target.value
+                        setExpenseFormData(prev => ({
+                          ...prev,
+                          payment_method: mode,
+                          ...(mode === 'Bank Transfer' ? {
+                            bank_account: prev.bank_account || (banks.length > 0 ? banks[0].id : ''),
+                            bank_account_name: prev.bank_account_name || (banks.length > 0 ? banks[0].bank_name : '')
+                          } : {
+                            bank_account: '',
+                            bank_account_name: ''
+                          }),
+                          ...(mode === 'Petty Cash' ? {
+                            petty_cash_account: prev.petty_cash_account || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].id : ''),
+                            petty_cash_account_name: prev.petty_cash_account_name || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].name : '')
+                          } : {
+                            petty_cash_account: '',
+                            petty_cash_account_name: ''
+                          })
+                        }))
+                      }}
+                      style={{
+                        ...inputControlStyle,
+                        appearance: 'none',
+                        backgroundImage: selectArrowBg,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 14px center',
+                        paddingRight: '2.5rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {PAYMENT_MODES.filter(m => m !== 'All').map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Conditional Sub-flow: Bank Transfer -> Select Bank */}
+                  {expenseFormData.payment_method === 'Bank Transfer' && (
+                    <div style={{ minWidth: 0 }}>
+                      <label style={fieldLabelStyle}>Select Bank *</label>
+                      {banks.length === 0 ? (
+                        <div style={{ fontSize: '0.78rem', color: '#ef4444', padding: '0.45rem 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <AlertTriangle size={15} />
+                          <span>No active banks found in Banks module.</span>
+                        </div>
+                      ) : (
+                        <select
+                          value={expenseFormData.bank_account || ''}
+                          onChange={(e) => {
+                            const selectedId = e.target.value
+                            const bObj = banks.find(b => String(b.id) === String(selectedId))
+                            setExpenseFormData(prev => ({
+                              ...prev,
+                              bank_account: selectedId,
+                              bank_account_name: bObj?.bank_name || ''
+                            }))
+                          }}
+                          style={{
+                            ...inputControlStyle,
+                            appearance: 'none',
+                            backgroundImage: selectArrowBg,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'right 14px center',
+                            paddingRight: '2.5rem',
+                            cursor: 'pointer'
+                          }}
+                          required
+                        >
+                          <option value="">-- Select Bank Account --</option>
+                          {banks.map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.bank_name} {b.account_number ? `(${b.account_number})` : ''} - Balance: {safeFormatAmount(b.current_balance ?? b.balance ?? 0)} SAR
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Conditional Sub-flow: Petty Cash -> Whose Petty Cash Account? */}
+                  {expenseFormData.payment_method === 'Petty Cash' && (
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                        <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Petty Cash</label>
+                        {!isAddingPettyCashAccount && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingPettyCashAccount(true)
+                              setNewPettyCashAccountName('')
+                              setNewPettyCashAccountHolder('')
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: isDarkMode ? '#ffffff' : '#0f172a',
+                              fontSize: '0.76rem',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              padding: 0
+                            }}
+                          >
+                            <Plus size={12} strokeWidth={2.5} /> Add
+                          </button>
+                        )}
+                      </div>
+
+                      {isAddingPettyCashAccount ? (
+                        <div style={{
+                          background: isDarkMode ? '#16181b' : '#f8fafc',
+                          border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
+                          borderRadius: '12px',
+                          padding: '0.65rem 0.75rem',
+                          marginBottom: '0.5rem'
+                        }}>
+                          <div style={{ fontSize: '0.74rem', fontWeight: '700', color: textPrimary, marginBottom: '0.35rem' }}>
+                            Add Dedicated Petty Cash Account
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input
+                              type="text"
+                              value={newPettyCashAccountName}
+                              onChange={(e) => setNewPettyCashAccountName(e.target.value)}
+                              placeholder="Account name (e.g. Nizam PC)"
+                              style={{ ...inputControlStyle, flex: 1, minWidth: '130px', height: '38px', fontSize: '0.8rem' }}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  handleCreatePettyCashAccountInline()
+                                } else if (e.key === 'Escape') {
+                                  setIsAddingPettyCashAccount(false)
+                                  setNewPettyCashAccountName('')
+                                  setNewPettyCashAccountHolder('')
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCreatePettyCashAccountInline}
+                              disabled={savingPettyCashAccount || !newPettyCashAccountName.trim()}
+                              style={{
+                                background: isDarkMode ? '#ffffff' : '#0f172a',
+                                color: isDarkMode ? '#0f172a' : '#ffffff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '0 0.8rem',
+                                height: '38px',
+                                fontSize: '0.8rem',
+                                fontWeight: '700',
+                                cursor: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 'pointer' : 'not-allowed',
+                                opacity: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 1 : 0.6,
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {savingPettyCashAccount ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingPettyCashAccount(false)
+                                setNewPettyCashAccountName('')
+                                setNewPettyCashAccountHolder('')
+                              }}
+                              style={{
+                                background: isDarkMode ? '#1e2024' : '#f1f5f9',
+                                color: textMuted,
+                                border: `1px solid ${borderColor}`,
+                                borderRadius: '8px',
+                                padding: '0 0.6rem',
+                                height: '38px',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <select
+                          value={expenseFormData.petty_cash_account || selectedPettyCashAccountId || ''}
+                          onChange={(e) => {
+                            if (e.target.value === '__add_new__') {
+                              setIsAddingPettyCashAccount(true)
+                              setNewPettyCashAccountName('')
+                              setNewPettyCashAccountHolder('')
+                            } else {
+                              const pId = e.target.value
+                              const pObj = pettyCashAccounts.find(p => String(p.id) === String(pId))
+                              setSelectedPettyCashAccountId(pId)
+                              setExpenseFormData(prev => ({
+                                ...prev,
+                                petty_cash_account: pId,
+                                petty_cash_account_name: pObj?.name || ''
+                              }))
+                            }
+                          }}
+                          style={{
+                            ...inputControlStyle,
+                            appearance: 'none',
+                            backgroundImage: selectArrowBg,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'right 14px center',
+                            paddingRight: '2.5rem',
+                            cursor: 'pointer'
+                          }}
+                          required
+                        >
+                          <option value="">-- Select Petty Cash Account / Person --</option>
+                          {userPettyCashAccounts.map(a => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} ({safeFormatAmount(a.balance || 0)} SAR)
+                            </option>
+                          ))}
+                          <option value="__add_new__" style={{ fontWeight: '700' }}>
+                            + Add New Petty Cash Account...
+                          </option>
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Row 5: Amount * (directly below Payment method!) */}
+                <div style={{ marginBottom: '1.05rem' }}>
+                  <label style={fieldLabelStyle}>Amount *</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: '14px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: '0.85rem',
+                      fontWeight: '800',
+                      color: isDarkMode ? '#94a3b8' : '#64748b',
+                      pointerEvents: 'none'
+                    }}>
+                      SAR
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={expenseFormData.amount}
+                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, amount: e.target.value }))}
+                      placeholder="0.00"
+                      style={{
+                        ...inputControlStyle,
+                        paddingLeft: '3.1rem',
+                        fontWeight: '800',
+                        fontSize: '1.05rem',
+                        letterSpacing: '0.01em'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Action Button: Save expense */}
+                <button
+                  type="submit"
+                  id="btn-save-expense"
+                  disabled={expenseSubmitting}
+                  style={{
+                    width: '100%',
+                    height: '46px',
+                    borderRadius: '12px',
+                    background: isDarkMode ? '#ffffff' : '#000000',
+                    color: isDarkMode ? '#000000' : '#ffffff',
+                    border: 'none',
+                    fontSize: '0.94rem',
+                    fontWeight: '700',
+                    cursor: expenseSubmitting ? 'not-allowed' : 'pointer',
+                    opacity: expenseSubmitting ? 0.7 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: isDarkMode ? '0 4px 18px rgba(255,255,255,0.15)' : '0 4px 18px rgba(0,0,0,0.22)',
+                    transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}
+                >
+                  {expenseSubmitting ? (
+                    <>
+                      <RefreshCw size={18} className="animate-spin" />
+                      <span>Saving expense...</span>
+                    </>
+                  ) : (
+                    <span>Save expense</span>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>,
+      document.body
+    )
+  }
+
   const renderExpensesSection = () => {
     // Strictly deduplicate expenses by ID first, excluding inter-account transfers
     const seenExpenseIds = new Set()
@@ -10937,901 +12023,7 @@ const Cashbook = ({ currentUser = null }) => {
         {/* ========================================================= */}
         {/* EXPENSE MODAL FORM (APPEARS ON CLICKING "ADD EXPENSE")    */}
         {/* ========================================================= */}
-        {isExpenseModalOpen && typeof document !== 'undefined' && createPortal(
-          <div
-            className="modal-overlay cb-modal-overlay"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                e.preventDefault()
-                e.stopPropagation()
-              }
-            }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: '100%',
-              height: '100%',
-              background: isDarkMode ? 'rgba(0, 0, 0, 0.75)' : 'rgba(11, 27, 68, 0.50)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              zIndex: 99999,
-              display: 'flex',
-              alignItems: isMobileScreen ? 'flex-end' : 'center',
-              justifyContent: 'center',
-              padding: isMobileScreen ? 0 : '1.5rem',
-              boxSizing: 'border-box',
-              animation: 'mobileBackdropFade 0.2s ease'
-            }}
-          >
-            <div
-              className="cb-expense-modal-sheet"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: cardBg,
-                border: 'none',
-                outline: 'none',
-                borderRadius: isMobileScreen ? '24px 24px 0 0' : '20px',
-                padding: isMobileScreen 
-                  ? '0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
-                  : '1.5rem 2rem',
-                boxShadow: isDarkMode ? '0 24px 64px rgba(0, 0, 0, 0.85)' : '0 20px 50px rgba(15, 23, 42, 0.18)',
-                maxWidth: isMobileScreen ? '100%' : '780px',
-                width: '100%',
-                maxHeight: isMobileScreen ? '90vh' : 'min(88vh, 680px)',
-                overflowX: 'hidden',
-                overflowY: 'auto',
-                WebkitOverflowScrolling: 'touch',
-                position: 'relative',
-                margin: isMobileScreen ? 0 : 'auto',
-                boxSizing: 'border-box',
-                animation: isMobileScreen ? 'mobileSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1)' : 'modalScale 0.22s var(--ease-out)'
-              }}
-            >
-              {/* Close Button Top Right */}
-              <button
-                type="button"
-                onClick={() => setIsExpenseModalOpen(false)}
-                style={{
-                  position: 'absolute',
-                  top: isMobileScreen ? '0.85rem' : '1.25rem',
-                  right: isMobileScreen ? '0.85rem' : '1.25rem',
-                  background: isDarkMode ? '#1e2025' : '#f1f5f9',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: textMuted,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  zIndex: 10
-                }}
-              >
-                <X size={16} />
-              </button>
-
-              <form onSubmit={handleSaveExpense}>
-                {/* Form Title & Subtitle */}
-                <div style={{
-                  marginBottom: isMobileScreen ? '0.75rem' : '0.85rem',
-                  marginTop: isMobileScreen ? '0.25rem' : 0,
-                  paddingRight: isMobileScreen ? '2.5rem' : 0
-                }}>
-                  <h2 style={{
-                    fontSize: isMobileScreen ? '1.3rem' : '1.45rem',
-                    fontWeight: '800',
-                    color: textPrimary,
-                    margin: '0 0 0.15rem 0',
-                    letterSpacing: '-0.02em'
-                  }}>
-                    New expense
-                  </h2>
-                  <p style={{
-                    fontSize: isMobileScreen ? '0.8rem' : '0.85rem',
-                    color: textMuted,
-                    margin: 0,
-                    fontWeight: '500'
-                  }}>
-                    Record a project or company cost.
-                  </p>
-                </div>
-
-                {/* Type Pills Selector: [Project] [Salary] [Company] [Venture] [Other] */}
-                <div style={{
-                  display: 'flex',
-                  gap: '0.45rem',
-                  marginBottom: '0.95rem',
-                  overflowX: 'auto',
-                  paddingBottom: '2px',
-                  scrollbarWidth: 'none'
-                }}>
-                  {expPills.map(pill => {
-                    const isSelected = (expenseFormData.type || 'Project').toLowerCase() === pill.toLowerCase()
-                    return (
-                      <button
-                        key={pill}
-                        type="button"
-                        onClick={() => {
-                          const groupCats = EXPENSE_CATEGORY_GROUPS[pill] || ['Other']
-                          setExpenseFormData(prev => ({
-                            ...prev,
-                            type: pill,
-                            category: groupCats[0]
-                          }))
-                        }}
-                        style={{
-                          padding: '0.42rem 1rem',
-                          borderRadius: '10px',
-                          border: isSelected 
-                            ? `1px solid ${isDarkMode ? '#ffffff' : '#000000'}`
-                            : `1px solid ${borderColor}`,
-                          background: isSelected 
-                            ? (isDarkMode ? '#ffffff' : '#000000')
-                            : (isDarkMode ? '#17191d' : '#ffffff'),
-                          color: isSelected 
-                            ? (isDarkMode ? '#000000' : '#ffffff')
-                            : (isDarkMode ? '#a1a7b0' : '#1e293b'),
-                          fontSize: '0.82rem',
-                          fontWeight: isSelected ? '700' : '600',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isSelected 
-                            ? (isDarkMode ? '0 2px 8px rgba(255,255,255,0.18)' : '0 2px 8px rgba(0,0,0,0.15)')
-                            : 'none'
-                        }}
-                      >
-                        {pill}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Row 1: Category * | Date * */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Category *</label>
-                      {!isAddingExpenseCategory && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAddingExpenseCategory(true)
-                            setNewExpenseCategoryInput('')
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: isDarkMode ? '#ffffff' : '#0f172a',
-                            fontSize: '0.78rem',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            padding: 0
-                          }}
-                        >
-                          <Plus size={13} strokeWidth={2.5} /> Add Category
-                        </button>
-                      )}
-                    </div>
-
-                    {isAddingExpenseCategory ? (
-                      <div style={{
-                        background: isDarkMode ? '#16181b' : '#f8fafc',
-                        border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
-                        borderRadius: '12px',
-                        padding: '0.65rem 0.75rem',
-                        marginBottom: '0.5rem'
-                      }}>
-                        <div style={{ fontSize: '0.74rem', fontWeight: '700', color: textPrimary, marginBottom: '0.35rem' }}>
-                          Add New Category
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                          <input
-                            type="text"
-                            value={newExpenseCategoryInput}
-                            onChange={(e) => setNewExpenseCategoryInput(e.target.value)}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                handleAddCustomExpenseCategory()
-                              } else if (e.key === 'Escape') {
-                                setIsAddingExpenseCategory(false)
-                                setNewExpenseCategoryInput('')
-                              }
-                            }}
-                            style={{ ...inputControlStyle, flex: 1, minWidth: 0, height: '38px', fontSize: '0.82rem' }}
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddCustomExpenseCategory}
-                            disabled={!newExpenseCategoryInput.trim()}
-                            style={{
-                              background: isDarkMode ? '#ffffff' : '#000000',
-                              color: isDarkMode ? '#000000' : '#ffffff',
-                              border: 'none',
-                              borderRadius: '8px',
-                              padding: '0 0.8rem',
-                              height: '38px',
-                              fontSize: '0.8rem',
-                              fontWeight: '700',
-                              cursor: newExpenseCategoryInput.trim() ? 'pointer' : 'not-allowed',
-                              opacity: newExpenseCategoryInput.trim() ? 1 : 0.6,
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingExpenseCategory(false)
-                              setNewExpenseCategoryInput('')
-                            }}
-                            style={{
-                              background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                              color: textMuted,
-                              border: `1px solid ${borderColor}`,
-                              borderRadius: '8px',
-                              padding: '0 0.6rem',
-                              height: '38px',
-                              fontSize: '0.8rem',
-                              fontWeight: '600',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <select
-                        value={expenseFormData.category}
-                        onChange={(e) => {
-                          if (e.target.value === '__add_new_cat__') {
-                            setIsAddingExpenseCategory(true)
-                            setNewExpenseCategoryInput('')
-                          } else {
-                            setExpenseFormData(prev => ({ ...prev, category: e.target.value }))
-                          }
-                        }}
-                        style={{
-                          ...inputControlStyle,
-                          appearance: 'none',
-                          backgroundImage: selectArrowBg,
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'right 14px center',
-                          paddingRight: '2.5rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {activeGroupCategories.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                        <option value="__add_new_cat__" style={{ fontWeight: '700' }}>
-                          + Add New Category...
-                        </option>
-                      </select>
-                    )}
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Date *</label>
-                    <input
-                      type="date"
-                      value={expenseFormData.date}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, date: e.target.value }))}
-                      style={inputControlStyle}
-                    />
-                  </div>
-                </div>
-
-
-                {/* Row 2: Vendor / Payee & Project (Job Order) Structured like Customers */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Vendor / Payee</label>
-                      {expenseFormData.vendor && (
-                        <button
-                          type="button"
-                          onClick={() => setExpenseFormData(prev => ({ ...prev, vendor: '', payee: '' }))}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: isDarkMode ? '#94a3b8' : '#64748b',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            padding: 0
-                          }}
-                        >
-                          ✕ Clear
-                        </button>
-                      )}
-                    </div>
-                    <VendorCombobox
-                      value={expenseFormData.payee}
-                      onChange={(name) => {
-                        const qName = (name || '').trim().toLowerCase()
-                        const matchedVen = vendors.find(v => (v.name || '').trim().toLowerCase() === qName)
-                        const vId = matchedVen ? String(matchedVen.id) : ''
-                        
-                        const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
-                        const matchingJobs = allJobList.filter(j => {
-                          if (vId && (String(j.vendor) === vId || String(j.vendor_id) === vId)) return true
-                          if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (matchedVen?.name || qName)) return true
-                          return false
-                        })
-
-                        setExpenseFormData(prev => ({
-                          ...prev,
-                          payee: name,
-                          vendor: matchedVen ? matchedVen.id : '',
-                          project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (
-                            matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : ''
-                          )
-                        }))
-                      }}
-                      onSelectVendor={(v) => {
-                        if (v) {
-                          const vId = String(v.id)
-                          const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
-                          const matchingJobs = allJobList.filter(j => {
-                            if (String(j.vendor) === vId || String(j.vendor_id) === vId) return true
-                            if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (v.name || '').trim().toLowerCase()) return true
-                            return false
-                          })
-
-                          setExpenseFormData(prev => ({
-                            ...prev,
-                            payee: v.name,
-                            vendor: v.id,
-                            project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (
-                              matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : ''
-                            )
-                          }))
-                        }
-                      }}
-                      vendors={vendors}
-                      isDarkMode={isDarkMode}
-                      compact={true}
-                      showPayable={false}
-                    />
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Project / Job Order</label>
-                      {expenseFormData.project && (
-                        <button
-                          type="button"
-                          onClick={() => setExpenseFormData(prev => ({ ...prev, project: '' }))}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: isDarkMode ? '#94a3b8' : '#64748b',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            padding: 0
-                          }}
-                        >
-                          ✕ Clear link
-                        </button>
-                      )}
-                    </div>
-                    <CashbookSelect
-                      value={expenseFormData.project || ''}
-                      onChange={(val) => setExpenseFormData(prev => ({ ...prev, project: val }))}
-                      options={
-                        (expenseFormData.vendor || expenseFormData.payee?.trim()) ? [
-                          { 
-                            id: '', 
-                            label: expenseVendorJobOrders.length > 0 
-                              ? '-- Select Project / Job Order --' 
-                              : `No job orders assigned to ${expenseFormData.payee || 'this vendor'}` 
-                          },
-                          ...expenseVendorJobOrders.map(job => {
-                            const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
-                            return {
-                              id: String(job.id),
-                              label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}`
-                            }
-                          })
-                        ] : [
-                          { id: '', label: 'Select project (optional)' },
-                          ...(jobOrdersList.length > 0 ? jobOrdersList : jobOrders).map(job => {
-                            const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
-                            return {
-                              id: String(job.id),
-                              label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}`
-                            }
-                          })
-                        ]
-                      }
-                      variant="modal-field"
-                      isDark={isDarkMode}
-                      clearable={true}
-                    />
-
-                    {/* Inline Job Order summary text (keeps vertical height constant) */}
-                    {(() => {
-                      const currentJobId = expenseFormData.project
-                      if (!currentJobId) return null
-                      const allJobs = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
-                      const selectedJob = allJobs.find(j => String(j.id) === String(currentJobId))
-                      if (!selectedJob) return null
-                      const totalAmt = parseFloat(selectedJob.total_amount) || 0
-                      const vendorCosts = parseFloat(selectedJob.vendor_labor_costs || 0)
-                      const purchaseCosts = parseFloat(selectedJob.purchase_expenses || 0)
-                      const directCosts = vendorCosts + purchaseCosts
-                      return (
-                        <div style={{
-                          fontSize: '0.71rem',
-                          color: textMuted,
-                          marginTop: '3px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          Total: <strong style={{ color: textPrimary }}>SAR {safeFormatAmount(totalAmt)}</strong> • Direct Costs: <strong style={{ color: textPrimary }}>SAR {safeFormatAmount(directCosts)}</strong>
-                          {selectedJob.status && <span> • {selectedJob.status}</span>}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
-
-                {/* Row 3: Invoice / receipt | Recurring? */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Invoice / receipt</label>
-                      <button
-                        type="button"
-                        onClick={() => setIsManualInvoiceInput(prev => !prev)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: isDarkMode ? '#ffffff' : '#0f172a',
-                          fontSize: '0.78rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        {isManualInvoiceInput ? 'Choose from list' : '+ Enter manual #'}
-                      </button>
-                    </div>
-
-                    {isManualInvoiceInput ? (
-                      <input
-                        type="text"
-                        value={expenseFormData.invoice_number}
-                        onChange={(e) => setExpenseFormData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                        style={inputControlStyle}
-                        autoFocus
-                      />
-                    ) : (
-                      <CashbookSelect
-                        value={expenseFormData.invoice_number || ''}
-                        onChange={(val) => {
-                          if (val === '__enter_manual__') {
-                            setIsManualInvoiceInput(true)
-                          } else {
-                            const invObj = invoicesList.find(i => String(i.invoice_number) === String(val))
-                            setExpenseFormData(prev => ({
-                              ...prev,
-                              invoice_number: val,
-                              ...(invObj?.job_order && !prev.project ? { project: String(invObj.job_order) } : {}),
-                              ...(invObj?.customer_name && !prev.payee ? { payee: invObj.customer_name } : {})
-                            }))
-                          }
-                        }}
-                        options={[
-                          { id: '', label: 'Select invoice (optional)' },
-                          ...invoicesList.map(inv => {
-                            const clientPart = inv.customer_name || inv.customer?.name || ''
-                            const totalPart = inv.total_amount ? ` (${safeFormatAmount(inv.total_amount)} SAR)` : ''
-                            return {
-                              id: inv.invoice_number,
-                              label: `${inv.invoice_number}${clientPart ? ` - ${clientPart}` : ''}${totalPart}`
-                            }
-                          }),
-                          { id: '__enter_manual__', label: '+ Enter manual / custom invoice #' }
-                        ]}
-                        variant="modal-field"
-                        isDark={isDarkMode}
-                        clearable={true}
-                      />
-                    )}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Recurring?</label>
-                    <CashbookSelect
-                      value={expenseFormData.recurring || 'No'}
-                      onChange={(val) => setExpenseFormData(prev => ({ ...prev, recurring: val }))}
-                      options={[
-                        { id: 'No', label: 'No' },
-                        { id: 'Yes - Weekly', label: 'Yes - Weekly' },
-                        { id: 'Yes - Monthly', label: 'Yes - Monthly' },
-                        { id: 'Yes - Quarterly', label: 'Yes - Quarterly' },
-                        { id: 'Yes - Yearly', label: 'Yes - Yearly' }
-                      ]}
-                      variant="modal-field"
-                      isDark={isDarkMode}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 4: Description | Notes */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Description</label>
-                    <input
-                      type="text"
-                      placeholder="Optional brief description"
-                      value={expenseFormData.description}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, description: e.target.value }))}
-                      style={inputControlStyle}
-                    />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Notes</label>
-                    <input
-                      type="text"
-                      placeholder="Optional remarks / memo"
-                      value={expenseFormData.notes}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, notes: e.target.value }))}
-                      style={inputControlStyle}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 4: Payment method (Column 1) & Bank / Petty Cash Account Selector (Column 2) */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{
-                    minWidth: 0,
-                    gridColumn: (expenseFormData.payment_method === 'Petty Cash' || expenseFormData.payment_method === 'Bank Transfer')
-                      ? (isMobileScreen ? '1' : '1')
-                      : (isMobileScreen ? '1' : '1 / -1')
-                  }}>
-                    <label style={fieldLabelStyle}>Payment method</label>
-                    <select
-                      value={expenseFormData.payment_method}
-                      onChange={(e) => {
-                        const mode = e.target.value
-                        setExpenseFormData(prev => ({
-                          ...prev,
-                          payment_method: mode,
-                          ...(mode === 'Bank Transfer' ? {
-                            bank_account: prev.bank_account || (banks.length > 0 ? banks[0].id : ''),
-                            bank_account_name: prev.bank_account_name || (banks.length > 0 ? banks[0].bank_name : '')
-                          } : {
-                            bank_account: '',
-                            bank_account_name: ''
-                          }),
-                          ...(mode === 'Petty Cash' ? {
-                            petty_cash_account: prev.petty_cash_account || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].id : ''),
-                            petty_cash_account_name: prev.petty_cash_account_name || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].name : '')
-                          } : {
-                            petty_cash_account: '',
-                            petty_cash_account_name: ''
-                          })
-                        }))
-                      }}
-                      style={{
-                        ...inputControlStyle,
-                        appearance: 'none',
-                        backgroundImage: selectArrowBg,
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'right 14px center',
-                        paddingRight: '2.5rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {PAYMENT_MODES.filter(m => m !== 'All').map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Conditional Sub-flow: Bank Transfer -> Select Bank */}
-                  {expenseFormData.payment_method === 'Bank Transfer' && (
-                    <div style={{ minWidth: 0 }}>
-                      <label style={fieldLabelStyle}>Select Bank *</label>
-                      {banks.length === 0 ? (
-                        <div style={{ fontSize: '0.78rem', color: '#ef4444', padding: '0.45rem 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <AlertTriangle size={15} />
-                          <span>No active banks found in Banks module.</span>
-                        </div>
-                      ) : (
-                        <select
-                          value={expenseFormData.bank_account || ''}
-                          onChange={(e) => {
-                            const selectedId = e.target.value
-                            const bObj = banks.find(b => String(b.id) === String(selectedId))
-                            setExpenseFormData(prev => ({
-                              ...prev,
-                              bank_account: selectedId,
-                              bank_account_name: bObj?.bank_name || ''
-                            }))
-                          }}
-                          style={{
-                            ...inputControlStyle,
-                            appearance: 'none',
-                            backgroundImage: selectArrowBg,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 14px center',
-                            paddingRight: '2.5rem',
-                            cursor: 'pointer'
-                          }}
-                          required
-                        >
-                          <option value="">-- Select Bank Account --</option>
-                          {banks.map(b => (
-                            <option key={b.id} value={b.id}>
-                              {b.bank_name} {b.account_number ? `(${b.account_number})` : ''} - Balance: {safeFormatAmount(b.current_balance ?? b.balance ?? 0)} SAR
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Conditional Sub-flow: Petty Cash -> Whose Petty Cash Account? */}
-                  {expenseFormData.payment_method === 'Petty Cash' && (
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                        <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Petty Cash</label>
-                        {!isAddingPettyCashAccount && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingPettyCashAccount(true)
-                              setNewPettyCashAccountName('')
-                              setNewPettyCashAccountHolder('')
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: isDarkMode ? '#ffffff' : '#0f172a',
-                              fontSize: '0.76rem',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: 0
-                            }}
-                          >
-                            <Plus size={12} strokeWidth={2.5} /> Add
-                          </button>
-                        )}
-                      </div>
-
-                      {isAddingPettyCashAccount ? (
-                        <div style={{
-                          background: isDarkMode ? '#16181b' : '#f8fafc',
-                          border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
-                          borderRadius: '12px',
-                          padding: '0.65rem 0.75rem',
-                          marginBottom: '0.5rem'
-                        }}>
-                          <div style={{ fontSize: '0.74rem', fontWeight: '700', color: textPrimary, marginBottom: '0.35rem' }}>
-                            Add Dedicated Petty Cash Account
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <input
-                              type="text"
-                              value={newPettyCashAccountName}
-                              onChange={(e) => setNewPettyCashAccountName(e.target.value)}
-                              placeholder="Account name (e.g. Nizam PC)"
-                              style={{ ...inputControlStyle, flex: 1, minWidth: '130px', height: '38px', fontSize: '0.8rem' }}
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault()
-                                  handleCreatePettyCashAccountInline()
-                                } else if (e.key === 'Escape') {
-                                  setIsAddingPettyCashAccount(false)
-                                  setNewPettyCashAccountName('')
-                                  setNewPettyCashAccountHolder('')
-                                }
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={handleCreatePettyCashAccountInline}
-                              disabled={savingPettyCashAccount || !newPettyCashAccountName.trim()}
-                              style={{
-                                background: isDarkMode ? '#ffffff' : '#0f172a',
-                                color: isDarkMode ? '#0f172a' : '#ffffff',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '0 0.8rem',
-                                height: '38px',
-                                fontSize: '0.8rem',
-                                fontWeight: '700',
-                                cursor: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 'pointer' : 'not-allowed',
-                                opacity: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 1 : 0.6,
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {savingPettyCashAccount ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAddingPettyCashAccount(false)
-                                setNewPettyCashAccountName('')
-                                setNewPettyCashAccountHolder('')
-                              }}
-                              style={{
-                                background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                                color: textMuted,
-                                border: `1px solid ${borderColor}`,
-                                borderRadius: '8px',
-                                padding: '0 0.6rem',
-                                height: '38px',
-                                fontSize: '0.8rem',
-                                fontWeight: '600',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <select
-                          value={expenseFormData.petty_cash_account || selectedPettyCashAccountId || ''}
-                          onChange={(e) => {
-                            if (e.target.value === '__add_new__') {
-                              setIsAddingPettyCashAccount(true)
-                              setNewPettyCashAccountName('')
-                              setNewPettyCashAccountHolder('')
-                            } else {
-                              const pId = e.target.value
-                              const pObj = pettyCashAccounts.find(p => String(p.id) === String(pId))
-                              setSelectedPettyCashAccountId(pId)
-                              setExpenseFormData(prev => ({
-                                ...prev,
-                                petty_cash_account: pId,
-                                petty_cash_account_name: pObj?.name || ''
-                              }))
-                            }
-                          }}
-                          style={{
-                            ...inputControlStyle,
-                            appearance: 'none',
-                            backgroundImage: selectArrowBg,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 14px center',
-                            paddingRight: '2.5rem',
-                            cursor: 'pointer'
-                          }}
-                          required
-                        >
-                          <option value="">-- Select Petty Cash Account / Person --</option>
-                          {userPettyCashAccounts.map(a => (
-                            <option key={a.id} value={a.id}>
-                              {a.name} ({safeFormatAmount(a.balance || 0)} SAR)
-                            </option>
-                          ))}
-                          <option value="__add_new__" style={{ fontWeight: '700' }}>
-                            + Add New Petty Cash Account...
-                          </option>
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Row 5: Amount * (directly below Payment method!) */}
-                <div style={{ marginBottom: '1.05rem' }}>
-                  <label style={fieldLabelStyle}>Amount *</label>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{
-                      position: 'absolute',
-                      left: '14px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      fontSize: '0.85rem',
-                      fontWeight: '800',
-                      color: isDarkMode ? '#94a3b8' : '#64748b',
-                      pointerEvents: 'none'
-                    }}>
-                      SAR
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={expenseFormData.amount}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, amount: e.target.value }))}
-                      placeholder="0.00"
-                      style={{
-                        ...inputControlStyle,
-                        paddingLeft: '3.1rem',
-                        fontWeight: '800',
-                        fontSize: '1.05rem',
-                        letterSpacing: '0.01em'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Action Button: Save expense */}
-                <button
-                  type="submit"
-                  id="btn-save-expense"
-                  disabled={expenseSubmitting}
-                  style={{
-                    width: '100%',
-                    height: '46px',
-                    borderRadius: '12px',
-                    background: isDarkMode ? '#ffffff' : '#000000',
-                    color: isDarkMode ? '#000000' : '#ffffff',
-                    border: 'none',
-                    fontSize: '0.94rem',
-                    fontWeight: '700',
-                    cursor: expenseSubmitting ? 'not-allowed' : 'pointer',
-                    opacity: expenseSubmitting ? 0.7 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: isDarkMode ? '0 4px 18px rgba(255,255,255,0.15)' : '0 4px 18px rgba(0,0,0,0.22)',
-                    transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
-                  }}
-                >
-                  {expenseSubmitting ? (
-                    <>
-                      <RefreshCw size={18} className="animate-spin" />
-                      <span>Saving expense...</span>
-                    </>
-                  ) : (
-                    <span>Save expense</span>
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+        {renderExpenseModal()}
       </div>
     )
   }
@@ -11839,60 +12031,11 @@ const Cashbook = ({ currentUser = null }) => {
   // =========================================================
   // VENDORS MODULE SECTION (DESIGNED LIKE CUSTOMERS & EXPENSES)
   // =========================================================
-  const renderVendorsSection = () => {
-    // Strictly deduplicate vendors by ID
-    const seenVendorIds = new Set()
-    const deduplicatedVendors = (vendors || []).filter(item => {
-      if (!item || item.id == null) return false
-      if (seenVendorIds.has(item.id)) return false
-      seenVendorIds.add(item.id)
-      return true
-    })
-
-    // Computed vendor metrics
-    const totalVendorsCount = deduplicatedVendors.length
-    const totalBilled = deduplicatedVendors.reduce((acc, v) => acc + (parseFloat(v.total_billed) || 0), 0)
-    const totalDisbursed = deduplicatedVendors.reduce((acc, v) => acc + (parseFloat(v.paid_amount) || 0), 0)
-    const totalPayablesDue = deduplicatedVendors.reduce((acc, v) => {
-      const billed = parseFloat(v.total_billed) || 0
-      const paid = parseFloat(v.paid_amount) || 0
-      return acc + Math.max(0, billed - paid)
-    }, 0)
-
-    const payablesDueVendors = deduplicatedVendors.filter(v => {
-      const billed = parseFloat(v.total_billed) || 0
-      const paid = parseFloat(v.paid_amount) || 0
-      return (billed - paid) > 0.01
-    })
-
-    const settledVendors = deduplicatedVendors.filter(v => {
-      const billed = parseFloat(v.total_billed) || 0
-      const paid = parseFloat(v.paid_amount) || 0
-      return billed > 0 && (billed - paid) <= 0.01
-    })
-
-    // Filtered vendors list
-    const filteredVendorsList = deduplicatedVendors.filter(v => {
-      const billed = parseFloat(v.total_billed) || 0
-      const paid = parseFloat(v.paid_amount) || 0
-      const due = billed - paid
-
-      if (vendorTypeFilter === 'Payables Due' && due <= 0.01) return false
-      if (vendorTypeFilter === 'Settled' && (due > 0.01 || billed <= 0)) return false
-
-      if (vendorSearch.trim()) {
-        const q = vendorSearch.toLowerCase()
-        const name = (v.name || '').toLowerCase()
-        const company = (v.company || '').toLowerCase()
-        const phone = (v.phone || '').toLowerCase()
-        const email = (v.email || '').toLowerCase()
-        const address = (v.address || '').toLowerCase()
-        return name.includes(q) || company.includes(q) || phone.includes(q) || email.includes(q) || address.includes(q)
-      }
-      return true
-    })
-
-    const vendorPills = ['All', 'Payables Due', 'Settled']
+  // =========================================================
+  // EXISTING VENDOR MODAL FORM (ADD / EDIT)
+  // =========================================================
+  const renderVendorModal = () => {
+    if (!isVendorModalOpen || typeof document === 'undefined') return null
 
     const cardBg = isDarkMode ? '#121417' : '#ffffff'
     const borderColor = isDarkMode ? '#232528' : '#e2e8f0'
@@ -11925,826 +12068,7 @@ const Cashbook = ({ currentUser = null }) => {
       transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease'
     }
 
-    return (
-      <div style={{
-        padding: isMobileScreen ? '0.75rem 0.75rem 5rem' : '1.25rem 2rem 3rem',
-        maxWidth: '1440px',
-        width: '100%',
-        margin: '0 auto',
-        boxSizing: 'border-box',
-        overflowY: 'auto'
-      }}>
-        {/* ========================================================= */}
-        {/* COMMAND HEADER WITH "+ ADD VENDOR" & REFRESH              */}
-        {/* ========================================================= */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobileScreen ? 'column' : 'row',
-          alignItems: isMobileScreen ? 'flex-start' : 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          marginBottom: '1.25rem'
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h2 style={{
-                fontSize: isMobileScreen ? '1.35rem' : '1.55rem',
-                fontWeight: '800',
-                color: textPrimary,
-                margin: 0,
-                letterSpacing: '-0.02em'
-              }}>
-                Vendors
-              </h2>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: isMobileScreen ? '100%' : 'auto' }}>
-            <button
-              type="button"
-              id="btn-add-vendor"
-              onClick={() => handleOpenVendorModal()}
-              style={{
-                background: isDarkMode ? '#ffffff' : '#0f172a',
-                color: isDarkMode ? '#0f172a' : '#ffffff',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '0.65rem 1.25rem',
-                fontWeight: '700',
-                fontSize: '0.85rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: isMobileScreen ? 1 : 'none',
-                gap: '0.45rem',
-                cursor: 'pointer',
-                boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.15)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
-            >
-              <Plus size={16} strokeWidth={2.5} />
-              <span>Add Vendor</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ========================================================= */}
-        {/* 4 KPI SUMMARY CARDS / MOBILE CAROUSEL                     */}
-        {/* ========================================================= */}
-        <MobileCardCarousel
-          isMobile={isMobileScreen}
-          isDarkMode={isDarkMode}
-          desktopColumns={4}
-          gap={isMobileScreen ? '0.65rem' : '1rem'}
-          marginBottom={isMobileScreen ? '1rem' : '1.25rem'}
-        >
-          {/* Card 1: Total Suppliers */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Total Suppliers
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? '#1a1c20' : '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#ffffff' : '#0f172a'
-              }}>
-                <LucideBuilding2 size={15} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
-              {totalVendorsCount}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                {settledVendors.length} settled
-              </div>
-            )}
-          </div>
-
-          {/* Card 2: Total Invoiced / Procurement */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Total Billed
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? '#1a1c20' : '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#ffffff' : '#0f172a'
-              }}>
-                <LucideReceipt size={15} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
-              SAR {safeFormatAmount(totalBilled)}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                Total bills
-              </div>
-            )}
-          </div>
-
-          {/* Card 3: Disbursements Paid (Cash Out) */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Cash Out Paid
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#dbeafe',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#60a5fa' : '#2563eb'
-              }}>
-                <LucideArrowUpRight size={15} strokeWidth={2.5} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#60a5fa' : '#2563eb', letterSpacing: '-0.02em' }}>
-              SAR {safeFormatAmount(totalDisbursed)}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                Total paid
-              </div>
-            )}
-          </div>
-
-          {/* Card 4: Outstanding Payables Due */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Payables Due
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#f87171' : '#dc2626'
-              }}>
-                <AlertCircle size={15} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#f87171' : '#dc2626', letterSpacing: '-0.02em' }}>
-              SAR {safeFormatAmount(totalPayablesDue)}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                {payablesDueVendors.length} unpaid
-              </div>
-            )}
-          </div>
-        </MobileCardCarousel>
-
-        {/* ========================================================= */}
-        {/* FILTER PILLS & SEARCH BAR ROW                             */}
-        {/* ========================================================= */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobileScreen ? 'column' : 'row',
-          alignItems: isMobileScreen ? 'stretch' : 'center',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          marginBottom: '1rem'
-        }}>
-          {/* Filter Pills / Mobile Dropdown */}
-          {isMobileScreen ? (
-            <div style={{ width: '100%' }}>
-              <CashbookSelect
-                value={vendorTypeFilter}
-                onChange={(val) => setVendorTypeFilter(val)}
-                options={vendorPills.map(tab => {
-                  const count = tab === 'All' 
-                    ? totalVendorsCount 
-                    : tab === 'Payables Due' 
-                    ? payablesDueVendors.length 
-                    : settledVendors.length
-                  return { id: tab, label: `${tab} (${count})` }
-                })}
-                variant="desktop-toolbar"
-                style={{ width: '100%' }}
-                isDark={isDarkMode}
-              />
-            </div>
-          ) : (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              background: isDarkMode ? '#141517' : '#f1f5f9',
-              border: `1px solid ${borderColor}`,
-              padding: '3px',
-              borderRadius: '999px',
-              gap: '2px',
-              overflowX: 'auto'
-            }}>
-              {vendorPills.map(tab => {
-                const active = vendorTypeFilter === tab
-                const count = tab === 'All' 
-                  ? totalVendorsCount 
-                  : tab === 'Payables Due' 
-                  ? payablesDueVendors.length 
-                  : settledVendors.length
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setVendorTypeFilter(tab)}
-                    style={{
-                      background: active ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-                      color: active ? (isDarkMode ? '#0c0d0e' : '#ffffff') : textMuted,
-                      border: 'none',
-                      borderRadius: '999px',
-                      padding: '5px 14px',
-                      fontSize: '0.78rem',
-                      fontWeight: active ? '700' : '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      whiteSpace: 'nowrap',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <span>{tab}</span>
-                    <span style={{
-                      fontSize: '0.7rem',
-                      padding: '1px 5px',
-                      borderRadius: '999px',
-                      background: active 
-                        ? (isDarkMode ? '#232528' : 'rgba(255, 255, 255, 0.25)')
-                        : (isDarkMode ? '#1c1e21' : '#e2e8f0'),
-                      color: active 
-                        ? (isDarkMode ? '#ffffff' : '#ffffff')
-                        : textMuted,
-                      fontWeight: '700'
-                    }}>
-                      {count}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Search Bar */}
-          <div style={{
-            position: 'relative',
-            width: isMobileScreen ? '100%' : '320px'
-          }}>
-            <Search size={15} style={{
-              position: 'absolute',
-              left: '0.85rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: textMuted
-            }} />
-            <input
-              type="text"
-              value={vendorSearch}
-              onChange={(e) => setVendorSearch(e.target.value)}
-              style={{
-                width: '100%',
-                height: '38px',
-                padding: '0 2rem 0 2.35rem',
-                borderRadius: '10px',
-                border: `1px solid ${inputBorder}`,
-                background: inputBg,
-                color: textPrimary,
-                fontSize: '0.825rem',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-            {vendorSearch && (
-              <button
-                type="button"
-                onClick={() => setVendorSearch('')}
-                style={{
-                  position: 'absolute',
-                  right: '0.75rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: textMuted,
-                  cursor: 'pointer',
-                  padding: 0
-                }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* ========================================================= */}
-        {/* VENDORS DATA TABLE / MOBILE CARDS                         */}
-        {/* ========================================================= */}
-        {vendorsLoading ? (
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: '2.5rem',
-            textAlign: 'center',
-            color: textMuted
-          }}>
-            <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 0.75rem', display: 'block' }} />
-            <div style={{ fontSize: '0.875rem', fontWeight: '600' }}>Loading vendors...</div>
-          </div>
-        ) : filteredVendorsList.length === 0 ? (
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: '3.5rem 1.5rem',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              background: isDarkMode ? '#1a1c20' : '#f1f5f9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1rem',
-              color: textMuted
-            }}>
-              <LucideBuilding2 size={22} />
-            </div>
-            <h3 style={{ fontSize: '1rem', fontWeight: '700', color: textPrimary, margin: '0 0 0.35rem' }}>
-              No vendors found
-            </h3>
-            <p style={{ fontSize: '0.825rem', color: textMuted, margin: '0 0 1.25rem' }}>
-              {vendorSearch ? `No results matching "${vendorSearch}"` : 'Get started by adding your first supplier / vendor'}
-            </p>
-            <button
-              type="button"
-              onClick={() => handleOpenVendorModal()}
-              style={{
-                background: isDarkMode ? '#ffffff' : '#0f172a',
-                color: isDarkMode ? '#0f172a' : '#ffffff',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '0.6rem 1.25rem',
-                fontWeight: '700',
-                fontSize: '0.825rem',
-                cursor: 'pointer'
-              }}
-            >
-              + Add Vendor
-            </button>
-          </div>
-        ) : isMobileScreen ? (
-          /* Mobile Card View */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            {filteredVendorsList.map(v => {
-              const billed = parseFloat(v.total_billed) || 0
-              const paid = parseFloat(v.paid_amount) || 0
-              const due = Math.max(0, billed - paid)
-              const hasDue = due > 0.01
-
-              return (
-                <div
-                  key={v.id}
-                  style={{
-                    background: cardBg,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '14px',
-                    padding: '0.85rem',
-                    boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                      <div style={{
-                        width: '34px',
-                        height: '34px',
-                        borderRadius: '50%',
-                        background: isDarkMode ? '#1e2024' : '#e2e8f0',
-                        color: isDarkMode ? '#ffffff' : '#0f172a',
-                        fontWeight: '700',
-                        fontSize: '0.85rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        {((v.company || v.name || 'V').charAt(0)).toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: '700', fontSize: '0.9rem', color: textPrimary }}>
-                          {v.company || v.name}
-                        </div>
-                        {v.company && v.name && v.company !== v.name && (
-                          <div style={{ fontSize: '0.75rem', color: textMuted }}>
-                            {v.name}
-                          </div>
-                        )}
-                        {(v.phone || v.email) && (
-                          <div style={{ fontSize: '0.72rem', color: textMuted }}>
-                            {v.phone || v.email}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '2px 7px',
-                      borderRadius: '999px',
-                      fontSize: '0.68rem',
-                      fontWeight: '800',
-                      background: hasDue 
-                        ? (isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2')
-                        : (isDarkMode ? 'rgba(22, 163, 74, 0.15)' : '#dcfce7'),
-                      color: hasDue 
-                        ? (isDarkMode ? '#f87171' : '#dc2626')
-                        : (isDarkMode ? '#4ade80' : '#16a34a')
-                    }}>
-                      {hasDue ? 'Payables Due' : 'Settled'}
-                    </span>
-                  </div>
-
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '0.45rem',
-                    background: isDarkMode ? '#17191d' : '#f8fafc',
-                    border: `1px solid ${inputBorder}`,
-                    borderRadius: '10px',
-                    padding: '0.55rem 0.65rem',
-                    marginBottom: '0.65rem',
-                    textAlign: 'center'
-                  }}>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Billed</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '700', color: textPrimary }}>{safeFormatAmount(billed)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Paid</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '700', color: isDarkMode ? '#60a5fa' : '#2563eb' }}>{safeFormatAmount(paid)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Due</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted }}>
-                        {hasDue ? safeFormatAmount(due) : '0'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenVendorModal(v)}
-                      style={{
-                        background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                        color: textPrimary,
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: '8px',
-                        padding: '0.42rem 0.75rem',
-                        fontSize: '0.78rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Pencil size={13} /> Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteVendor(v.id, v.company || v.name)}
-                      style={{
-                        background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: '8px',
-                        padding: '0.42rem 0.75rem',
-                        fontSize: '0.78rem',
-                        fontWeight: '600',
-                        color: isDarkMode ? '#9ca3af' : '#64748b',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          /* Desktop Table View */
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            overflowX: 'auto',
-            overflowY: 'hidden',
-            boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
-            WebkitOverflowScrolling: 'touch'
-          }}>
-            <table style={{ width: '100%', minWidth: '920px', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{
-                  borderBottom: `1px solid ${borderColor}`,
-                  background: isDarkMode ? '#141517' : '#f8fafc'
-                }}>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>SUPPLIER / COMPANY</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>CONTACT INFO</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>TOTAL BILLED</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PAID (CASH OUT)</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PAYABLES DUE</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>STATUS</th>
-                  <th style={{ padding: '0.75rem 1.25rem 0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap', minWidth: '170px' }}>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredVendorsList.map((v, idx) => {
-                  const billed = parseFloat(v.total_billed) || 0
-                  const paid = parseFloat(v.paid_amount) || 0
-                  const due = Math.max(0, billed - paid)
-                  const hasDue = due > 0.01
-
-                  return (
-                    <tr
-                      key={v.id || idx}
-                      style={{
-                        borderBottom: `1px solid ${borderColor}`,
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = isDarkMode ? '#16181b' : '#f8fafc' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                    >
-                      {/* Name & Avatar */}
-                      <td style={{ padding: '0.85rem 1rem', maxWidth: '280px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                          <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            background: isDarkMode ? '#1e2024' : '#e2e8f0',
-                            color: isDarkMode ? '#ffffff' : '#0f172a',
-                            fontWeight: '700',
-                            fontSize: '0.825rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
-                          }}>
-                            {((v.company || v.name || 'V').charAt(0)).toUpperCase()}
-                          </div>
-                          <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                            <div style={{
-                              fontWeight: '700',
-                              fontSize: '0.875rem',
-                              color: textPrimary,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title={v.company || v.name}
-                            >
-                              {v.company || v.name}
-                            </div>
-                            {v.company && v.name && v.company !== v.name && (
-                              <div style={{
-                                fontSize: '0.72rem',
-                                color: textMuted,
-                                marginTop: '1px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                Contact: {v.name}
-                              </div>
-                            )}
-                            {v.address && (
-                              <div style={{
-                                fontSize: '0.72rem',
-                                color: textMuted,
-                                marginTop: '1px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                maxWidth: '220px'
-                              }}
-                              title={v.address}
-                              >
-                                {v.address}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Contact */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.825rem', color: textMuted, whiteSpace: 'nowrap', maxWidth: '220px' }}>
-                        {v.phone ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: textPrimary, fontWeight: '600' }}>
-                            <Phone size={13} style={{ color: textMuted, flexShrink: 0 }} />
-                            <span>{v.phone}</span>
-                          </div>
-                        ) : null}
-                        {v.email ? (
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '0.75rem',
-                            color: textMuted,
-                            marginTop: '2px',
-                            maxWidth: '200px'
-                          }}
-                          title={v.email}
-                          >
-                            <Mail size={12} style={{ flexShrink: 0 }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.email}</span>
-                          </div>
-                        ) : null}
-                        {!v.phone && !v.email && '—'}
-                      </td>
-
-                      {/* Total Billed */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '600', color: textPrimary, whiteSpace: 'nowrap' }}>
-                        SAR {safeFormatAmount(billed)}
-                      </td>
-
-                      {/* Paid (Cash Out) */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '700', color: isDarkMode ? '#60a5fa' : '#2563eb', whiteSpace: 'nowrap' }}>
-                        SAR {safeFormatAmount(paid)}
-                      </td>
-
-                      {/* Payables Due */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted, whiteSpace: 'nowrap' }}>
-                        {hasDue ? `SAR ${safeFormatAmount(due)}` : 'SAR 0.00'}
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '3px 8px',
-                          borderRadius: '999px',
-                          fontSize: '0.7rem',
-                          fontWeight: '800',
-                          background: hasDue 
-                            ? (isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2')
-                            : (isDarkMode ? 'rgba(22, 163, 74, 0.15)' : '#dcfce7'),
-                          color: hasDue 
-                            ? (isDarkMode ? '#f87171' : '#dc2626')
-                            : (isDarkMode ? '#4ade80' : '#16a34a'),
-                          border: `1px solid ${hasDue ? (isDarkMode ? 'rgba(248, 113, 113, 0.25)' : '#fecaca') : (isDarkMode ? 'rgba(74, 222, 128, 0.25)' : '#bbf7d0')}`
-                        }}>
-                          {hasDue ? 'Payables Due' : 'Settled'}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '0.85rem 1.25rem 0.85rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.45rem', whiteSpace: 'nowrap' }}>
-                          {/* Edit Vendor */}
-                          <button
-                            type="button"
-                            title="Edit Vendor"
-                            onClick={() => handleOpenVendorModal(v)}
-                            style={{
-                              background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                              border: `1px solid ${borderColor}`,
-                              borderRadius: '8px',
-                              padding: '0.4rem 0.55rem',
-                              color: textPrimary,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <Pencil size={13} />
-                          </button>
-
-                          {/* Delete Vendor */}
-                          <button
-                            type="button"
-                            title="Delete / Recycle"
-                            onClick={() => handleDeleteVendor(v.id, v.company || v.name)}
-                            style={{
-                              background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                              border: `1px solid ${borderColor}`,
-                              borderRadius: '8px',
-                              padding: '0.4rem 0.55rem',
-                              color: isDarkMode ? '#9ca3af' : '#64748b',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = '#ef4444'
-                              e.currentTarget.style.borderColor = '#fca5a5'
-                              e.currentTarget.style.background = isDarkMode ? '#2d1515' : '#fef2f2'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = isDarkMode ? '#9ca3af' : '#64748b'
-                              e.currentTarget.style.borderColor = borderColor
-                              e.currentTarget.style.background = isDarkMode ? '#1c1e22' : '#f1f5f9'
-                            }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ========================================================= */}
-        {/* VENDOR MODAL FORM (ADD / EDIT)                            */}
-        {/* ========================================================= */}
-        {isVendorModalOpen && typeof document !== 'undefined' && createPortal(
+    return createPortal(
           <div
             className="modal-overlay cb-modal-overlay"
             onClick={(e) => {
@@ -13059,80 +12383,33 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
           </div>,
           document.body
-        )}
-      </div>
     )
   }
 
   // =========================================================
-  // RENDER CUSTOMERS SECTION (DEDICATED CASHBOOK MODULE)
+  // RENDER VENDORS SECTION (DEDICATED CASHBOOK MODULE)
   // =========================================================
-  const renderCustomersSection = () => {
-    // Strictly deduplicate customers by ID
-    const seenCustIds = new Set()
-    const deduplicatedCustomers = (customers || []).filter(item => {
-      if (!item || item.id == null) return false
-      if (seenCustIds.has(item.id)) return false
-      seenCustIds.add(item.id)
-      return true
-    })
+  const renderVendorsSection = () => {
+    return (
+      <CredVendorsView
+        isMobile={isMobileScreen}
+        vendors={vendors}
+        isLoading={vendorsLoading}
+        isDarkMode={isDarkMode}
+        onAddVendor={() => handleOpenVendorModal()}
+        onEditVendor={(v) => handleOpenVendorModal(v)}
+        onDeleteVendor={handleDeleteVendor}
+        onNavigate={(tab, params) => navigateToTab(tab, params)}
+      />
+    )
+  }
 
-    // Computed customer metrics
-    const totalCustomersCount = deduplicatedCustomers.length
-    const totalBilled = deduplicatedCustomers.reduce((acc, c) => acc + (parseFloat(c.total_billed) || 0), 0)
-    const totalCollected = deduplicatedCustomers.reduce((acc, c) => acc + (parseFloat(c.paid_amount) || 0), 0)
-    const totalCreditDue = deduplicatedCustomers.reduce((acc, c) => {
-      const billed = parseFloat(c.total_billed) || 0
-      const paid = parseFloat(c.paid_amount) || 0
-      return acc + Math.max(0, billed - paid)
-    }, 0)
-
-    const totalPayableDue = deduplicatedCustomers.reduce((acc, c) => {
-      const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0
-      return acc + Math.max(0, payable)
-    }, 0)
-
-    const creditDueCustomers = deduplicatedCustomers.filter(c => {
-      const billed = parseFloat(c.total_billed) || 0
-      const paid = parseFloat(c.paid_amount) || 0
-      return (billed - paid) > 0.01
-    })
-
-    const payableDueCustomers = deduplicatedCustomers.filter(c => {
-      const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0
-      return payable > 0.01
-    })
-
-    const settledCustomers = deduplicatedCustomers.filter(c => {
-      const billed = parseFloat(c.total_billed) || 0
-      const paid = parseFloat(c.paid_amount) || 0
-      const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0
-      return (billed > 0 || payable > 0) && (billed - paid) <= 0.01 && payable <= 0.01
-    })
-
-    // Filtered customers list
-    const filteredCustomersList = deduplicatedCustomers.filter(c => {
-      const billed = parseFloat(c.total_billed) || 0
-      const paid = parseFloat(c.paid_amount) || 0
-      const due = billed - paid
-      const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0
-
-      if (customerTypeFilter === 'Credit Due' && due <= 0.01) return false
-      if (customerTypeFilter === 'Payables Owed' && payable <= 0.01) return false
-      if (customerTypeFilter === 'Settled' && (due > 0.01 || payable > 0.01 || (billed <= 0 && payable <= 0))) return false
-
-      if (customerSearch.trim()) {
-        const q = customerSearch.toLowerCase()
-        const name = (c.name || '').toLowerCase()
-        const phone = (c.phone || '').toLowerCase()
-        const email = (c.email || '').toLowerCase()
-        const address = (c.address || '').toLowerCase()
-        return name.includes(q) || phone.includes(q) || email.includes(q) || address.includes(q)
-      }
-      return true
-    })
-
-    const custPills = ['All', 'Credit Due', 'Payables Owed', 'Settled']
+  // =========================================================
+  // =========================================================
+  // EXISTING CUSTOMER MODAL FORM (ADD / EDIT)
+  // =========================================================
+  const renderCustomerModal = () => {
+    if (!isCustomerModalOpen || typeof document === 'undefined') return null
 
     const cardBg = isDarkMode ? '#121417' : '#ffffff'
     const borderColor = isDarkMode ? '#232528' : '#e2e8f0'
@@ -13165,859 +12442,7 @@ const Cashbook = ({ currentUser = null }) => {
       transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease'
     }
 
-    return (
-      <div style={{
-        padding: isMobileScreen ? '0.75rem 0.75rem 5rem' : '1.25rem 2rem 3rem',
-        maxWidth: '1440px',
-        width: '100%',
-        margin: '0 auto',
-        boxSizing: 'border-box',
-        overflowY: 'auto'
-      }}>
-        {/* ========================================================= */}
-        {/* COMPACT COMMAND HEADER WITH PROMINENT "+ ADD CUSTOMER"    */}
-        {/* ========================================================= */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobileScreen ? 'column' : 'row',
-          alignItems: isMobileScreen ? 'flex-start' : 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          marginBottom: '1.25rem'
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h2 style={{
-                fontSize: isMobileScreen ? '1.35rem' : '1.55rem',
-                fontWeight: '800',
-                color: textPrimary,
-                margin: 0,
-                letterSpacing: '-0.02em'
-              }}>
-                Customers
-              </h2>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            id="btn-add-customer"
-            onClick={() => handleOpenCustomerModal()}
-            style={{
-              background: isDarkMode ? '#ffffff' : '#0f172a',
-              color: isDarkMode ? '#0f172a' : '#ffffff',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '0.65rem 1.25rem',
-              fontWeight: '700',
-              fontSize: '0.85rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.15)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Add Customer</span>
-          </button>
-        </div>
-
-        {/* ========================================================= */}
-        {/* 4 KPI SUMMARY CARDS / MOBILE CAROUSEL                     */}
-        {/* ========================================================= */}
-        <MobileCardCarousel
-          isMobile={isMobileScreen}
-          isDarkMode={isDarkMode}
-          desktopColumns={4}
-          gap={isMobileScreen ? '0.65rem' : '1rem'}
-          marginBottom={isMobileScreen ? '1rem' : '1.25rem'}
-        >
-          {/* Card 1: Total Clients */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Total Clients
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? '#1a1c20' : '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#ffffff' : '#0f172a'
-              }}>
-                <LucideUsers size={15} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
-              {totalCustomersCount}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                {settledCustomers.length} settled
-              </div>
-            )}
-          </div>
-
-          {/* Card 2: Total Billed */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Total Invoiced
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? '#1a1c20' : '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#ffffff' : '#0f172a'
-              }}>
-                <LucideReceipt size={15} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
-              SAR {safeFormatAmount(totalBilled)}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                Total invoiced
-              </div>
-            )}
-          </div>
-
-          {/* Card 3: Total Collected (Cash In) */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Cash In Collected
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#f87171' : '#dc2626'
-              }}>
-                <LucideArrowDownRight size={15} strokeWidth={2.5} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#4ade80' : '#16a34a', letterSpacing: '-0.02em' }}>
-              + SAR {safeFormatAmount(totalCollected)}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                Total received
-              </div>
-            )}
-          </div>
-
-          {/* Card 4: Total Credit Due */}
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-            minHeight: isMobileScreen ? '84px' : 'auto',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Credit Due
-              </span>
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isDarkMode ? '#f87171' : '#dc2626'
-              }}>
-                <AlertCircle size={15} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#f87171' : '#dc2626', letterSpacing: '-0.02em' }}>
-              SAR {safeFormatAmount(totalCreditDue)}
-            </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>{creditDueCustomers.length} pending</span>
-                {totalPayableDue > 0 && (
-                  <span style={{ color: isDarkMode ? '#60a5fa' : '#2563eb', fontWeight: '700' }}>
-                    SAR {safeFormatAmount(totalPayableDue)} payable
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </MobileCardCarousel>
-
-        {/* ========================================================= */}
-        {/* FILTER PILLS & SEARCH BAR ROW                             */}
-        {/* ========================================================= */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobileScreen ? 'column' : 'row',
-          alignItems: isMobileScreen ? 'stretch' : 'center',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          marginBottom: '1rem'
-        }}>
-          {/* Filter Pills / Mobile Dropdown */}
-          {isMobileScreen ? (
-            <div style={{ width: '100%' }}>
-              <CashbookSelect
-                value={customerTypeFilter}
-                onChange={(val) => setCustomerTypeFilter(val)}
-                options={custPills.map(tab => {
-                  const count = tab === 'All' 
-                    ? totalCustomersCount 
-                    : tab === 'Credit Due' 
-                    ? creditDueCustomers.length 
-                    : tab === 'Payables Owed'
-                    ? payableDueCustomers.length
-                    : settledCustomers.length
-                  return { id: tab, label: `${tab} (${count})` }
-                })}
-                variant="desktop-toolbar"
-                style={{ width: '100%' }}
-                isDark={isDarkMode}
-              />
-            </div>
-          ) : (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              background: isDarkMode ? '#141517' : '#f1f5f9',
-              border: `1px solid ${borderColor}`,
-              padding: '3px',
-              borderRadius: '999px',
-              gap: '2px',
-              overflowX: 'auto'
-            }}>
-              {custPills.map(tab => {
-                const active = customerTypeFilter === tab
-                const count = tab === 'All' 
-                  ? totalCustomersCount 
-                  : tab === 'Credit Due' 
-                  ? creditDueCustomers.length 
-                  : tab === 'Payables Owed'
-                  ? payableDueCustomers.length
-                  : settledCustomers.length
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setCustomerTypeFilter(tab)}
-                    style={{
-                      background: active ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-                      color: active ? (isDarkMode ? '#0c0d0e' : '#ffffff') : textMuted,
-                      border: 'none',
-                      borderRadius: '999px',
-                      padding: '5px 14px',
-                      fontSize: '0.78rem',
-                      fontWeight: active ? '700' : '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      whiteSpace: 'nowrap',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <span>{tab}</span>
-                    <span style={{
-                      fontSize: '0.7rem',
-                      padding: '1px 5px',
-                      borderRadius: '999px',
-                      background: active 
-                        ? (isDarkMode ? '#232528' : 'rgba(255, 255, 255, 0.25)')
-                        : (isDarkMode ? '#1c1e21' : '#e2e8f0'),
-                      color: active 
-                        ? (isDarkMode ? '#ffffff' : '#ffffff')
-                        : textMuted,
-                      fontWeight: '700'
-                    }}>
-                      {count}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Search Bar */}
-          <div style={{
-            position: 'relative',
-            width: isMobileScreen ? '100%' : '320px'
-          }}>
-            <Search size={15} style={{
-              position: 'absolute',
-              left: '0.85rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: textMuted
-            }} />
-            <input
-              type="text"
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              style={{
-                width: '100%',
-                height: '38px',
-                padding: '0 2rem 0 2.35rem',
-                borderRadius: '10px',
-                border: `1px solid ${inputBorder}`,
-                background: inputBg,
-                color: textPrimary,
-                fontSize: '0.825rem',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-            {customerSearch && (
-              <button
-                type="button"
-                onClick={() => setCustomerSearch('')}
-                style={{
-                  position: 'absolute',
-                  right: '0.75rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: textMuted,
-                  cursor: 'pointer',
-                  padding: 0
-                }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* ========================================================= */}
-        {/* CUSTOMERS DATA TABLE / MOBILE CARDS                       */}
-        {/* ========================================================= */}
-        {customersLoading ? (
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: '2.5rem',
-            textAlign: 'center',
-            color: textMuted
-          }}>
-            <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 0.75rem', display: 'block' }} />
-            <div style={{ fontSize: '0.875rem', fontWeight: '600' }}>Loading customers...</div>
-          </div>
-        ) : filteredCustomersList.length === 0 ? (
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            padding: '3.5rem 1.5rem',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              background: isDarkMode ? '#1a1c20' : '#f1f5f9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1rem',
-              color: textMuted
-            }}>
-              <LucideUsers size={22} />
-            </div>
-            <h3 style={{ fontSize: '1rem', fontWeight: '700', color: textPrimary, margin: '0 0 0.35rem' }}>
-              No customers found
-            </h3>
-            <p style={{ fontSize: '0.825rem', color: textMuted, margin: '0 0 1.25rem' }}>
-              {customerSearch ? `No results matching "${customerSearch}"` : 'Get started by creating your first customer account'}
-            </p>
-            <button
-              type="button"
-              onClick={() => handleOpenCustomerModal()}
-              style={{
-                background: isDarkMode ? '#ffffff' : '#0f172a',
-                color: isDarkMode ? '#0f172a' : '#ffffff',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '0.6rem 1.25rem',
-                fontWeight: '700',
-                fontSize: '0.825rem',
-                cursor: 'pointer'
-              }}
-            >
-              + Add Customer
-            </button>
-          </div>
-        ) : isMobileScreen ? (
-          /* Mobile Card View */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            {filteredCustomersList.map(c => {
-              const billed = parseFloat(c.total_billed) || 0
-              const paid = parseFloat(c.paid_amount) || 0
-              const due = Math.max(0, billed - paid)
-              const hasDue = due > 0.01
-              const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0
-              const hasPayable = payable > 0.01
-
-              return (
-                <div
-                  key={c.id}
-                  style={{
-                    background: cardBg,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '14px',
-                    padding: '0.85rem',
-                    boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                      <div style={{
-                        width: '34px',
-                        height: '34px',
-                        borderRadius: '50%',
-                        background: isDarkMode ? '#1e2024' : '#e2e8f0',
-                        color: isDarkMode ? '#ffffff' : '#0f172a',
-                        fontWeight: '700',
-                        fontSize: '0.85rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        {(c.name || 'C').charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: '700', fontSize: '0.9rem', color: textPrimary }}>
-                          {c.name}
-                        </div>
-                        {(c.phone || c.email) && (
-                          <div style={{ fontSize: '0.75rem', color: textMuted }}>
-                            {c.phone || c.email}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {hasDue && (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '2px 7px',
-                          borderRadius: '999px',
-                          fontSize: '0.68rem',
-                          fontWeight: '800',
-                          background: isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2',
-                          color: isDarkMode ? '#f87171' : '#dc2626'
-                        }}>
-                          Credit Due
-                        </span>
-                      )}
-                      {hasPayable && (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '2px 7px',
-                          borderRadius: '999px',
-                          fontSize: '0.68rem',
-                          fontWeight: '800',
-                          background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#dbeafe',
-                          color: isDarkMode ? '#60a5fa' : '#2563eb'
-                        }}>
-                          Payable Owed
-                        </span>
-                      )}
-                      {!hasDue && !hasPayable && (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '2px 7px',
-                          borderRadius: '999px',
-                          fontSize: '0.68rem',
-                          fontWeight: '800',
-                          background: isDarkMode ? 'rgba(22, 163, 74, 0.15)' : '#dcfce7',
-                          color: isDarkMode ? '#4ade80' : '#16a34a'
-                        }}>
-                          Settled
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gap: '0.35rem',
-                    background: isDarkMode ? '#17191d' : '#f8fafc',
-                    border: `1px solid ${inputBorder}`,
-                    borderRadius: '10px',
-                    padding: '0.55rem 0.65rem',
-                    marginBottom: '0.65rem',
-                    textAlign: 'center'
-                  }}>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Billed</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '700', color: textPrimary }}>{safeFormatAmount(billed)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Collected</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '700', color: isDarkMode ? '#4ade80' : '#16a34a' }}>+{safeFormatAmount(paid)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Due</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted }}>
-                        {hasDue ? safeFormatAmount(due) : '0'}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Payable</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '800', color: hasPayable ? (isDarkMode ? '#60a5fa' : '#2563eb') : textMuted }}>
-                        {hasPayable ? safeFormatAmount(payable) : '0'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenCustomerModal(c)}
-                      style={{
-                        background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                        color: textPrimary,
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: '8px',
-                        padding: '0.45rem 0.75rem',
-                        fontSize: '0.78rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Pencil size={13} /> Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCustomer(c.id, c.name)}
-                      style={{
-                        background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: '8px',
-                        padding: '0.45rem 0.75rem',
-                        fontSize: '0.78rem',
-                        fontWeight: '600',
-                        color: isDarkMode ? '#9ca3af' : '#64748b',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          /* Desktop Table View */
-          <div style={{
-            background: cardBg,
-            border: `1px solid ${borderColor}`,
-            borderRadius: '16px',
-            overflow: 'hidden',
-            boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'
-          }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{
-                  borderBottom: `1px solid ${borderColor}`,
-                  background: isDarkMode ? '#141517' : '#f8fafc'
-                }}>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CLIENT / COMPANY</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CONTACT INFO</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>TOTAL BILLED</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CASH COLLECTED</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CREDIT DUE</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PAYABLE (SAR)</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>STATUS</th>
-                  <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCustomersList.map((c, idx) => {
-                  const billed = parseFloat(c.total_billed) || 0
-                  const paid = parseFloat(c.paid_amount) || 0
-                  const due = Math.max(0, billed - paid)
-                  const hasDue = due > 0.01
-                  const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0
-                  const hasPayable = payable > 0.01
-
-                  return (
-                    <tr
-                      key={c.id || idx}
-                      style={{
-                        borderBottom: `1px solid ${borderColor}`,
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = isDarkMode ? '#16181b' : '#f8fafc' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                    >
-                      {/* Name & Avatar */}
-                      <td style={{ padding: '0.85rem 1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                          <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            background: isDarkMode ? '#1e2024' : '#e2e8f0',
-                            color: isDarkMode ? '#ffffff' : '#0f172a',
-                            fontWeight: '700',
-                            fontSize: '0.825rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
-                          }}>
-                            {(c.name || 'C').charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: '700', fontSize: '0.875rem', color: textPrimary }}>
-                              {c.name}
-                            </div>
-                            {c.address && (
-                              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '1px' }}>
-                                {c.address}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Contact */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.825rem', color: textMuted }}>
-                        {c.phone ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: textPrimary, fontWeight: '600' }}>
-                            <Phone size={13} style={{ color: textMuted }} />
-                            <span>{c.phone}</span>
-                          </div>
-                        ) : null}
-                        {c.email ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: textMuted, marginTop: '2px' }}>
-                            <Mail size={12} />
-                            <span>{c.email}</span>
-                          </div>
-                        ) : null}
-                        {!c.phone && !c.email && '—'}
-                      </td>
-
-                      {/* Total Billed */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '600', color: textPrimary }}>
-                        SAR {safeFormatAmount(billed)}
-                      </td>
-
-                      {/* Cash Collected */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '700', color: isDarkMode ? '#4ade80' : '#16a34a' }}>
-                        + SAR {safeFormatAmount(paid)}
-                      </td>
-
-                      {/* Credit Due */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted }}>
-                        {hasDue ? `SAR ${safeFormatAmount(due)}` : 'SAR 0.00'}
-                      </td>
-
-                      {/* Payable (SAR) */}
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '800', color: hasPayable ? (isDarkMode ? '#60a5fa' : '#2563eb') : textMuted }}>
-                        {hasPayable ? `SAR ${safeFormatAmount(payable)}` : 'SAR 0.00'}
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: '0.85rem 1rem' }}>
-                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '3px' }}>
-                          {hasDue && (
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '2px 7px',
-                              borderRadius: '999px',
-                              fontSize: '0.68rem',
-                              fontWeight: '800',
-                              background: isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2',
-                              color: isDarkMode ? '#f87171' : '#dc2626',
-                              border: `1px solid ${isDarkMode ? 'rgba(248, 113, 113, 0.25)' : '#fecaca'}`
-                            }}>
-                              Credit Due
-                            </span>
-                          )}
-                          {hasPayable && (
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '2px 7px',
-                              borderRadius: '999px',
-                              fontSize: '0.68rem',
-                              fontWeight: '800',
-                              background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#dbeafe',
-                              color: isDarkMode ? '#60a5fa' : '#2563eb',
-                              border: `1px solid ${isDarkMode ? 'rgba(96, 165, 250, 0.25)' : '#bfdbfe'}`
-                            }}>
-                              Payable Owed
-                            </span>
-                          )}
-                          {!hasDue && !hasPayable && (
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '2px 7px',
-                              borderRadius: '999px',
-                              fontSize: '0.68rem',
-                              fontWeight: '800',
-                              background: isDarkMode ? 'rgba(22, 163, 74, 0.15)' : '#dcfce7',
-                              color: isDarkMode ? '#4ade80' : '#16a34a',
-                              border: `1px solid ${isDarkMode ? 'rgba(74, 222, 128, 0.25)' : '#bbf7d0'}`
-                            }}>
-                              Settled
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
-                          <button
-                            type="button"
-                            title="Edit Customer"
-                            onClick={() => handleOpenCustomerModal(c)}
-                            style={{
-                              background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                              border: `1px solid ${borderColor}`,
-                              borderRadius: '8px',
-                              padding: '0.4rem 0.55rem',
-                              color: textPrimary,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <Pencil size={13} />
-                          </button>
-
-                          <button
-                            type="button"
-                            title="Delete / Recycle"
-                            onClick={() => handleDeleteCustomer(c.id, c.name)}
-                            style={{
-                              background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                              border: `1px solid ${borderColor}`,
-                              borderRadius: '8px',
-                              padding: '0.4rem 0.55rem',
-                              color: isDarkMode ? '#9ca3af' : '#64748b',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = '#ef4444'
-                              e.currentTarget.style.borderColor = '#fca5a5'
-                              e.currentTarget.style.background = isDarkMode ? '#2d1515' : '#fef2f2'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = isDarkMode ? '#9ca3af' : '#64748b'
-                              e.currentTarget.style.borderColor = borderColor
-                              e.currentTarget.style.background = isDarkMode ? '#1c1e22' : '#f1f5f9'
-                            }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ========================================================= */}
-        {/* CUSTOMER MODAL FORM (ADD / EDIT)                         */}
-        {/* ========================================================= */}
-        {isCustomerModalOpen && typeof document !== 'undefined' && createPortal(
+    return createPortal(
           <div
             className="modal-overlay cb-modal-overlay"
             onClick={(e) => {
@@ -14336,9 +12761,94 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
           </div>,
           document.body
-        )}
-      </div>
     )
+  }
+
+  // =========================================================
+  // RENDER CUSTOMERS SECTION (DEDICATED CASHBOOK MODULE)
+  // =========================================================
+  const renderCustomersSection = () => {
+    return (
+      <CredCustomersView
+        isMobile={isMobileScreen}
+        customers={customers}
+        isLoading={customersLoading}
+        isDarkMode={isDarkMode}
+        onAddCustomer={() => handleOpenCustomerModal()}
+        onEditCustomer={(c) => handleOpenCustomerModal(c)}
+        onDeleteCustomer={handleDeleteCustomer}
+        onNavigate={(tab, params) => navigateToTab(tab, params)}
+      />
+    )
+  }
+
+  const getActiveDestination = () => {
+    if (activeTab === 'ledger' || activeTab === 'home' || activeTab === 'cash_ledger') return 'HOME'
+    if (activeTab === 'books' || activeTab === 'book') return 'BOOKS'
+    if (activeTab === 'bank_dashboard') return 'OVERVIEW'
+    if (['more', 'customers', 'vendors', 'labour', 'job_orders', 'bank_accounts', 'expenses', 'recycle_bin'].includes(activeTab)) return 'MORE'
+    return 'HOME'
+  }
+
+  const navigateToTab = (tabName, extraParams = {}) => {
+    setActiveTab(tabName)
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev)
+      p.set('tab', tabName)
+      Object.entries(extraParams).forEach(([k, v]) => {
+        if (v === null || v === undefined) {
+          p.delete(k)
+        } else {
+          p.set(k, v)
+        }
+      })
+      return p
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleSelectDestination = (dest, extraParams = {}) => {
+    if (dest === 'HOME' || dest === 'ledger' || dest === 'home') {
+      setSelectedBook(null)
+      navigateToTab('ledger', { book: null, bookId: null })
+    } else if (dest === 'BOOKS' || dest === 'books') {
+      if (extraParams && (extraParams.book || extraParams.bookId)) {
+        const targetBookId = extraParams.book || extraParams.bookId
+        const found = books.find(b => String(b.id) === String(targetBookId))
+        if (found) setSelectedBook(found)
+        navigateToTab('books', { book: targetBookId, bookId: null })
+      } else {
+        setSelectedBook(null)
+        navigateToTab('books', { book: null, bookId: null })
+      }
+    } else if (dest === 'OVERVIEW' || dest === 'bank_dashboard') {
+      navigateToTab('bank_dashboard')
+    } else if (dest === 'MORE' || dest === 'more') {
+      if (!isMobileScreen) {
+        navigateToTab('ledger')
+      } else {
+        navigateToTab('more')
+      }
+    } else {
+      navigateToTab(dest, extraParams)
+    }
+  }
+
+  const credTopBarProps = {
+    currentUser: currentUser || user,
+    filterLabel: duration === 'all' ? "all time ledger" : duration === 'today' ? "today's ledger" : "this month's ledger",
+    onFilterClick: () => {
+      const idx = DURATION_CHOICES.findIndex(d => d.id === duration)
+      const nextChoice = DURATION_CHOICES[(idx + 1) % DURATION_CHOICES.length]
+      setDuration(nextChoice.id)
+      if (showToast) showToast(`Ledger filter: ${nextChoice.label}`, 'info')
+    },
+    onSearchClick: () => setActiveTab('more'),
+    onNotificationClick: () => { if (showToast) showToast('All notifications verified', 'info') },
+    onProfileClick: () => {},
+    isDarkMode,
+    onToggleTheme: () => setIsDarkMode(prev => !prev),
+    unreadCount: 0
   }
 
   return (
@@ -14347,20 +12857,580 @@ const Cashbook = ({ currentUser = null }) => {
       data-theme-scope="cashbook-pill"
       data-theme={isDarkMode ? 'dark' : 'light'}
       style={{
-        display: 'flex',
-        height: 'calc(100vh - 50px)',
-        background: isDarkMode ? '#090a0b' : '#f8fafc',
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        overflow: 'hidden',
-        margin: 0,
         width: '100%',
+        minHeight: '100vh',
+        background: 'var(--black)',
+        margin: 0,
+        padding: 0,
         position: 'relative'
       }}
     >
       {/* ========================================================= */}
-      {/* DESKTOP VIEW (WIDTH > 768px)                              */}
+      {/* CRED DESIGN SYSTEM APP SHELL (DESKTOP & MOBILE RESTYLE)   */}
       {/* ========================================================= */}
-      <div className="cashbook-desktop-view">
+      <AppShell
+        isMobile={isMobileScreen}
+        activeDestination={getActiveDestination()}
+        activeTab={activeTab}
+        onSelectDestination={handleSelectDestination}
+        onNavigate={(tab, extraParams) => handleSelectDestination(tab, extraParams)}
+        onQuickAdd={() => setMobileActionMenuOpen(true)}
+        onOpenCashIn={() => handleOpenEntryModal('in')}
+        onOpenCashOut={() => handleOpenEntryModal('out')}
+        onOpenTransfer={() => handleOpenTransferModal()}
+        onRefresh={() => handleUniversalRefresh()}
+        isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode(prev => !prev)}
+        onOpenMembers={() => setIsMembersModalOpen(true)}
+        onOpenRecycleBin={() => navigateToTab('recycle_bin')}
+        recycleBinCount={0}
+        topBarProps={credTopBarProps}
+        counts={{
+          expenses: expensesList.length,
+          customers: customers.length,
+          vendors: vendors.length,
+          labour: labourList.length || 12,
+          jobOrders: jobOrdersList.length,
+          accounts: banks.length + pettyCashAccounts.length,
+          recycleBin: 0
+        }}
+        booksCount={books.length}
+        books={books}
+        selectedBook={selectedBook}
+        selectedBookId={searchParams.get('book') || selectedBook?.id}
+        onCreateBook={() => handleOpenBookModal()}
+        moreBadge={null}
+        breadcrumb={
+          (activeTab === 'books' || activeTab === 'book') && searchParams.get('book') ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                id="cred-topstrip-book-back-btn"
+                onClick={() => {
+                  setSelectedBook(null)
+                  navigateToTab('books', { book: null, bookId: null })
+                }}
+                title="back to books"
+                aria-label="back to books"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  background: 'var(--bg-panel, #FFFFFF)',
+                  color: 'var(--text, #0A0A0A)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'border-color 0.15s, background-color 0.15s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--text, #0A0A0A)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)' }}
+              >
+                <ArrowLeft size={16} strokeWidth={2} />
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted, #8C8C8C)' }}>
+                <Library size={14} strokeWidth={1.8} style={{ color: 'var(--text-muted, #8C8C8C)', flexShrink: 0 }} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBook(null)
+                    navigateToTab('books', { book: null, bookId: null })
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    color: 'var(--text-muted, #8C8C8C)',
+                    fontWeight: 500,
+                    transition: 'color 0.15s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text, #0A0A0A)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)' }}
+                >
+                  books
+                </button>
+                <span style={{ opacity: 0.5 }}>/</span>
+                <span style={{ fontWeight: 700, color: 'var(--text, #0A0A0A)' }}>
+                  {selectedBook?.name || (books.find(b => String(b.id) === String(searchParams.get('book')))?.name) || 'book'}
+                </span>
+              </div>
+            </div>
+          ) : null
+        }
+      >
+        {activeTab === 'ledger' || activeTab === 'home' ? (
+          <CredHomeView
+            isMobile={isMobileScreen}
+            kpi={credHomeKpi}
+            transactions={credHomeKpi.filteredTransactions}
+            accounts={[...banks, ...pettyCashAccounts]}
+            pettyCashAccounts={pettyCashAccounts}
+            duration={duration}
+            onDurationChange={(d) => setDuration(d)}
+            searchQuery={searchQuery}
+            onSearchChange={(q) => setSearchQuery(q)}
+            onExport={() => handleExportCSV()}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onOpenEntry={(e) => {
+              setEditingEntry(e)
+              handleOpenEntryModal(e.entry_type || 'in', e)
+            }}
+            onOpenCashIn={() => handleOpenEntryModal('in')}
+            onOpenCashOut={() => handleOpenEntryModal('out')}
+            onOpenTransfer={() => handleOpenTransferModal()}
+            onRefresh={() => handleUniversalRefresh()}
+            isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
+            onOpenMembers={() => setIsMembersModalOpen(true)}
+            onOpenRecycleBin={() => navigateToTab('recycle_bin')}
+            recycleBinCount={0}
+            selectedScope={selectedPettyCashAccountId || '__all__'}
+            onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
+            isLoading={allEntriesLoading}
+          />
+        ) : activeTab === 'books' || activeTab === 'book' ? (
+          <CredBooksView
+            isMobile={isMobileScreen}
+            books={books}
+            selectedBook={selectedBook}
+            bookEntries={entries}
+            allEntries={allCashEntries}
+            onSelectBook={(b) => {
+              setSelectedBook(b)
+              if (b) {
+                navigateToTab('books', { book: b.id, bookId: null })
+                fetchLedger(b.id)
+              } else {
+                navigateToTab('books', { book: null, bookId: null })
+              }
+            }}
+            onCreateBook={() => handleOpenBookModal()}
+            onEditBook={(b) => handleOpenBookModal(b)}
+            onOpenMembers={(b) => {
+              if (b) setSelectedBook(b)
+              setIsMembersModalOpen(true)
+            }}
+            onExportStatement={(b) => {
+              if (b) setSelectedBook(b)
+              handleExportCSV()
+            }}
+            onNewEntry={(b) => {
+              if (b) setSelectedBook(b)
+              handleOpenEntryModal('in')
+            }}
+            onOpenEntry={(e) => {
+              setEditingEntry(e)
+              handleOpenEntryModal(e.entry_type || 'in', e)
+            }}
+            onViewEntries={(b) => {
+              setSelectedBook(b)
+              navigateToTab('cash_ledger', { book: b?.id, bookId: null })
+            }}
+            onOpenCashIn={() => handleOpenEntryModal('in')}
+            onOpenCashOut={() => handleOpenEntryModal('out')}
+            onOpenTransfer={() => handleOpenTransferModal()}
+            onRefresh={() => handleUniversalRefresh()}
+            isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onOpenRecycleBin={() => navigateToTab('recycle_bin')}
+            recycleBinCount={0}
+            pettyCashAccounts={pettyCashAccounts}
+            selectedScope={selectedPettyCashAccountId || '__all__'}
+            onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
+            isLoading={loading}
+          />
+        ) : activeTab === 'bank_dashboard' ? (
+          <CredOverviewView
+            isMobile={isMobileScreen}
+            netBalance={safeFormatAmount(totalCombinedBalance || bankFlowData?.total_bank_reserves || '0.00')}
+            statement={{
+              title: "Arab Season Treasury Position",
+              subline: "real-time verified liquidity statement",
+              dateRange: "current fiscal period",
+              amount: safeFormatAmount(totalCombinedBalance || '0.00')
+            }}
+            kpis={{
+              totalInflows: safeFormatAmount(bankFlowData?.total_company_inflows || bankFlowData?.total_bank_deposits || '0.00'),
+              creditDue: safeFormatAmount(customerSummary?.pending_balance || '0.00'),
+              totalExpenses: safeFormatAmount(totalCompanyExpense || '0.00'),
+              customersCount: customers.length,
+              customersBalance: safeFormatAmount(customerSummary?.pending_balance || '0.00')
+            }}
+            latestTransactions={allCashEntries && allCashEntries.length > 0 ? allCashEntries : entries}
+            customers={customers}
+            expensesList={expensesList}
+            initialDrawer={searchParams.get('view')}
+            onDrawerChange={(v) => {
+              setSearchParams(prev => {
+                const p = new URLSearchParams(prev)
+                if (v) p.set('view', v)
+                else p.delete('view')
+                return p
+              }, { replace: true })
+            }}
+            onNavigate={(tab, extraParams) => navigateToTab(tab, extraParams)}
+            onNavigateSection={(sec, extraParams) => navigateToTab(sec, extraParams)}
+            onViewAllTransactions={() => navigateToTab('ledger')}
+            isLoading={allEntriesLoading || bankFlowLoading || customersLoading}
+            onKpiClick={(type) => {
+              if (type === 'customers') navigateToTab('customers')
+              else if (type === 'expenses') navigateToTab('expenses')
+              else navigateToTab(isMobileScreen ? 'ledger' : 'cash_ledger')
+            }}
+            onExport={() => handleExportCSV()}
+            onOpenCashIn={() => handleOpenEntryModal('in')}
+            onOpenCashOut={() => handleOpenEntryModal('out')}
+            onOpenTransfer={() => handleOpenTransferModal()}
+            onRefresh={() => handleUniversalRefresh()}
+            isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onOpenMembers={() => setIsMembersModalOpen(true)}
+            onOpenRecycleBin={() => navigateToTab('recycle_bin')}
+            recycleBinCount={0}
+            pettyCashAccounts={pettyCashAccounts}
+            selectedScope={selectedPettyCashAccountId || '__all__'}
+            onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
+          />
+        ) : activeTab === 'more' ? (
+          <CredMoreView
+            isMobile={isMobileScreen}
+            counts={{
+              expenses: expensesList.length,
+              customers: customers.length,
+              vendors: vendors.length,
+              labour: labourList.length || 12,
+              jobOrders: jobOrdersList.length,
+              accounts: banks.length + pettyCashAccounts.length,
+              recycleBin: 0
+            }}
+            onNavigateTab={(tabId) => navigateToTab(tabId)}
+            onSearch={(term) => {
+              setSearchQuery(term)
+              navigateToTab('cash_ledger')
+            }}
+          />
+        ) : activeTab === 'cash_ledger' ? (
+          <CredCashLedgerView
+            isMobile={isMobileScreen}
+            entries={filteredEntries && filteredEntries.length > 0 ? filteredEntries : (selectedBook ? entries : allCashEntries)}
+            onBack={() => navigateToTab('ledger')}
+            onOpenEntry={(e) => {
+              setEditingEntry(e)
+              handleOpenEntryModal(e.entry_type || 'in', e)
+            }}
+            onExportCSV={() => handleExportCSV()}
+            activeFilter={typeFilter}
+            activeCategory={categoryFilter}
+            activeMode={modeFilter}
+            onFilterChange={(kind) => {
+              if (kind === 'filter') {
+                setTypeFilter(prev => prev === 'all' ? 'in' : prev === 'in' ? 'out' : 'all')
+              } else if (kind === 'category') {
+                const idx = CATEGORIES.indexOf(categoryFilter)
+                setCategoryFilter(CATEGORIES[(idx + 1) % CATEGORIES.length])
+              } else if (kind === 'mode') {
+                const idx = PAYMENT_MODES.indexOf(modeFilter)
+                setModeFilter(PAYMENT_MODES[(idx + 1) % PAYMENT_MODES.length])
+              }
+            }}
+          />
+        ) : activeTab === 'customers' ? (
+          <CredCustomersView
+            isMobile={isMobileScreen}
+            customers={customers}
+            isLoading={customersLoading}
+            isDarkMode={isDarkMode}
+            onAddCustomer={() => handleOpenCustomerModal()}
+            onEditCustomer={(c) => handleOpenCustomerModal(c)}
+            onDeleteCustomer={handleDeleteCustomer}
+            onNavigate={(tab, params) => navigateToTab(tab, params)}
+          />
+        ) : activeTab === 'vendors' ? (
+          <CredVendorsView
+            isMobile={isMobileScreen}
+            vendors={vendors}
+            isLoading={vendorsLoading}
+            isDarkMode={isDarkMode}
+            onAddVendor={() => handleOpenVendorModal()}
+            onEditVendor={(v) => handleOpenVendorModal(v)}
+            onDeleteVendor={handleDeleteVendor}
+            onNavigate={(tab, params) => navigateToTab(tab, params)}
+          />
+        ) : activeTab === 'expenses' ? (
+          <CredExpensesView
+            isMobile={isMobileScreen}
+            expenses={expensesList}
+            jobOrders={jobOrdersList}
+            isLoading={expensesLoading}
+            isDarkMode={isDarkMode}
+            onAddExpense={() => handleOpenExpenseModal()}
+            onDeleteExpense={handleDeleteExpense}
+            onNavigate={(tab, params) => navigateToTab(tab, params)}
+          />
+        ) : activeTab === 'bank_accounts' ? (
+          <CredAccountsView
+            isMobile={isMobileScreen}
+            isDarkMode={isDarkMode}
+            banks={banks}
+            pettyCashAccounts={pettyCashAccounts}
+            accountsFilterTab={accountsFilterTab}
+            onAccountsFilterTabChange={(tab) => setAccountsFilterTab(tab)}
+            selectedAccountForStatement={selectedAccountForStatement}
+            onSelectAccount={(acc) => {
+              setSelectedAccountForStatement(acc)
+              fetchAccountStatement(acc)
+            }}
+            statementData={statementData}
+            statementLoading={statementLoading}
+            statementFlowFilter={statementFlowFilter}
+            onFlowFilterChange={(flow) => {
+              setStatementFlowFilter(flow)
+              fetchAccountStatement(selectedAccountForStatement, { flow })
+            }}
+            statementSearchQuery={statementSearchQuery}
+            onSearchChange={(query) => {
+              setStatementSearchQuery(query)
+              fetchAccountStatement(selectedAccountForStatement, { search: query })
+            }}
+            statementDateRangePreset={statementDateRangePreset}
+            onPresetChange={(preset) => handleStatementPresetChange(preset)}
+            onOpenTransfer={() => handleOpenTransferModal('petty_to_bank')}
+            onAddBank={() => handleOpenBankModal()}
+            onEditBank={(b) => handleOpenBankModal(b)}
+            onDeleteBank={(id, name) => handleDeleteBank(id, name)}
+            onAddPettyCash={() => handleOpenPettyCashAccountModal()}
+            onEditPettyCash={(p) => handleOpenPettyCashAccountModal(p)}
+            onDeletePettyCash={(id, name) => handleDeletePettyCashAccount(id, name)}
+            onExportStatementCSV={handleExportStatementCSV}
+            formatDateDisplay={formatDateDisplay}
+            formatTimeDisplay={formatTimeDisplay}
+            safeFormatAmount={safeFormatAmount}
+          />
+        ) : activeTab === 'labour' ? (
+          <div style={{ padding: isMobileScreen ? '0 0 80px' : '0 0 60px' }}>
+            <CashbookLabour 
+              isDarkMode={isDarkMode} 
+              isMobileScreen={isMobileScreen} 
+              onBack={() => setActiveTab('more')}
+              onNavigate={(tab, params) => navigateToTab(tab, params)}
+            />
+          </div>
+        ) : activeTab === 'job_orders' ? (
+          <div style={{ padding: isMobileScreen ? '0 0 80px' : '0 0 60px' }}>
+            <CashbookJobOrders
+              isDarkMode={isDarkMode}
+              isMobileScreen={isMobileScreen}
+              customers={customers}
+              vendors={vendors}
+              banks={banks}
+              pettyCashAccounts={pettyCashAccounts}
+              books={books}
+              onBack={() => setActiveTab('more')}
+              onNavigate={(tab, params) => navigateToTab(tab, params)}
+            />
+          </div>
+        ) : activeTab === 'recycle_bin' ? (
+          <div style={{ padding: isMobileScreen ? '0 0 80px' : '0 0 60px' }}>
+            <RecycleBin 
+              embedded={true} 
+              cashbookOnly={true} 
+              isDarkMode={isDarkMode} 
+              isMobile={isMobileScreen}
+              onBack={() => setActiveTab('more')}
+            />
+          </div>
+        ) : (
+          <CredHomeView
+            isMobile={isMobileScreen}
+            kpi={credHomeKpi}
+            transactions={credHomeKpi.filteredTransactions}
+            accounts={[...banks, ...pettyCashAccounts]}
+            pettyCashAccounts={pettyCashAccounts}
+            duration={duration}
+            onDurationChange={(d) => setDuration(d)}
+            searchQuery={searchQuery}
+            onSearchChange={(q) => setSearchQuery(q)}
+            onExport={() => handleExportCSV()}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onOpenEntry={(e) => {
+              setEditingEntry(e)
+              handleOpenEntryModal(e.entry_type || 'in', e)
+            }}
+            onOpenCashIn={() => handleOpenEntryModal('in')}
+            onOpenCashOut={() => handleOpenEntryModal('out')}
+            onOpenTransfer={() => handleOpenTransferModal()}
+            onRefresh={() => handleUniversalRefresh()}
+            isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
+            onOpenMembers={() => setIsMembersModalOpen(true)}
+            onOpenRecycleBin={() => navigateToTab('recycle_bin')}
+            recycleBinCount={0}
+            selectedScope={selectedPettyCashAccountId || '__all__'}
+            onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
+            isLoading={allEntriesLoading}
+          />
+        )}
+      </AppShell>
+      {/* EXPENSE MODAL */}
+      {renderExpenseModal()}
+      {/* CUSTOMER MODAL */}
+      {renderCustomerModal()}
+      {/* VENDOR MODAL */}
+      {renderVendorModal()}
+
+      {/* QUICK ACTION SLIDE-UP SHEET (MOBILE & DESKTOP) */}
+      {mobileActionMenuOpen && (
+        <>
+          <div
+            onClick={() => setMobileActionMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              zIndex: 990
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              bottom: isMobileScreen ? 'calc(76px + env(safe-area-inset-bottom, 0px))' : '40px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 'calc(100% - 32px)',
+              maxWidth: '380px',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-panel)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+              padding: '1.25rem',
+              zIndex: 1000,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.65rem',
+              animation: 'credSlideUp 200ms cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-muted)' }}>
+                RECORD TRANSACTION
+              </span>
+              <button
+                type="button"
+                onClick={() => setMobileActionMenuOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Option 1: Credit (Cash In) */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileActionMenuOpen(false)
+                handleOpenEntryModal('in')
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-btn)',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--tint-mint)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--positive)' }}>
+                <ArrowDownLeft size={18} strokeWidth={2.5} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700 }}>Credit (Cash In)</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Record customer payment or capital deposit</div>
+              </div>
+              <LucideChevronRight size={16} color="var(--text-muted)" />
+            </button>
+
+            {/* Option 2: Debit (Expense / Cash Out) */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileActionMenuOpen(false)
+                handleOpenEntryModal('out')
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-btn)',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--tint-pink)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
+                <ArrowUpRight size={18} strokeWidth={2.5} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700 }}>Debit (Cash Out)</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Record operational expense or payment</div>
+              </div>
+              <LucideChevronRight size={16} color="var(--text-muted)" />
+            </button>
+
+            {/* Option 3: Transfer Funds */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileActionMenuOpen(false)
+                handleOpenTransferModal()
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-btn)',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--tint-lavender)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)' }}>
+                <ArrowLeftRight size={18} strokeWidth={2.5} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700 }}>Transfer Funds</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Move money between Petty Cash & Banks</div>
+              </div>
+              <LucideChevronRight size={16} color="var(--text-muted)" />
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Legacy view container disabled for CRED design system */}
+      {false && (
+        <>
+        <div className="cashbook-desktop-view">
         {/* ========================================================= */}
         {/* 1. LEFT SIDEBAR: DARK CASHBOOK DRAWER                      */}
         {/* ========================================================= */}
@@ -15718,8 +14788,14 @@ const Cashbook = ({ currentUser = null }) => {
             }}
           />
         ) : activeTab === 'recycle_bin' ? (
-          <div style={{ padding: isMobileScreen ? '0.65rem 0.75rem 5rem' : '1.25rem 1.75rem', maxWidth: '1440px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-            <RecycleBin embedded={true} cashbookOnly={true} isDarkMode={isDarkMode} />
+          <div style={{ padding: isMobileScreen ? '0 0 80px' : '1.25rem 1.75rem', maxWidth: '1440px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+            <RecycleBin 
+              embedded={true} 
+              cashbookOnly={true} 
+              isDarkMode={isDarkMode} 
+              isMobile={isMobileScreen}
+              onBack={() => setActiveTab('more')}
+            />
           </div>
         ) : activeTab === 'ledger' ? (
           <div style={{ padding: isMobileScreen ? '0.75rem 0.75rem 5rem' : '1.25rem 2rem 3rem', maxWidth: '1440px', width: '100%', margin: '0 auto', boxSizing: 'border-box', overflowY: 'auto' }}>
@@ -18779,6 +17855,8 @@ const Cashbook = ({ currentUser = null }) => {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* ========================================================= */}
       {/* MODAL: MOBILE BOOK ACTIONS / OPTIONS                      */}

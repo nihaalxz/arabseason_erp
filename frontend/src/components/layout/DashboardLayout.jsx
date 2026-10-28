@@ -69,15 +69,17 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
       className={`dashboard-wrapper ${isSidebarPinned && !isMobile && !isCashbook ? 'sidebar-pinned' : ''} ${!isCashbook ? 'theme-soft-fintech' : 'theme-cashbook-pill'} ${isSidebarAnimating ? 'sidebar-animating' : ''} ${isCashbook ? 'is-cashbook' : ''}`}
       data-theme-scope={!isCashbook ? 'soft-fintech' : 'cashbook-pill'}
     >
-      {/* Full-width Zoho Books Header with SSO Switcher */}
-      <Header 
-        onToggleSidebar={toggleSidebar} 
-        onLogout={onLogout} 
-        isMobile={isMobile} 
-        currentUser={currentUser} 
-        onOpenMenuSheet={() => setIsMobileMenuOpen(true)}
-        isCashbook={isCashbook}
-      />
+      {/* Shared Header with Plugin Pills: rendered on desktop for all modules including Cashbook, and on mobile for non-cashbook */}
+      {(!isCashbook || !isMobile) && (
+        <Header 
+          onToggleSidebar={toggleSidebar} 
+          onLogout={onLogout} 
+          isMobile={isMobile} 
+          currentUser={currentUser} 
+          onOpenMenuSheet={() => setIsMobileMenuOpen(true)}
+          isCashbook={isCashbook}
+        />
+      )}
       
       {!isMobile && isSidebarOpen && !isCashbook && (
         <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
@@ -100,7 +102,7 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
         >
           <main className="content-area" style={isCashbook ? { padding: 0 } : {}}>
             <div key={isCashbook ? 'cashbook' : location.pathname} className="erp-page-transition">
-              <Outlet />
+              <Outlet context={{ currentUser, onLogout }} />
             </div>
           </main>
         </div>

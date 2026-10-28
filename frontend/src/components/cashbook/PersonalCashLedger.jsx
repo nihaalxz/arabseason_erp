@@ -1152,32 +1152,7 @@ export default function PersonalCashLedger({
           </div>
         </div>
 
-        {/* Reset Filter Button */}
-        {(entityFilter !== 'all' || typeFilter !== 'all' || dateRange !== 'all' || searchQuery) && (
-          <button
-            type="button"
-            onClick={() => {
-              setEntityFilter('all')
-              setTypeFilter('all')
-              setDateRange('all')
-              setSearchQuery('')
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: textMuted,
-              fontSize: '0.74rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '2px 6px'
-            }}
-          >
-            <RotateCcw size={12} /> Clear all filters
-          </button>
-        )}
+
       </div>
 
       {/* ========================================================= */}

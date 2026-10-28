@@ -4,10 +4,16 @@ import {
   CheckCircle2, Clock, Eye, AlertCircle, FileText, Filter,
   Building2, Users, Receipt, Briefcase, CreditCard, BookOpen
 } from '../components/icons'
+import { X, ArrowLeft, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
+import Money from '../components/cashbook/cred/Money'
 import api from '../api'
 import Modal from '../components/common/Modal'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm, showToast, showError, showSuccess } from '../utils/swal'
+import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
+import CredPagination from '../components/cashbook/cred/CredPagination'
+import { usePagination, PAGE_SIZE_MOBILE, getAmountFontSize } from '../components/cashbook/cred/usePagination'
 
 const ENTITY_CATEGORIES = [
   { id: 'all', label: 'All Items', icon: Filter },
@@ -44,7 +50,113 @@ const CASHBOOK_CATEGORIES = [
   { id: 'cashbook', label: 'Cash Books', icon: BookOpen, types: ['cashbook'] },
 ]
 
-const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDarkModeProp }) => {
+const getMobileItemIcon = (entityType, isDebit) => {
+  if (entityType === 'cashbook_entry') {
+    return isDebit ? ArrowUpRight : ArrowDownLeft
+  }
+  if (entityType === 'cashbook') return BookOpen
+  if (entityType === 'job_order') return Briefcase
+  if (entityType === 'expense') return Receipt
+  if (entityType === 'customer') return Users
+  if (entityType === 'vendor') return Building2
+  if (['customer_payment', 'vendor_payment', 'salary_payment', 'payment_request'].includes(entityType)) return CreditCard
+  return FileText
+}
+
+const getMobileItemMeta = (item, formatDateFn) => {
+  const fields = item.item_data?.fields || {}
+  const isCashbookEntry = item.entity_type === 'cashbook_entry' || item.model_name === 'CashBookEntry'
+  
+  let typeLabel = (item.entity_type_display || item.entity_type || 'RECORD').toUpperCase()
+  let title = item.item_name || 'Untitled Record'
+  let amountVal = null
+  let isDebit = false
+  let detailParts = []
+  
+  if (isCashbookEntry) {
+    typeLabel = 'CASHBOOK TRANSACTION'
+    const remark = fields.remark || fields.description || ''
+    const party = fields.party_name || fields.staff_name || ''
+    const category = fields.category || ''
+    const entryTypeRaw = String(fields.entry_type || 'out').toLowerCase()
+    const isCredit = entryTypeRaw === 'in'
+    isDebit = !isCredit
+    const shortDir = isCredit ? 'In' : 'Out'
+    const dirName = isCredit ? 'Credit (Inflow)' : 'Debit (Outflow)'
+    const mainTitle = remark || party || category || 'Cashbook Transaction'
+    const partySuffix = (party && remark && !remark.toLowerCase().includes(party.toLowerCase())) ? ` [${party}]` : ''
+    
+    title = `${shortDir}: ${mainTitle}${partySuffix}`
+    amountVal = fields.amount != null && fields.amount !== '' ? fields.amount : null
+    
+    if (fields.date) detailParts.push(fields.date)
+    if (dirName) detailParts.push(dirName)
+    if (party && party !== mainTitle) detailParts.push(party)
+    else if (category) detailParts.push(category)
+    if (fields.payment_mode) detailParts.push(fields.payment_mode)
+    if (fields.bank_account_name || fields.petty_cash_account_name) {
+      detailParts.push(fields.bank_account_name || fields.petty_cash_account_name)
+    }
+  } else if (item.entity_type === 'cashbook') {
+    typeLabel = 'CASH BOOK'
+    title = item.item_name || fields.name || 'Cash Book'
+    if (fields.opening_balance != null && fields.opening_balance !== '') {
+      amountVal = fields.opening_balance
+    }
+    if (fields.created_at) detailParts.push(formatDateFn(fields.created_at))
+    if (fields.book_type) detailParts.push(fields.book_type)
+  } else if (item.entity_type === 'expense') {
+    typeLabel = 'EXPENSE'
+    title = item.item_name || fields.title || fields.description || 'Expense'
+    amountVal = fields.amount != null && fields.amount !== '' ? fields.amount : null
+    isDebit = true
+    if (fields.date) detailParts.push(fields.date)
+    if (fields.category) detailParts.push(fields.category)
+    if (fields.payment_mode) detailParts.push(fields.payment_mode)
+  } else if (item.entity_type === 'job_order') {
+    typeLabel = 'JOB ORDER'
+    title = item.item_name || fields.client_name || fields.job_number || 'Job Order'
+    amountVal = fields.total_amount || fields.amount || null
+    if (fields.date) detailParts.push(fields.date)
+    if (fields.status) detailParts.push(fields.status)
+    if (fields.client_name) detailParts.push(fields.client_name)
+  } else {
+    typeLabel = (item.entity_type_display || item.entity_type || 'RECORD').toUpperCase()
+    title = item.item_name || 'Record'
+    if (fields.amount != null && fields.amount !== '') {
+      amountVal = fields.amount
+    } else if (fields.total_amount != null && fields.total_amount !== '') {
+      amountVal = fields.total_amount
+    } else if (fields.grand_total != null && fields.grand_total !== '') {
+      amountVal = fields.grand_total
+    }
+    if (item.item_summary) {
+      const parts = item.item_summary.split(' | ').filter(Boolean)
+      detailParts.push(...parts)
+    }
+  }
+
+  const cleanDetailParts = detailParts.map(p => String(p).replace(/ \| /g, ' · ')).filter(Boolean)
+  const detailLine = cleanDetailParts.join(' · ')
+  const deletedInfo = `Deleted by ${item.deleted_by_name || 'admin'} · ${formatDateFn(item.deleted_at)}`
+  
+  return {
+    typeLabel,
+    title,
+    amountVal,
+    isDebit,
+    detailLine,
+    deletedInfo
+  }
+}
+
+const RecycleBin = ({ 
+  embedded = false, 
+  cashbookOnly = false, 
+  isDarkMode: isDarkModeProp,
+  onBack,
+  isMobile: isMobileProp
+}) => {
   const [items, setItems] = useState([])
   const [stats, setStats] = useState({ total_active: 0, total_restored: 0, by_type: {} })
   const [loading, setLoading] = useState(true)
@@ -54,6 +166,23 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
   const [statusFilter, setStatusFilter] = useState('active') // 'active' | 'restored' | 'all'
   const [restoringId, setRestoringId] = useState(null)
   const [detailItem, setDetailItem] = useState(null)
+
+  const [internalIsMobile, setInternalIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768
+    }
+    return false
+  })
+
+  useEffect(() => {
+    const handleResize = () => {
+      setInternalIsMobile(window.innerWidth < 768)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const isMobile = typeof isMobileProp === 'boolean' ? isMobileProp : internalIsMobile
 
   // Reactive Light / Dark Theme State
   const [isDark, setIsDark] = useState(() => {
@@ -155,6 +284,14 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
     }
   }
 
+  const handleBack = () => {
+    if (onBack) {
+      onBack()
+    } else if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back()
+    }
+  }
+
   const handleRefresh = async () => {
     setRefreshing(true)
     await Promise.all([fetchItems(), fetchStats()])
@@ -191,9 +328,9 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
 
   const handlePermanentDelete = async (item) => {
     const confirmed = await showConfirm({
-      title: 'Permanently Delete Record?',
+      title: 'Delete Record?',
       text: `Are you sure you want to permanently delete "${item.item_name}"? This action cannot be undone.`,
-      confirmButtonText: 'Permanently Delete',
+      confirmButtonText: 'Delete',
       isDangerous: true,
       allowPermanent: false
     })
@@ -265,8 +402,464 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
     }
   }
 
+  const statusTabs = useMemo(() => [
+    { id: 'active', label: `In Recycle Bin (${activeDisplayCount})` },
+    { id: 'restored', label: `Restored (${restoredDisplayCount})` },
+    { id: 'all', label: `All History` }
+  ], [activeDisplayCount, restoredDisplayCount])
+
+  const mobileStatusTabs = useMemo(() => [
+    { id: 'active', label: `Recycle Bin (${activeDisplayCount})` },
+    { id: 'restored', label: `Restored (${restoredDisplayCount})` },
+    { id: 'all', label: `All History` }
+  ], [activeDisplayCount, restoredDisplayCount])
+
+  const sortedItems = useMemo(() => {
+    return [...filteredItems].sort((a, b) => {
+      const da = a.deleted_at ? new Date(a.deleted_at).getTime() : 0
+      const db = b.deleted_at ? new Date(b.deleted_at).getTime() : 0
+      return db - da
+    })
+  }, [filteredItems])
+
+  const {
+    pageItems,
+    page,
+    setPage,
+    totalPages,
+    rangeStart,
+    rangeEnd,
+    total
+  } = usePagination(sortedItems, isMobile ? PAGE_SIZE_MOBILE : sortedItems.length, `${statusFilter}-${selectedCategory}-${searchQuery}`)
+
   return (
-    <div className="recycle-bin-container erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', padding: embedded ? '0' : '0', color: theme.textMain }}>
+    <>
+      {isMobile ? (
+        <div
+          className="recycle-bin-mobile"
+          style={{
+            width: '100%',
+            maxWidth: '100%',
+            margin: '0 auto',
+            boxSizing: 'border-box',
+            padding: '4px 0 24px',
+            fontFamily: "'Geist', -apple-system, BlinkMacSystemFont, sans-serif",
+            color: isDark ? '#FFFFFF' : '#0A0A0A'
+          }}
+        >
+          <style>{`
+            .cred-recycle-tabs.cred-atabs-list {
+              display: flex !important;
+              width: 100% !important;
+              gap: 3px !important;
+              padding: 0 !important;
+              box-sizing: border-box !important;
+            }
+            .cred-recycle-tabs .cred-atabs-tab {
+              flex: 1 1 0 !important;
+              min-width: 0 !important;
+              height: 32px !important;
+              padding: 0 4px !important;
+              justify-content: center !important;
+              text-align: center !important;
+            }
+            .cred-recycle-tabs .cred-atabs-label {
+              font-size: 11.5px !important;
+              font-weight: 500 !important;
+              letter-spacing: -0.01em !important;
+              text-align: center !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+          `}</style>
+          {/* 1. TOP BAR */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '4px 0 8px'
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleBack}
+              aria-label="Back to More"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '4px 0',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: isDark ? '#FFFFFF' : '#0A0A0A',
+                outline: 'none',
+                width: 'fit-content'
+              }}
+            >
+              <ArrowLeft size={20} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              aria-label="Refresh"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '4px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: isDark ? '#FFFFFF' : '#0A0A0A',
+                outline: 'none',
+                opacity: refreshing ? 0.5 : 1
+              }}
+            >
+              <RefreshCw size={18} strokeWidth={2} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
+
+          {/* Page Title */}
+          <h1
+            style={{
+              margin: '0 0 16px 0',
+              fontSize: '24px',
+              fontWeight: 600,
+              color: isDark ? '#FFFFFF' : '#0A0A0A',
+              letterSpacing: '-0.02em',
+              textTransform: 'lowercase'
+            }}
+          >
+            recycle bin
+          </h1>
+
+          {/* 2. SEARCH */}
+          <div style={{ width: '100%', marginBottom: '14px' }}>
+            <CredSearchInput
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery('')}
+              placeholder="search deleted items..."
+              compact={false}
+              ariaLabel="Search deleted items"
+            />
+          </div>
+
+          {/* 3. FILTER TABS */}
+          <div
+            style={{
+              width: '100%',
+              marginBottom: '20px'
+            }}
+          >
+            <CredAnimatedTabs
+              tabs={mobileStatusTabs}
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val)}
+              className="case-preserve cred-recycle-tabs"
+              ariaLabel="Recycle Bin status filter tabs"
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          {/* 4. LIST */}
+          {loading ? (
+            <div style={{ padding: '1rem 0' }}>
+              <SkeletonLoader count={4} />
+            </div>
+          ) : sortedItems.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted, #8C8C8C)' }}>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px',
+                  color: 'var(--text-muted, #8C8C8C)'
+                }}
+              >
+                <Trash2 size={20} strokeWidth={1.5} />
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 500, color: isDark ? '#FFFFFF' : '#0A0A0A', marginBottom: '4px' }}>
+                {statusFilter === 'active' ? 'Recycle Bin is Empty' : 'No Items Found'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', maxWidth: '280px', margin: '0 auto' }}>
+                {statusFilter === 'active'
+                  ? (cashbookOnly ? 'No deleted cashbook transactions or books.' : 'No active deleted items in the Recycle Bin.')
+                  : 'No items match your selected filters.'}
+              </div>
+            </div>
+          ) : (
+            <div>
+              {pageItems.map(item => {
+                const meta = getMobileItemMeta(item, formatDate)
+                const Icon = getMobileItemIcon(item.entity_type, meta.isDebit)
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setDetailItem(item)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '16px 0 8px' }}>
+                      {/* Left: 44px circular icon, 1px light outline, neutral */}
+                      <div
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: '50%',
+                          border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid rgba(0, 0, 0, 0.08)',
+                          background: 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          marginTop: '2px',
+                          color: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)'
+                        }}
+                      >
+                        <Icon size={18} strokeWidth={1.5} />
+                      </div>
+
+                      {/* Content column */}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        {/* Top line: type label */}
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
+                            color: isDark ? 'rgba(255,255,255,0.45)' : 'var(--text-muted, #71717A)',
+                            marginBottom: '6px',
+                            lineHeight: 1.2
+                          }}
+                        >
+                          {meta.typeLabel}
+                        </div>
+
+                        {/* Title and Amount row */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', minWidth: 0, marginBottom: '6px' }}>
+                          <div
+                            style={{
+                              fontSize: '15px',
+                              fontWeight: 500,
+                              color: isDark ? '#FFFFFF' : '#0A0A0A',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              lineHeight: 1.4,
+                              minWidth: 0,
+                              flex: 1
+                            }}
+                          >
+                            {meta.title}
+                          </div>
+
+                          {meta.amountVal != null && meta.amountVal !== '' && (
+                            <div
+                              className="cred-tnum"
+                              style={{
+                                fontSize: '15px',
+                                fontWeight: 500,
+                                fontVariantNumeric: 'tabular-nums lining-nums',
+                                fontFeatureSettings: "'tnum' 1, 'lnum' 1",
+                                color: meta.isDebit ? (isDark ? '#F87171' : '#DC2626') : (isDark ? '#FFFFFF' : '#0A0A0A'),
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                textAlign: 'right',
+                                lineHeight: 1.4
+                              }}
+                            >
+                              <Money value={meta.amountVal} />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Muted detail line */}
+                        {meta.detailLine && (
+                          <div
+                            style={{
+                              fontSize: '12.5px',
+                              fontWeight: 400,
+                              color: isDark ? 'rgba(255,255,255,0.6)' : '#52525B',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              marginBottom: '6px',
+                              lineHeight: 1.45
+                            }}
+                          >
+                            {meta.detailLine}
+                          </div>
+                        )}
+
+                        {/* Muted small line */}
+                        <div
+                          style={{
+                            fontSize: '11.5px',
+                            fontWeight: 400,
+                            color: isDark ? 'rgba(255,255,255,0.45)' : '#71717A',
+                            lineHeight: 1.4,
+                            marginBottom: '8px'
+                          }}
+                        >
+                          {meta.deletedInfo}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions line: proper buttons with small borders */}
+                    {!item.is_restored ? (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          gap: '8px',
+                          padding: '2px 0 14px 58px'
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRestore(item)
+                          }}
+                          disabled={restoringId === item.id}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '5px 12px',
+                            borderRadius: '7px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #D4D4D8',
+                            background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#FFFFFF',
+                            color: isDark ? '#FFFFFF' : '#18181B',
+                            cursor: restoringId === item.id ? 'not-allowed' : 'pointer',
+                            opacity: restoringId === item.id ? 0.6 : 1,
+                            boxShadow: isDark ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.03)',
+                            fontFamily: 'inherit',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <RotateCcw size={12} strokeWidth={2} className={restoringId === item.id ? 'animate-spin' : ''} />
+                          <span>{restoringId === item.id ? 'Restoring...' : 'Restore'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePermanentDelete(item)
+                          }}
+                          disabled={restoringId === item.id}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '5px 12px',
+                            borderRadius: '7px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            border: isDark ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(239, 68, 68, 0.3)',
+                            background: isDark ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.04)',
+                            color: isDark ? '#F87171' : '#DC2626',
+                            cursor: restoringId === item.id ? 'not-allowed' : 'pointer',
+                            opacity: restoringId === item.id ? 0.6 : 1,
+                            boxShadow: isDark ? 'none' : '0 1px 2px rgba(239, 68, 68, 0.04)',
+                            fontFamily: 'inherit',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <Trash2 size={12} strokeWidth={2} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          padding: '2px 0 14px 58px'
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '7px',
+                            border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)',
+                            background: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.05)',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            color: isDark ? '#34D399' : '#059669'
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              backgroundColor: '#10B981',
+                              display: 'inline-block'
+                            }}
+                          />
+                          <span>Restored</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inset dashed separator */}
+                    <div
+                      style={{
+                        marginLeft: '58px',
+                        borderBottom: isDark ? '1px dashed rgba(255, 255, 255, 0.12)' : '1px dashed rgba(0, 0, 0, 0.08)'
+                      }}
+                    />
+                  </div>
+                )
+              })}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ marginTop: '16px', paddingBottom: '24px' }}>
+                  <CredPagination
+                    page={page}
+                    totalPages={totalPages}
+                    rangeStart={rangeStart}
+                    rangeEnd={rangeEnd}
+                    total={total}
+                    onPageChange={setPage}
+                    isMobile={true}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="recycle-bin-container erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', padding: embedded ? '0' : '0', color: theme.textMain }}>
       {/* Top Header Card (only shown when standalone, hidden when embedded in Cashbook) */}
       {!embedded && (
         <div style={{
@@ -312,7 +905,7 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
                   </span>
                 </div>
                 <p style={{ margin: '0.25rem 0 0 0', color: theme.textMuted, fontSize: '0.875rem' }}>
-                  All records deleted across user accounts are preserved here. Items cannot be permanently purged and can be restored at any time.
+                  All records deleted across user accounts are preserved here. Items cannot be permanently deleted and can be restored at any time.
                 </p>
               </div>
             </div>
@@ -757,7 +1350,7 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
                           opacity: restoringId === item.id ? 0.7 : 1
                         }}
                       >
-                        <Trash2 size={13} /> Purge
+                        <Trash2 size={13} /> Delete
                       </button>
                     </div>
                   ) : (
@@ -798,7 +1391,7 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
                           cursor: restoringId === item.id ? 'not-allowed' : 'pointer'
                         }}
                       >
-                        <Trash2 size={13} /> Purge
+                        <Trash2 size={13} /> Delete
                       </button>
                     </div>
                   )}
@@ -808,9 +1401,11 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
           })}
         </div>
       )}
+    </div>
+  )}
 
-      {/* Item Detail Modal */}
-      {detailItem && (
+  {/* Item Detail Modal */}
+  {detailItem && (
         <Modal
           isOpen={Boolean(detailItem)}
           onClose={() => setDetailItem(null)}
@@ -931,7 +1526,7 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
                   cursor: 'pointer'
                 }}
               >
-                <Trash2 size={14} /> Permanently Delete
+                <Trash2 size={14} /> Delete
               </button>
               {!detailItem.is_restored && (
                 <button
@@ -959,7 +1554,7 @@ const RecycleBin = ({ embedded = false, cashbookOnly = false, isDarkMode: isDark
           </div>
         </Modal>
       )}
-    </div>
+    </>
   )
 }
 

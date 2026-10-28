@@ -80,7 +80,7 @@
   --grad-card-warm:      linear-gradient(135deg, #FFF7F0 0%, #F3F1FD 100%);
   --grad-card-cool:      linear-gradient(135deg, #F6F8FE 0%, #EDF1FD 100%);
 
-  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bg-main) !important;
   color: var(--text-main) !important;
 }
