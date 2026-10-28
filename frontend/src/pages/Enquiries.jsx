@@ -4,7 +4,8 @@ import {
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
   Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
   FileText, Trash2, Edit3, Eye, UploadCloud, 
-  X, ChevronRight, Check, RotateCcw, UserCheck, User
+  X, ChevronRight, Check, RotateCcw, UserCheck, User,
+  Filter, ChevronDown, Printer
 } from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
@@ -12,6 +13,7 @@ import SearchBar from '../components/common/SearchBar'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import Modal from '../components/common/Modal'
 import { showConfirm, showError, showToast, showSuccess } from '../utils/swal'
+import { handlePdfResponse } from '../utils/pdfDownload'
 
 const CHANNEL_CONFIG = {
   whatsapp: { label: 'WhatsApp', color: '#16a34a', bg: 'rgba(22, 163, 74, 0.1)', border: 'rgba(22, 163, 74, 0.25)' },
@@ -82,8 +84,12 @@ export default function Enquiries({ currentUser }) {
   const [activeSection, setActiveSection] = useState('active')
   const [selectedChannel, setSelectedChannel] = useState('all')
   const [salespersonFilter, setSalespersonFilter] = useState('all')
+  const [outcomeFilter, setOutcomeFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [dueTodayOnly, setDueTodayOnly] = useState(false)
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
+  const [downloadingPdfId, setDownloadingPdfId] = useState(null)
+  const filterMenuRef = useRef(null)
 
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -147,7 +153,22 @@ export default function Enquiries({ currentUser }) {
 
   useEffect(() => {
     fetchEnquiries()
-  }, [activeSection, selectedChannel, salespersonFilter, searchQuery, dueTodayOnly])
+  }, [activeSection, selectedChannel, salespersonFilter, outcomeFilter, searchQuery, dueTodayOnly])
+
+  // Close filter menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target)) {
+        setIsFilterMenuOpen(false)
+      }
+    }
+    if (isFilterMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isFilterMenuOpen])
 
   const fetchCustomers = async () => {
     try {
@@ -197,6 +218,10 @@ export default function Enquiries({ currentUser }) {
 
       if (salespersonFilter !== 'all') {
         params.salesperson = salespersonFilter
+      }
+
+      if (outcomeFilter !== 'all') {
+        params.outcome = outcomeFilter
       }
 
       if (searchQuery.trim()) {
@@ -477,6 +502,24 @@ export default function Enquiries({ currentUser }) {
     }
   }
 
+  // Handle PDF Download
+  const handleDownloadPdf = async (enquiry) => {
+    if (!enquiry) return
+    try {
+      setDownloadingPdfId(enquiry.id)
+      const res = await api.get(`enquiries/${enquiry.id}/pdf/`, {
+        responseType: 'blob'
+      })
+      handlePdfResponse(res, `Enquiry_${enquiry.enquiry_number || enquiry.id}.pdf`)
+      showToast('Enquiry PDF downloaded successfully', 'success')
+    } catch (err) {
+      console.error('Failed to generate enquiry PDF:', err)
+      showError('PDF Generation Failed', 'Could not generate enquiry PDF. Please try again.')
+    } finally {
+      setDownloadingPdfId(null)
+    }
+  }
+
   // Delete Enquiry
   const handleDeleteEnquiry = async (id, enqNumber) => {
     const confirmed = await showConfirm({
@@ -664,7 +707,7 @@ export default function Enquiries({ currentUser }) {
               background: activeSection === 'active' && !dueTodayOnly ? '#1366d9' : '#94a3b8',
               display: 'inline-block'
             }} />
-            (a) Active Enquiries
+            Active Enquiries
             <span style={{
               background: activeSection === 'active' && !dueTodayOnly ? '#ebf3fc' : 'rgba(0,0,0,0.06)',
               color: activeSection === 'active' && !dueTodayOnly ? '#1366d9' : 'inherit',
@@ -706,7 +749,7 @@ export default function Enquiries({ currentUser }) {
               background: activeSection === 'converted' ? '#0f7638' : '#94a3b8',
               display: 'inline-block'
             }} />
-            (b) Converted Leads (Won)
+            Converted Leads (Won)
             <span style={{
               background: activeSection === 'converted' ? '#dcfce7' : 'rgba(0,0,0,0.06)',
               color: activeSection === 'converted' ? '#0f7638' : 'inherit',
@@ -748,7 +791,7 @@ export default function Enquiries({ currentUser }) {
               background: activeSection === 'cancelled' ? '#dc2626' : '#94a3b8',
               display: 'inline-block'
             }} />
-            (c) Cancelled / Lost
+            Cancelled / Lost
             <span style={{
               background: activeSection === 'cancelled' ? '#fee2e2' : 'rgba(0,0,0,0.06)',
               color: activeSection === 'cancelled' ? '#b91c1c' : 'inherit',
@@ -787,61 +830,346 @@ export default function Enquiries({ currentUser }) {
       </div>
 
       {/* ── 4. SEARCH & FILTER PANEL (Matches Customers.jsx exactly) ── */}
+      {/* ── 4. SEARCH & UNIFIED FILTER PANEL ── */}
       <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: '260px', maxWidth: '640px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: '260px', flexWrap: 'wrap' }}>
           <SearchBar
             value={searchQuery}
             onChange={(val) => setSearchQuery(val)}
-            style={{ flex: 1 }}
+            style={{ flex: '1 1 240px', minWidth: '180px', maxWidth: '420px' }}
           />
 
-          {/* Channel Filter */}
-          <select
-            value={selectedChannel}
-            onChange={(e) => setSelectedChannel(e.target.value)}
-            style={{
-              background: 'var(--card-bg, #ffffff)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--border-color, #e2e8f0)',
-              borderRadius: 'var(--radius-sm, 6px)',
-              height: '38px',
-              padding: '0 0.75rem',
-              fontSize: '0.82rem',
-              fontWeight: '600',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="all">All Channels</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="phone_call">Phone Call</option>
-            <option value="email">Email</option>
-            <option value="walk_in">Walk-in</option>
-            <option value="website">Website</option>
-          </select>
+          {/* Unified Filter Menu */}
+          <div ref={filterMenuRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setIsFilterMenuOpen(prev => !prev)}
+              style={{
+                background: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? 'rgba(19, 102, 217, 0.08)' : 'var(--card-bg, #ffffff)',
+                color: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? 'var(--primary, #1366d9)' : 'var(--text-main)',
+                border: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? '1px solid var(--primary, #1366d9)' : '1px solid var(--border-color, #e2e8f0)',
+                borderRadius: 'var(--radius-sm, 6px)',
+                height: '38px',
+                padding: '0 0.85rem',
+                fontSize: '0.82rem',
+                fontWeight: '600',
+                outline: 'none',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                transition: 'all 0.15s ease'
+              }}
+              title="Filter by Channel, Salesperson, and Call Outcome"
+            >
+              <Filter size={15} color={(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? 'var(--primary, #1366d9)' : 'currentColor'} />
+              <span>Filters</span>
+              {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
+                <span
+                  style={{
+                    background: 'var(--primary, #1366d9)',
+                    color: '#ffffff',
+                    fontSize: '0.7rem',
+                    fontWeight: '700',
+                    borderRadius: '999px',
+                    minWidth: '18px',
+                    height: '18px',
+                    padding: '0 5px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1
+                  }}
+                >
+                  {(selectedChannel !== 'all' ? 1 : 0) + (salespersonFilter !== 'all' ? 1 : 0) + (outcomeFilter !== 'all' ? 1 : 0)}
+                </span>
+              )}
+              <ChevronDown
+                size={14}
+                style={{
+                  transform: isFilterMenuOpen ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.15s ease',
+                  opacity: 0.65
+                }}
+              />
+            </button>
 
-          {/* Salesperson Filter */}
-          <select
-            value={salespersonFilter}
-            onChange={(e) => setSalespersonFilter(e.target.value)}
-            style={{
-              background: 'var(--card-bg, #ffffff)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--border-color, #e2e8f0)',
-              borderRadius: 'var(--radius-sm, 6px)',
-              height: '38px',
-              padding: '0 0.75rem',
-              fontSize: '0.82rem',
-              fontWeight: '600',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="all">All Salespersons</option>
-            {salespersons.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+            {/* Dropdown Menu Popover */}
+            {isFilterMenuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  left: 0,
+                  width: '320px',
+                  background: 'var(--card-bg, #ffffff)',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  borderRadius: '10px',
+                  boxShadow: '0 12px 30px -4px rgba(0, 0, 0, 0.15), 0 4px 12px -2px rgba(0, 0, 0, 0.08)',
+                  padding: '1rem',
+                  zIndex: 200,
+                  animation: 'fadeIn 0.15s ease'
+                }}
+              >
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem', paddingBottom: '0.65rem', borderBottom: '1px solid var(--border-color, #f1f5f9)' }}>
+                  <div style={{ fontWeight: '700', fontSize: '0.88rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Filter size={14} color="var(--primary, #1366d9)" /> Filters
+                  </div>
+                  {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedChannel('all')
+                        setSalespersonFilter('all')
+                        setOutcomeFilter('all')
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--danger, #dc2626)',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}
+                      title="Clear all active filters"
+                    >
+                      <RotateCcw size={12} /> Clear all
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter 1: Channel */}
+                <div style={{ marginBottom: '0.85rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Channel
+                  </label>
+                  <select
+                    value={selectedChannel}
+                    onChange={(e) => setSelectedChannel(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--border-color, #e2e8f0)',
+                      borderRadius: '6px',
+                      height: '36px',
+                      padding: '0 0.75rem',
+                      fontSize: '0.82rem',
+                      fontWeight: '500',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="all">All Channels</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="phone_call">Phone Call</option>
+                    <option value="email">Email</option>
+                    <option value="walk_in">Walk-in</option>
+                    <option value="website">Website</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {/* Filter 2: Salesperson */}
+                <div style={{ marginBottom: '0.85rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Salesperson
+                  </label>
+                  <select
+                    value={salespersonFilter}
+                    onChange={(e) => setSalespersonFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--border-color, #e2e8f0)',
+                      borderRadius: '6px',
+                      height: '36px',
+                      padding: '0 0.75rem',
+                      fontSize: '0.82rem',
+                      fontWeight: '500',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="all">All Salespersons</option>
+                    {salespersons.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter 3: Call Outcome */}
+                <div style={{ marginBottom: '0.85rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Call Outcome
+                  </label>
+                  <select
+                    value={outcomeFilter}
+                    onChange={(e) => setOutcomeFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--border-color, #e2e8f0)',
+                      borderRadius: '6px',
+                      height: '36px',
+                      padding: '0 0.75rem',
+                      fontSize: '0.82rem',
+                      fontWeight: '500',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="all">All Call Outcomes</option>
+                    <option value="no_calls">No Calls Yet</option>
+                    <option value="interested">Interested / Considering</option>
+                    <option value="requested_discount">Requested Price Discount</option>
+                    <option value="will_revert">Will Revert Later</option>
+                    <option value="quotation_requested">Asked for Formal Quotation</option>
+                    <option value="ready_to_close">Ready to Confirm / Won</option>
+                    <option value="not_interested">Declined / Not Interested</option>
+                    <option value="unreachable">Unreachable / No Answer</option>
+                    <option value="other">Other Outcome</option>
+                  </select>
+                </div>
+
+                {/* Footer action */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color, #f1f5f9)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterMenuOpen(false)}
+                    style={{
+                      background: 'var(--primary, #1366d9)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '5px',
+                      padding: '0.4rem 0.9rem',
+                      fontSize: '0.78rem',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Active Filter Chips */}
+          {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {selectedChannel !== 'all' && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    background: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color, #cbd5e1)',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '16px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    color: 'var(--text-main)'
+                  }}
+                >
+                  <span style={{ color: 'var(--text-muted)' }}>Channel:</span> {CHANNEL_CONFIG[selectedChannel]?.label || selectedChannel}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedChannel('all')}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-muted)' }}
+                    title="Remove filter"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+
+              {salespersonFilter !== 'all' && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    background: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color, #cbd5e1)',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '16px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    color: 'var(--text-main)'
+                  }}
+                >
+                  <span style={{ color: 'var(--text-muted)' }}>Salesperson:</span> {salespersons.find(s => String(s.id) === String(salespersonFilter))?.name || 'Selected'}
+                  <button
+                    type="button"
+                    onClick={() => setSalespersonFilter('all')}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-muted)' }}
+                    title="Remove filter"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+
+              {outcomeFilter !== 'all' && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    background: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color, #cbd5e1)',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '16px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    color: 'var(--text-main)'
+                  }}
+                >
+                  <span style={{ color: 'var(--text-muted)' }}>Outcome:</span> {outcomeFilter === 'no_calls' ? 'No Calls Yet' : (OUTCOME_CONFIG[outcomeFilter]?.label || outcomeFilter)}
+                  <button
+                    type="button"
+                    onClick={() => setOutcomeFilter('all')}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-muted)' }}
+                    title="Remove filter"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedChannel('all')
+                  setSalespersonFilter('all')
+                  setOutcomeFilter('all')
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: '2px 4px'
+                }}
+                title="Clear all filters"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
         </div>
 
         <button
@@ -874,12 +1202,28 @@ export default function Enquiries({ currentUser }) {
                 <div style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
                   {searchQuery 
                     ? `No enquiries matching "${searchQuery}"`
+                    : (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all')
+                    ? 'No enquiries match the selected filters.'
                     : activeSection === 'active'
                     ? 'No active enquiries in progress. Click "+ New Enquiry" to record an inquiry.'
                     : activeSection === 'converted'
                     ? 'No converted leads yet. As enquiries confirm orders, they will appear here.'
                     : 'No cancelled enquiries recorded.'}
                 </div>
+                {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setSelectedChannel('all')
+                      setSalespersonFilter('all')
+                      setOutcomeFilter('all')
+                    }}
+                    style={{ marginTop: '0.85rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    <RotateCcw size={13} /> Reset Filters
+                  </button>
+                )}
               </div>
             )}
 
@@ -1339,11 +1683,6 @@ export default function Enquiries({ currentUser }) {
                 value={formData.salesperson || ''}
                 onChange={(e) => {
                   const val = e.target.value
-                  if (val === '__add_new__') {
-                    setNewSalespersonForm({ name: '', phone: '', email: '' })
-                    setIsSalespersonModalOpen(true)
-                    return
-                  }
                   const sp = salespersons.find(s => String(s.id) === String(val))
                   setFormData(prev => ({
                     ...prev,
@@ -1353,9 +1692,6 @@ export default function Enquiries({ currentUser }) {
                 }}
               >
                 <option value="">-- Select Salesperson / Lead Owner --</option>
-                <option value="__add_new__" style={{ color: '#1366d9', fontWeight: '700', background: 'rgba(19, 102, 217, 0.08)' }}>
-                  ➕ + Add New Salesman...
-                </option>
                 {salespersons.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.name} {s.phone ? `(${s.phone})` : ''}
@@ -1661,7 +1997,7 @@ export default function Enquiries({ currentUser }) {
         isOpen={isDetailModalOpen && !!selectedEnquiry}
         onClose={() => setIsDetailModalOpen(false)}
         title={`Enquiry Details: ${selectedEnquiry?.enquiry_number || ''}`}
-        maxWidth="680px"
+        maxWidth="780px"
       >
         {selectedEnquiry && (() => {
           const chCfg = CHANNEL_CONFIG[selectedEnquiry.channel] || CHANNEL_CONFIG.other
@@ -2017,13 +2353,13 @@ export default function Enquiries({ currentUser }) {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: '0.75rem',
+                gap: '0.65rem',
                 marginTop: '0.5rem',
                 paddingTop: '1rem',
                 borderTop: '1px solid var(--border-color, #e2e8f0)'
               }}>
                 {/* Left quick action buttons for active leads */}
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   {selectedEnquiry.status !== 'converted' && selectedEnquiry.status !== 'cancelled' ? (
                     <>
                       <button
@@ -2033,7 +2369,7 @@ export default function Enquiries({ currentUser }) {
                           setIsDetailModalOpen(false)
                           handleOpenFollowUp(selectedEnquiry)
                         }}
-                        style={{ padding: '0.55rem 1.1rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                        style={{ height: '36px', padding: '0 0.95rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', borderRadius: '6px' }}
                       >
                         <Phone size={13} /> Log Follow-up
                       </button>
@@ -2046,16 +2382,18 @@ export default function Enquiries({ currentUser }) {
                           handleMarkConverted(selectedEnquiry)
                         }}
                         style={{
-                          padding: '0.55rem 1rem',
+                          height: '36px',
+                          padding: '0 0.9rem',
                           fontSize: '0.8rem',
                           background: 'rgba(15, 118, 56, 0.1)',
                           color: '#0f7638',
                           border: '1px solid rgba(15, 118, 56, 0.3)',
-                          borderRadius: 'var(--radius-sm)',
+                          borderRadius: '6px',
                           fontWeight: '700',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.35rem'
+                          gap: '0.35rem',
+                          cursor: 'pointer'
                         }}
                       >
                         <CheckCircle2 size={13} /> Mark Won
@@ -2069,13 +2407,15 @@ export default function Enquiries({ currentUser }) {
                           handleOpenCancel(selectedEnquiry)
                         }}
                         style={{
-                          padding: '0.55rem 0.9rem',
+                          height: '36px',
+                          padding: '0 0.85rem',
                           fontSize: '0.8rem',
                           background: 'transparent',
                           color: '#dc2626',
                           border: '1px solid rgba(220, 38, 38, 0.3)',
-                          borderRadius: 'var(--radius-sm)',
-                          fontWeight: '600'
+                          borderRadius: '6px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
                         }}
                       >
                         Mark Lost
@@ -2090,16 +2430,18 @@ export default function Enquiries({ currentUser }) {
                         handleRestore(selectedEnquiry)
                       }}
                       style={{
-                        padding: '0.55rem 1.1rem',
+                        height: '36px',
+                        padding: '0 1rem',
                         fontSize: '0.8rem',
                         background: 'rgba(19, 102, 217, 0.1)',
                         color: 'var(--primary, #1366d9)',
                         border: '1px solid rgba(19, 102, 217, 0.3)',
-                        borderRadius: 'var(--radius-sm)',
+                        borderRadius: '6px',
                         fontWeight: '700',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.35rem'
+                        gap: '0.35rem',
+                        cursor: 'pointer'
                       }}
                     >
                       <RotateCcw size={13} /> Restore to Active
@@ -2107,8 +2449,32 @@ export default function Enquiries({ currentUser }) {
                   ) : null}
                 </div>
 
-                {/* Right buttons: Edit & Close */}
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {/* Right buttons: Print PDF, Edit & Close (neatly aligned to the right) */}
+                <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => handleDownloadPdf(selectedEnquiry)}
+                    disabled={downloadingPdfId === selectedEnquiry.id}
+                    style={{
+                      height: '36px',
+                      padding: '0 0.85rem',
+                      fontSize: '0.8rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      borderRadius: '6px',
+                      color: 'var(--primary, #1366d9)',
+                      border: '1px solid rgba(19, 102, 217, 0.3)',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                    title="Export Enquiry & Lead History to PDF"
+                  >
+                    <Printer size={14} className={downloadingPdfId === selectedEnquiry.id ? 'spin' : ''} />
+                    {downloadingPdfId === selectedEnquiry.id ? 'Printing...' : 'Print PDF'}
+                  </button>
+
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -2116,7 +2482,7 @@ export default function Enquiries({ currentUser }) {
                       setIsDetailModalOpen(false)
                       handleOpenModal(selectedEnquiry)
                     }}
-                    style={{ padding: '0.55rem 1rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                    style={{ height: '36px', padding: '0 0.85rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', borderRadius: '6px', cursor: 'pointer' }}
                   >
                     <Edit3 size={13} /> Edit Enquiry
                   </button>
@@ -2124,7 +2490,7 @@ export default function Enquiries({ currentUser }) {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    style={{ padding: '0.55rem 1.25rem', fontSize: '0.8rem' }}
+                    style={{ height: '36px', padding: '0 1.1rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', cursor: 'pointer' }}
                     onClick={() => setIsDetailModalOpen(false)}
                   >
                     Close

@@ -4768,8 +4768,19 @@ class EnquiryViewSet(viewsets.ModelViewSet):
             qs = qs.filter(channel=channel)
 
         salesperson_id = qp.get('salesperson')
-        if salesperson_id:
+        if salesperson_id and salesperson_id != 'all':
             qs = qs.filter(salesperson_id=salesperson_id)
+
+        outcome = qp.get('outcome')
+        if outcome and outcome != 'all':
+            latest_follow_up_outcome = EnquiryFollowUp.objects.filter(
+                enquiry=OuterRef('pk')
+            ).order_by('-id').values('outcome')[:1]
+            qs = qs.annotate(latest_outcome=Subquery(latest_follow_up_outcome))
+            if outcome == 'no_calls':
+                qs = qs.filter(latest_outcome__isnull=True)
+            else:
+                qs = qs.filter(latest_outcome=outcome)
 
         follow_up_filter = qp.get('follow_up')
         today = timezone.localdate()
@@ -4905,6 +4916,30 @@ class EnquiryViewSet(viewsets.ModelViewSet):
         enquiry.cancellation_notes = ''
         enquiry.save()
         return Response(EnquirySerializer(enquiry).data)
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        from .pdf_generator import universal_pdf_generator, format_dynamic_filename
+        from django.http import HttpResponse
+
+        query_token = request.query_params.get('token')
+        if query_token:
+            from rest_framework_simplejwt.authentication import JWTAuthentication
+            try:
+                jwt_auth = JWTAuthentication()
+                validated_token = jwt_auth.get_validated_token(query_token)
+                request.user = jwt_auth.get_user(validated_token)
+            except Exception:
+                pass
+
+        enquiry = self.get_object()
+        pdf_bytes = universal_pdf_generator.generate_enquiry_pdf(enquiry)
+        c_name = enquiry.customer.name if enquiry.customer else (enquiry.customer_name or 'Prospect')
+        filename = format_dynamic_filename('enquiry', enquiry.enquiry_number, c_name)
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
 
 
 

@@ -6,6 +6,7 @@ Pulls live company information directly from SiteSettings (Single Source of Trut
 
 import os
 import io
+import base64
 from io import BytesIO
 from datetime import datetime
 from decimal import Decimal
@@ -188,7 +189,65 @@ class NumberedCanvas(canvas.Canvas):
         page_text = f"Page {self._pageNumber} of {page_count}"
         self.drawRightString(page_w - margin, margin + 2 * mm, page_text)
 
+        # Optional crisp outer border around the PDF
+        if getattr(self, 'draw_outer_border', False):
+            border_margin = getattr(self, 'outer_border_margin', 7 * mm)
+            self.setStrokeColor(colors.HexColor("#0f172a"))
+            self.setLineWidth(0.85)
+            self.roundRect(
+                border_margin,
+                border_margin,
+                page_w - 2 * border_margin,
+                page_h - 2 * border_margin,
+                radius=3.5 * mm,
+                stroke=1,
+                fill=0
+            )
+
         self.restoreState()
+
+
+class TimelineTable(Table):
+    """
+    Renders an elegant CRM timeline with a continuous vertical connecting line
+    between numbered circular step badges.
+    """
+    def draw(self):
+        canv = self.canv
+        canv.saveState()
+
+        cx = self._colWidths[0] / 2.0
+        total_h = sum(self._rowHeights)
+
+        node_centers = []
+        curr_top = total_h
+        for h in self._rowHeights:
+            cy = curr_top - 9
+            node_centers.append(cy)
+            curr_top -= h
+
+        if len(node_centers) > 1:
+            canv.setStrokeColor(colors.HexColor('#94a3b8'))
+            canv.setLineWidth(1.5)
+            canv.line(cx, node_centers[0], cx, node_centers[-1])
+
+        for idx, cy in enumerate(node_centers):
+            # Outer white circle to mask the connecting line cleanly behind the badge
+            canv.setFillColor(colors.HexColor('#ffffff'))
+            canv.circle(cx, cy, 7.5, stroke=0, fill=1)
+
+            # Node circle
+            node_color = '#1d4ed8' if idx == 0 else '#0284c7'
+            canv.setFillColor(colors.HexColor(node_color))
+            canv.circle(cx, cy, 6, stroke=0, fill=1)
+
+            # Step number
+            canv.setFillColor(colors.HexColor('#ffffff'))
+            canv.setFont('Helvetica-Bold', 6.5)
+            canv.drawCentredString(cx, cy - 2.2, str(idx + 1))
+
+        super().draw()
+        canv.restoreState()
 
 
 class UniversalPDFGenerator:
@@ -416,11 +475,11 @@ class UniversalPDFGenerator:
         except Exception:
             return f"0.00 {curr}"
 
-    def build_header_flowable(self, doc_width):
+    def build_header_flowable(self, doc_width, show_contact_details=True):
         """
         Build the standardized top header:
         Left: Company Logo or Legal Name
-        Right: Physical Address, Contact Details, CR / VAT
+        Right: Physical Address, Contact Details, CR / VAT (optional if internal)
         """
         self.settings = self._get_site_settings()
         self.logo_path = self._resolve_logo_path()
@@ -437,17 +496,19 @@ class UniversalPDFGenerator:
             left_flowables.append(Paragraph(self.settings['company_name'].upper(), self.styles['CompanyTitle']))
 
         # Right side: Contact Details
-        right_text_lines = [
-            f"<b>{self.settings['company_name']}</b>",
-            self.settings.get('address') or "Saudi Arabia, Alsalihia Dist",
-            f"{self.settings['phone']}, email:{self.settings['email']}"
-        ]
-        if self.settings.get('cr_number'):
-            right_text_lines.append(f"Commercial Registration: {self.settings['cr_number']}")
-        if self.settings.get('tax_number'):
-            right_text_lines.append(f"VAT / TRN: {self.settings['tax_number']}")
-
-        right_flowable = Paragraph("<br/>".join(right_text_lines), self.styles['CompanyDetails'])
+        if show_contact_details:
+            right_text_lines = [
+                f"<b>{self.settings['company_name']}</b>",
+                self.settings.get('address') or "Saudi Arabia, Alsalihia Dist",
+                f"{self.settings['phone']}, email:{self.settings['email']}"
+            ]
+            if self.settings.get('cr_number'):
+                right_text_lines.append(f"Commercial Registration: {self.settings['cr_number']}")
+            if self.settings.get('tax_number'):
+                right_text_lines.append(f"VAT / TRN: {self.settings['tax_number']}")
+            right_flowable = Paragraph("<br/>".join(right_text_lines), self.styles['CompanyDetails'])
+        else:
+            right_flowable = Paragraph("", self.styles['CompanyDetails'])
 
         header_table = Table(
             [[left_flowables, right_flowable]],
@@ -3153,6 +3214,301 @@ class UniversalPDFGenerator:
         def canvas_maker(*args, **kwargs):
             c = NumberedCanvas(*args, **kwargs)
             c.company_name = self.settings['company_name']
+            return c
+
+        doc.build(elements, canvasmaker=canvas_maker)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
+    def _build_enquiry_attachment_flowable(self, enquiry, max_width=65 * mm, max_height=36 * mm):
+        """
+        Renders attached reference files (PNG, JPEG, WebP, PDF) as an embedded visual thumbnail
+        with file metadata underneath, matching the Arab Season Job Log design standard.
+        """
+        att = getattr(enquiry, 'attachment', None)
+        if not att:
+            return None
+
+        try:
+            raw_bytes = None
+            is_pdf = False
+            att_type = getattr(enquiry, 'attachment_type', '') or ''
+            att_name = getattr(enquiry, 'attachment_name', '') or 'Reference File'
+
+            if str(att).startswith('data:'):
+                header, b64 = att.split(',', 1)
+                raw_bytes = base64.b64decode(b64)
+                if 'application/pdf' in header.lower() or 'pdf' in att_type.lower():
+                    is_pdf = True
+            elif os.path.exists(str(att)):
+                with open(str(att), 'rb') as f:
+                    raw_bytes = f.read()
+                if str(att).lower().endswith('.pdf') or 'pdf' in att_type.lower():
+                    is_pdf = True
+
+            if not raw_bytes:
+                return None
+
+            pil_img = None
+            pdf_sublabel = ''
+
+            if is_pdf:
+                try:
+                    import pymupdf
+                    doc = pymupdf.open(stream=raw_bytes, filetype='pdf')
+                    if len(doc) > 0:
+                        page = doc.load_page(0)
+                        pix = page.get_pixmap(dpi=140)
+                        png_bytes = pix.tobytes('png')
+                        from PIL import Image as PILImage
+                        pil_img = PILImage.open(io.BytesIO(png_bytes))
+                        pdf_sublabel = f" (Page 1 of {len(doc)})"
+                except Exception:
+                    pil_img = None
+            else:
+                try:
+                    from PIL import Image as PILImage
+                    pil_img = PILImage.open(io.BytesIO(raw_bytes))
+                except Exception:
+                    pil_img = None
+
+            if not pil_img:
+                # Fallback info card if image decoding is unsupported
+                return Table([
+                    [Paragraph(f"<b>Attached File:</b> {att_name} ({att_type or 'Document'})", ParagraphStyle('AttFb', fontName='Helvetica', fontSize=7.5, textColor=colors.HexColor('#475569')))]
+                ], colWidths=[max_width], style=[('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')), ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')), ('PADDING', (0, 0), (-1, -1), 4)])
+
+            orig_w, orig_h = pil_img.size
+            scale = min(max_width / orig_w, max_height / orig_h)
+            disp_w = orig_w * scale
+            disp_h = orig_h * scale
+
+            from PIL import Image as PILImage
+            if pil_img.mode in ('RGBA', 'LA', 'P'):
+                bg = PILImage.new('RGB', pil_img.size, (255, 255, 255))
+                if pil_img.mode == 'P':
+                    pil_img = pil_img.convert('RGBA')
+                bg.paste(pil_img, mask=pil_img.split()[-1])
+                pil_img = bg
+            elif pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+
+            out_io = io.BytesIO()
+            pil_img.save(out_io, format='JPEG', quality=88)
+            out_io.seek(0)
+            rl_img = Image(out_io, width=disp_w, height=disp_h)
+
+            sub_text = f"{att_name}{pdf_sublabel} • {orig_w}×{orig_h}px"
+            lbl_p = Paragraph(f"<font color='#64748b' size='6.5'>{sub_text}</font>", ParagraphStyle('AttMeta', fontName='Helvetica', fontSize=6.5, leading=8.5, alignment=1))
+
+            box_w = max(disp_w + 4 * mm, 60 * mm)
+            att_box = Table([[rl_img], [Spacer(1, 0.5 * mm)], [lbl_p]], colWidths=[box_w])
+            att_box.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+                ('PADDING', (0, 0), (-1, -1), 3),
+            ]))
+            return att_box
+        except Exception:
+            return None
+
+    def generate_enquiry_pdf(self, enquiry):
+        """
+        Generates an elegant, highly understandable Enquiry Details & Timeline PDF.
+        Features:
+        1. Explicitly labeled customer fields (Client Name:, Phone No:, Estimated Amount:, Lead Status:, etc.)
+        2. Clean outer border framing the entire document.
+        3. Visual preview of attached reference files (PNG, JPEG, WebP, PDF) matching Daily Job Log style.
+        4. Step-by-step follow-up timeline history.
+        """
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=12 * mm,
+            rightMargin=12 * mm,
+            topMargin=12 * mm,
+            bottomMargin=12 * mm
+        )
+        doc_width = A4[0] - (24 * mm)
+        elements = []
+
+        # 1. Corporate Header (Logo only - internal document, contact details hidden)
+        elements.extend(self.build_header_flowable(doc_width, show_contact_details=False))
+        elements.append(Spacer(1, 2.5 * mm))
+
+        # 2. Document Title Bar
+        date_str = enquiry.date.strftime('%d/%m/%Y') if enquiry.date else 'N/A'
+        title_style = ParagraphStyle('EnqTitle', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#0f172a'))
+        date_style = ParagraphStyle('EnqDate', fontName='Helvetica', fontSize=8.5, leading=12, alignment=2, textColor=colors.HexColor('#64748b'))
+
+        title_table = Table([
+            [
+                Paragraph(f"<b>ENQUIRY DETAILS</b>", title_style),
+                Paragraph(f"Enquiry No: <b>{enquiry.enquiry_number}</b> &nbsp;|&nbsp; Date: <b>{date_str}</b>", date_style)
+            ]
+        ], colWidths=[doc_width * 0.55, doc_width * 0.45])
+        title_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(title_table)
+        elements.append(Spacer(1, 2 * mm))
+
+        # 3. Explicitly Labeled Client & Lead Summary Grid (Requirement 1)
+        cust = enquiry.customer
+        cust_name = cust.name if cust else (enquiry.customer_name or "Walk-in Prospect")
+        phone_val = enquiry.phone or "—"
+        email_val = enquiry.email or "—"
+        curr = self.settings.get('currency', 'SAR')
+        est_val_str = f"{curr} {enquiry.estimated_value:,.2f}" if enquiry.estimated_value else f"{curr} 0.00"
+        status_name = enquiry.get_status_display() if hasattr(enquiry, 'get_status_display') else enquiry.status
+        channel_name = enquiry.get_channel_display() if hasattr(enquiry, 'get_channel_display') else enquiry.channel
+        salesperson_name = enquiry.salesperson.name if enquiry.salesperson else (enquiry.salesperson_name or 'Unassigned')
+        work_title = enquiry.title or "General Requirement"
+
+        status_color = '#1d4ed8' if enquiry.status == 'under_followup' else ('#15803d' if enquiry.status == 'converted' else ('#b91c1c' if enquiry.status == 'cancelled' else '#475569'))
+
+        cell_style = ParagraphStyle('EnqCell', fontName='Helvetica', fontSize=8.2, leading=11, textColor=colors.HexColor('#0f172a'))
+
+        col_w = doc_width / 2.0
+        meta_rows = [
+            [
+                Paragraph(f"<font color='#64748b'><b>Client Name:</b></font> &nbsp; <b>{cust_name}</b>", cell_style),
+                Paragraph(f"<font color='#64748b'><b>Estimated Amount:</b></font> &nbsp; <font color='#0f172a' size='9'><b>{est_val_str}</b></font>", cell_style),
+            ],
+            [
+                Paragraph(f"<font color='#64748b'><b>Phone No:</b></font> &nbsp; <b>{phone_val}</b>", cell_style),
+                Paragraph(f"<font color='#64748b'><b>Lead Status:</b></font> &nbsp; <font color='{status_color}'><b>● {status_name}</b></font>", cell_style),
+            ],
+            [
+                Paragraph(f"<font color='#64748b'><b>Project:</b></font> &nbsp; <b>{work_title}</b>", cell_style),
+                Paragraph(f"<font color='#64748b'><b>Source:</b></font> &nbsp; <b>{channel_name}</b>", cell_style),
+            ],
+            [
+                Paragraph(f"<font color='#64748b'><b>Email Address:</b></font> &nbsp; {email_val}", cell_style),
+                Paragraph(f"<font color='#64748b'><b>Salesperson:</b></font> &nbsp; <b>{salesperson_name}</b>", cell_style),
+            ]
+        ]
+
+        summary_card = Table(meta_rows, colWidths=[col_w, col_w])
+        summary_card.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#cbd5e1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('PADDING', (0, 0), (-1, -1), 4.5),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(summary_card)
+        elements.append(Spacer(1, 3 * mm))
+
+        # 4. Requirements & Attachment Section (Compact Thumbnail Preview)
+        has_desc = bool(enquiry.description and enquiry.description.strip())
+        att_flowable = self._build_enquiry_attachment_flowable(enquiry, max_width=65 * mm, max_height=36 * mm)
+
+        if has_desc or att_flowable:
+            if has_desc and att_flowable:
+                clean_desc = enquiry.description.replace('\n', '<br/>')
+                desc_p = Paragraph(f"<b>Requirements / Specifications:</b><br/>{clean_desc}", ParagraphStyle('Desc', fontName='Helvetica', fontSize=8.2, leading=11.5, textColor=colors.HexColor('#334155')))
+                right_w = 70 * mm
+                left_w = doc_width - right_w
+                desc_table = Table([[desc_p, att_flowable]], colWidths=[left_w, right_w])
+                desc_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ffffff')),
+                    ('BOX', (0, 0), (-1, -1), 0.65, colors.HexColor('#cbd5e1')),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                    ('PADDING', (0, 0), (-1, -1), 5),
+                ]))
+            elif has_desc:
+                clean_desc = enquiry.description.replace('\n', '<br/>')
+                desc_p = Paragraph(f"<b>Requirements / Specifications:</b><br/>{clean_desc}", ParagraphStyle('Desc', fontName='Helvetica', fontSize=8.2, leading=11.5, textColor=colors.HexColor('#334155')))
+                desc_table = Table([[desc_p]], colWidths=[doc_width])
+                desc_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ffffff')),
+                    ('BOX', (0, 0), (-1, -1), 0.65, colors.HexColor('#cbd5e1')),
+                    ('PADDING', (0, 0), (-1, -1), 5),
+                ]))
+            else:
+                desc_table = Table([
+                    [Paragraph("<b>Requirements / Reference Attachment:</b>", ParagraphStyle('DescH', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a')))],
+                    [Spacer(1, 1 * mm)],
+                    [att_flowable]
+                ], colWidths=[doc_width])
+                desc_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ffffff')),
+                    ('BOX', (0, 0), (-1, -1), 0.65, colors.HexColor('#cbd5e1')),
+                    ('PADDING', (0, 0), (-1, -1), 5),
+                ]))
+            elements.append(desc_table)
+            elements.append(Spacer(1, 3 * mm))
+
+        # 5. Timeline & Follow-up History (Clean, easy-to-read chronological list)
+        elements.append(Paragraph("<b>Timeline & Call History</b>", ParagraphStyle('TH', fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=colors.HexColor('#0f172a'))))
+        elements.append(Spacer(1, 1.5 * mm))
+
+        timeline_rows = []
+        creator_name = enquiry.created_by.username if enquiry.created_by else "admin"
+        step1_content = [
+            Table([
+                [
+                    Paragraph("<b>Enquiry Received</b>", ParagraphStyle('OTitle1', fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.HexColor('#0f172a'))),
+                    Paragraph(date_str, ParagraphStyle('ODate1', fontName='Helvetica', fontSize=7.8, alignment=2, textColor=colors.HexColor('#64748b')))
+                ]
+            ], colWidths=[(doc_width - 11 * mm) * 0.7, (doc_width - 11 * mm) * 0.3], style=[('PADDING', (0, 0), (-1, -1), 0)]),
+            Spacer(1, 0.5 * mm),
+            Paragraph(f"Received via <b>{channel_name}</b> • Logged by {creator_name}", ParagraphStyle('OSub1', fontName='Helvetica', fontSize=7.8, textColor=colors.HexColor('#64748b')))
+        ]
+        timeline_rows.append(['', step1_content])
+
+        step_idx = 2
+        for fu in enquiry.follow_ups.all().order_by('id'):
+            fu_date_str = fu.date.strftime('%d/%m/%Y, %I:%M %p') if fu.date else 'N/A'
+            fu_outcome = fu.get_outcome_display() if hasattr(fu, 'get_outcome_display') else fu.outcome
+            fu_mode = fu.get_contact_mode_display() if hasattr(fu, 'get_contact_mode_display') else fu.contact_mode
+
+            fu_content = [
+                Table([
+                    [
+                        Paragraph(f"<b>Via {fu_mode}:</b> <font color='#0284c7'><b>{fu_outcome}</b></font>", ParagraphStyle(f'OTitle{step_idx}', fontName='Helvetica', fontSize=8.2, textColor=colors.HexColor('#0f172a'))),
+                        Paragraph(fu_date_str, ParagraphStyle(f'ODate{step_idx}', fontName='Helvetica', fontSize=7.8, alignment=2, textColor=colors.HexColor('#64748b')))
+                    ]
+                ], colWidths=[(doc_width - 11 * mm) * 0.7, (doc_width - 11 * mm) * 0.3], style=[('PADDING', (0, 0), (-1, -1), 0)]),
+            ]
+            if fu.notes and fu.notes.strip():
+                fu_content.extend([
+                    Spacer(1, 0.5 * mm),
+                    Paragraph(f"<b>Notes:</b> {fu.notes}", ParagraphStyle(f'ONotes{step_idx}', fontName='Helvetica', fontSize=7.8, textColor=colors.HexColor('#334155')))
+                ])
+            if fu.next_follow_up_date:
+                fu_content.extend([
+                    Spacer(1, 0.5 * mm),
+                    Paragraph(f"<font color='#d97706'><b>Next Scheduled:</b> {fu.next_follow_up_date.strftime('%d/%m/%Y')}</font>", ParagraphStyle(f'ONext{step_idx}', fontName='Helvetica', fontSize=7.5, textColor=colors.HexColor('#d97706')))
+                ])
+            timeline_rows.append(['', fu_content])
+            step_idx += 1
+
+        tl_table = TimelineTable(timeline_rows, colWidths=[9 * mm, doc_width - 9 * mm])
+        tl_style = [
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('PADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ]
+        for i in range(len(timeline_rows)):
+            tl_style.append(('LINEBELOW', (1, i), (1, i), 0.5, colors.HexColor('#f1f5f9')))
+        tl_table.setStyle(TableStyle(tl_style))
+        elements.append(tl_table)
+
+        def canvas_maker(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.company_name = self.settings['company_name']
+            c.draw_outer_border = True
+            c.outer_border_margin = 6 * mm
             return c
 
         doc.build(elements, canvasmaker=canvas_maker)
