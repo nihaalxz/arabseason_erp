@@ -1,0 +1,3049 @@
+/* ==========================================================================
+   CRED CASHBOOK COMPONENT STYLES
+   ========================================================================== */
+
+/* Base font family across CRED elements */
+.cred-app-root {
+  font-family: var(--font-ui);
+  color: var(--text);
+  background: var(--bg);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.cred-app-root *, 
+.cred-app-root *::before, 
+.cred-app-root *::after {
+  box-sizing: border-box;
+}
+
+/* Display Serif Font for Headlines and Hero Amounts */
+.cred-display-serif {
+  font-family: var(--font-display);
+  font-feature-settings: "liga", "clig", "kern";
+  letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+   1. APP SHELL & LAYOUT
+   ========================================================================== */
+.cred-shell-mobile {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--black);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.cred-shell-mobile-content {
+  flex: 1;
+  background: var(--bg);
+  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
+  padding: 0 var(--page-padding-mobile) calc(82px + env(safe-area-inset-bottom, 0px));
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.cred-shell-mobile-content::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* ==========================================================================
+   DESKTOP HEADER & UNIFIED BLACK/WHITE FRAME (TASK 1)
+   ========================================================================== */
+.dashboard-wrapper.is-cashbook .header.zoho-header {
+  background: var(--black, #0A0A0A) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 50px !important;
+  z-index: 1010 !important;
+}
+
+.dashboard-wrapper.is-cashbook .header.zoho-header .header-module-switcher {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 999px !important;
+  padding: 3px !important;
+  gap: 3px !important;
+}
+
+.dashboard-wrapper.is-cashbook .header.zoho-header .cb-header-pill-btn {
+  color: #9A9A9A !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  transition: all 0.15s ease !important;
+}
+
+.dashboard-wrapper.is-cashbook .header.zoho-header .cb-header-pill-btn.active {
+  background: #FFFFFF !important;
+  color: #0A0A0A !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.dashboard-wrapper.is-cashbook .header.zoho-header .header-quick-add-btn {
+  background: #FFFFFF !important;
+  color: #0A0A0A !important;
+}
+
+@media (max-width: 768px) {
+  .dashboard-wrapper.is-cashbook .dashboard-body {
+    margin-top: 0 !important;
+  }
+}
+
+.cred-shell-desktop {
+  display: flex;
+  min-height: calc(100vh - 50px);
+  background: var(--black);
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.cred-shell-desktop-rail {
+  width: 76px;
+  min-width: 76px;
+  background: var(--black);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-22) 0;
+  z-index: 10;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cred-shell-desktop-content {
+  flex: 1;
+  background: var(--bg);
+  border-top-left-radius: var(--radius-panel);
+  position: relative;
+  overflow-y: auto;
+  padding: var(--space-32) var(--space-32) 80px;
+}
+
+.cred-shell-desktop-container {
+  max-width: var(--page-max-desktop);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ==========================================================================
+   2. TOP BAR
+   ========================================================================== */
+.cred-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 16px;
+  gap: var(--space-12);
+  width: 100%;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 20;
+}
+
+.cred-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  outline: none;
+}
+
+.cred-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-avatar);
+  object-fit: cover;
+  border: 1.5px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.cred-avatar-dot {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 2px solid var(--bg);
+}
+
+.cred-topbar-center-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--tint-pink);
+  border: 1px solid rgba(196, 79, 211, 0.2);
+  color: var(--text);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: all var(--transition-fast);
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cred-topbar-center-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.cred-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cred-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-avatar);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.cred-icon-btn:hover {
+  background: var(--bg-band);
+}
+
+.cred-badge-num {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--danger);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 1.5px solid var(--bg);
+}
+
+/* ==========================================================================
+   3. BOTTOM NAV (MOBILE) & SIDE RAIL (DESKTOP)
+   ========================================================================== */
+.cred-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 100;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cred-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px 0;
+  color: var(--text-muted);
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.cred-nav-item.active {
+  color: #FFFFFF;
+}
+
+.cred-nav-item.active svg {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+}
+
+.cred-nav-label {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+/* Center Floating Action Button (56px) */
+.cred-fab-center {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2a2a2a 0%, #0d0d0d 100%);
+  border: 2px solid #232323;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-floating-action);
+  position: relative;
+  margin-top: -24px;
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.cred-fab-center:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 12px 32px rgba(255, 255, 255, 0.15), var(--shadow-floating-action);
+}
+
+.cred-fab-center:active {
+  transform: scale(0.96);
+}
+
+.cred-fab-center::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+/* Desktop SideRail Items */
+.cred-rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-bottom: 12px;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.cred-rail-item:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cred-rail-item.active {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cred-rail-item.active svg {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+}
+
+.cred-rail-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+/* ==========================================================================
+   4. SECTION LABELS & DIVIDERS
+   ========================================================================== */
+.cred-section-label-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--space-22) 0 var(--space-12);
+}
+
+.cred-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.cred-section-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.cred-section-link:hover {
+  color: var(--text);
+}
+
+/* DividerChip: dashed line with centered outlined pill */
+.cred-divider-chip-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--space-22) 0;
+  width: 100%;
+}
+
+.cred-divider-chip-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed var(--divider-dotted);
+  z-index: 1;
+}
+
+.cred-divider-chip-pill {
+  position: relative;
+  z-index: 2;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+/* MonthHeader */
+.cred-month-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin: var(--space-22) 0 var(--space-12);
+}
+
+/* ==========================================================================
+   5. BUTTONS & CHIPS
+   ========================================================================== */
+.cred-btn-primary {
+  background: linear-gradient(180deg, var(--btn-black-from) 0%, var(--btn-black-to) 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-btn);
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.cred-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.cred-btn-pill-outlined {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.cred-btn-pill-outlined:hover {
+  background: var(--bg-band);
+}
+
+.cred-btn-text-link {
+  background: none;
+  border: none;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.cred-btn-text-link:hover {
+  color: var(--text-muted);
+}
+
+.cred-btn-cta-yellow {
+  background: var(--cta-yellow);
+  color: #0A0A0A;
+  border: none;
+  border-bottom: 2px solid var(--cta-edge);
+  border-radius: var(--radius-btn);
+  padding: 11px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform var(--transition-fast);
+}
+
+.cred-btn-cta-yellow:active {
+  transform: translateY(1px);
+}
+
+/* Chip & FilterPill */
+.cred-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.cred-filter-pill:hover,
+.cred-filter-pill.active {
+  border-color: var(--text);
+  background: var(--bg-band);
+}
+
+/* SegmentedToggle */
+.cred-segmented-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-band);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  gap: 2px;
+}
+
+.cred-toggle-option {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.cred-toggle-option.selected {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--shadow-toggle-pill);
+}
+
+/* ==========================================================================
+   6. CARDS (MONEYCARD, STATEMENTCARD, LEDGERROW, GROUPEDPANEL)
+   ========================================================================== */
+.cred-money-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+  cursor: pointer;
+}
+
+.cred-money-card:hover {
+  border-color: #C0C0C0;
+  transform: translateY(-1px);
+}
+
+.cred-money-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cred-money-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.cred-money-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.cred-money-card-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.cred-money-card-value.positive {
+  color: var(--positive);
+}
+
+.cred-money-card-value.danger {
+  color: var(--danger);
+}
+
+.cred-money-card-caption {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* StatementCard */
+.cred-statement-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow-subtle-card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-22);
+}
+
+.cred-statement-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.cred-statement-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cred-statement-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* LedgerRow Card */
+.cred-ledger-row {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  transition: all var(--transition-fast);
+}
+
+.cred-ledger-row:hover {
+  background: var(--bg-panel);
+}
+
+.cred-ledger-row-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.cred-ledger-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+  color: var(--text);
+}
+
+.cred-ledger-arrow-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--bg);
+}
+
+.cred-ledger-arrow-badge.in {
+  background: var(--positive);
+  color: #FFFFFF;
+}
+
+.cred-ledger-arrow-badge.out {
+  background: var(--danger);
+  color: #FFFFFF;
+}
+
+.cred-ledger-arrow-badge.transfer {
+  background: #8C8C8C;
+  color: #FFFFFF;
+}
+
+.cred-ledger-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.cred-ledger-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.cred-ledger-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cred-ledger-row-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cred-amount-pill-btn {
+  background: linear-gradient(180deg, var(--btn-black-from) 0%, var(--btn-black-to) 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.cred-amount-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.cred-amount-dot.green {
+  background: var(--positive);
+}
+
+.cred-amount-dot.red {
+  background: var(--danger);
+}
+
+.cred-ledger-caption-sub {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cred-ledger-caption-sub.in {
+  color: var(--due);
+}
+
+.cred-ledger-caption-sub.transfer {
+  color: var(--text-muted);
+}
+
+/* IconTile (72px circle) */
+.cred-icon-tile-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.cred-icon-tile-wrap:hover {
+  transform: translateY(-2px);
+}
+
+.cred-icon-tile {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  position: relative;
+  transition: background var(--transition-fast);
+}
+
+.cred-icon-tile:hover {
+  background: var(--bg-band);
+}
+
+.cred-icon-tile-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  text-transform: lowercase;
+  text-align: center;
+}
+
+.cred-tile-tag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--black);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* GroupedPanel: #F7F7F7, 28px radius, no dividers */
+.cred-grouped-panel {
+  background: var(--bg-panel);
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  margin-bottom: var(--space-22);
+}
+
+.cred-grouped-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.cred-grouped-row:hover {
+  background: var(--bg);
+}
+
+/* Snackbar: floating white sheet with rounded top corners */
+.cred-snackbar {
+  position: fixed;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  right: 16px;
+  max-width: 500px;
+  margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 14px 18px;
+  box-shadow: var(--shadow-snackbar);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 95;
+  animation: credSlideUp 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes credSlideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Money component split style */
+.cred-money-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+
+.cred-money-curr {
+  font-size: 0.85em;
+  margin-right: 3px;
+  font-weight: 500;
+}
+
+.cred-money-int {
+  font-weight: 700;
+}
+
+.cred-money-dec {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.88em;
+}
+
+/* ==========================================================================
+   7. RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 768px) {
+  .cred-desktop-only {
+    display: none !important;
+  }
+  .cred-mobile-only {
+    display: block !important;
+  }
+  .cred-money-cards-scroll {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .cred-money-cards-scroll::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+  .cred-money-cards-scroll > *,
+  .cred-card-carousel.cred-money-cards-scroll > * {
+    flex: 0 0 86% !important;
+    max-width: 86% !important;
+    min-width: 240px !important;
+    scroll-snap-align: start !important;
+  }
+
+  /* Mobile Page Header & Actions Clean up */
+  .cred-shared-page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+    width: 100% !important;
+  }
+
+  .cred-shared-page-header > div:first-child {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .cred-header-actions-right {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  /* Dropdown and Export neatly side-by-side without feeling cramped */
+  .cred-header-scope-dropdown.cred-gooey-root {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: calc(100% - 94px) !important;
+  }
+
+  .cred-header-scope-dropdown .cred-gooey-surface,
+  .cred-header-scope-dropdown .cred-gooey-pill-shape,
+  .cred-header-scope-dropdown .cred-gooey-panel-shape,
+  .cred-header-scope-dropdown .cred-gooey-options-list {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .cred-header-scope-dropdown .cred-gooey-trigger {
+    width: 100% !important;
+    padding: 0 14px !important;
+  }
+
+  .cred-header-scope-dropdown .cred-gooey-trigger-label {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 13px !important;
+  }
+
+  .cred-header-export-btn,
+  #cred-header-export-btn {
+    flex-shrink: 0 !important;
+    height: 40px !important;
+    padding: 0 14px !important;
+    border-radius: 999px !important;
+  }
+
+  /* Standalone credit & debit buttons removed from mobile header stack */
+  .cred-header-action-credit,
+  .cred-header-action-debit,
+  #cred-header-credit-btn,
+  #cred-header-debit-btn {
+    display: none !important;
+  }
+
+  /* Mobile Data Table Optimization: Card-Style Separated Transactions */
+  .cred-ledger-table-wrap {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important; /* space-y-3 */
+    overflow: visible !important;
+    margin-top: 8px !important;
+  }
+
+  .cred-ledger-table-head {
+    display: none !important;
+  }
+
+  /* TASK 3: Mobile Transaction Cards (Home and Dashboard) */
+  .cred-ledger-table-row,
+  .cred-mobile-tx-card {
+    display: block !important;
+    background: var(--bg-panel, #F7F7F7) !important;
+    border: var(--m-card-border, 0) !important;
+    border-radius: var(--radius-card, 20px) !important;
+    padding: 14px 16px !important;
+    min-height: auto !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    cursor: default !important;
+    -webkit-tap-highlight-color: transparent !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
+  /* Inert mobile cards: no pointer cursor, no scale, no hover, no active, no ripple */
+  .cred-mobile-tx-card:not(.is-interactive),
+  .cred-ledger-table-row:not(.is-interactive),
+  .cred-mobile-tx-card.is-inert,
+  .cred-ledger-table-row.is-inert {
+    cursor: default !important;
+    transform: none !important;
+    transition: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .cred-mobile-tx-card:not(.is-interactive):hover,
+  .cred-mobile-tx-card:not(.is-interactive):active,
+  .cred-mobile-tx-card:not(.is-interactive):focus,
+  .cred-mobile-tx-card.is-inert:hover,
+  .cred-mobile-tx-card.is-inert:active,
+  .cred-mobile-tx-card.is-inert:focus,
+  .cred-ledger-table-row:not(.is-interactive):hover,
+  .cred-ledger-table-row:not(.is-interactive):active,
+  .cred-ledger-table-row:not(.is-interactive):focus,
+  .cred-ledger-table-row.is-inert:hover,
+  .cred-ledger-table-row.is-inert:active,
+  .cred-ledger-table-row.is-inert:focus {
+    transform: none !important;
+    background: var(--bg-panel, #F7F7F7) !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  [data-theme='dark'] .cred-ledger-table-row,
+  .cashbook-dark .cred-ledger-table-row,
+  [data-theme='dark'] .cred-mobile-tx-card,
+  .cashbook-dark .cred-mobile-tx-card {
+    background: var(--bg-panel, #141414) !important;
+    border: var(--m-card-border, 0) !important;
+    box-shadow: none !important;
+  }
+
+  [data-theme='dark'] .cred-mobile-tx-card:not(.is-interactive):hover,
+  [data-theme='dark'] .cred-mobile-tx-card:not(.is-interactive):active,
+  [data-theme='dark'] .cred-mobile-tx-card:not(.is-interactive):focus,
+  [data-theme='dark'] .cred-mobile-tx-card.is-inert:hover,
+  [data-theme='dark'] .cred-mobile-tx-card.is-inert:active,
+  [data-theme='dark'] .cred-mobile-tx-card.is-inert:focus,
+  .cashbook-dark .cred-mobile-tx-card:not(.is-interactive):hover,
+  .cashbook-dark .cred-mobile-tx-card:not(.is-interactive):active,
+  .cashbook-dark .cred-mobile-tx-card:not(.is-interactive):focus,
+  .cashbook-dark .cred-mobile-tx-card.is-inert:hover,
+  .cashbook-dark .cred-mobile-tx-card.is-inert:active,
+  .cashbook-dark .cred-mobile-tx-card.is-inert:focus {
+    background: var(--bg-panel, #141414) !important;
+  }
+
+  /* Interactive cards only: pointer cursor, transition, active scale */
+  .cred-mobile-tx-card.is-interactive,
+  .cred-ledger-table-row.is-interactive {
+    cursor: pointer !important;
+    transition: transform 0.12s ease, background-color 0.12s ease !important;
+  }
+
+  .cred-mobile-tx-card.is-interactive:active,
+  .cred-ledger-table-row.is-interactive:active {
+    transform: scale(0.99) !important;
+  }
+
+  .cred-ledger-table-wrap > div:not(.cred-ledger-table-row):not(.cred-ledger-table-head) {
+    background: var(--bg-panel, #F7F7F7) !important;
+    border: var(--m-card-border, 0) !important;
+    border-radius: var(--radius-card, 20px) !important;
+    box-shadow: none !important;
+  }
+
+  [data-theme='dark'] .cred-ledger-table-wrap > div:not(.cred-ledger-table-row):not(.cred-ledger-table-head),
+  .cashbook-dark .cred-ledger-table-wrap > div:not(.cred-ledger-table-row):not(.cred-ledger-table-head) {
+    background: var(--bg-panel, #141414) !important;
+    border: var(--m-card-border, 0) !important;
+    box-shadow: none !important;
+  }
+
+  /* TASK 3: Mobile KPI Carousel Cards (Home and Dashboard) */
+  .cred-money-card,
+  .cred-card-carousel .cred-money-card,
+  .cred-money-cards-scroll .cred-money-card {
+    background: var(--bg-panel, #F7F7F7) !important;
+    border: var(--m-card-border, 0) !important;
+    border-radius: var(--radius-card, 20px) !important;
+    box-shadow: none !important;
+  }
+
+  [data-theme='dark'] .cred-money-card,
+  .cashbook-dark .cred-money-card,
+  [data-theme='dark'] .cred-card-carousel .cred-money-card,
+  .cashbook-dark .cred-card-carousel .cred-money-card,
+  [data-theme='dark'] .cred-money-cards-scroll .cred-money-card,
+  .cashbook-dark .cred-money-cards-scroll .cred-money-card {
+    background: var(--bg-panel, #141414) !important;
+    border: var(--m-card-border, 0) !important;
+    box-shadow: none !important;
+  }
+
+  /* Active KPI card keeps its 2px solid ink outline (white in dark mode) */
+  .cred-money-card.is-active,
+  .cred-money-card[aria-pressed="true"],
+  .cred-card-carousel .cred-money-card.is-active,
+  .cred-card-carousel .cred-money-card[aria-pressed="true"],
+  .cred-money-cards-scroll .cred-money-card.is-active,
+  .cred-money-cards-scroll .cred-money-card[aria-pressed="true"] {
+    border: 2px solid var(--text, #0A0A0A) !important;
+  }
+
+  [data-theme='dark'] .cred-money-card.is-active,
+  .cashbook-dark .cred-money-card.is-active,
+  [data-theme='dark'] .cred-money-card[aria-pressed="true"],
+  .cashbook-dark .cred-money-card[aria-pressed="true"],
+  [data-theme='dark'] .cred-card-carousel .cred-money-card.is-active,
+  .cashbook-dark .cred-card-carousel .cred-money-card.is-active,
+  [data-theme='dark'] .cred-card-carousel .cred-money-card[aria-pressed="true"],
+  .cashbook-dark .cred-card-carousel .cred-money-card[aria-pressed="true"] {
+    border-color: #FFFFFF !important;
+  }
+
+  /* TASK 2: Dashboard Table Card Wrapper removal on mobile */
+  .cred-dashboard-table-card {
+    border: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  .cred-table-desktop-cols {
+    display: none !important;
+  }
+
+  .cred-table-mobile-card {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  /* 1. Top Metadata Row: Date & Time (left) and Running Balance (right) */
+  .cred-mobile-card-top {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    width: 100% !important;
+    line-height: 1.2 !important;
+  }
+
+  .cred-mobile-card-datetime {
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    color: var(--text-muted, #8C8C8C) !important;
+    font-family: var(--font-ui, 'Geist', sans-serif) !important;
+    font-variant-numeric: tabular-nums !important;
+    font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.01em !important;
+  }
+
+  .cred-mobile-card-top-right,
+  .cred-mobile-card-meta-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .cred-mobile-card-thumb {
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 4px !important;
+    object-fit: cover !important;
+    border: 1px solid var(--border, #E4E4E4) !important;
+    cursor: pointer !important;
+  }
+
+  .cred-mobile-card-balance {
+    font-size: 11.5px !important;
+    color: var(--text-muted, #8C8C8C) !important;
+    font-family: var(--font-ui, 'Geist', sans-serif) !important;
+    font-variant-numeric: tabular-nums !important;
+    font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+    white-space: nowrap !important;
+    border-left: none !important;
+    padding-left: 0 !important;
+  }
+
+  .cred-mobile-card-balance .cred-money-int {
+    font-weight: 500 !important;
+    color: inherit !important;
+  }
+
+  .cred-mobile-card-balance .cred-money-dec {
+    font-weight: 400 !important;
+    color: inherit !important;
+    opacity: 0.8 !important;
+  }
+
+  .cred-mobile-card-balance .cred-money-curr {
+    font-weight: 400 !important;
+    color: inherit !important;
+  }
+
+  /* 2. Middle/Main Row: Avatar + Title (left) and Amount (right) */
+  .cred-mobile-card-main,
+  .cred-mobile-card-row1 {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .cred-mobile-card-entity {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .cred-mobile-card-title {
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: var(--text, #0A0A0A) !important;
+    font-family: var(--font-ui, 'Geist', sans-serif) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    text-transform: lowercase !important;
+    line-height: 1.25 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  [data-theme='dark'] .cred-mobile-card-title,
+  .cashbook-dark .cred-mobile-card-title {
+    color: #F4F4F4 !important;
+  }
+
+  .cred-mobile-card-amount {
+    font-size: 15.5px !important;
+    font-weight: 600 !important;
+    font-family: var(--font-ui, 'Geist', sans-serif) !important;
+    text-align: right !important;
+    flex-shrink: 0 !important;
+    font-variant-numeric: tabular-nums !important;
+    font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  /* 3. Bottom Row: Dedicated Description Space (wrapping naturally, no truncation) */
+  .cred-mobile-card-bottom,
+  .cred-mobile-card-sub,
+  .cred-mobile-card-row2 {
+    padding-left: 46px !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    color: var(--text-muted, #737373) !important;
+    font-family: var(--font-ui, 'Geist', sans-serif) !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    width: auto !important;
+    display: block !important;
+  }
+
+  [data-theme='dark'] .cred-mobile-card-bottom,
+  .cashbook-dark .cred-mobile-card-bottom,
+  [data-theme='dark'] .cred-mobile-card-sub,
+  .cashbook-dark .cred-mobile-card-sub {
+    color: #9A9A9A !important;
+  }
+
+  [data-theme='dark'] .cred-mobile-card-datetime,
+  .cashbook-dark .cred-mobile-card-datetime,
+  [data-theme='dark'] .cred-mobile-card-balance,
+  .cashbook-dark .cred-mobile-card-balance {
+    color: #7A7A7A !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .cred-mobile-only {
+    display: none !important;
+  }
+  .cred-desktop-only {
+    display: block !important;
+  }
+  .cred-money-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: var(--space-22);
+  }
+  .cred-desktop-2col {
+    display: grid;
+    grid-template-columns: 2fr 1.1fr;
+    gap: 24px;
+    align-items: start;
+  }
+}
+
+/* ==========================================================================
+   TASK D / 3: SEARCH BOX FIX (.cred-search)
+   Container: 40px high, fully rounded, idle filled #F4F4F4 (dark #1A1A1A), no border.
+   Focus state: only container changes (background to #FFFFFF / #222222, 1px #0A0A0A / #FFFFFF border, no ring).
+   Input: border 0, outline 0, box-shadow none, transparent, appearance none, flex 1.
+   ========================================================================== */
+.cred-search {
+  display: flex !important;
+  align-items: center !important;
+  position: relative !important;
+  height: 40px !important;
+  background: #F4F4F4 !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  padding: 0 14px !important;
+  box-sizing: border-box !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+  width: 100% !important;
+  box-shadow: none !important;
+}
+
+.cred-search.cred-search-compact {
+  height: 40px !important;
+  padding: 0 14px !important;
+}
+
+.cred-search:focus-within {
+  background: #FFFFFF !important;
+  border: 1px solid #0A0A0A !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-theme='dark'] .cred-search,
+.cashbook-dark .cred-search,
+.cb-dark-bw .cred-search {
+  background: #1A1A1A !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .cred-search:focus-within,
+.cashbook-dark .cred-search:focus-within,
+.cb-dark-bw .cred-search:focus-within {
+  background: #222222 !important;
+  border: 1px solid #FFFFFF !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.cred-search .cred-search-icon {
+  color: var(--text-muted, #8C8C8C);
+  margin-right: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.cred-search input,
+.cred-search input.cred-search-input,
+.cred-search input:focus,
+.cred-search input.cred-search-input:focus,
+.cred-search input:focus-visible,
+.cred-search input:active,
+.cred-search input:hover,
+[data-theme-scope="cashbook-pill"] .cred-search input,
+[data-theme-scope="cashbook-pill"] .cred-search input:focus,
+.theme-cashbook-pill .cred-search input,
+.theme-cashbook-pill .cred-search input:focus,
+body[data-cashbook-active="true"] .cred-search input,
+body[data-cashbook-active="true"] .cred-search input:focus,
+body.cb-dark-bw .cred-search input,
+body.cb-dark-bw .cred-search input:focus,
+body.cb-dark-bw[data-cashbook-active="true"] .cred-search input,
+body.cb-dark-bw[data-cashbook-active="true"] .cred-search input:focus {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  color: var(--text, #0A0A0A) !important;
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 8px !important;
+  margin: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+[data-theme='dark'] .cred-search input,
+.cashbook-dark .cred-search input,
+.cb-dark-bw .cred-search input {
+  color: #FFFFFF !important;
+}
+
+.cred-search input::placeholder {
+  color: var(--text-muted, #8C8C8C) !important;
+  opacity: 1;
+}
+
+.cred-search .cred-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #8C8C8C);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  margin-left: 2px;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.cred-search .cred-search-clear:hover {
+  color: var(--text, #0A0A0A);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .cred-search .cred-search-clear:hover,
+.cashbook-dark .cred-search .cred-search-clear:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   MINIMAL PERIOD TABS (TASK C.4)
+   "all dates | today | this month | custom"
+   ========================================================================== */
+.cred-minimal-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  padding: 0;
+}
+
+.cred-minimal-tab-btn {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted, #8C8C8C);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  text-transform: lowercase;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.cred-minimal-tab-btn:hover {
+  color: var(--text, #0A0A0A);
+}
+
+.cred-minimal-tab-btn.is-active {
+  background: var(--black, #0A0A0A);
+  color: #FFFFFF !important;
+  font-weight: 500;
+}
+
+[data-theme='dark'] .cred-minimal-tab-btn:hover,
+.cashbook-dark .cred-minimal-tab-btn:hover {
+  color: #FFFFFF;
+}
+
+[data-theme='dark'] .cred-minimal-tab-btn.is-active,
+.cashbook-dark .cred-minimal-tab-btn.is-active {
+  background: #FFFFFF !important;
+  color: #0A0A0A !important;
+}
+
+/* ==========================================================================
+   CRED ANIMATED TABS (.cred-atabs*)
+   Shared gliding indicator pill via Framer Motion layoutId
+   ========================================================================== */
+:root {
+  --tab-active-bg: #0A0A0A;
+  --tab-active-text: #FFFFFF;
+  --tab-text: #8C8C8C;
+  --tab-text-hover: #111111;
+}
+
+[data-theme='dark'],
+.cb-dark-bw,
+.cashbook-dark,
+body.cb-dark-bw,
+body[data-cashbook-active="true"][data-theme="dark"] {
+  --tab-active-bg: #FFFFFF;
+  --tab-active-text: #0A0A0A;
+  --tab-text: #9A9A9A;
+  --tab-text-hover: #FFFFFF;
+}
+
+.cred-atabs-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border: none;
+  position: relative;
+  overflow: visible !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.cred-atabs-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 9999px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+  font-family: inherit;
+  outline: none;
+  text-decoration: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.cred-atabs-indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--tab-active-bg, #0A0A0A);
+  z-index: 0;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.cred-atabs-label {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: lowercase;
+  white-space: nowrap;
+  line-height: 1;
+  color: var(--tab-text, #8C8C8C);
+  transition: color 180ms ease;
+  pointer-events: none;
+}
+
+.cred-atabs-tab.is-active .cred-atabs-label {
+  color: var(--tab-active-text, #FFFFFF);
+  font-weight: 500;
+}
+
+.cred-atabs-tab:not(.is-active):hover .cred-atabs-label {
+  color: var(--tab-text-hover, #111111);
+}
+
+[data-theme='dark'] .cred-atabs-tab:not(.is-active):hover .cred-atabs-label,
+.cashbook-dark .cred-atabs-tab:not(.is-active):hover .cred-atabs-label,
+body.cb-dark-bw .cred-atabs-tab:not(.is-active):hover .cred-atabs-label {
+  color: var(--tab-text-hover, #FFFFFF);
+}
+
+.cred-atabs-count {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  background: rgba(0, 0, 0, 0.06);
+  color: inherit;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.cred-atabs-tab.is-active .cred-atabs-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--tab-active-text, #FFFFFF);
+}
+
+[data-theme='dark'] .cred-atabs-tab.is-active .cred-atabs-count,
+.cashbook-dark .cred-atabs-tab.is-active .cred-atabs-count,
+body.cb-dark-bw .cred-atabs-tab.is-active .cred-atabs-count {
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--tab-active-text, #000000);
+}
+
+[data-theme='dark'] .cred-atabs-tab:not(.is-active) .cred-atabs-count,
+.cashbook-dark .cred-atabs-tab:not(.is-active) .cred-atabs-count,
+body.cb-dark-bw .cred-atabs-tab:not(.is-active) .cred-atabs-count {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--tab-text, #8C8C8C);
+}
+
+.cred-atabs-list.case-preserve .cred-atabs-label {
+  text-transform: none;
+}
+
+/* Recycle Bin compact full-width mobile filter tabs */
+.cred-atabs-list.cred-recycle-tabs {
+  display: flex !important;
+  width: 100% !important;
+  gap: 3px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.cred-atabs-list.cred-recycle-tabs .cred-atabs-tab {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 32px !important;
+  padding: 0 4px !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+.cred-atabs-list.cred-recycle-tabs .cred-atabs-label {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+
+.cred-atabs-tab:focus-visible,
+body[data-cashbook-active="true"] .cred-atabs-tab:focus-visible,
+body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus-visible {
+  outline: 2px solid #0A0A0A !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .cred-atabs-tab:focus-visible,
+.cashbook-dark .cred-atabs-tab:focus-visible,
+body.cb-dark-bw .cred-atabs-tab:focus-visible,
+body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus-visible {
+  outline: 2px solid #FFFFFF !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+
+.cred-atabs-tab:focus:not(:focus-visible),
+body[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-visible),
+body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cred-atabs-label {
+    transition: none !important;
+  }
+}
+
+
+/* ==========================================================================
+   TASK 4: SELECTION & TEXT-SELECTION HIGHLIGHTS
+   ========================================================================== */
+::selection {
+  background: rgba(0, 0, 0, 0.12) !important;
+  color: inherit !important;
+}
+
+[data-theme='dark'] ::selection,
+.cb-dark-bw ::selection,
+.cashbook-dark ::selection {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: inherit !important;
+}
+
+.cred-money-card,
+.cred-minimal-tabs,
+.cred-minimal-tab-btn,
+.cred-popover-trigger,
+.cred-popover-row,
+.cred-dropdown-row,
+.cred-clear-filters-link,
+.cred-entries-count,
+.cred-ledger-table-head,
+.cred-ledger-table-head > div,
+.cred-desktop-sidebar,
+.cred-sidebar-books-scroll button,
+.cred-shared-page-header button {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.cred-ledger-table-row {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cred-ledger-table-row * {
+  user-select: text;
+}
+
+/* ==========================================================================
+   TASK 1: CRED DROPDOWN POPOVER CARD (20px radius, 48px rows)
+   ========================================================================== */
+.cred-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E4E4E4);
+  border-radius: 20px;
+  padding: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  animation: credFadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme='dark'] .cred-dropdown-popover,
+.cashbook-dark .cred-dropdown-popover,
+.cb-dark-bw .cred-dropdown-popover {
+  background: #141414;
+  border-color: #2A2A2A;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+
+.cred-dropdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 48px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text, #0A0A0A);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  transition: background-color 0.12s ease;
+}
+
+.cred-dropdown-row:hover {
+  background: #F7F7F7;
+}
+
+[data-theme='dark'] .cred-dropdown-row {
+  color: #FFFFFF;
+}
+
+[data-theme='dark'] .cred-dropdown-row:hover {
+  background: #191919;
+}
+
+.cred-dropdown-row.is-selected {
+  background: #F2F2F2 !important;
+}
+
+[data-theme='dark'] .cred-dropdown-row.is-selected {
+  background: #1E1E1E !important;
+}
+
+.cred-dropdown-icon-tile {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #F4F4F4;
+  color: #0A0A0A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+[data-theme='dark'] .cred-dropdown-icon-tile {
+  background: #1E1E1E;
+  color: #FFFFFF;
+}
+
+.cred-dropdown-row.is-selected .cred-dropdown-icon-tile {
+  background: #0A0A0A !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme='dark'] .cred-dropdown-row.is-selected .cred-dropdown-icon-tile {
+  background: #FFFFFF !important;
+  color: #0A0A0A !important;
+}
+
+/* ==========================================================================
+   TASK C.5: CRED TABLE & ROW STYLES (nowrap PAYMENT CHANNEL, 56px rows)
+   ========================================================================== */
+.cred-ledger-table-wrap {
+  border: 1px solid var(--border, #E4E4E4);
+  border-radius: 20px;
+  background: var(--bg-panel, #FFFFFF);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+[data-theme='dark'] .cred-ledger-table-wrap,
+.cashbook-dark .cred-ledger-table-wrap {
+  background: #101010;
+  border-color: #222222;
+}
+
+.cred-ledger-table-head {
+  display: grid;
+  grid-template-columns: 130px minmax(170px, 2fr) minmax(140px, 1.4fr) minmax(150px, 1.4fr) minmax(110px, 1.1fr) 90px 130px 140px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #F7F7F7;
+  border-bottom: 1px solid var(--border, #E4E4E4);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8C8C8C;
+}
+
+.cred-ledger-table-head > div {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+[data-theme='dark'] .cred-ledger-table-head,
+.cashbook-dark .cred-ledger-table-head {
+  background: #141414;
+  border-bottom-color: #222222;
+  color: #7A7A7A;
+}
+
+.cred-ledger-table-row {
+  display: grid;
+  grid-template-columns: 130px minmax(170px, 2fr) minmax(140px, 1.4fr) minmax(150px, 1.4fr) minmax(110px, 1.1fr) 90px 130px 140px;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 20px;
+  border-bottom: 1px dotted #D9D9D9;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+  box-sizing: border-box;
+}
+
+.cred-ledger-table-row:last-child {
+  border-bottom: none;
+}
+
+.cred-ledger-table-row:hover {
+  background: #FAFAFA;
+}
+
+[data-theme='dark'] .cred-ledger-table-row,
+.cashbook-dark .cred-ledger-table-row {
+  border-bottom: 1px dotted #262626;
+}
+
+[data-theme='dark'] .cred-ledger-table-row:hover,
+.cashbook-dark .cred-ledger-table-row:hover {
+  background: #161616;
+}
+
+/* Table Layout Switching: Desktop Grid vs Mobile Cards */
+.cred-table-desktop-cols {
+  display: contents;
+}
+
+.cred-table-mobile-card {
+  display: none;
+}
+
+/* Particulars Icon Circle & Direction Badge */
+.cred-particulars-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--avatar-bg, #FFFFFF);
+  border: 1px solid var(--avatar-border, #E4E4E4);
+  color: var(--avatar-icon, #111111);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.cred-direction-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  box-shadow: 0 0 0 2px var(--bg-panel, #FFFFFF);
+}
+
+[data-theme='dark'] .cred-direction-badge,
+.cashbook-dark .cred-direction-badge,
+.cb-dark-bw .cred-direction-badge {
+  box-shadow: 0 0 0 2px #101010;
+}
+
+/* ==========================================================================
+   TASK B: GEAR POPOVER CARD
+   ========================================================================== */
+.cred-gear-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-panel, #FFFFFF);
+  border: 1px solid var(--border, #E4E4E4);
+  border-radius: 20px;
+  padding: 8px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+  z-index: 1000;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: credFadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme='dark'] .cred-gear-popover,
+.cashbook-dark .cred-gear-popover {
+  background: #141414;
+  border-color: #262626;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
+}
+
+.cred-gear-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text, #0A0A0A);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.12s ease;
+}
+
+.cred-gear-item:hover {
+  background: var(--bg-subtle, #F5F5F5);
+}
+
+[data-theme='dark'] .cred-gear-item,
+.cashbook-dark .cred-gear-item {
+  color: #FFFFFF;
+}
+
+[data-theme='dark'] .cred-gear-item:hover,
+.cashbook-dark .cred-gear-item:hover {
+  background: #202020;
+}
+
+/* ==========================================================================
+   DARK MODE BUTTONS & SIDEBAR SCROLLING EXTRAS
+   ========================================================================== */
+[data-theme='dark'] .cred-header-btn-primary,
+.cashbook-dark .cred-header-btn-primary,
+.cb-dark-bw .cred-header-btn-primary {
+  background: #FFFFFF !important;
+  color: #0A0A0A !important;
+  border: none !important;
+}
+
+[data-theme='dark'] .cred-header-btn-outlined,
+.cashbook-dark .cred-header-btn-outlined,
+.cb-dark-bw .cred-header-btn-outlined {
+  background: transparent !important;
+  color: #FFFFFF !important;
+  border: 1px solid #3A3A3A !important;
+}
+
+[data-theme='dark'] .cred-header-btn-outlined:hover,
+.cashbook-dark .cred-header-btn-outlined:hover,
+.cb-dark-bw .cred-header-btn-outlined:hover {
+  border-color: #FFFFFF !important;
+}
+
+.cred-sidebar-books-scroll {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #3A3A3A transparent !important;
+}
+
+.cred-sidebar-books-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.cred-sidebar-books-scroll::-webkit-scrollbar-thumb {
+  background: #3A3A3A;
+  border-radius: 4px;
+}
+
+.cred-sidebar-books-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ==========================================================================
+   CRED GOOEY MENU (.cred-gooey*)
+   ========================================================================== */
+.cred-gooey-root {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  box-sizing: border-box;
+}
+
+.cred-gooey-svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cred-gooey-surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  isolation: isolate;
+  z-index: 1;
+}
+
+.cred-gooey-pill-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--goo-bg, #0A0A0A);
+}
+
+.cred-gooey-panel-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--goo-bg, #0A0A0A);
+  transform-origin: 50% 0%;
+  will-change: transform;
+}
+
+.cred-gooey-trigger {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  box-sizing: border-box;
+  outline: none;
+  border-radius: 9999px;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  z-index: 20;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.cred-gooey-trigger:focus-visible,
+body[data-cashbook-active="true"] .cred-gooey-trigger:focus-visible,
+body.cb-dark-bw[data-cashbook-active="true"] .cred-gooey-trigger:focus-visible {
+  outline: 2px solid #FFFFFF !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+
+.cred-gooey-trigger:focus:not(:focus-visible),
+body[data-cashbook-active="true"] .cred-gooey-trigger:focus:not(:focus-visible),
+body.cb-dark-bw[data-cashbook-active="true"] .cred-gooey-trigger:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.cred-gooey-trigger-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--goo-text, #F4F4F4);
+  text-transform: lowercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.cred-gooey-options-list {
+  position: absolute;
+  left: 0;
+  margin: 0;
+  list-style: none;
+  box-sizing: border-box;
+  z-index: 25;
+  scrollbar-width: thin !important;
+  scrollbar-color: #3A3A3A transparent !important;
+}
+
+.cred-gooey-options-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.cred-gooey-options-list::-webkit-scrollbar-thumb {
+  background: #3A3A3A;
+  border-radius: 4px;
+}
+
+.cred-gooey-options-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cred-gooey-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  box-sizing: border-box;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.cred-gooey-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.cred-gooey-root.case-preserve .cred-gooey-trigger-label {
+  text-transform: none !important;
+}
+
+.cred-gooey-root.case-preserve .cred-gooey-row span {
+  text-transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cred-gooey-surface {
+    filter: none !important;
+  }
+}
+
+/* ==========================================================================
+   BOOKS REBUILD (TASK 3: PREMIUM MINIMAL CRED BOOK CARDS)
+   ========================================================================== */
+.cred-book-card {
+  min-height: 176px;
+  height: 100%;
+  padding: 24px;
+  border-radius: 24px;
+  background: var(--card-bg, #FFFFFF);
+  border: 1px solid var(--border, #E4E4E4);
+  box-shadow: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  outline: none;
+  text-align: left;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: border-color 180ms ease-out, transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.cred-book-card:hover {
+  border-color: #0A0A0A !important;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px -18px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme='dark'] .cred-book-card:hover,
+.cashbook-dark .cred-book-card:hover {
+  border-color: #FFFFFF !important;
+  box-shadow: none !important;
+}
+
+.cred-book-card:active {
+  transform: translateY(-2px) scale(0.99);
+}
+
+.cred-book-card:focus-visible {
+  outline: 2px solid var(--text, #0A0A0A) !important;
+  outline-offset: 2px !important;
+}
+
+[data-theme='dark'] .cred-book-card:focus-visible,
+.cashbook-dark .cred-book-card:focus-visible {
+  outline-color: #FFFFFF !important;
+}
+
+/* Arrow inside book card */
+.cred-book-card-arrow {
+  color: var(--text-muted, #8C8C8C);
+  opacity: 0.5;
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+  flex-shrink: 0;
+}
+
+.cred-book-card:hover .cred-book-card-arrow,
+.cred-book-card:focus-visible .cred-book-card-arrow {
+  opacity: 1;
+  transform: translate(2px, -2px);
+}
+
+/* Balance typography inside book card */
+.cred-book-card-balance {
+  font-family: var(--font-display, "Newsreader", Georgia, serif);
+  font-size: 28px;
+  line-height: 1.15;
+  color: var(--text, #111111);
+}
+
+.cred-book-card-balance .cred-money-sign {
+  font-family: var(--font-display, "Newsreader", Georgia, serif);
+  font-weight: 600;
+  color: var(--text, #111111);
+}
+
+.cred-book-card-balance .cred-money-curr {
+  font-family: var(--font-ui, "Geist", sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted, #8C8C8C);
+  margin-right: 4px;
+}
+
+.cred-book-card-balance .cred-money-int {
+  font-family: var(--font-display, "Newsreader", Georgia, serif);
+  font-weight: 600;
+  color: var(--text, #111111);
+}
+
+.cred-book-card-balance .cred-money-dec {
+  font-family: var(--font-display, "Newsreader", Georgia, serif);
+  font-weight: 400;
+  color: var(--text-muted, #8C8C8C);
+  font-size: 0.82em;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .cred-book-card,
+  .cred-book-card:hover,
+  .cred-book-card:active,
+  .cred-book-card-arrow,
+  .cred-book-card:hover .cred-book-card-arrow {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================
+   MINIMAL TABLE PRIMITIVES (CRED DESIGN LANGUAGE)
+   ========================================================================== */
+
+/* 1. CredStatus & CredStatusStack */
+.cred-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #0A0A0A);
+  line-height: 18px;
+  text-transform: lowercase;
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.cred-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cred-status--danger .cred-status__dot {
+  background: var(--dot-danger, #E5482E);
+}
+
+.cred-status--warning .cred-status__dot {
+  background: var(--dot-warning, #EE7A2E);
+}
+
+.cred-status--success .cred-status__dot {
+  background: var(--dot-success, #19B25B);
+}
+
+.cred-status--ink .cred-status__dot {
+  background: var(--dot-ink, var(--text, #0A0A0A));
+}
+
+.cred-status--muted .cred-status__dot {
+  background: var(--dot-muted, #B5B5B5);
+}
+
+.cred-status-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 18px;
+}
+
+/* 2. Two-line cell (.cred-cell-2l) */
+.cred-cell-2l {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cred-cell-2l__primary {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text, #0A0A0A);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cred-cell-2l__secondary {
+  font-size: 12px;
+  color: var(--text-muted, #8C8C8C);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 3. Row action button (.cred-row-link — minimal secondary button) */
+.cred-row-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--btn-secondary-bg, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text, #0A0A0A);
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: lowercase;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  line-height: 16px;
+  outline: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.cred-row-link:hover,
+.cred-row-link:focus-visible {
+  background: var(--btn-secondary-hover-bg, #EAEAEA);
+  border-color: var(--border, #D4D4D4);
+  color: var(--text, #0A0A0A);
+  text-decoration: none;
+}
+
+.cred-row-link:focus-visible {
+  outline: 2px solid var(--text, #0A0A0A);
+  outline-offset: 1px;
+}
+
+.cred-row-link:active {
+  transform: translateY(1px);
+}
+
+.cred-row-link--muted {
+  color: var(--text-muted, #737373);
+  background: var(--btn-secondary-bg, rgba(0, 0, 0, 0.02));
+  border-color: var(--border-subtle, rgba(0, 0, 0, 0.06));
+}
+
+.cred-row-link--muted:hover,
+.cred-row-link--muted:focus-visible {
+  color: var(--text, #0A0A0A);
+  background: var(--btn-secondary-hover-bg, #EAEAEA);
+  border-color: var(--border, #D4D4D4);
+}
+
+.cred-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  white-space: nowrap;
+}
+
+/* 4. Row icon button (CredRowIconButton) */
+.cred-row-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #8C8C8C);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.cred-row-icon-btn:hover,
+.cred-row-icon-btn:focus-visible {
+  background: var(--fill-ghost-hover, #F4F4F4);
+  color: var(--text, #0A0A0A);
+}
+
+.cred-row-icon-btn--danger:hover,
+.cred-row-icon-btn--danger:focus-visible {
+  background: var(--fill-ghost-hover, #F4F4F4);
+  color: var(--dot-danger, #E5482E) !important;
+}
+
+.cred-row-icon-btn:focus-visible {
+  outline: 2px solid var(--text, #0A0A0A);
+  outline-offset: 1px;
+}
+
+/* 5. Quiet header action (.cred-quiet-btn) */
+.cred-quiet-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted, #8C8C8C);
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: color 0.15s ease;
+  outline: none;
+  white-space: nowrap;
+}
+
+.cred-quiet-btn:hover,
+.cred-quiet-btn:focus-visible {
+  color: var(--text, #0A0A0A);
+}
+
+.cred-quiet-btn--danger:hover,
+.cred-quiet-btn--danger:focus-visible {
+  color: var(--dot-danger, #E5482E) !important;
+}
+
+.cred-quiet-btn:focus-visible {
+  outline: 2px solid var(--text, #0A0A0A);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 6. Dashboard "View All" link (CredViewAll) */
+.cred-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  outline: none;
+  user-select: none;
+}
+
+.cred-view-all__text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted, #8C8C8C);
+  text-transform: lowercase;
+  transition: color 160ms ease-out;
+  white-space: nowrap;
+}
+
+.cred-view-all__circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong, #D4D4D4);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text, #0A0A0A);
+  transition: background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
+}
+
+.cred-view-all__arrow {
+  transition: transform 160ms ease-out;
+}
+
+.cred-view-all:hover .cred-view-all__text,
+.cred-view-all:focus-visible .cred-view-all__text {
+  color: var(--text, #0A0A0A);
+}
+
+.cred-view-all:hover .cred-view-all__circle,
+.cred-view-all:focus-visible .cred-view-all__circle {
+  background: var(--text, #0A0A0A);
+  border-color: var(--text, #0A0A0A);
+  color: var(--bg, #FFFFFF);
+}
+
+.cred-view-all:hover .cred-view-all__arrow,
+.cred-view-all:focus-visible .cred-view-all__arrow {
+  transform: translate(1px, -1px);
+}
+
+.cred-view-all:focus-visible {
+  outline: 2px solid var(--text, #0A0A0A);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cred-view-all__arrow,
+  .cred-view-all:hover .cred-view-all__arrow,
+  .cred-view-all:focus-visible .cred-view-all__arrow {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* 7. Row states */
+.cred-table-row {
+  transition: background-color 0.15s ease;
+}
+
+.cred-table-row:hover {
+  background-color: var(--fill-ghost-hover, #F4F4F4) !important;
+}
+
+.cred-table-row.is-selected {
+  background-color: var(--bg-panel, #F7F7F7) !important;
+}
+
+/* ==========================================================================
+   8. CODE & REFERENCE IDENTIFIERS (Geist Mono, preserve capitalization)
+   ========================================================================== */
+.cred-code,
+.cred-mono,
+.cred-ref-code {
+  font-family: var(--font-mono, "Geist Mono", monospace) !important;
+  text-transform: none !important;
+  letter-spacing: -0.01em;
+}
+
+/* ==========================================================================
+   9. SHARED CRED CARD CAROUSEL (Mobile horizontal scroll & Desktop grid)
+   ========================================================================== */
+.cred-card-carousel {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .cred-card-carousel {
+    display: flex !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    gap: 12px !important;
+    padding-bottom: 6px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .cred-card-carousel::-webkit-scrollbar {
+    display: none !important;
+  }
+  .cred-card-carousel > * {
+    flex: 0 0 78% !important;
+    min-width: 220px !important;
+    scroll-snap-align: start !important;
+  }
+}
+
+/* ==========================================================================
+   10. CRED PAGINATION COMPONENT
+   ========================================================================== */
+.cred-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cred-pagination-range {
+  font-size: 13px;
+  color: var(--text-muted, #8C8C8C);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+.cred-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cred-pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 32px Ghost page button */
+.cred-pagination-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  background: transparent;
+  color: var(--text-muted, #8C8C8C);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  user-select: none;
+  padding: 0;
+}
+
+.cred-pagination-btn:hover:not(:disabled) {
+  background: var(--fill-ghost-hover, rgba(0, 0, 0, 0.05));
+  color: var(--text, #0A0A0A);
+}
+
+[data-theme='dark'] .cred-pagination-btn:hover:not(:disabled),
+.cashbook-dark .cred-pagination-btn:hover:not(:disabled) {
+  background: var(--fill-ghost-hover, rgba(255, 255, 255, 0.08));
+  color: #FFFFFF;
+}
+
+/* Current page: 32px circle filled with ink and white number (dark mode inverted), weight 500 */
+.cred-pagination-btn.is-active {
+  background: var(--text, #0A0A0A) !important;
+  color: var(--bg, #FFFFFF) !important;
+  font-weight: 500 !important;
+}
+
+[data-theme='dark'] .cred-pagination-btn.is-active,
+.cashbook-dark .cred-pagination-btn.is-active {
+  background: #FFFFFF !important;
+  color: #0A0A0A !important;
+}
+
+/* 32px Ghost arrow icon buttons */
+.cred-pagination-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  background: transparent;
+  color: var(--text, #0A0A0A);
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  padding: 0;
+}
+
+[data-theme='dark'] .cred-pagination-arrow,
+.cashbook-dark .cred-pagination-arrow {
+  color: #FFFFFF;
+}
+
+.cred-pagination-arrow:hover:not(:disabled) {
+  background: var(--fill-ghost-hover, rgba(0, 0, 0, 0.05));
+}
+
+[data-theme='dark'] .cred-pagination-arrow:hover:not(:disabled),
+.cashbook-dark .cred-pagination-arrow:hover:not(:disabled) {
+  background: var(--fill-ghost-hover, rgba(255, 255, 255, 0.08));
+}
+
+/* Disabled arrows: 35% opacity and not clickable */
+.cred-pagination-arrow:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* Ellipsis span */
+.cred-pagination-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  font-size: 13px;
+  color: var(--text-muted, #8C8C8C);
+  user-select: none;
+}
+
+/* Mobile Layout (< 768px): compact and centered [‹]  page 2 of 3  [›] with 40px tap targets and range text above in muted 12px */
+@media (max-width: 768px) {
+  .cred-pagination {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 16px !important;
+  }
+
+  .cred-pagination-range {
+    font-size: 12px !important;
+    color: var(--text-muted, #8C8C8C) !important;
+    text-align: center !important;
+    order: 1 !important;
+  }
+
+  .cred-pagination-controls {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    order: 2 !important;
+    width: 100% !important;
+  }
+
+  .cred-pagination-mobile-label {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--text, #0A0A0A) !important;
+    font-variant-numeric: tabular-nums !important;
+    font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  }
+
+  [data-theme='dark'] .cred-pagination-mobile-label,
+  .cashbook-dark .cred-pagination-mobile-label {
+    color: #F4F4F4 !important;
+  }
+
+  /* 40px tap targets on mobile */
+  .cred-pagination-arrow {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .cred-pagination-numbers {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   TASK 1: HIDE SCROLLBARS ON MOBILE & TOUCH DEVICES (< 768px & touch)
+   - Main page scroller (.cred-shell-mobile-content)
+   - Horizontal card carousel (.cred-card-carousel, .cred-money-cards-scroll)
+   - Filter & tab rows (.cred-animated-tabs, filter pills)
+   - Dropdown & gooey menu lists
+   - Bottom sheets and drawers
+   - Desktop (>= 769px with pointer) keeps its current scrollbars.
+   ========================================================================== */
+@media (max-width: 768px), ((hover: none) and (pointer: coarse)) {
+  /* 1. Remove nested vertical scrollers in Cashbook */
+  .dashboard-wrapper.is-cashbook .dashboard-body,
+  .dashboard-wrapper.is-cashbook .main-content,
+  .dashboard-wrapper.is-cashbook .content-area {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .cred-overview-page,
+  .cred-dashboard-table-card {
+    overflow: visible !important;
+    max-height: none !important;
+    min-height: auto !important;
+  }
+
+  /* 2. Hide scrollbars completely while preserving scrolling, snapping & momentum */
+  html,
+  body,
+  #root,
+  .cred-app-root,
+  .cred-shell-mobile,
+  .cred-shell-mobile-content,
+  .cred-card-carousel,
+  .cred-money-cards-scroll,
+  .cred-animated-tabs,
+  .cred-animated-tabs *,
+  .cred-gooey-menu-dropdown,
+  .cred-gooey-dropdown,
+  .cred-dropdown-menu,
+  .cred-dropdown-list,
+  .cred-select-popover,
+  .cred-select-options,
+  .cred-ledger-table-wrap,
+  .cred-mobile-tx-list,
+  .modal-container,
+  .modal-body,
+  .cb-expense-modal-sheet,
+  .cred-modal,
+  .cred-drawer,
+  .cred-bottom-sheet,
+  .dashboard-wrapper.is-cashbook,
+  .dashboard-wrapper.is-cashbook *,
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  #root::-webkit-scrollbar,
+  .cred-app-root::-webkit-scrollbar,
+  .cred-app-root *::-webkit-scrollbar,
+  .cred-shell-mobile::-webkit-scrollbar,
+  .cred-shell-mobile *::-webkit-scrollbar,
+  .cred-shell-mobile-content::-webkit-scrollbar,
+  .cred-card-carousel::-webkit-scrollbar,
+  .cred-money-cards-scroll::-webkit-scrollbar,
+  .cred-animated-tabs::-webkit-scrollbar,
+  .cred-animated-tabs *::-webkit-scrollbar,
+  .cred-gooey-menu-dropdown::-webkit-scrollbar,
+  .cred-dropdown-menu::-webkit-scrollbar,
+  .cred-dropdown-list::-webkit-scrollbar,
+  .modal-container::-webkit-scrollbar,
+  .modal-body::-webkit-scrollbar,
+  .cb-expense-modal-sheet::-webkit-scrollbar,
+  .cred-drawer::-webkit-scrollbar,
+  .cred-bottom-sheet::-webkit-scrollbar,
+  .dashboard-wrapper.is-cashbook::-webkit-scrollbar,
+  .dashboard-wrapper.is-cashbook *::-webkit-scrollbar,
+  *::-webkit-scrollbar,
+  *::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-track-piece,
+  *::-webkit-scrollbar-button,
+  *::-webkit-scrollbar-corner {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    max-width: 0 !important;
+    max-height: 0 !important;
+    background: transparent !important;
+    opacity: 0 !important;
+    border: none !important;
+  }
+
+  html, body, #root, .cred-page-container, .cred-home-page, .cb-tab-pane, .cred-shell-mobile-content {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+}
+
+
+

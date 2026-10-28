@@ -9,17 +9,30 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>,
 )
 
-// Register Service Worker for Progressive Web App (PWA)
+// Register Service Worker for Progressive Web App (PWA) in production only; clear in dev
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('PWA Service Worker registered successfully:', registration.scope)
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('PWA Service Worker registered successfully:', registration.scope)
+        })
+        .catch((error) => {
+          console.warn('PWA Service Worker registration error:', error)
+        })
+    })
+  } else {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const reg of registrations) {
+        reg.unregister()
+      }
+    })
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        for (const key of keys) caches.delete(key)
       })
-      .catch((error) => {
-        console.warn('PWA Service Worker registration error:', error)
-      })
-  })
+    }
+  }
 }
 
 // Universally prevent mouse wheel from changing values on any number inputs across all pages

@@ -791,9 +791,9 @@ body[data-cashbook-active="true"]:not(.cb-dark-bw) textarea:hover:not(:disabled)
 }
 
 /* Focus-visible state: white fill, 2px solid blue border plus 4px blue ring at 15% opacity (Light Mode) */
-[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:focus,
-.theme-cashbook-pill:not(.cb-dark-bw) input:focus,
-body[data-cashbook-active="true"]:not(.cb-dark-bw) input:focus,
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:not(.cred-search-input):focus,
+.theme-cashbook-pill:not(.cb-dark-bw) input:not(.cred-search-input):focus,
+body[data-cashbook-active="true"]:not(.cb-dark-bw) input:not(.cred-search-input):focus,
 [data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) select:focus,
 .theme-cashbook-pill:not(.cb-dark-bw) select:focus,
 body[data-cashbook-active="true"]:not(.cb-dark-bw) select:focus,
@@ -816,16 +816,16 @@ body.cb-dark-bw[data-cashbook-active="true"] textarea {
   color: #ffffff !important;
 }
 
-body.cb-dark-bw input:focus,
+body.cb-dark-bw input:not(.cred-search-input):focus,
 body.cb-dark-bw select:focus,
 body.cb-dark-bw textarea:focus,
-html.cb-dark-bw input:focus,
+html.cb-dark-bw input:not(.cred-search-input):focus,
 html.cb-dark-bw select:focus,
 html.cb-dark-bw textarea:focus,
-.cb-dark-bw input:focus,
+.cb-dark-bw input:not(.cred-search-input):focus,
 .cb-dark-bw select:focus,
 .cb-dark-bw textarea:focus,
-body.cb-dark-bw[data-cashbook-active="true"] input:focus,
+body.cb-dark-bw[data-cashbook-active="true"] input:not(.cred-search-input):focus,
 body.cb-dark-bw[data-cashbook-active="true"] select:focus,
 body.cb-dark-bw[data-cashbook-active="true"] textarea:focus {
   background: #1a1d22 !important;

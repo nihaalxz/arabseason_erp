@@ -5,11 +5,17 @@ import {
   Briefcase, User, Calendar, CreditCard, Receipt 
 } from '../icons'
 import { 
-  Pencil, CheckCircle2, Folder, ArrowDownRight, Clock, UserPlus
+  Pencil, CheckCircle2, Folder, ArrowDownRight, Clock, UserPlus, ArrowLeft
 } from 'lucide-react'
 import api from '../../api'
 import Modal from '../common/Modal'
 import CashbookSelect from '../common/CashbookSelect'
+import CredAnimatedTabs from './cred/CredAnimatedTabs'
+import GooeyMenu from './cred/GooeyMenu'
+import CredStatus from './cred/CredStatus'
+import CredRowIconButton from './cred/CredRowIconButton'
+import CredPagination from './cred/CredPagination'
+import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef, formatCompactKpi, getAmountFontSize } from './cred/usePagination'
 import { showConfirm, showError, showToast } from '../../utils/swal'
 
 const MONTH_CODES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
@@ -109,38 +115,6 @@ const MobileCardCarousel = ({
           </div>
         ))}
       </div>
-      {/* Subtle Pagination Indicators */}
-      {count > 1 && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '5px',
-          marginTop: '0.45rem',
-          marginBottom: '0.25rem'
-        }}>
-          {validChildren.map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => scrollToCard(idx)}
-              aria-label={`Go to card ${idx + 1}`}
-              style={{
-                width: activeIndex === idx ? '16px' : '5px',
-                height: '5px',
-                borderRadius: '999px',
-                background: activeIndex === idx 
-                  ? (isDarkMode ? '#ffffff' : '#0f172a') 
-                  : (isDarkMode ? 'rgba(255, 255, 255, 0.22)' : 'rgba(15, 23, 42, 0.2)'),
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
-              }}
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -153,7 +127,9 @@ export default function CashbookJobOrders({
   banks: initialBanks = [],
   pettyCashAccounts: initialPettyCashAccounts = [],
   books: initialBooks = [],
-  onReceivePayment = null
+  onReceivePayment = null,
+  onBack,
+  onNavigate
 }) {
   const [internalIsMobile, setInternalIsMobile] = useState(() => {
     if (typeof window !== 'undefined') return window.innerWidth <= 768
@@ -421,6 +397,18 @@ export default function CashbookJobOrders({
       return true
     })
   }, [jobOrders, statusFilter, searchQuery])
+
+  // Pagination for job orders
+  const jobOrdersResetKey = `${statusFilter}_${searchQuery}`;
+  const {
+    pageItems: pagedJobOrders,
+    page: jobOrdersPage,
+    setPage: setJobOrdersPage,
+    totalPages: totalJobOrdersPages,
+    rangeStart: jobOrdersRangeStart,
+    rangeEnd: jobOrdersRangeEnd,
+    total: totalJobOrdersCount
+  } = usePagination(filteredJobOrders, effectiveIsMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, jobOrdersResetKey);
 
   const filterPills = [
     { id: 'All', label: 'All', count: totalOrdersCount },
@@ -715,60 +703,109 @@ export default function CashbookJobOrders({
       {/* ========================================================= */}
       {/* COMMAND HEADER                                            */}
       {/* ========================================================= */}
-      <div style={{
-        display: 'flex',
-        flexDirection: effectiveIsMobile ? 'column' : 'row',
-        alignItems: effectiveIsMobile ? 'flex-start' : 'center',
-        justifyContent: 'space-between',
-        gap: '1rem',
-        marginBottom: '1.25rem'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <h2 style={{
-              fontSize: effectiveIsMobile ? '1.35rem' : '1.55rem',
-              fontWeight: '800',
-              color: textPrimary,
-              margin: 0,
-              letterSpacing: '-0.02em'
-            }}>
-              Job Orders
-            </h2>
-          </div>
-          <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: textMuted }}>
-            Manage client job orders, advance deposits, and receivables directly in Cashbook
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', width: effectiveIsMobile ? '100%' : 'auto' }}>
+      {effectiveIsMobile ? (
+        <div style={{ marginBottom: '16px' }}>
           <button
             type="button"
-            id="btn-create-job-order"
-            onClick={handleOpenAddModal}
+            onClick={() => onBack ? onBack() : onNavigate && onNavigate('more')}
+            aria-label="Back to More"
             style={{
-              background: isDarkMode ? '#ffffff' : '#0f172a',
-              color: isDarkMode ? '#0f172a' : '#ffffff',
+              background: 'none',
               border: 'none',
-              borderRadius: '12px',
-              padding: '0.65rem 1.25rem',
-              fontWeight: '700',
-              fontSize: '0.85rem',
+              padding: '4px 0',
+              marginBottom: '10px',
+              cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.45rem',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.15)',
-              transition: 'all 0.15s ease',
-              width: effectiveIsMobile ? '100%' : 'auto'
+              justifyContent: 'center',
+              color: 'var(--text, #0A0A0A)',
+              outline: 'none',
+              width: 'fit-content'
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
           >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Create Job Order</span>
+            <ArrowLeft size={20} strokeWidth={2} />
           </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
+              job orders
+            </h1>
+            <button
+              type="button"
+              id="btn-create-job-order-mobile"
+              onClick={handleOpenAddModal}
+              style={{
+                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              <span>Create</span>
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          marginBottom: '1.25rem'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <h2 style={{
+                fontSize: '1.55rem',
+                fontWeight: '600',
+                color: textPrimary,
+                margin: 0,
+                letterSpacing: '-0.02em'
+              }}>
+                Job Orders
+              </h2>
+            </div>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: textMuted }}>
+              Manage client job orders, advance deposits, and receivables directly in Cashbook
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <button
+              type="button"
+              id="btn-create-job-order"
+              onClick={handleOpenAddModal}
+              style={{
+                background: isDarkMode ? '#ffffff' : '#0f172a',
+                color: isDarkMode ? '#0f172a' : '#ffffff',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '0.65rem 1.25rem',
+                fontWeight: '700',
+                fontSize: '0.85rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                cursor: 'pointer',
+                boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.15)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Create Job Order</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* 4 KPI SUMMARY CARDS / MOBILE CAROUSEL                     */}
@@ -781,19 +818,25 @@ export default function CashbookJobOrders({
         marginBottom={effectiveIsMobile ? '1rem' : '1.25rem'}
       >
         {/* Card 1: Total Job Orders */}
-        <div style={{
-          background: cardBg,
-          border: `1px solid ${borderColor}`,
-          borderRadius: '16px',
-          padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-          minHeight: isMobileScreen ? '84px' : 'auto',
-          height: '100%',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-        }}>
+        <div 
+          onClick={() => setStatusFilter('All')}
+          style={{
+            background: cardBg,
+            border: (statusFilter === 'All')
+              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
+              : `1px solid ${borderColor}`,
+            borderRadius: '16px',
+            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
+            minHeight: isMobileScreen ? '84px' : 'auto',
+            height: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Total Orders
@@ -811,7 +854,7 @@ export default function CashbookJobOrders({
               <Briefcase size={15} strokeWidth={2.2} />
             </div>
           </div>
-          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
+          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
             {totalOrdersCount}
           </div>
           {!isMobileScreen && (
@@ -822,19 +865,23 @@ export default function CashbookJobOrders({
         </div>
 
         {/* Card 2: Total Contract Value */}
-        <div style={{
-          background: cardBg,
-          border: `1px solid ${borderColor}`,
-          borderRadius: '16px',
-          padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-          minHeight: isMobileScreen ? '84px' : 'auto',
-          height: '100%',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-        }}>
+        <div 
+          onClick={() => setStatusFilter('All')}
+          style={{
+            background: cardBg,
+            border: `1px solid ${borderColor}`,
+            borderRadius: '16px',
+            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
+            minHeight: isMobileScreen ? '84px' : 'auto',
+            height: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Contract Value
@@ -852,8 +899,12 @@ export default function CashbookJobOrders({
               <Receipt size={15} strokeWidth={2.2} />
             </div>
           </div>
-          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
-            SAR {safeFormatAmount(totalContractValue)}
+          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {effectiveIsMobile && formatCompactKpi(totalContractValue) ? (
+              <span className="cred-tnum">{formatCompactKpi(totalContractValue)}</span>
+            ) : (
+              `SAR ${safeFormatAmount(totalContractValue)}`
+            )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
@@ -863,19 +914,25 @@ export default function CashbookJobOrders({
         </div>
 
         {/* Card 3: Payments Received */}
-        <div style={{
-          background: cardBg,
-          border: `1px solid ${borderColor}`,
-          borderRadius: '16px',
-          padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-          minHeight: isMobileScreen ? '84px' : 'auto',
-          height: '100%',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-        }}>
+        <div 
+          onClick={() => setStatusFilter(statusFilter === 'Completed' ? 'All' : 'Completed')}
+          style={{
+            background: cardBg,
+            border: (statusFilter === 'Completed' || statusFilter === 'Settled')
+              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
+              : `1px solid ${borderColor}`,
+            borderRadius: '16px',
+            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
+            minHeight: isMobileScreen ? '84px' : 'auto',
+            height: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Cash In Paid
@@ -893,8 +950,12 @@ export default function CashbookJobOrders({
               <ArrowDownRight size={15} strokeWidth={2.5} />
             </div>
           </div>
-          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#60a5fa' : '#2563eb', letterSpacing: '-0.02em' }}>
-            SAR {safeFormatAmount(totalPaid)}
+          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#60a5fa' : '#2563eb', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {effectiveIsMobile && formatCompactKpi(totalPaid) ? (
+              <span className="cred-tnum">{formatCompactKpi(totalPaid)}</span>
+            ) : (
+              `SAR ${safeFormatAmount(totalPaid)}`
+            )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
@@ -904,19 +965,25 @@ export default function CashbookJobOrders({
         </div>
 
         {/* Card 4: Outstanding Balance Due */}
-        <div style={{
-          background: cardBg,
-          border: `1px solid ${borderColor}`,
-          borderRadius: '16px',
-          padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
-          minHeight: isMobileScreen ? '84px' : 'auto',
-          height: '100%',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.03)'
-        }}>
+        <div 
+          onClick={() => setStatusFilter(statusFilter === 'Payment Due' ? 'All' : 'Payment Due')}
+          style={{
+            background: cardBg,
+            border: (statusFilter === 'Payment Due')
+              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
+              : `1px solid ${borderColor}`,
+            borderRadius: '16px',
+            padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
+            minHeight: isMobileScreen ? '84px' : 'auto',
+            height: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Balance Due
@@ -934,8 +1001,12 @@ export default function CashbookJobOrders({
               <AlertCircle size={15} strokeWidth={2.2} />
             </div>
           </div>
-          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#f87171' : '#dc2626', letterSpacing: '-0.02em' }}>
-            SAR {safeFormatAmount(totalDue)}
+          <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#f87171' : '#dc2626', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {effectiveIsMobile && formatCompactKpi(totalDue) ? (
+              <span className="cred-tnum">{formatCompactKpi(totalDue)}</span>
+            ) : (
+              `SAR ${safeFormatAmount(totalDue)}`
+            )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
@@ -954,76 +1025,41 @@ export default function CashbookJobOrders({
         alignItems: effectiveIsMobile ? 'stretch' : 'center',
         justifyContent: 'space-between',
         gap: '0.75rem',
-        marginBottom: '1rem'
+        marginBottom: '1rem',
+        position: 'relative',
+        zIndex: 40,
+        overflow: 'visible'
       }}>
-        {/* Filter Pills / Mobile Dropdown */}
+        {/* Filter Pills / Mobile GooeyMenu */}
         {effectiveIsMobile ? (
-          <div style={{ width: '100%' }}>
-            <CashbookSelect
+          <div style={{ position: 'relative', zIndex: 40, overflow: 'visible', width: '100%' }}>
+            <GooeyMenu
+              id="cred-job-orders-filter-dropdown"
               value={statusFilter}
-              onChange={(val) => setStatusFilter(val)}
+              onSelect={(opt) => setStatusFilter(opt.value || opt.id || opt)}
               options={filterPills.map(tab => ({
-                id: tab.id,
+                value: tab.id,
                 label: `${tab.label} (${tab.count})`
               }))}
-              variant="desktop-toolbar"
-              style={{ width: '100%' }}
-              isDark={isDarkMode}
+              width="100%"
+              pillHeight={40}
+              ariaLabel="Filter job orders"
             />
           </div>
         ) : (
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
-            background: isDarkMode ? '#141517' : '#f1f5f9',
-            border: `1px solid ${borderColor}`,
-            padding: '3px',
-            borderRadius: '999px',
-            gap: '2px',
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch'
+            overflow: 'visible',
+            flexShrink: 0
           }}>
-            {filterPills.map(tab => {
-              const active = statusFilter === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setStatusFilter(tab.id)}
-                  style={{
-                    background: active ? (isDarkMode ? '#ffffff' : '#0f172a') : 'transparent',
-                    color: active ? (isDarkMode ? '#0c0d0e' : '#ffffff') : textMuted,
-                    border: 'none',
-                    borderRadius: '999px',
-                    padding: '5px 14px',
-                    fontSize: '0.78rem',
-                    fontWeight: active ? '700' : '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    whiteSpace: 'nowrap',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <span>{tab.label}</span>
-                  <span style={{
-                    fontSize: '0.7rem',
-                    padding: '1px 5px',
-                    borderRadius: '999px',
-                    background: active 
-                      ? (isDarkMode ? '#232528' : 'rgba(255, 255, 255, 0.25)')
-                      : (isDarkMode ? '#1c1e21' : '#e2e8f0'),
-                    color: active 
-                      ? (isDarkMode ? '#ffffff' : '#ffffff')
-                      : textMuted,
-                    fontWeight: '700'
-                  }}>
-                    {tab.count}
-                  </span>
-                </button>
-              )
-            })}
+            <CredAnimatedTabs
+              tabs={filterPills}
+              value={statusFilter}
+              onChange={(newVal) => setStatusFilter(newVal)}
+              className="case-preserve"
+              layoutId="cred-job-orders-tabs-pill"
+            />
           </div>
         )}
 
@@ -1095,12 +1131,12 @@ export default function CashbookJobOrders({
         </div>
       ) : filteredJobOrders.length === 0 ? (
         <div style={{
-          background: cardBg,
-          border: `1px solid ${borderColor}`,
+          background: effectiveIsMobile ? 'transparent' : cardBg,
+          border: effectiveIsMobile ? 'none' : `1px solid ${borderColor}`,
           borderRadius: '16px',
-          padding: '3rem 1.5rem',
+          padding: effectiveIsMobile ? '2.5rem 1rem' : '3rem 1.5rem',
           textAlign: 'center',
-          boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'
+          boxShadow: isDarkMode || effectiveIsMobile ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'
         }}>
           <div style={{
             width: '48px',
@@ -1148,157 +1184,207 @@ export default function CashbookJobOrders({
           )}
         </div>
       ) : effectiveIsMobile ? (
-        /* Mobile Cards View */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {filteredJobOrders.map((job) => {
-            const total = parseFloat(job.total_amount) || 0
-            const paid = parseFloat(job.paid_amount) || 0
-            const bal = parseFloat(job.balance)
-            const due = !isNaN(bal) ? bal : (total - paid)
-            const hasDue = due > 0.01
+        /* Mobile Cards View: CRED two-tier row layout with inset dashed separator */
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '20px' }}>
+          {pagedJobOrders.map((job) => {
+            const total = parseFloat(job.total_amount) || 0;
+            const paid = parseFloat(job.paid_amount) || 0;
+            const bal = parseFloat(job.balance);
+            const due = !isNaN(bal) ? bal : (total - paid);
+            const hasDue = due > 0.01;
+            const initialLetter = (job.title || 'J').charAt(0).toUpperCase();
+            const refCode = formatJobRef(job.order_id || job.id);
+            const sublineText = `${refCode} · ${job.customer_name || 'Client'}${job.vendor_name ? ' · ' + job.vendor_name : ''}`;
+            const s = (job.status || '').toLowerCase();
+            const isProgress = s === 'in progress';
+            const isCompleted = s === 'completed' || s === 'settled';
 
             return (
-              <div
-                key={job.id}
-                style={{
-                  background: cardBg,
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: '14px',
-                  padding: '1rem',
-                  boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <div>
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: '800',
-                      padding: '2px 6px',
-                      borderRadius: '6px',
-                      background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                      color: textPrimary,
-                      border: `1px solid ${borderColor}`
+              <div key={job.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* Tier 1: Avatar | Title + Subline | Status dot + plain text */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  padding: '12px 0 4px',
+                  boxSizing: 'border-box'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                    <div style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      border: isDarkMode ? '1px solid rgba(255,255,255,0.12)' : '1px solid var(--border, #E4E4E4)',
+                      background: isDarkMode ? 'rgba(255,255,255,0.04)' : '#fafafa',
+                      color: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                      fontWeight: 500,
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
                     }}>
-                      {job.order_id || `#ID-${job.id}`}
-                    </span>
-                    <h4 style={{ margin: '0.35rem 0 0.15rem', fontSize: '0.92rem', fontWeight: '700', color: textPrimary }}>
-                      {job.title}
-                    </h4>
-                    <div style={{ fontSize: '0.78rem', color: textMuted }}>
-                      Client: {job.customer_name || '—'}
-                      {job.vendor_name && (
-                        <span style={{ marginLeft: '6px', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
-                          &bull; Vendor: <strong style={{ color: textPrimary }}>{job.vendor_name}</strong>
-                        </span>
-                      )}
+                      {initialLetter}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        fontWeight: 500,
+                        fontSize: '14px',
+                        color: 'var(--text, #0A0A0A)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        lineHeight: 1.3
+                      }}>
+                        {job.title}
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        marginTop: '2px',
+                        lineHeight: 1.3
+                      }}>
+                        {sublineText}
+                      </div>
                     </div>
                   </div>
-                  <span style={{
-                    ...getStatusBadgeStyle(job.status),
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    fontSize: '0.68rem',
-                    fontWeight: '800',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {job.status}
-                  </span>
+
+                  {/* Status: small dot + plain text (no chip) */}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: isProgress ? 'var(--accent, #3b82f6)' : (hasDue || s === 'pending' || s === 'payment due') ? 'var(--danger, #dc2626)' : 'var(--positive, #16a34a)'
+                    }} />
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: isProgress ? 'var(--accent, #3b82f6)' : (hasDue || s === 'pending' || s === 'payment due') ? 'var(--danger, #dc2626)' : 'var(--text-muted, #8C8C8C)',
+                      textTransform: 'lowercase'
+                    }}>
+                      {job.status}
+                    </span>
+                  </div>
                 </div>
 
-                {job.project_name && (
-                  <div style={{ fontSize: '0.72rem', color: textMuted, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '0.5rem' }}>
-                    <Folder size={12} /> {job.project_name}
-                  </div>
-                )}
-
+                {/* Tier 2: 3 figures as quiet inline trio (inset 56px to align with text) */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '0.5rem',
-                  padding: '0.65rem',
-                  borderRadius: '10px',
-                  background: isDarkMode ? '#16181b' : '#f8fafc',
-                  margin: '0.65rem 0'
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: '8px',
+                  padding: '6px 0 4px 56px',
+                  boxSizing: 'border-box'
                 }}>
-                  <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase' }}>Total</div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: '700', color: textPrimary }}>{safeFormatAmount(total)}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>
+                      Total
+                    </div>
+                    <div style={{ fontSize: getAmountFontSize(total), fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: 'var(--text, #0A0A0A)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      SAR {safeFormatAmount(total)}
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase' }}>Paid</div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: '700', color: isDarkMode ? '#60a5fa' : '#2563eb' }}>{safeFormatAmount(paid)}</div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>
+                      Received
+                    </div>
+                    <div style={{ fontSize: getAmountFontSize(paid), fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: 'var(--text, #0A0A0A)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      SAR {safeFormatAmount(paid)}
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase' }}>Due</div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted }}>
-                      {hasDue ? safeFormatAmount(due) : '0.00'}
+
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>
+                      Balance
+                    </div>
+                    <div style={{ fontSize: getAmountFontSize(due), fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: hasDue ? 'var(--danger, #dc2626)' : 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      SAR {hasDue ? safeFormatAmount(due) : '0.00'}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.45rem', marginTop: '0.5rem' }}>
+                {/* Row actions: one small right-aligned line of minimal text-or-icon buttons */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: '12px',
+                  padding: '4px 0 10px 56px'
+                }}>
                   {hasDue && (
                     <button
                       type="button"
-                      onClick={() => onReceivePayment ? onReceivePayment(job) : handleOpenReceivePaymentModal(job)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReceivePayment ? onReceivePayment(job) : handleOpenReceivePaymentModal(job);
+                      }}
                       style={{
-                        background: isDarkMode ? '#1e293b' : '#eff6ff',
-                        border: `1px solid ${isDarkMode ? '#3b82f6' : '#bfdbfe'}`,
-                        borderRadius: '8px',
-                        padding: '0.35rem 0.65rem',
-                        color: isDarkMode ? '#60a5fa' : '#2563eb',
-                        fontSize: '0.75rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: 'var(--text, #0A0A0A)',
+                        cursor: 'pointer'
                       }}
                     >
-                      <CreditCard size={12} strokeWidth={2.5} /> Receive Payment
+                      Receive payment
                     </button>
                   )}
                   <button
                     type="button"
-                    onClick={() => handleOpenEditModal(job)}
+                    title="Edit Job Order"
+                    aria-label="Edit Job Order"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenEditModal(job);
+                    }}
                     style={{
-                      background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      padding: '0.35rem 0.65rem',
-                      color: textPrimary,
-                      fontSize: '0.75rem',
-                      fontWeight: '600',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: 'var(--text-muted, #8C8C8C)',
                       cursor: 'pointer',
                       display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
+                      alignItems: 'center'
                     }}
                   >
-                    <Pencil size={12} /> Edit
+                    <Pencil size={13} />
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeleteJob(job)}
+                    title="Delete Job Order"
+                    aria-label="Delete Job Order"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteJob(job);
+                    }}
                     style={{
-                      background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: '8px',
-                      padding: '0.35rem 0.65rem',
-                      color: isDarkMode ? '#f87171' : '#dc2626',
-                      fontSize: '0.75rem',
-                      fontWeight: '600',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: 'var(--text-muted, #8C8C8C)',
                       cursor: 'pointer',
                       display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
+                      alignItems: 'center'
                     }}
                   >
-                    <Trash2 size={12} /> Delete
+                    <Trash2 size={13} />
                   </button>
                 </div>
+
+                {/* Inset dashed separator */}
+                <div style={{
+                  marginLeft: '56px',
+                  borderBottom: isDarkMode ? '1px dashed rgba(255,255,255,0.08)' : '1px dashed rgba(0,0,0,0.08)'
+                }} />
               </div>
-            )
+            );
           })}
         </div>
       ) : (
@@ -1307,253 +1393,193 @@ export default function CashbookJobOrders({
           background: cardBg,
           border: `1px solid ${borderColor}`,
           borderRadius: '16px',
-          overflowX: 'auto',
-          overflowY: 'hidden',
+          overflow: 'hidden',
           boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
-          WebkitOverflowScrolling: 'touch'
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
-          <table style={{ width: '100%', minWidth: '920px', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{
-                borderBottom: `1px solid ${borderColor}`,
-                background: isDarkMode ? '#141517' : '#f8fafc'
-              }}>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                  JOB ORDER / TITLE
-                </th>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                  CUSTOMER
-                </th>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                  STATUS
-                </th>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                  ESTIMATED TOTAL
-                </th>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                  CUSTOMER PAID
-                </th>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                  DUE AMOUNT (CUSTOMER OWED)
-                </th>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                  CREATED DATE
-                </th>
-                <th style={{ padding: '0.75rem 1.25rem 0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap', minWidth: '130px' }}>
-                  ACTIONS
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredJobOrders.map((job, idx) => {
-                const total = parseFloat(job.total_amount) || 0
-                const paid = parseFloat(job.paid_amount) || 0
-                const bal = parseFloat(job.due_amount != null ? job.due_amount : job.balance)
-                const due = !isNaN(bal) ? bal : Math.max(0, total - paid)
-                const hasDue = due > 0.01
+          <div style={{ width: '100%', overflowX: effectiveIsMobile ? 'auto' : 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'auto' }}>
+              <thead>
+                <tr style={{
+                  borderBottom: `1px solid ${borderColor}`,
+                  background: isDarkMode ? '#141517' : '#f8fafc'
+                }}>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '23%' }}>
+                    JOB ORDER / TITLE
+                  </th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '15%' }}>
+                    CUSTOMER
+                  </th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '10%' }}>
+                    STATUS
+                  </th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '11%' }}>
+                    ESTIMATED TOTAL
+                  </th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '11%' }}>
+                    CUSTOMER PAID
+                  </th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '12%' }}>
+                    DUE AMOUNT (CUSTOMER OWED)
+                  </th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '9%' }}>
+                    CREATED DATE
+                  </th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedJobOrders.map((job, idx) => {
+                  const total = parseFloat(job.total_amount) || 0
+                  const paid = parseFloat(job.paid_amount) || 0
+                  const bal = parseFloat(job.due_amount != null ? job.due_amount : job.balance)
+                  const due = !isNaN(bal) ? bal : Math.max(0, total - paid)
+                  const hasDue = due > 0.01
+                  const orderIdCode = formatJobRef(job.order_id || `${getCurrentMonthCode()}${job.id.toString().padStart(2, '0')}`)
+                  
+                  const statusNormalized = String(job.status || '').toLowerCase().trim()
+                  const statusTone = (statusNormalized === 'in progress' || statusNormalized === 'in_progress')
+                    ? 'ink'
+                    : statusNormalized === 'pending'
+                    ? 'warning'
+                    : (statusNormalized === 'completed' || statusNormalized === 'done' || statusNormalized === 'settled')
+                    ? 'success'
+                    : 'muted'
 
-                return (
-                  <tr
-                    key={job.id || idx}
-                    style={{
-                      borderBottom: `1px solid ${borderColor}`,
-                      transition: 'background 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = isDarkMode ? '#16181b' : '#f8fafc' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {/* Order ID & Title */}
-                    <td style={{ padding: '0.85rem 1rem', maxWidth: '280px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        <div style={{
-                          padding: '3px 7px',
-                          borderRadius: '6px',
-                          background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                          border: `1px solid ${borderColor}`,
-                          color: textPrimary,
-                          fontWeight: '800',
-                          fontSize: '0.74rem',
-                          fontFamily: 'monospace',
-                          letterSpacing: '0.02em',
-                          flexShrink: 0
-                        }}>
-                          {job.order_id || `#${getCurrentMonthCode()}${job.id.toString().padStart(2, '0')}`}
-                        </div>
-                        <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                          <div style={{
-                            fontWeight: '700',
-                            fontSize: '0.875rem',
-                            color: textPrimary,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                          title={job.title}
-                          >
+                  return (
+                    <tr
+                      key={job.id || idx}
+                      className="cred-table-row"
+                      style={{
+                        borderBottom: `1px solid ${borderColor}`
+                      }}
+                    >
+                      {/* Job Order / Title (Two-line cell: title ink, id muted below, no boxed id) */}
+                      <td style={{ padding: '8px 8px', verticalAlign: 'middle' }}>
+                        <div className="cred-cell-2l">
+                          <span className="cred-cell-2l__primary" title={job.title} style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {job.title}
+                          </span>
+                          <span className="cred-cell-2l__secondary">
+                            {orderIdCode}{job.project_name ? ` · ${job.project_name}` : ''}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Customer */}
+                      <td style={{ padding: '8px 8px', fontSize: '0.825rem', color: textPrimary, fontWeight: '600', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: isDarkMode ? '#1e2024' : '#e2e8f0',
+                            color: textPrimary,
+                            fontWeight: '700',
+                            fontSize: '0.72rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {((job.customer_name || 'C').charAt(0)).toUpperCase()}
                           </div>
-                          {job.project_name && (
-                            <div style={{
-                              fontSize: '0.72rem',
-                              color: textMuted,
-                              marginTop: '2px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px'
-                            }}>
-                              <Folder size={11} />
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
-                                {job.project_name}
-                              </span>
-                            </div>
-                          )}
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }} title={job.customer_name}>
+                            {job.customer_name || '—'}
+                          </span>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Customer */}
-                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.84rem', color: textPrimary, fontWeight: '600', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                          width: '26px',
-                          height: '26px',
-                          borderRadius: '50%',
-                          background: isDarkMode ? '#1e2024' : '#e2e8f0',
-                          color: textPrimary,
-                          fontWeight: '700',
-                          fontSize: '0.75rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}>
-                          {((job.customer_name || 'C').charAt(0)).toUpperCase()}
-                        </div>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.customer_name}>
-                          {job.customer_name || '—'}
-                        </span>
-                      </div>
-                    </td>
+                      {/* Status (CredStatus: "in progress" = ink, "pending" = warning, "completed" = success, others = muted) */}
+                      <td style={{ padding: '8px 8px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                        <CredStatus tone={statusTone} label={job.status} />
+                      </td>
 
-                    {/* Status */}
-                    <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                      <span style={{
-                        ...getStatusBadgeStyle(job.status),
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 8px',
-                        borderRadius: '999px',
-                        fontSize: '0.7rem',
-                        fontWeight: '800'
-                      }}>
-                        {job.status}
-                      </span>
-                    </td>
+                      {/* Estimated Total (Ink) */}
+                      <td style={{ padding: '8px 8px', fontSize: '0.84rem', fontWeight: '500', color: textPrimary, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                        SAR {safeFormatAmount(total)}
+                      </td>
 
-                    {/* Estimated Total */}
-                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '700', color: textPrimary, whiteSpace: 'nowrap' }}>
-                      SAR {safeFormatAmount(total)}
-                    </td>
+                      {/* Customer Paid (Ink, remove blue) */}
+                      <td style={{ padding: '8px 8px', fontSize: '0.84rem', fontWeight: '500', color: textPrimary, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                        SAR {safeFormatAmount(paid)}
+                      </td>
 
-                    {/* Customer Paid */}
-                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '700', color: isDarkMode ? '#60a5fa' : '#2563eb', whiteSpace: 'nowrap' }}>
-                      SAR {safeFormatAmount(paid)}
-                    </td>
-
-                    {/* Due Amount (Customer Owed) */}
-                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '800', color: hasDue ? (isDarkMode ? '#f87171' : '#dc2626') : '#10b981', whiteSpace: 'nowrap' }}>
-                      {hasDue ? `SAR ${safeFormatAmount(due)}` : 'SAR 0.00 (Settled)'}
-                    </td>
-
-                    {/* Created Date */}
-                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.78rem', color: textMuted, whiteSpace: 'nowrap' }}>
-                      {job.created_at ? job.created_at.split('T')[0] : '—'}
-                    </td>
-
-                    {/* Actions */}
-                    <td style={{ padding: '0.85rem 1.25rem 0.85rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.45rem', whiteSpace: 'nowrap' }}>
-                        {hasDue && (
-                          <button
-                            type="button"
-                            title="Receive Payment from Customer"
-                            onClick={() => onReceivePayment ? onReceivePayment(job) : handleOpenReceivePaymentModal(job)}
-                            style={{
-                              background: isDarkMode ? '#1e293b' : '#eff6ff',
-                              border: `1px solid ${isDarkMode ? '#3b82f6' : '#bfdbfe'}`,
-                              borderRadius: '8px',
-                              padding: '0.35rem 0.65rem',
-                              color: isDarkMode ? '#60a5fa' : '#2563eb',
-                              fontSize: '0.74rem',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <CreditCard size={12} strokeWidth={2.5} /> Receive Payment
-                          </button>
+                      {/* Due Amount (Customer Owed) */}
+                      <td style={{ padding: '8px 8px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        {hasDue ? (
+                          <span style={{ fontSize: '0.84rem', fontWeight: '500', color: 'var(--dot-danger, #E5482E)' }}>
+                            SAR {safeFormatAmount(due)}
+                          </span>
+                        ) : (
+                          <div className="cred-cell-2l">
+                            <span className="cred-cell-2l__primary" style={{ fontSize: '0.84rem', fontWeight: '500' }}>
+                              SAR 0.00
+                            </span>
+                            <span className="cred-cell-2l__secondary">
+                              settled
+                            </span>
+                          </div>
                         )}
-                        <button
-                          type="button"
-                          title="Edit Job Order"
-                          onClick={() => handleOpenEditModal(job)}
-                          style={{
-                            background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                            border: `1px solid ${borderColor}`,
-                            borderRadius: '8px',
-                            padding: '0.4rem 0.55rem',
-                            color: isDarkMode ? '#9ca3af' : '#64748b',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          title="Delete Job Order"
-                          onClick={() => handleDeleteJob(job)}
-                          style={{
-                            background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-                            border: `1px solid ${borderColor}`,
-                            borderRadius: '8px',
-                            padding: '0.4rem 0.55rem',
-                            color: isDarkMode ? '#9ca3af' : '#64748b',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.15s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = '#ef4444'
-                            e.currentTarget.style.borderColor = '#fca5a5'
-                            e.currentTarget.style.background = isDarkMode ? '#2d1515' : '#fef2f2'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = isDarkMode ? '#9ca3af' : '#64748b'
-                            e.currentTarget.style.borderColor = borderColor
-                            e.currentTarget.style.background = isDarkMode ? '#1c1e22' : '#f1f5f9'
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      </td>
+
+                      {/* Created Date */}
+                      <td style={{ padding: '8px 8px', fontSize: '0.76rem', color: textMuted, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                        {job.created_at ? job.created_at.split('T')[0] : '—'}
+                      </td>
+
+                      {/* Actions ("receive payment" row text action, CredRowIconButton for edit & delete) */}
+                      <td style={{ padding: '8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
+                          {hasDue && (
+                            <button
+                              type="button"
+                              className="cred-row-link"
+                              title="Receive Payment from Customer"
+                              onClick={() => onReceivePayment ? onReceivePayment(job) : handleOpenReceivePaymentModal(job)}
+                            >
+                              receive payment
+                            </button>
+                          )}
+                          <CredRowIconButton
+                            title="Edit Job Order"
+                            ariaLabel="Edit Job Order"
+                            onClick={() => handleOpenEditModal(job)}
+                          >
+                            <Pencil size={13} />
+                          </CredRowIconButton>
+                          <CredRowIconButton
+                            tone="danger"
+                            title="Delete Job Order"
+                            ariaLabel="Delete Job Order"
+                            onClick={() => handleDeleteJob(job)}
+                          >
+                            <Trash2 size={13} />
+                          </CredRowIconButton>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      {/* PAGINATION (Directly below table/list, 16px gap, outside table card) */}
+      <CredPagination
+        page={jobOrdersPage}
+        totalPages={totalJobOrdersPages}
+        rangeStart={jobOrdersRangeStart}
+        rangeEnd={jobOrdersRangeEnd}
+        total={totalJobOrdersCount}
+        onPageChange={setJobOrdersPage}
+        isMobile={effectiveIsMobile}
+      />
 
       {/* ========================================================= */}
       {/* ADD / EDIT JOB ORDER MODAL                                */}
