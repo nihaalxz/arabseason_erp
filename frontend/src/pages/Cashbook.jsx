@@ -7693,31 +7693,9 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ display: 'flex', gap: '0.45rem' }}>
               <button
                 type="button"
-                onClick={() => handleOpenBankModal()}
-                style={{
-                  flex: 1,
-                  background: isDarkMode ? '#1e2024' : '#ffffff',
-                  color: isDarkMode ? '#ffffff' : '#0f172a',
-                  border: isDarkMode ? '1px solid #333740' : '1px solid #cbd5e1',
-                  borderRadius: '999px',
-                  padding: '0.6rem 0.8rem',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                }}
-              >
-                <Plus size={15} color={isDarkMode ? '#ffffff' : '#0f172a'} /> Add Bank Account
-              </button>
-              <button
-                type="button"
                 onClick={() => handleOpenBankTransferModal()}
                 style={{
-                  flex: 1,
+                  width: '100%',
                   background: isDarkMode ? '#ffffff' : '#0f172a',
                   color: isDarkMode ? '#0f172a' : '#ffffff',
                   border: 'none',
@@ -8132,30 +8110,7 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
 
             {/* Action Bar (Pill Button) */}
-            <div>
-              <button
-                type="button"
-                onClick={() => handleOpenPettyCashAccountModal()}
-                style={{
-                  width: '100%',
-                  background: '#ffffff',
-                  color: '#d97706',
-                  border: '1px solid #d97706',
-                  borderRadius: '999px',
-                  padding: '0.6rem',
-                  fontSize: '0.82rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                }}
-              >
-                <Plus size={16} /> Add Petty Cash Account
-              </button>
-            </div>
+
 
             {/* Petty Cash Accounts Cards List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -9173,51 +9128,6 @@ const Cashbook = ({ currentUser = null }) => {
               <span>Transfer Funds</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleOpenBankModal()}
-              style={{
-                background: isDarkMode ? '#ffffff' : '#0f172a',
-                color: isDarkMode ? '#0f172a' : '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: isMobileScreen ? '0.45rem 0.75rem' : '0.55rem 1.25rem',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                cursor: 'pointer',
-                boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Plus size={16} strokeWidth={2.8} />
-              <span>Add Bank</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleOpenPettyCashAccountModal()}
-              style={{
-                background: isDarkMode ? '#1e2024' : '#ffffff',
-                color: isDarkMode ? '#ffffff' : '#0f172a',
-                border: isDarkMode ? '1px solid #33363d' : '1px solid #0f172a',
-                borderRadius: '8px',
-                padding: isMobileScreen ? '0.45rem 0.75rem' : '0.55rem 1.25rem',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                cursor: 'pointer',
-                boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(0, 0, 0, 0.05)',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Plus size={16} strokeWidth={2.8} />
-              <span>Add Petty Cash</span>
-            </button>
           </div>
         </div>
 
@@ -10918,9 +10828,6 @@ const Cashbook = ({ currentUser = null }) => {
                               {a.name} ({safeFormatAmount(a.balance || 0)} SAR)
                             </option>
                           ))}
-                          <option value="__add_new__" style={{ fontWeight: '700' }}>
-                            + Add New Petty Cash Account...
-                          </option>
                         </select>
                       )}
                     </div>
@@ -18764,8 +18671,7 @@ const Cashbook = ({ currentUser = null }) => {
                               ...userPettyCashAccounts.map(a => ({
                                 id: String(a.id),
                                 label: `${a.name} (Bal: ${safeFormatAmount(a.balance || 0)} SAR)`
-                              })),
-                              { id: '__add_new__', label: '+ Add New Petty Cash Account...' }
+                              }))
                             ]}
                             variant="modal-field"
                             ariaLabel="Select Petty Cash Account"
@@ -19201,8 +19107,7 @@ const Cashbook = ({ currentUser = null }) => {
                               ...userPettyCashAccounts.map(a => ({
                                 id: String(a.id),
                                 label: `${a.name} (Bal: ${safeFormatAmount(a.balance || 0)} SAR)`
-                              })),
-                              { id: '__add_new__', label: '+ Add New Petty Cash Account...' }
+                              }))
                             ]}
                             variant="modal-field"
                             ariaLabel="Select Petty Cash Account"
@@ -20102,149 +20007,24 @@ const Cashbook = ({ currentUser = null }) => {
                           return null
                         })()}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {!isAddingPettyCashAccount && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingPettyCashAccount(true)
-                              setNewPettyCashAccountName('')
-                              setNewPettyCashAccountHolder('')
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: isDarkMode ? '#60a5fa' : '#2563eb',
-                              fontSize: '0.74rem',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: 0
-                            }}
-                          >
-                            <Plus size={12} strokeWidth={2.5} /> Add New Petty Cash Account
-                          </button>
-                        )}
-                      </div>
                     </div>
 
-                    {isAddingPettyCashAccount ? (
-                      <div style={{
-                        background: isDarkMode ? '#0d0e10' : '#f8fafc',
-                        border: isDarkMode ? '1px solid #232528' : '1px solid #cbd5e1',
-                        borderRadius: '10px',
-                        padding: '0.75rem',
-                        marginBottom: '0.35rem'
-                      }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: '700', color: isDarkMode ? '#ffffff' : '#334155', marginBottom: '0.5rem' }}>
-                          Add Dedicated Petty Cash Account (e.g. Nizam Petty Cash, Shuhaib Petty Cash)
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <input
-                            type="text"
-                            className="input-field"
-                            value={newPettyCashAccountName}
-                            onChange={(e) => setNewPettyCashAccountName(e.target.value)}
-                            style={{ flex: 1, minWidth: '160px', height: '42px', minHeight: '42px', borderRadius: '10px', boxSizing: 'border-box' }}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                handleCreatePettyCashAccountInline()
-                              } else if (e.key === 'Escape') {
-                                setIsAddingPettyCashAccount(false)
-                                setNewPettyCashAccountName('')
-                                setNewPettyCashAccountHolder('')
-                              }
-                            }}
-                          />
-                          <input
-                            type="text"
-                            className="input-field"
-                            value={newPettyCashAccountHolder}
-                            onChange={(e) => setNewPettyCashAccountHolder(e.target.value)}
-                            style={{ flex: 1, minWidth: '140px', height: '42px', minHeight: '42px', borderRadius: '10px', boxSizing: 'border-box' }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                handleCreatePettyCashAccountInline()
-                              } else if (e.key === 'Escape') {
-                                setIsAddingPettyCashAccount(false)
-                                setNewPettyCashAccountName('')
-                                setNewPettyCashAccountHolder('')
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={handleCreatePettyCashAccountInline}
-                            disabled={savingPettyCashAccount || !newPettyCashAccountName.trim()}
-                            style={{
-                              background: isDarkMode ? '#ffffff' : '#0f172a',
-                              color: isDarkMode ? '#0f172a' : '#ffffff',
-                              border: 'none',
-                              borderRadius: '10px',
-                              padding: '0 0.9rem',
-                              fontSize: '0.8rem',
-                              fontWeight: '700',
-                              cursor: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 'pointer' : 'not-allowed',
-                              opacity: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 1 : 0.6,
-                              whiteSpace: 'nowrap',
-                              height: '42px'
-                            }}
-                          >
-                            {savingPettyCashAccount ? 'Saving...' : 'Save & Select'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingPettyCashAccount(false)
-                              setNewPettyCashAccountName('')
-                              setNewPettyCashAccountHolder('')
-                            }}
-                            style={{
-                              background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                              color: isDarkMode ? '#cbd5e1' : '#475569',
-                              border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
-                              borderRadius: '10px',
-                              padding: '0 0.75rem',
-                              fontSize: '0.8rem',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              height: '42px'
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <CashbookSelect
-                        value={selectedPettyCashAccountId || ''}
-                        onChange={(val) => {
-                          if (val === '__add_new__') {
-                            setIsAddingPettyCashAccount(true)
-                            setNewPettyCashAccountName('')
-                            setNewPettyCashAccountHolder('')
-                          } else {
-                            setSelectedPettyCashAccountId(val)
-                          }
-                        }}
-                        options={[
-                          { id: '', label: '-- Select Petty Cash Account / Person --' },
-                          ...userPettyCashAccounts.map(a => ({
-                            id: String(a.id),
-                            label: a.name
-                          })),
-                          { id: '__add_new__', label: '+ Add New Petty Cash Account...' }
-                        ]}
-                        variant="modal-field"
-                        ariaLabel="Select Petty Cash Account"
-                        isDark={isDarkMode}
-                      />
-                    )}
+                    <CashbookSelect
+                      value={selectedPettyCashAccountId || ''}
+                      onChange={(val) => {
+                        setSelectedPettyCashAccountId(val)
+                      }}
+                      options={[
+                        { id: '', label: '-- Select Petty Cash Account / Person --' },
+                        ...userPettyCashAccounts.map(a => ({
+                          id: String(a.id),
+                          label: a.name
+                        }))
+                      ]}
+                      variant="modal-field"
+                      ariaLabel="Select Petty Cash Account"
+                      isDark={isDarkMode}
+                    />
                   </div>
                 )}
 

@@ -244,53 +244,6 @@ const CredAccountsView = ({
             <span>Transfer Funds</span>
           </button>
 
-          {/* Add Bank Button */}
-          <button
-            type="button"
-            onClick={onAddBank}
-            style={{
-              background: isDarkMode ? '#ffffff' : '#0f172a',
-              color: isDarkMode ? '#0f172a' : '#ffffff',
-              border: 'none',
-              borderRadius: '999px',
-              padding: isMobile ? '0.45rem 0.85rem' : '0.55rem 1.15rem',
-              fontSize: '0.825rem',
-              fontWeight: '700',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.12)',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <Plus size={15} strokeWidth={2.6} />
-            <span>Add Bank</span>
-          </button>
-
-          {/* Add Petty Cash Button */}
-          <button
-            type="button"
-            onClick={onAddPettyCash}
-            style={{
-              background: isDarkMode ? '#1e2024' : '#ffffff',
-              color: textPrimary,
-              border: `1px solid ${borderColor}`,
-              borderRadius: '999px',
-              padding: isMobile ? '0.45rem 0.85rem' : '0.55rem 1.15rem',
-              fontSize: '0.825rem',
-              fontWeight: '700',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.03)',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <Plus size={15} strokeWidth={2.6} />
-            <span>Add Petty Cash</span>
-          </button>
         </div>
       </div>
 

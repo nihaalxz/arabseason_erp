@@ -5,12 +5,13 @@ import { useWorkspace } from '../contexts/WorkspaceContext'
 import { 
   Settings as SettingsIcon, Shield, Globe, Save, LogOut, Info, 
   AlertCircle, CheckCircle, User, Sliders, Check, 
-  RotateCcw, Eye, EyeOff, Layers, Briefcase, CheckCircle2
+  RotateCcw, Eye, EyeOff, Layers, Briefcase, CheckCircle2, Landmark
 } from '../components/icons'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm } from '../utils/swal'
 import FormFieldsManager from '../components/settings/FormFieldsManager'
+import ManageBanksPettyCash from '../components/settings/ManageBanksPettyCash'
 
 const Settings = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -52,6 +53,7 @@ const Settings = () => {
     { id: 'workspace', name: 'Workspace & Modules', icon: Sliders },
     { id: 'form-fields', name: 'Form Fields', icon: Layers },
     { id: 'profile', name: 'My Profile', icon: User },
+    { id: 'manage-banks-cash', name: 'Manage Banks and Petty Cash', icon: Landmark },
     { id: 'security', name: 'Security', icon: Shield },
     { id: 'localization', name: 'Localization', icon: Globe },
     { id: 'system', name: 'System Info', icon: Info },
@@ -176,20 +178,22 @@ const Settings = () => {
           <h2>Site Settings & Configuration</h2>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {activeTab === 'workspace' ? (
-            <span style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              fontSize: '0.8rem', 
-              color: 'var(--success, #10b981)',
-              background: '#ecfdf5',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontWeight: '600'
-            }}>
-              <CheckCircle2 size={16} /> Saved Instantly
-            </span>
+          {['workspace', 'manage-banks-cash', 'form-fields', 'system'].includes(activeTab) ? (
+            activeTab === 'workspace' ? (
+              <span style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                fontSize: '0.8rem', 
+                color: 'var(--success, #10b981)',
+                background: '#ecfdf5',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontWeight: '600'
+              }}>
+                <CheckCircle2 size={16} /> Saved Instantly
+              </span>
+            ) : null
           ) : (
             <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
               <Save size={18} /> {saving ? 'Saving...' : 'Save Changes'}
@@ -488,7 +492,57 @@ const Settings = () => {
                    <input type="text" className="input-field" value="Super Administrator" disabled />
                  </div>
               </div>
+
+              {/* Quick access to Manage Banks & Petty Cash */}
+              <div style={{
+                marginTop: '2rem',
+                padding: '1.25rem',
+                background: 'var(--card-bg, #f8fafc)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'var(--primary-light, #eff6ff)',
+                    color: 'var(--primary, #1366d9)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <Landmark size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                      Manage Banks & Petty Cash
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      Configure company bank accounts, IBANs, and petty cash custody accounts.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setActiveTab('manage-banks-cash')}
+                  style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
+                >
+                  Manage Accounts &rarr;
+                </button>
+              </div>
             </div>
+          )}
+
+          {activeTab === 'manage-banks-cash' && (
+            <ManageBanksPettyCash />
           )}
 
 
