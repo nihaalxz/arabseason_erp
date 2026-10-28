@@ -219,32 +219,33 @@ const CredAccountsView = ({
           Accounts
         </h1>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
-          {/* Transfer Funds Button */}
-          <button
-            type="button"
-            onClick={onOpenTransfer}
-            style={{
-              background: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '999px',
-              padding: isMobile ? '0.45rem 0.85rem' : '0.55rem 1.15rem',
-              fontSize: '0.825rem',
-              fontWeight: '700',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? '0 2px 10px rgba(37, 99, 235, 0.35)' : '0 2px 8px rgba(37, 99, 235, 0.2)',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <ArrowLeftRight size={15} strokeWidth={2.4} />
-            <span>Transfer Funds</span>
-          </button>
-
-        </div>
+        {/* Transfer Funds Button - Desktop only; mobile already has it in the floating plus button */}
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={onOpenTransfer}
+              style={{
+                background: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '0.55rem 1.15rem',
+                fontSize: '0.825rem',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                cursor: 'pointer',
+                boxShadow: isDarkMode ? '0 2px 10px rgba(37, 99, 235, 0.35)' : '0 2px 8px rgba(37, 99, 235, 0.2)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ArrowLeftRight size={15} strokeWidth={2.4} />
+              <span>Transfer Funds</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 3. TOOLBAR: BANKS/PETTY TABS (CRED ANIMATED) + GOOEY ACCOUNT SELECTOR ── */}
@@ -631,36 +632,6 @@ const CredAccountsView = ({
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '20px', flexWrap: 'wrap' }}>
-            {activeAccObj?.id && (
-              <>
-                <button
-                  type="button"
-                  className="cred-quiet-btn"
-                  onClick={() => {
-                    if (isBankType) onEditBank?.(activeAccObj);
-                    else onEditPettyCash?.(activeAccObj);
-                  }}
-                  title={`Edit ${activeAccName}`}
-                >
-                  <Pencil size={16} />
-                  <span>edit account</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="cred-quiet-btn cred-quiet-btn--danger"
-                  onClick={() => {
-                    if (isBankType) onDeleteBank?.(activeAccObj.id, activeAccName);
-                    else onDeletePettyCash?.(activeAccObj.id, activeAccName);
-                  }}
-                  title={`Delete ${activeAccName}`}
-                >
-                  <Trash2 size={16} />
-                  <span>delete {isBankType ? 'bank' : 'petty cash'}</span>
-                </button>
-              </>
-            )}
-
             <button
               type="button"
               className="cred-quiet-btn"

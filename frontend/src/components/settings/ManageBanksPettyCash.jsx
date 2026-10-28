@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Check,
   BuildingLibrary,
-  Copy
+  Copy,
+  User
 } from '../icons'
 import { showConfirm, showToast, showError, showSuccess } from '../../utils/swal'
 
@@ -21,6 +22,7 @@ const ManageBanksPettyCash = () => {
   const [subTab, setSubTab] = useState('banks') // 'banks' | 'petty_cash'
   const [banks, setBanks] = useState([])
   const [pettyCashAccounts, setPettyCashAccounts] = useState([])
+  const [staffUsers, setStaffUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -48,6 +50,7 @@ const ManageBanksPettyCash = () => {
   const [pettyForm, setPettyForm] = useState({
     name: '',
     holder_name: '',
+    linked_user: '',
     balance: '0.00',
     currency: 'SAR',
     status: 'Active',
@@ -61,12 +64,52 @@ const ManageBanksPettyCash = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [banksRes, pettyRes] = await Promise.all([
-        api.get('banks/'),
-        api.get('petty-cash-accounts/')
+      const [banksRes, pettyRes, usersRes] = await Promise.allSettled([
+        api.get('banks/?nopage=true'),
+        api.get('petty-cash-accounts/?nopage=true'),
+        api.get('timesheets/staff-users/')
       ])
-      setBanks(banksRes.data || [])
-      setPettyCashAccounts(pettyRes.data || [])
+
+      if (banksRes.status === 'fulfilled') {
+        const bData = Array.isArray(banksRes.value?.data)
+          ? banksRes.value.data
+          : (Array.isArray(banksRes.value?.data?.results) ? banksRes.value.data.results : [])
+        setBanks(bData)
+      }
+
+      if (pettyRes.status === 'fulfilled') {
+        const pData = Array.isArray(pettyRes.value?.data)
+          ? pettyRes.value.data
+          : (Array.isArray(pettyRes.value?.data?.results) ? pettyRes.value.data.results : [])
+        setPettyCashAccounts(pData)
+      }
+
+      // Populate staff users
+      let usersList = []
+      if (usersRes.status === 'fulfilled') {
+        const uData = usersRes.value?.data?.results || usersRes.value?.data || []
+        if (Array.isArray(uData) && uData.length > 0) {
+          usersList = uData
+        }
+      }
+
+      if (usersList.length === 0) {
+        try {
+          const fallbackRes = await api.get('accounts/users/?nopage=true')
+          const fData = fallbackRes.data?.results || fallbackRes.data || []
+          if (Array.isArray(fData)) {
+            usersList = fData.map(u => ({
+              id: u.id,
+              username: u.username,
+              full_name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username,
+              email: u.email
+            }))
+          }
+        } catch (e) {
+          // ignore fallback error
+        }
+      }
+      setStaffUsers(usersList)
     } catch (err) {
       console.error('Failed to load banking data:', err)
       showError('Could not load bank and petty cash accounts.')
@@ -78,8 +121,14 @@ const ManageBanksPettyCash = () => {
   // Copy helper
   const handleCopy = (text, label) => {
     if (!text) return
-    navigator.clipboard.writeText(text)
-    showToast(`${label} copied to clipboard!`, 'info')
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text)
+        showToast(`${label} copied to clipboard!`, 'info')
+      }
+    } catch (e) {
+      console.warn('Clipboard write error:', e)
+    }
   }
 
   // Open Bank Modal
@@ -188,6 +237,7 @@ const ManageBanksPettyCash = () => {
       setPettyForm({
         name: account.name || '',
         holder_name: account.holder_name || '',
+        linked_user: account.owner || account.linked_user ? String(account.owner || account.linked_user) : '',
         balance: account.balance !== undefined && account.balance !== null ? String(account.balance) : '0.00',
         currency: account.currency || 'SAR',
         status: account.status || 'Active',
@@ -198,6 +248,7 @@ const ManageBanksPettyCash = () => {
       setPettyForm({
         name: '',
         holder_name: '',
+        linked_user: '',
         balance: '0.00',
         currency: 'SAR',
         status: 'Active',
@@ -217,9 +268,12 @@ const ManageBanksPettyCash = () => {
 
     try {
       setSubmitting(true)
+      const linkedUserId = pettyForm.linked_user ? parseInt(pettyForm.linked_user) : null
       const payload = {
         name: pettyForm.name.trim(),
-        holder_name: pettyForm.holder_name.trim(),
+        holder_name: pettyForm.holder_name.trim() || pettyForm.name.trim(),
+        owner: linkedUserId,
+        linked_user: linkedUserId,
         balance: parseFloat(pettyForm.balance) || 0,
         currency: pettyForm.currency || 'SAR',
         status: pettyForm.status,
@@ -267,10 +321,14 @@ const ManageBanksPettyCash = () => {
     }
   }
 
+  // Safe array guards
+  const safeBanks = Array.isArray(banks) ? banks : (Array.isArray(banks?.results) ? banks.results : [])
+  const safePetty = Array.isArray(pettyCashAccounts) ? pettyCashAccounts : (Array.isArray(pettyCashAccounts?.results) ? pettyCashAccounts.results : [])
+
   // Filtered Lists
-  const filteredBanks = banks.filter((b) => {
+  const filteredBanks = safeBanks.filter((b) => {
     const matchesStatus = statusFilter === 'All' || b.status?.toLowerCase() === statusFilter.toLowerCase()
-    const q = searchQuery.toLowerCase()
+    const q = searchQuery.trim().toLowerCase()
     const matchesSearch =
       !q ||
       b.bank_name?.toLowerCase().includes(q) ||
@@ -281,19 +339,21 @@ const ManageBanksPettyCash = () => {
     return matchesStatus && matchesSearch
   })
 
-  const filteredPetty = pettyCashAccounts.filter((p) => {
+  const filteredPetty = safePetty.filter((p) => {
     const matchesStatus = statusFilter === 'All' || p.status?.toLowerCase() === statusFilter.toLowerCase()
-    const q = searchQuery.toLowerCase()
+    const q = searchQuery.trim().toLowerCase()
     const matchesSearch =
       !q ||
       p.name?.toLowerCase().includes(q) ||
       p.holder_name?.toLowerCase().includes(q) ||
+      p.owner_name?.toLowerCase().includes(q) ||
+      p.linked_user_name?.toLowerCase().includes(q) ||
       p.notes?.toLowerCase().includes(q)
     return matchesStatus && matchesSearch
   })
 
-  const totalBankBalance = banks.reduce((sum, b) => sum + (parseFloat(b.balance) || 0), 0)
-  const totalPettyBalance = pettyCashAccounts.reduce((sum, p) => sum + (parseFloat(p.balance) || 0), 0)
+  const totalBankBalance = safeBanks.reduce((sum, b) => sum + (parseFloat(b.balance) || 0), 0)
+  const totalPettyBalance = safePetty.reduce((sum, p) => sum + (parseFloat(p.balance) || 0), 0)
 
   return (
     <div style={{ maxWidth: '1200px', width: '100%' }}>
@@ -367,7 +427,7 @@ const ManageBanksPettyCash = () => {
             {totalBankBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>SAR</span>
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            {banks.filter(b => b.status === 'Active').length} of {banks.length} banks active
+            {safeBanks.filter(b => b.status === 'Active').length} of {safeBanks.length} banks active
           </div>
         </div>
 
@@ -384,7 +444,7 @@ const ManageBanksPettyCash = () => {
             {totalPettyBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>SAR</span>
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            {pettyCashAccounts.filter(p => p.status === 'Active').length} of {pettyCashAccounts.length} custody accounts active
+            {safePetty.filter(p => p.status === 'Active').length} of {safePetty.length} custody accounts active
           </div>
         </div>
       </div>
@@ -420,7 +480,7 @@ const ManageBanksPettyCash = () => {
             }}
           >
             <Landmark size={16} />
-            Bank Accounts ({banks.length})
+            Bank Accounts ({safeBanks.length})
           </button>
           <button
             type="button"
@@ -441,7 +501,7 @@ const ManageBanksPettyCash = () => {
             }}
           >
             <Wallet size={16} />
-            Petty Cash Accounts ({pettyCashAccounts.length})
+            Petty Cash Accounts ({safePetty.length})
           </button>
         </div>
 
@@ -662,7 +722,13 @@ const ManageBanksPettyCash = () => {
                       </td>
 
                       <td style={{ padding: '0.9rem 1rem', color: 'var(--text-main)', fontWeight: '600' }}>
-                        {account.holder_name || account.owner_name || '—'}
+                        <div>{account.holder_name || account.owner_name || '—'}</div>
+                        {(account.owner_name || account.linked_user_name) && (
+                          <div style={{ fontSize: '0.73rem', color: 'var(--primary, #1366d9)', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '3px', background: 'rgba(19, 102, 217, 0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                            <User size={12} />
+                            <span>Linked: {account.owner_name || account.linked_user_name}</span>
+                          </div>
+                        )}
                       </td>
 
                       <td style={{ padding: '0.9rem 1rem', color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '300px' }}>
@@ -880,6 +946,37 @@ const ManageBanksPettyCash = () => {
               required
               autoFocus
             />
+          </div>
+
+          {/* Link to User (System Login) */}
+          <div className="form-group">
+            <label style={{ fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Link to User (System Login)</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                Auto-selects & filters when this user logs in
+              </span>
+            </label>
+            <select
+              className="input-field"
+              value={pettyForm.linked_user || ''}
+              onChange={(e) => {
+                const val = e.target.value
+                const foundUser = staffUsers.find(u => String(u.id) === String(val))
+                setPettyForm(prev => ({
+                  ...prev,
+                  linked_user: val,
+                  holder_name: prev.holder_name || (foundUser ? (foundUser.full_name || foundUser.username) : '')
+                }))
+              }}
+              style={{ width: '100%' }}
+            >
+              <option value="">-- No Linked User (Unrestricted) --</option>
+              {staffUsers.map(u => (
+                <option key={u.id} value={String(u.id)}>
+                  {u.full_name || u.username} ({u.username})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="form-group">

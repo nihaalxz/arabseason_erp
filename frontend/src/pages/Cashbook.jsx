@@ -9102,33 +9102,34 @@ const Cashbook = ({ currentUser = null }) => {
             </h1>
           </div>
 
-          {/* Action Buttons in Command Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => handleOpenTransferModal('petty_to_bank')}
-              style={{
-                background: '#2563eb',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: isMobileScreen ? '0.45rem 0.75rem' : '0.55rem 1.25rem',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                cursor: 'pointer',
-                boxShadow: isDarkMode ? '0 2px 8px rgba(37, 99, 235, 0.3)' : '0 2px 8px rgba(37, 99, 235, 0.2)',
-                transition: 'all 0.15s ease'
-              }}
-              title="Transfer funds between Petty Cash and Bank Accounts"
-            >
-              <ArrowLeftRight size={16} strokeWidth={2.4} />
-              <span>Transfer Funds</span>
-            </button>
-
-          </div>
+          {/* Action Buttons in Command Bar (Desktop only, mobile has it in floating plus button) */}
+          {!isMobileScreen && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => handleOpenTransferModal('petty_to_bank')}
+                style={{
+                  background: '#2563eb',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.55rem 1.25rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  cursor: 'pointer',
+                  boxShadow: isDarkMode ? '0 2px 8px rgba(37, 99, 235, 0.3)' : '0 2px 8px rgba(37, 99, 235, 0.2)',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Transfer funds between Petty Cash and Bank Accounts"
+              >
+                <ArrowLeftRight size={16} strokeWidth={2.4} />
+                <span>Transfer Funds</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── 2. CONSOLIDATED TOOLBAR (CATEGORY TOGGLE & ACCOUNT DROPDOWN SELECTOR) ── */}
