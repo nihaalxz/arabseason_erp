@@ -13,7 +13,9 @@ import {
   Phone, 
   Mail,
   RefreshCw,
-  ArrowLeft 
+  ArrowLeft,
+  User,
+  Filter 
 } from 'lucide-react';
 import MoneyCard from '../MoneyCard';
 import CredCardCarousel from '../CredCardCarousel';
@@ -25,6 +27,7 @@ import CredRowIconButton from '../CredRowIconButton';
 import { fadeFast } from '../motionTokens';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
+import CredDropdownSelect from '../CredDropdownSelect';
 
 const getAmountFontSize = (val) => {
   const abs = Math.abs(parseFloat(val) || 0);
@@ -45,6 +48,7 @@ const CredCustomersView = ({
 }) => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('all');
 
   // Strictly deduplicate customers by ID
   const deduplicatedCustomers = useMemo(() => {
@@ -107,9 +111,56 @@ const CredCustomersView = ({
     };
   }, [deduplicatedCustomers]);
 
+  // Customer dropdown filter options
+  const customerDropdownOptions = useMemo(() => {
+    const list = [
+      {
+        id: 'all',
+        value: 'all',
+        label: 'All Customers',
+        sub: `${metrics.totalCustomersCount} registered`,
+        icon: Users
+      }
+    ];
+
+    // Alphabetically sort customers
+    const sorted = [...deduplicatedCustomers].sort((a, b) => 
+      (a.name || a.company_name || '').localeCompare(b.name || b.company_name || '')
+    );
+
+    sorted.forEach(c => {
+      const initial = (c.name || c.company_name || 'C').charAt(0).toUpperCase();
+      const billed = parseFloat(c.total_billed) || 0;
+      const paid = parseFloat(c.paid_amount) || 0;
+      const due = Math.max(0, billed - paid);
+
+      let subText = c.company_name || c.phone || 'Customer';
+      if (due > 0.01) {
+        subText += ` · Due: SAR ${due.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+      }
+
+      list.push({
+        id: String(c.id),
+        value: String(c.id),
+        label: c.name || 'Unnamed Client',
+        sub: subText,
+        avatarText: initial,
+        icon: User
+      });
+    });
+
+    return list;
+  }, [deduplicatedCustomers, metrics.totalCustomersCount]);
+
   // Filtered customer records
   const filteredCustomers = useMemo(() => {
     return deduplicatedCustomers.filter(c => {
+      // 1. Customer dropdown filter
+      if (selectedCustomerId && selectedCustomerId !== 'all') {
+        if (String(c.id) !== String(selectedCustomerId)) return false;
+      }
+
+      // 2. Status tab filter
       const billed = parseFloat(c.total_billed) || 0;
       const paid = parseFloat(c.paid_amount) || 0;
       const due = billed - paid;
@@ -119,6 +170,7 @@ const CredCustomersView = ({
       if (activeFilter === 'Payables Owed' && payable <= 0.01) return false;
       if (activeFilter === 'Settled' && (due > 0.01 || payable > 0.01 || (billed <= 0 && payable <= 0))) return false;
 
+      // 3. Text search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const name = (c.name || '').toLowerCase();
@@ -130,10 +182,10 @@ const CredCustomersView = ({
       }
       return true;
     });
-  }, [deduplicatedCustomers, activeFilter, searchQuery]);
+  }, [deduplicatedCustomers, selectedCustomerId, activeFilter, searchQuery]);
 
   // Pagination for customers
-  const customerResetKey = `${activeFilter}_${searchQuery}`;
+  const customerResetKey = `${selectedCustomerId}_${activeFilter}_${searchQuery}`;
   const {
     pageItems: pagedCustomers,
     page: customerPage,
@@ -363,8 +415,8 @@ const CredCustomersView = ({
         }}
       >
         {isMobile ? (
-          /* Mobile: GooeyMenu liquid dropdown bar */
-          <div style={{ position: 'relative', zIndex: 40, overflow: 'visible', width: '100%' }}>
+          /* Mobile: Status Dropdown + Customer Dropdown */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', position: 'relative', zIndex: 40 }}>
             <GooeyMenu
               id="cred-customer-filter-dropdown"
               value={activeFilter}
@@ -372,17 +424,34 @@ const CredCustomersView = ({
               options={filterTabs.map(t => ({ value: t.id, label: `${t.label} (${t.count})` }))}
               width="100%"
               pillHeight={40}
-              ariaLabel="Filter customers"
+              ariaLabel="Filter customer status"
+            />
+            <CredDropdownSelect
+              id="cred-customer-dropdown-filter-mobile"
+              value={selectedCustomerId}
+              onChange={(newVal) => setSelectedCustomerId(newVal)}
+              options={customerDropdownOptions}
+              searchable={true}
+              searchPlaceholder="Search customer name..."
+              clearable={true}
+              placeholder="All Customers"
+              ariaLabel="Filter by customer"
+              isDarkMode={isDarkMode}
+              style={{ width: '100%' }}
+              triggerStyle={{ width: '100%', justifyContent: 'space-between' }}
             />
           </div>
         ) : (
-          /* Desktop: Animated Segmented Filter Tabs */
+          /* Desktop: Animated Segmented Filter Tabs + Customer Dropdown */
           <div 
             style={{ 
               overflow: 'visible',
               display: 'flex',
               alignItems: 'center',
-              flexShrink: 0
+              gap: '12px',
+              flexWrap: 'wrap',
+              flex: 1,
+              minWidth: 0
             }}
           >
             <CredAnimatedTabs
@@ -392,6 +461,21 @@ const CredCustomersView = ({
               className="case-preserve"
               layoutId="cred-customer-tabs-pill"
             />
+
+            {/* Customer Dropdown Filter */}
+            <CredDropdownSelect
+              id="cred-customer-dropdown-filter"
+              value={selectedCustomerId}
+              onChange={(newVal) => setSelectedCustomerId(newVal)}
+              options={customerDropdownOptions}
+              searchable={true}
+              searchPlaceholder="Search customer name..."
+              clearable={true}
+              placeholder="All Customers"
+              ariaLabel="Filter by customer"
+              isDarkMode={isDarkMode}
+              style={{ minWidth: '220px', maxWidth: '320px' }}
+            />
           </div>
         )}
 
@@ -399,7 +483,8 @@ const CredCustomersView = ({
         <div 
           style={{
             position: 'relative',
-            width: isMobile ? '100%' : '280px'
+            width: isMobile ? '100%' : '260px',
+            flexShrink: 0
           }}
         >
           <Search 
@@ -456,6 +541,41 @@ const CredCustomersView = ({
           )}
         </div>
       </div>
+
+      {/* Active customer filter pill indicator */}
+      {selectedCustomerId && selectedCustomerId !== 'all' && (
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+          border: isDarkMode ? '1px solid #1e3a8a' : '1px solid #bfdbfe',
+          borderRadius: '999px',
+          padding: '4px 12px',
+          fontSize: '12px',
+          fontWeight: 600,
+          color: isDarkMode ? '#93c5fd' : '#1d4ed8',
+          marginBottom: '14px'
+        }}>
+          <span>Filtered by: <b>{customerDropdownOptions.find(o => String(o.id) === String(selectedCustomerId))?.label}</b></span>
+          <button
+            type="button"
+            onClick={() => setSelectedCustomerId('all')}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'inherit',
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center'
+            }}
+            title="Clear filter (Show all customers)"
+          >
+            <X size={13} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
 
       {/* TABLE / CONTENT SECTION */}
       {isLoading ? (
