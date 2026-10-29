@@ -13,7 +13,10 @@ import {
   Trash2, 
   FileText,
   Settings,
-  ArrowRight
+  ArrowRight,
+  LineChart,
+  TrendingUp,
+  BarChart3
 } from 'lucide-react';
 
 const CredMoreView = ({
@@ -33,14 +36,30 @@ const CredMoreView = ({
     'vendor dues'
   ];
 
-  const menuItems = [
+  // 1. General Menu Section
+  const menuSectionItems = [
     { id: 'expenses', label: 'expenses', icon: Receipt, count: counts.expenses || 0 },
-    { id: 'customers', label: 'customers', icon: Users, count: counts.customers || 0 },
-    { id: 'vendors', label: 'vendors', icon: Building2, count: counts.vendors || 0 },
-    { id: 'labour', label: 'labour', icon: HardHat, count: counts.labour || 0 },
     { id: 'job_orders', label: 'job orders', icon: Briefcase, count: counts.jobOrders || 0 },
     { id: 'bank_accounts', label: 'accounts', icon: Landmark, count: counts.accounts || 0 },
     { id: 'recycle_bin', label: 'recycle bin', icon: Trash2, count: counts.recycleBin || 0 },
+  ];
+
+  // 2. Customer Section
+  const customerSectionItems = [
+    { id: 'customers', label: 'customers', icon: Users, count: counts.customers || 0 },
+    { id: 'customer_chart', label: 'customer chart', icon: LineChart },
+  ];
+
+  // 3. Vendors Section
+  const vendorSectionItems = [
+    { id: 'vendors', label: 'vendors', icon: Building2, count: counts.vendors || 0 },
+    { id: 'vendor_price_chart', label: 'vendor chart', icon: TrendingUp },
+  ];
+
+  // 4. Labour Section
+  const labourSectionItems = [
+    { id: 'labour', label: 'labourers', icon: HardHat, count: counts.labour || 0 },
+    { id: 'labour_chart', label: 'labour chart', icon: BarChart3 },
   ];
 
   const handleSearchSubmit = (e) => {
@@ -48,35 +67,51 @@ const CredMoreView = ({
     if (onSearch) onSearch(searchTerm);
   };
 
+  const renderSectionGrid = (items) => (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)',
+        gap: isMobile ? '16px 8px' : '20px 14px',
+        padding: isMobile ? '8px 0 20px' : '10px 0 24px'
+      }}
+    >
+      {items.map(item => (
+        <IconTile
+          key={item.id}
+          icon={item.icon}
+          label={item.label}
+          count={item.count}
+          onClick={() => onNavigateTab && onNavigateTab(item.id)}
+        />
+      ))}
+    </div>
+  );
+
   if (isMobile) {
     return (
-      <div className="cred-more-page cred-more-mobile" style={{ paddingTop: '10px' }}>
-        {/* MENU GRID OF ICON TILES WITH COUNT BADGES */}
+      <div className="cred-more-page cred-more-mobile" style={{ paddingTop: '10px', paddingBottom: '80px' }}>
+        {/* SECTION 1: MENU */}
         <SectionLabel label="MENU" />
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '24px 12px',
-            padding: '12px 0 32px'
-          }}
-        >
-          {menuItems.map(item => (
-            <IconTile
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              count={item.count}
-              onClick={() => onNavigateTab && onNavigateTab(item.id)}
-            />
-          ))}
-        </div>
+        {renderSectionGrid(menuSectionItems)}
+
+        {/* SECTION 2: CUSTOMER */}
+        <SectionLabel label="CUSTOMER" />
+        {renderSectionGrid(customerSectionItems)}
+
+        {/* SECTION 3: VENDORS */}
+        <SectionLabel label="VENDORS" />
+        {renderSectionGrid(vendorSectionItems)}
+
+        {/* SECTION 4: LABOUR */}
+        <SectionLabel label="LABOUR" />
+        {renderSectionGrid(labourSectionItems)}
       </div>
     );
   }
 
   return (
-    <div className="cred-more-page">
+    <div className="cred-more-page" style={{ paddingBottom: '80px' }}>
       {/* 1. LARGE ROUNDED SEARCH PILL WITH CIRCULAR ICON BUTTON BESIDE IT */}
       <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '14px 0 20px' }}>
         <div
@@ -165,26 +200,18 @@ const CredMoreView = ({
         </div>
       </div>
 
-      {/* 3. "MENU" GRID OF ICONTILES WITH COUNT BADGES */}
+      {/* 3. GROUPED SECTIONS */}
       <SectionLabel label="MENU" />
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)',
-          gap: isMobile ? '24px 12px' : '32px 20px',
-          padding: '12px 0 32px'
-        }}
-      >
-        {menuItems.map(item => (
-          <IconTile
-            key={item.id}
-            icon={item.icon}
-            label={item.label}
-            count={item.count}
-            onClick={() => onNavigateTab && onNavigateTab(item.id)}
-          />
-        ))}
-      </div>
+      {renderSectionGrid(menuSectionItems)}
+
+      <SectionLabel label="CUSTOMER" />
+      {renderSectionGrid(customerSectionItems)}
+
+      <SectionLabel label="VENDORS" />
+      {renderSectionGrid(vendorSectionItems)}
+
+      <SectionLabel label="LABOUR" />
+      {renderSectionGrid(labourSectionItems)}
     </div>
   );
 };

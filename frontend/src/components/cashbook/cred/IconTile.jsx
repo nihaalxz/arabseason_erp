@@ -6,6 +6,8 @@ const IconTile = ({
   count = null,
   hasRedDot = false,
   tag = null,
+  size = 52,
+  iconSize = 21,
   onClick,
   className = '',
   style = {}
@@ -16,8 +18,14 @@ const IconTile = ({
       onClick={onClick}
       style={style}
     >
-      <div className="cred-icon-tile">
-        <Icon size={26} strokeWidth={1.5} />
+      <div 
+        className="cred-icon-tile"
+        style={{
+          width: `${size}px`,
+          height: `${size}px`
+        }}
+      >
+        <Icon size={iconSize} strokeWidth={1.6} />
         {count !== null && count !== undefined && count > 0 && (
           <div className="cred-tile-tag">{count}</div>
         )}
@@ -25,10 +33,10 @@ const IconTile = ({
           <div 
             style={{
               position: 'absolute',
-              top: '6px',
-              right: '6px',
-              width: '8px',
-              height: '8px',
+              top: '4px',
+              right: '4px',
+              width: '7px',
+              height: '7px',
               borderRadius: '50%',
               background: 'var(--danger)',
               border: '1.5px solid var(--bg)'

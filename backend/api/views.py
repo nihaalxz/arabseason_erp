@@ -220,6 +220,16 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         queryset = JobOrder.objects.all().select_related('customer', 'vendor', 'created_by', 'assigned_to', 'assigned_by').prefetch_related('customer_payments')
         
         user = self.request.user
+
+        # Detail actions (retrieve, update, partial_update, destroy, accept_job_order, cancel_job_order, credit_summary, etc.)
+        # should not be restricted by list-scoping filters.
+        if self.action not in ['list', 'summary']:
+            if not is_admin_user(user):
+                queryset = queryset.filter(
+                    Q(created_by=user) | Q(assigned_by=user) | Q(assigned_to=user)
+                )
+            return queryset
+
         if not is_admin_user(user):
             # Staff member: sees jobs they created that have NOT been accepted yet by an admin
             queryset = queryset.filter(created_by=user).exclude(assignment_status='accepted')
@@ -838,7 +848,11 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='assign')
     def assign_to_admin(self, request, pk=None):
-        job = self.get_object()
+        try:
+            job = JobOrder.objects.select_related('customer', 'vendor', 'created_by', 'assigned_to', 'assigned_by').get(pk=pk)
+        except JobOrder.DoesNotExist:
+            return Response({'error': 'Job Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
         admin_id = request.data.get('admin_id') or request.data.get('assigned_to')
         if not admin_id:
             return Response({'error': 'admin_id is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -857,26 +871,42 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         job.save(update_fields=['assigned_to', 'assigned_by', 'original_creator_name', 'assignment_status', 'assigned_at'])
 
         # Notify the assigned Admin
-        Notification.objects.create(
-            recipient=admin_user,
-            actor=request.user,
-            notification_type='job_order_assigned',
-            title=f"Job Order Assigned: {job.order_id}",
-            message=f"{creator_name} assigned Job Order {job.order_id} ({job.title}) to you for review and acceptance.",
-            action_type='view_job_order',
-            action_data={'job_order_id': job.id, 'order_id': job.order_id}
-        )
+        try:
+            Notification.objects.create(
+                recipient=admin_user,
+                actor=request.user,
+                notification_type='job_order_assigned',
+                title=f"Job Order Assigned: {job.order_id}",
+                message=f"{creator_name} assigned Job Order {job.order_id} ({job.title}) to you for review and acceptance.",
+                action_type='view_job_order',
+                action_data={'job_order_id': job.id, 'order_id': job.order_id}
+            )
+        except Exception as notify_err:
+            logger.warning(f"Failed to create assignment notification: {notify_err}")
 
         return Response(JobOrderSerializer(job, context={'request': request}).data)
 
     @action(detail=True, methods=['post'], url_path='accept')
     def accept_job_order(self, request, pk=None):
-        job = self.get_object()
+        try:
+            job = JobOrder.objects.select_related('customer', 'vendor', 'created_by', 'assigned_to', 'assigned_by').get(pk=pk)
+        except JobOrder.DoesNotExist:
+            return Response({'error': 'Job Order not found'}, status=status.HTTP_404_NOT_FOUND)
         user = request.user
         
-        # Only the assigned admin or superuser can accept
-        if job.assigned_to and job.assigned_to != user and not is_admin_user(user):
-            return Response({'error': 'Only the assigned Administrator can accept this Job Order'}, status=status.HTTP_403_FORBIDDEN)
+        # Only administrators can accept
+        if not is_admin_user(user):
+            return Response({'error': 'Only Administrators can accept Job Orders'}, status=status.HTTP_403_FORBIDDEN)
+
+        # If already accepted and owned by this admin, return success idempotently
+        if job.assignment_status == 'accepted':
+            if job.created_by == user or job.assigned_to == user:
+                return Response(JobOrderSerializer(job, context={'request': request}).data)
+            return Response({'error': 'This Job Order has already been accepted.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # If explicitly assigned to another admin and current user is not a superuser
+        if job.assigned_to and job.assigned_to != user and not user.is_superuser:
+            return Response({'error': f"This Job Order is assigned to {job.assigned_to.username}. Only they or a superuser can accept it."}, status=status.HTTP_403_FORBIDDEN)
 
         old_staff_user = job.assigned_by or job.created_by
         creator_name = job.original_creator_name or (old_staff_user.username if old_staff_user else 'Staff')
@@ -884,9 +914,10 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
         # CRITICAL OWNERSHIP & LEDGER TRANSFER
         job.created_by = user
+        job.assigned_to = user
         job.assignment_status = 'accepted'
         job.accepted_at = timezone.now()
-        job.save(update_fields=['created_by', 'assignment_status', 'accepted_at'])
+        job.save(update_fields=['created_by', 'assigned_to', 'assignment_status', 'accepted_at'])
 
         # Re-attribute linked customer payments, expenses, and cashbook entries to this Admin
         CustomerPayment.objects.filter(job_order=job).update(created_by=user)
@@ -895,21 +926,27 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
         # Notify the original staff creator that their job was accepted
         if old_staff_user and old_staff_user != user:
-            Notification.objects.create(
-                recipient=old_staff_user,
-                actor=user,
-                notification_type='job_order_accepted',
-                title=f"Job Order Accepted: {job.order_id}",
-                message=f"Admin {admin_name} has accepted Job Order {job.order_id} ({job.title}). It is now managed by {admin_name}.",
-                action_type='view_job_order',
-                action_data={'job_order_id': job.id, 'order_id': job.order_id}
-            )
+            try:
+                Notification.objects.create(
+                    recipient=old_staff_user,
+                    actor=user,
+                    notification_type='job_order_accepted',
+                    title=f"Job Order Accepted: {job.order_id}",
+                    message=f"Admin {admin_name} has accepted Job Order {job.order_id} ({job.title}). It is now managed by {admin_name}.",
+                    action_type='view_job_order',
+                    action_data={'job_order_id': job.id, 'order_id': job.order_id}
+                )
+            except Exception as notify_err:
+                logger.warning(f"Failed to create acceptance notification: {notify_err}")
 
         return Response(JobOrderSerializer(job, context={'request': request}).data)
 
     @action(detail=True, methods=['post'], url_path='cancel-job')
     def cancel_job_order(self, request, pk=None):
-        job = self.get_object()
+        try:
+            job = JobOrder.objects.select_related('customer', 'vendor', 'created_by', 'assigned_to', 'assigned_by').get(pk=pk)
+        except JobOrder.DoesNotExist:
+            return Response({'error': 'Job Order not found'}, status=status.HTTP_404_NOT_FOUND)
         user = request.user
 
         # Ensure order_id is present
@@ -939,22 +976,28 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         # Notify the original creator / staff member
         target_recipient = job.assigned_by or (job.created_by if job.created_by != user else None)
         if target_recipient and target_recipient != user:
-            actor_name = user.get_full_name() or user.username
-            Notification.objects.create(
-                recipient=target_recipient,
-                actor=user,
-                notification_type='job_order_cancelled',
-                title=f"Job Order Cancelled: {job.order_id}",
-                message=f"Job Order {job.order_id} ({job.title}) has been marked as Cancelled by {actor_name}." + (f" Reason: {reason}" if reason else ""),
-                action_type='view_job_order',
-                action_data={'job_order_id': job.id, 'order_id': job.order_id}
-            )
+            try:
+                actor_name = user.get_full_name() or user.username
+                Notification.objects.create(
+                    recipient=target_recipient,
+                    actor=user,
+                    notification_type='job_order_cancelled',
+                    title=f"Job Order Cancelled: {job.order_id}",
+                    message=f"Job Order {job.order_id} ({job.title}) has been marked as Cancelled by {actor_name}." + (f" Reason: {reason}" if reason else ""),
+                    action_type='view_job_order',
+                    action_data={'job_order_id': job.id, 'order_id': job.order_id}
+                )
+            except Exception as notify_err:
+                logger.warning(f"Failed to create cancellation notification: {notify_err}")
 
         return Response(JobOrderSerializer(job, context={'request': request}).data)
 
     @action(detail=True, methods=['post'], url_path='restore-job')
     def restore_job_order(self, request, pk=None):
-        job = self.get_object()
+        try:
+            job = JobOrder.objects.select_related('customer', 'vendor', 'created_by', 'assigned_to', 'assigned_by').get(pk=pk)
+        except JobOrder.DoesNotExist:
+            return Response({'error': 'Job Order not found'}, status=status.HTTP_404_NOT_FOUND)
         user = request.user
         if not is_admin_user(user):
             return Response({'error': 'Only administrators can restore cancelled job orders.'}, status=status.HTTP_403_FORBIDDEN)
@@ -965,16 +1008,19 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
         target_recipient = job.assigned_by or (job.created_by if job.created_by != user else None)
         if target_recipient and target_recipient != user:
-            actor_name = user.get_full_name() or user.username
-            Notification.objects.create(
-                recipient=target_recipient,
-                actor=user,
-                notification_type='job_order_restored',
-                title=f"Job Order Restored: {job.order_id}",
-                message=f"Job Order {job.order_id} ({job.title}) has been restored to active status by {actor_name}.",
-                action_type='view_job_order',
-                action_data={'job_order_id': job.id, 'order_id': job.order_id}
-            )
+            try:
+                actor_name = user.get_full_name() or user.username
+                Notification.objects.create(
+                    recipient=target_recipient,
+                    actor=user,
+                    notification_type='job_order_restored',
+                    title=f"Job Order Restored: {job.order_id}",
+                    message=f"Job Order {job.order_id} ({job.title}) has been restored to active status by {actor_name}.",
+                    action_type='view_job_order',
+                    action_data={'job_order_id': job.id, 'order_id': job.order_id}
+                )
+            except Exception as notify_err:
+                logger.warning(f"Failed to create restore notification: {notify_err}")
 
         return Response(JobOrderSerializer(job, context={'request': request}).data)
 

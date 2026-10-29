@@ -64,6 +64,9 @@ import CredExpensesView from '../components/cashbook/cred/pages/CredExpensesView
 import CredCustomersView from '../components/cashbook/cred/pages/CredCustomersView'
 import CredVendorsView from '../components/cashbook/cred/pages/CredVendorsView'
 import CredAccountsView from '../components/cashbook/cred/pages/CredAccountsView'
+import CredCustomerChartView from '../components/cashbook/cred/pages/CredCustomerChartView'
+import CredVendorPriceChartView from '../components/cashbook/cred/pages/CredVendorPriceChartView'
+import CredLabourChartView from '../components/cashbook/cred/pages/CredLabourChartView'
 import Snackbar from '../components/cashbook/cred/Snackbar'
 
 const DURATION_CHOICES = [
@@ -12694,7 +12697,7 @@ const Cashbook = ({ currentUser = null }) => {
     if (activeTab === 'ledger' || activeTab === 'home' || activeTab === 'cash_ledger') return 'HOME'
     if (activeTab === 'books' || activeTab === 'book') return 'BOOKS'
     if (activeTab === 'bank_dashboard') return 'OVERVIEW'
-    if (['more', 'customers', 'vendors', 'labour', 'job_orders', 'bank_accounts', 'expenses', 'recycle_bin'].includes(activeTab)) return 'MORE'
+    if (['more', 'customers', 'vendors', 'labour', 'job_orders', 'bank_accounts', 'expenses', 'recycle_bin', 'customer_chart', 'vendor_price_chart', 'vendor_chart', 'labour_chart'].includes(activeTab)) return 'MORE'
     return 'HOME'
   }
 
@@ -13146,6 +13149,26 @@ const Cashbook = ({ currentUser = null }) => {
               onNavigate={(tab, params) => navigateToTab(tab, params)}
             />
           </div>
+        ) : activeTab === 'customer_chart' ? (
+          <CredCustomerChartView
+            isMobile={isMobileScreen}
+            isDarkMode={isDarkMode}
+            onBack={() => navigateToTab(isMobileScreen ? 'more' : 'customers')}
+          />
+        ) : activeTab === 'vendor_price_chart' || activeTab === 'vendor_chart' ? (
+          <CredVendorPriceChartView
+            isMobile={isMobileScreen}
+            isDarkMode={isDarkMode}
+            onBack={() => navigateToTab(isMobileScreen ? 'more' : 'vendors')}
+            onNavigate={(tab, params) => navigateToTab(tab, params)}
+          />
+        ) : activeTab === 'labour_chart' ? (
+          <CredLabourChartView
+            isMobile={isMobileScreen}
+            isDarkMode={isDarkMode}
+            onBack={() => navigateToTab(isMobileScreen ? 'more' : 'labour')}
+            onNavigate={(tab, params) => navigateToTab(tab, params)}
+          />
         ) : activeTab === 'recycle_bin' ? (
           <div style={{ padding: isMobileScreen ? '0 0 80px' : '0 0 60px' }}>
             <RecycleBin 

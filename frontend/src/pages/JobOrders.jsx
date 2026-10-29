@@ -436,7 +436,8 @@ const JobOrders = ({ embedded = false }) => {
       fetchJobSummary()
     } catch (err) {
       console.error('Failed to accept job order', err)
-      showError('Acceptance Failed', err.response?.data?.error || 'Failed to accept job order. Please try again.')
+      const errorMsg = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || 'Failed to accept job order. Please try again.'
+      showError('Acceptance Failed', errorMsg)
     } finally {
       setLoading(false)
     }
@@ -461,7 +462,8 @@ const JobOrders = ({ embedded = false }) => {
       fetchJobSummary()
     } catch (err) {
       console.error('Failed to cancel job order', err)
-      showError('Cancellation Failed', err.response?.data?.error || 'Failed to cancel job order.')
+      const errorMsg = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || 'Failed to cancel job order.'
+      showError('Cancellation Failed', errorMsg)
     } finally {
       setLoading(false)
     }
@@ -485,7 +487,8 @@ const JobOrders = ({ embedded = false }) => {
       fetchJobSummary()
     } catch (err) {
       console.error('Failed to restore job order', err)
-      showError('Restore Failed', err.response?.data?.error || 'Failed to restore job order.')
+      const errorMsg = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || 'Failed to restore job order.'
+      showError('Restore Failed', errorMsg)
     } finally {
       setLoading(false)
     }

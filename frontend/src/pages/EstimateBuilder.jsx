@@ -12,7 +12,7 @@ import Modal from '../components/common/Modal'
 import { handlePdfResponse } from '../utils/pdfDownload'
 import { showError, showToast, showWarning } from '../utils/swal'
 
-const POPULAR_UNITS = ['pcs', 'sq.m', 'm', 'set', 'pack', 'roll', 'box', 'day', 'hour']
+const POPULAR_UNITS = ['pcs', 'sq.m', 'm', 'sheet', 'roll', 'kg', 'set', 'box', 'pack', 'day', 'hour']
 const STATUS_OPTIONS = ['Draft', 'Sent', 'Approved', 'Rejected']
 
 const ZohoLabel = ({ children, required, hint }) => (

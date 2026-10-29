@@ -542,40 +542,6 @@ const CredCustomersView = ({
         </div>
       </div>
 
-      {/* Active customer filter pill indicator */}
-      {selectedCustomerId && selectedCustomerId !== 'all' && (
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
-          border: isDarkMode ? '1px solid #1e3a8a' : '1px solid #bfdbfe',
-          borderRadius: '999px',
-          padding: '4px 12px',
-          fontSize: '12px',
-          fontWeight: 600,
-          color: isDarkMode ? '#93c5fd' : '#1d4ed8',
-          marginBottom: '14px'
-        }}>
-          <span>Filtered by: <b>{customerDropdownOptions.find(o => String(o.id) === String(selectedCustomerId))?.label}</b></span>
-          <button
-            type="button"
-            onClick={() => setSelectedCustomerId('all')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'inherit',
-              padding: 0,
-              display: 'inline-flex',
-              alignItems: 'center'
-            }}
-            title="Clear filter (Show all customers)"
-          >
-            <X size={13} strokeWidth={2.5} />
-          </button>
-        </div>
-      )}
 
       {/* TABLE / CONTENT SECTION */}
       {isLoading ? (

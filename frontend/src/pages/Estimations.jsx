@@ -19,7 +19,7 @@ const CALCULATION_TYPES = [
   { id: 'fixed', label: 'Fixed / Flat Rate', desc: 'Lump-sum rate irrespective of qty' }
 ]
 
-const POPULAR_UNITS = ['pcs', 'sq.m', 'm', 'set', 'pack', 'roll', 'box', 'day', 'hour']
+const POPULAR_UNITS = ['pcs', 'sq.m', 'm', 'sheet', 'roll', 'kg', 'set', 'box', 'pack', 'day', 'hour']
 
 const DEFAULT_SECTIONS = ['All Items', 'Outside', 'VIP Room', 'Storage Room']
 

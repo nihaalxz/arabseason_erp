@@ -33,12 +33,13 @@ export const formatMoneyParts = (value, currency = 'SAR') => {
   };
 };
 
-const Money = ({ value, currency = 'SAR', className = '', style = {} }) => {
-  if (value === '—' || value === '-' || value === 'N/A') {
+const Money = ({ value, amount, currency = 'SAR', className = '', style = {} }) => {
+  const effectiveValue = value !== undefined ? value : amount;
+  if (effectiveValue === '—' || effectiveValue === '-' || effectiveValue === 'N/A') {
     return <span className={`cred-money-wrap cred-tnum ${className}`} style={{ color: 'var(--text-muted, #8C8C8C)', ...style }}>—</span>;
   }
 
-  const { sign, intPart, decPart } = formatMoneyParts(value, currency);
+  const { sign, intPart, decPart } = formatMoneyParts(effectiveValue, currency);
 
   return (
     <span className={`cred-money-wrap cred-tnum ${className}`} style={style}>

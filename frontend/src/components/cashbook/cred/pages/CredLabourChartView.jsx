@@ -1,0 +1,1511 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { 
+  Search, 
+  ArrowLeft, 
+  Plus, 
+  TrendingUp, 
+  TrendingDown, 
+  Calendar, 
+  User, 
+  Layers, 
+  Tag, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  Filter, 
+  RefreshCw, 
+  DollarSign,
+  ChevronDown,
+  X,
+  FileText,
+  BarChart2,
+  Phone,
+  Briefcase,
+  Trash2,
+  HardHat,
+  Award
+} from 'lucide-react';
+import api from '../../../../api';
+import Money from '../Money';
+import MoneyCard from '../MoneyCard';
+import CredCardCarousel from '../CredCardCarousel';
+import CredAnimatedTabs from '../CredAnimatedTabs';
+import CredPagination from '../CredPagination';
+import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
+import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
+
+const DURATION_TABS = [
+  { id: 'all', label: 'all time' },
+  { id: '30d', label: 'last 30 days' },
+  { id: '90d', label: 'last 90 days' },
+  { id: '180d', label: 'last 6 months' },
+  { id: 'year', label: 'this year' }
+];
+
+const STANDARD_SECTORS = [
+  'Carpentry',
+  'Helper',
+  'Painter',
+  'Applicator',
+  'Masonry / Tile',
+  'Electrician',
+  'Plumbing',
+  'Welder / Steel',
+  'Gypsum / Ceiling',
+  'General Labour'
+];
+
+const RATE_UNITS = [
+  'per day',
+  'per hour',
+  'per shift',
+  'per month',
+  'per job / contract',
+  'per sq.m'
+];
+
+
+// Helper to extract unit from notes if saved in format "[Unit: per day] note"
+const parseUnitFromNotes = (notes) => {
+  if (!notes) return 'per day';
+  const match = notes.match(/\[Unit:\s*([^\]]+)\]/i);
+  if (match && match[1]) return match[1].trim();
+  if (notes.includes('per hour') || notes.includes('/hr')) return 'per hour';
+  if (notes.includes('per job') || notes.includes('/job')) return 'per job / contract';
+  if (notes.includes('per sq.m') || notes.includes('/m2')) return 'per sq.m';
+  if (notes.includes('per month') || notes.includes('/mo')) return 'per month';
+  return 'per day';
+};
+
+const cleanNotesText = (notes) => {
+  if (!notes) return '';
+  return notes.replace(/\[Unit:\s*[^\]]+\]/gi, '').trim();
+};
+
+const CredLabourChartView = ({
+  isMobile = false,
+  isDarkMode = false,
+  onBack = () => {},
+  onNavigate = () => {}
+}) => {
+  const [labourRecords, setLabourRecords] = useState([]);
+  const [jobOrders, setJobOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSectorFilter, setSelectedSectorFilter] = useState('all');
+  const [selectedWorkerFilter, setSelectedWorkerFilter] = useState('all');
+  const [duration, setDuration] = useState('all');
+
+  // Modal State for Recording Labour Price Quote
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalForm, setModalForm] = useState({
+    labourer_mode: 'existing', // 'existing' | 'new'
+    labourer_name: '',
+    phone: '',
+    sector: 'Carpentry',
+    custom_sector: '',
+    charge: '',
+    unit: 'per day',
+    date: new Date().toISOString().split('T')[0],
+    due_date: '',
+    job_order: '',
+    notes: ''
+  });
+
+  // Fetch initial data
+  const fetchData = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    else setIsRefreshing(true);
+
+    try {
+      const [labRes, jobsRes] = await Promise.all([
+        api.get('labours/').catch(() => ({ data: [] })),
+        api.get('job-orders/').catch(() => ({ data: [] }))
+      ]);
+
+      const labData = labRes.data?.results || labRes.data || [];
+      const jobsData = jobsRes.data?.results || jobsRes.data || [];
+
+      setLabourRecords(Array.isArray(labData) ? labData : []);
+      setJobOrders(Array.isArray(jobsData) ? jobsData : []);
+    } catch (err) {
+      console.error('Error fetching labour price chart data:', err);
+      showError('Failed to load labour price data');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Normalise flat list of quotes from labour records
+  const allQuotes = useMemo(() => {
+    const list = [];
+    labourRecords.forEach(r => {
+      const charge = parseFloat(r.payment_amount || 0);
+      const sector = (r.work_done || 'General Labour').trim();
+      const quoteDate = r.date || (r.created_at ? r.created_at.substring(0, 10) : '2026-01-01');
+      const unit = parseUnitFromNotes(r.notes);
+      const displayNotes = cleanNotesText(r.notes);
+
+      list.push({
+        id: r.id,
+        name: (r.name || 'Worker').trim(),
+        phone: r.phone || '',
+        sector: sector,
+        charge: charge,
+        unit: unit,
+        date: quoteDate.substring(0, 10),
+        dueDate: r.due_date || null,
+        notes: displayNotes,
+        jobOrder: r.job_order_title || (r.job_order ? `#${r.job_order}` : ''),
+        jobOrderId: r.job_order || null,
+        created_at: r.created_at
+      });
+    });
+
+    // Calculate minimum benchmark per sector
+    const lowestBySector = {};
+    list.forEach(q => {
+      if (q.charge > 0) {
+        if (!lowestBySector[q.sector] || q.charge < lowestBySector[q.sector]) {
+          lowestBySector[q.sector] = q.charge;
+        }
+      }
+    });
+
+    return list.map(q => ({
+      ...q,
+      isLowest: q.charge > 0 && Math.abs(q.charge - lowestBySector[q.sector]) < 0.01
+    })).sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [labourRecords]);
+
+  // Extract distinct sectors and distinct labourers
+  const uniqueSectors = useMemo(() => {
+    const set = new Set();
+    allQuotes.forEach(q => {
+      if (q.sector) set.add(q.sector);
+    });
+    return Array.from(set).sort();
+  }, [allQuotes]);
+
+  const uniqueWorkers = useMemo(() => {
+    const map = new Map();
+    allQuotes.forEach(q => {
+      if (q.name && !map.has(q.name)) {
+        map.set(q.name, { name: q.name, phone: q.phone });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allQuotes]);
+
+  // Filtered Quotes
+  const filteredQuotes = useMemo(() => {
+    const now = new Date();
+    return allQuotes.filter(q => {
+      // 1. Search Query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchName = (q.name || '').toLowerCase().includes(query);
+        const matchSector = (q.sector || '').toLowerCase().includes(query);
+        const matchJob = (q.jobOrder || '').toLowerCase().includes(query);
+        const matchNotes = (q.notes || '').toLowerCase().includes(query);
+        const matchPhone = (q.phone || '').includes(query);
+        if (!matchName && !matchSector && !matchJob && !matchNotes && !matchPhone) return false;
+      }
+
+      // 2. Sector Filter
+      if (selectedSectorFilter !== 'all' && q.sector !== selectedSectorFilter) {
+        return false;
+      }
+
+      // 3. Worker Filter
+      if (selectedWorkerFilter !== 'all' && q.name !== selectedWorkerFilter) {
+        return false;
+      }
+
+      // 4. Duration Filter
+      if (duration !== 'all') {
+        const qDate = new Date(q.date);
+        if (isNaN(qDate.getTime())) return true;
+        const diffDays = (now - qDate) / (1000 * 60 * 60 * 24);
+
+        if (duration === '30d' && diffDays > 30) return false;
+        if (duration === '90d' && diffDays > 90) return false;
+        if (duration === '180d' && diffDays > 180) return false;
+        if (duration === 'year') {
+          if (qDate.getFullYear() !== now.getFullYear()) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [allQuotes, searchQuery, selectedSectorFilter, selectedWorkerFilter, duration]);
+
+  // Top KPIs
+  const kpis = useMemo(() => {
+    const sectorSet = new Set();
+    const workerSet = new Set();
+    let totalCharge = 0;
+    let validQuoteCount = 0;
+    let minCharge = Infinity;
+    let lowestWorker = '';
+    let lowestSector = '';
+
+    filteredQuotes.forEach(q => {
+      if (q.sector) sectorSet.add(q.sector);
+      if (q.name) workerSet.add(q.name);
+
+      if (q.charge > 0) {
+        totalCharge += q.charge;
+        validQuoteCount += 1;
+        if (q.charge < minCharge) {
+          minCharge = q.charge;
+          lowestWorker = q.name;
+          lowestSector = q.sector;
+        }
+      }
+    });
+
+    return {
+      sectorCount: sectorSet.size,
+      quotesCount: filteredQuotes.length,
+      workerCount: workerSet.size,
+      lowestPrice: minCharge === Infinity ? 0 : minCharge,
+      lowestWorker,
+      lowestSector,
+      avgPrice: validQuoteCount > 0 ? Math.round((totalCharge / validQuoteCount) * 100) / 100 : 0
+    };
+  }, [filteredQuotes]);
+
+  // Client-side pagination matching CredVendorsView
+  const quoteResetKey = `${duration}_${selectedSectorFilter}_${selectedWorkerFilter}_${searchQuery}`;
+  const {
+    pageItems: pagedQuotes,
+    page: quotePage,
+    setPage: setQuotePage,
+    totalPages: totalQuotePages,
+    rangeStart: quoteRangeStart,
+    rangeEnd: quoteRangeEnd,
+    total: totalQuoteCount
+  } = usePagination(filteredQuotes, isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, quoteResetKey);
+
+
+  // Open Modal with fresh state
+  const handleOpenModal = () => {
+    setModalForm({
+      labourer_mode: uniqueWorkers.length > 0 ? 'existing' : 'new',
+      labourer_name: uniqueWorkers[0]?.name || '',
+      phone: uniqueWorkers[0]?.phone || '',
+      sector: 'Carpentry',
+      custom_sector: '',
+      charge: '',
+      unit: 'per day',
+      date: new Date().toISOString().split('T')[0],
+      due_date: '',
+      job_order: '',
+      notes: ''
+    });
+    setIsModalOpen(true);
+  };
+
+  // Handle Save New Labour Price Quote
+  const handleSaveQuote = async (e) => {
+    e.preventDefault();
+
+    const workerName = modalForm.labourer_mode === 'existing' 
+      ? modalForm.labourer_name.trim() 
+      : modalForm.labourer_name.trim();
+
+    if (!workerName) {
+      showError('Please specify the labourer name');
+      return;
+    }
+
+    const sectorName = modalForm.sector === 'Other / Custom'
+      ? modalForm.custom_sector.trim()
+      : modalForm.sector.trim();
+
+    if (!sectorName) {
+      showError('Please choose or enter a sector / trade');
+      return;
+    }
+
+    const chargeNum = parseFloat(modalForm.charge);
+    if (isNaN(chargeNum) || chargeNum <= 0) {
+      showError('Please enter a valid quoted charge amount');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Store unit in structured format inside notes so it can be re-parsed reliably
+      const formattedNotes = `[Unit: ${modalForm.unit}] ${modalForm.notes.trim()}`.trim();
+
+      const payload = {
+        name: workerName,
+        phone: modalForm.phone.trim(),
+        work_done: sectorName,
+        payment_amount: chargeNum,
+        paid_amount: 0.00,
+        status: 'pending',
+        date: modalForm.date || new Date().toISOString().split('T')[0],
+        due_date: modalForm.due_date || null,
+        job_order: modalForm.job_order ? parseInt(modalForm.job_order) : null,
+        notes: formattedNotes
+      };
+
+      await api.post('labours/', payload);
+
+      showSuccess('Labour price quote recorded successfully');
+      setIsModalOpen(false);
+      fetchData(false);
+    } catch (err) {
+      console.error('Failed to record labour price quote:', err);
+      showError('Failed to record quote. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle Delete Quote Entry
+  const handleDeleteQuote = async (quote) => {
+    const confirmed = await showConfirm(
+      'Delete Labour Quote?',
+      `Are you sure you want to remove the quote of SAR ${quote.charge} for ${quote.name} (${quote.sector})?`,
+      'Yes, Delete'
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`labours/${quote.id}/`);
+      showSuccess('Quote record removed');
+      fetchData(false);
+    } catch (err) {
+      console.error('Error deleting quote:', err);
+      showError('Failed to remove quote record');
+    }
+  };
+
+  // Helper for Duration badge in table
+  const formatTaskDuration = (startDate, dueDate) => {
+    if (!startDate) return '—';
+    if (!dueDate) return startDate;
+    const s = new Date(startDate);
+    const e = new Date(dueDate);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return startDate;
+    const diff = Math.max(1, Math.round((e - s) / (1000 * 60 * 60 * 24)));
+    return `${startDate} → ${dueDate} (${diff}d)`;
+  };
+
+  return (
+    <div 
+      className="cred-page-container cred-labour-chart-page" 
+      style={{ 
+        padding: isMobile ? '12px 14px 80px' : '20px 32px 60px', 
+        maxWidth: '1440px', 
+        margin: '0 auto', 
+        boxSizing: 'border-box' 
+      }}
+    >
+      {/* 1. TOP HEADER & BREADCRUMBS */}
+      {isMobile ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '14px', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={onBack}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--bg-panel, #FFFFFF)',
+                color: 'var(--text, #0A0A0A)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              aria-label="Back"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0, letterSpacing: '-0.02em', color: 'var(--text, #0A0A0A)' }}>
+              labour chart
+            </h1>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => fetchData(false)}
+              disabled={isRefreshing}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--bg-panel, #FFFFFF)',
+                color: 'var(--text, #0A0A0A)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              aria-label="Refresh"
+            >
+              <RefreshCw size={14} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenModal}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                borderRadius: '999px',
+                background: 'var(--text, #0A0A0A)',
+                color: 'var(--bg, #FFFFFF)',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+              }}
+            >
+              <Plus size={15} strokeWidth={2.5} />
+              <span>Record</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '14px',
+            marginBottom: '20px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={onBack}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--bg-panel, #FFFFFF)',
+                color: 'var(--text, #0A0A0A)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)' }}>
+                LABOUR / SECTORS / PRICE CHARTS
+              </div>
+              <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '2px 0 0', letterSpacing: '-0.02em', color: 'var(--text, #0A0A0A)' }}>
+                labour chart
+              </h1>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => fetchData(false)}
+              disabled={isRefreshing}
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--bg-panel, #FFFFFF)',
+                color: 'var(--text, #0A0A0A)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <RefreshCw size={15} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenModal}
+              style={{
+                height: '38px',
+                padding: '0 16px',
+                borderRadius: '999px',
+                background: 'var(--text, #0A0A0A)',
+                color: 'var(--bg, #FFFFFF)',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+              }}
+            >
+              <Plus size={16} />
+              <span>record labour price quote</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. TOP METRIC CARDS (CredCardCarousel & MoneyCard) */}
+      <CredCardCarousel 
+        isMobile={isMobile}
+        desktopGridColumns="repeat(4, 1fr)"
+        style={{ marginBottom: isMobile ? '16px' : '22px' }}
+      >
+        <MoneyCard
+          label="SECTORS TRACKED"
+          value={kpis.sectorCount}
+          isCount={true}
+          caption={`Across ${kpis.quotesCount} quotes logged`}
+          icon={Layers}
+          iconBg={isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9'}
+          iconColor={isDarkMode ? '#ffffff' : '#0f172a'}
+        />
+
+        <MoneyCard
+          label="HISTORICAL QUOTES"
+          value={kpis.quotesCount}
+          isCount={true}
+          caption={`From ${kpis.workerCount} labourers`}
+          icon={HardHat}
+          iconBg={isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9'}
+          iconColor={isDarkMode ? '#ffffff' : '#0f172a'}
+        />
+
+        <MoneyCard
+          label="LOWEST RATE FOUND"
+          value={
+            <span style={{ color: '#16a34a', fontWeight: 800 }}>
+              {isMobile && formatCompactKpi(kpis.lowestPrice) ? (
+                <span className="cred-tnum">{formatCompactKpi(kpis.lowestPrice)}</span>
+              ) : (
+                <Money value={kpis.lowestPrice} currency="SAR" />
+              )}
+            </span>
+          }
+          caption={kpis.lowestWorker ? `${kpis.lowestWorker} (${kpis.lowestSector})` : 'Best labour benchmark'}
+          icon={TrendingDown}
+          iconBg={isDarkMode ? 'rgba(22, 163, 74, 0.12)' : '#dcfce7'}
+          iconColor="#16a34a"
+        />
+
+        <MoneyCard
+          label="AVERAGE QUOTED RATE"
+          value={
+            <span style={{ fontWeight: 800 }}>
+              {isMobile && formatCompactKpi(kpis.avgPrice) ? (
+                <span className="cred-tnum">{formatCompactKpi(kpis.avgPrice)}</span>
+              ) : (
+                <Money value={kpis.avgPrice} currency="SAR" />
+              )}
+            </span>
+          }
+          caption="Mean labour charge"
+          icon={TrendingUp}
+          iconBg={isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9'}
+          iconColor={isDarkMode ? '#ffffff' : '#0f172a'}
+        />
+      </CredCardCarousel>
+
+      {/* 3. FILTER STRIP */}
+      <div 
+        style={{
+          background: 'var(--bg-panel, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          borderRadius: '18px',
+          padding: isMobile ? '12px' : '16px',
+          marginBottom: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: '10px' }}>
+          {/* Search Input */}
+          <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '1 1 280px', minWidth: '220px' }}>
+            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #8C8C8C)' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search labourer, sector, job order, terms..."
+              style={{
+                width: '100%',
+                height: '38px',
+                padding: '0 30px 0 34px',
+                borderRadius: '10px',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--bg, #F9F9F9)',
+                color: 'var(--text, #0A0A0A)',
+                fontSize: '13px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Duration Tabs */}
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%', paddingBottom: isMobile ? '2px' : 0 }}>
+            <CredAnimatedTabs
+              tabs={DURATION_TABS}
+              value={duration}
+              onChange={(d) => setDuration(d)}
+              layoutId="labour-price-duration-tabs"
+            />
+          </div>
+        </div>
+
+        {/* Secondary Filter Dropdowns */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(180px, max-content))',
+          gap: '10px',
+          alignItems: 'center',
+          paddingTop: '2px'
+        }}>
+          {/* Sector Filter Dropdown */}
+          <select
+            value={selectedSectorFilter}
+            onChange={(e) => setSelectedSectorFilter(e.target.value)}
+            style={{
+              height: '34px',
+              padding: '0 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--border, #E4E4E4)',
+              background: 'var(--bg, #F9F9F9)',
+              color: 'var(--text, #0A0A0A)',
+              fontSize: '12px',
+              outline: 'none',
+              cursor: 'pointer',
+              width: '100%'
+            }}
+          >
+            <option value="all">All Sectors ({uniqueSectors.length})</option>
+            {uniqueSectors.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          {/* Labourer Filter Dropdown */}
+          <select
+            value={selectedWorkerFilter}
+            onChange={(e) => setSelectedWorkerFilter(e.target.value)}
+            style={{
+              height: '34px',
+              padding: '0 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--border, #E4E4E4)',
+              background: 'var(--bg, #F9F9F9)',
+              color: 'var(--text, #0A0A0A)',
+              fontSize: '12px',
+              outline: 'none',
+              cursor: 'pointer',
+              width: '100%'
+            }}
+          >
+            <option value="all">All Labourers ({uniqueWorkers.length})</option>
+            {uniqueWorkers.map(w => (
+              <option key={w.name} value={w.name}>{w.name}</option>
+            ))}
+          </select>
+
+          {/* Active filters reset */}
+          {(selectedSectorFilter !== 'all' || selectedWorkerFilter !== 'all' || searchQuery) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSectorFilter('all');
+                setSelectedWorkerFilter('all');
+                setSearchQuery('');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ef4444',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '6px 8px',
+                justifySelf: isMobile ? 'start' : 'auto',
+                gridColumn: isMobile ? 'span 2' : 'auto'
+              }}
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 4. HISTORICAL QUOTES LOG TABLE / MOBILE CARDS */}
+      <div 
+        style={{
+          background: 'var(--bg-panel, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          borderRadius: '18px',
+          padding: isMobile ? '12px 14px 16px' : '20px',
+          boxSizing: 'border-box'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div>
+            <h2 style={{ fontSize: isMobile ? '15px' : '16px', fontWeight: 700, margin: 0, color: 'var(--text, #0A0A0A)' }}>
+              Historical Labour Price Quotes Log
+            </h2>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>
+              Showing {filteredQuotes.length} quotes across sectors
+            </div>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted, #8C8C8C)' }}>
+            <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '8px' }} />
+            <div style={{ fontSize: '13px' }}>Loading labour price quotes...</div>
+          </div>
+        ) : filteredQuotes.length > 0 ? (
+          isMobile ? (
+            /* MOBILE TWO-TIER QUOTE CARDS */
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {pagedQuotes.map((q) => (
+                <div
+                  key={q.id}
+                  style={{
+                    padding: '12px 0 10px',
+                    background: 'transparent',
+                    position: 'relative'
+                  }}
+                >
+                  {/* Tier 1: Avatar + Name / Sector + Quoted Rate / Badge */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '50%',
+                        background: isDarkMode ? '#1e2024' : '#e2e8f0',
+                        color: 'var(--text, #0A0A0A)',
+                        fontWeight: '700',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        {(q.name || 'W').charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text, #0A0A0A)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {q.name}
+                          </span>
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            background: 'var(--bg, #F4F4F5)',
+                            border: '1px solid var(--border, #E4E4E4)',
+                            color: 'var(--text, #0A0A0A)'
+                          }}>
+                            {q.sector}
+                          </span>
+                        </div>
+                        {q.phone && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Phone size={10} />
+                            <span>{q.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' }}>
+                        SAR {q.charge.toFixed(2)}
+                      </div>
+                      {q.isLowest && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: '#16a34a',
+                          background: 'rgba(22, 163, 74, 0.1)',
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          display: 'inline-block',
+                          marginTop: '2px'
+                        }}>
+                          ★ Lowest Rate
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tier 2: Quiet inline trio (inset 54px to align with text) */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: '8px',
+                    padding: '6px 0 4px 54px',
+                    boxSizing: 'border-box'
+                  }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
+                        Sector
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text, #0A0A0A)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {q.sector}
+                      </div>
+                    </div>
+
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
+                        Unit
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {q.unit}
+                      </div>
+                    </div>
+
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
+                        Date
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {q.date}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Extra metadata: Notes & Actions */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    padding: '2px 0 4px 54px',
+                    fontSize: '11px',
+                    color: 'var(--text-muted, #8C8C8C)'
+                  }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {q.notes && <span>{q.notes}</span>}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteQuote(q)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontSize: '11px'
+                      }}
+                      title="Delete quote"
+                    >
+                      <Trash2 size={12} />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+
+                  {/* Inset dashed hairline divider */}
+                  <div style={{
+                    marginLeft: '54px',
+                    marginTop: '6px',
+                    borderBottom: isDarkMode ? '1px dashed rgba(255,255,255,0.08)' : '1px dashed rgba(0,0,0,0.08)'
+                  }} />
+                </div>
+              ))}
+
+              <CredPagination
+                page={quotePage}
+                totalPages={totalQuotePages}
+                rangeStart={quoteRangeStart}
+                rangeEnd={quoteRangeEnd}
+                total={totalQuoteCount}
+                onPageChange={setQuotePage}
+                isMobile={true}
+              />
+            </div>
+          ) : (
+            /* DESKTOP TABLE */
+            <>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)', color: 'var(--text-muted, #8C8C8C)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Labourer</th>
+                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Sector / Trade</th>
+                      <th style={{ padding: '12px 14px', fontWeight: 600, textAlign: 'right' }}>Quoted Charge</th>
+                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Rate Unit</th>
+                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Quote Date & Duration</th>
+                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Notes & Terms</th>
+                      <th style={{ padding: '12px 14px', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedQuotes.map((q) => (
+                      <tr 
+                        key={q.id}
+                        style={{
+                          borderBottom: '1px solid var(--border, #F0F0F0)',
+                          transition: 'background 0.15s ease'
+                        }}
+                      >
+                        {/* Labourer Name & Contact */}
+                        <td style={{ padding: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              background: 'var(--bg, #F0F0F0)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              color: 'var(--text, #0A0A0A)'
+                            }}>
+                              {(q.name || 'W').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
+                                {q.name}
+                              </div>
+                              {q.phone && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                                  <Phone size={10} />
+                                  <span>{q.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Sector / Trade */}
+                        <td style={{ padding: '14px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '3px 10px',
+                            borderRadius: '999px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: 'var(--bg, #F4F4F5)',
+                            border: '1px solid var(--border, #E4E4E4)',
+                            color: 'var(--text, #0A0A0A)'
+                          }}>
+                            <HardHat size={12} style={{ color: 'var(--text-muted, #71717A)' }} />
+                            {q.sector}
+                          </span>
+                        </td>
+
+                        {/* Quoted Charge */}
+                        <td style={{ padding: '14px', textAlign: 'right' }}>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' }}>
+                            <Money value={q.charge} currency="SAR" />
+                          </div>
+                          {q.isLowest && (
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              color: '#16a34a',
+                              background: 'rgba(22, 163, 74, 0.1)',
+                              padding: '1px 7px',
+                              borderRadius: '999px',
+                              display: 'inline-block',
+                              marginTop: '2px'
+                            }}>
+                              ★ Lowest Rate
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Rate Unit */}
+                        <td style={{ padding: '14px', color: 'var(--text-muted, #8C8C8C)', fontSize: '12px', fontWeight: 500 }}>
+                          {q.unit}
+                        </td>
+
+                        {/* Date & Duration */}
+                        <td style={{ padding: '14px', color: 'var(--text, #0A0A0A)', fontSize: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Calendar size={12} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                            <span>{q.date}</span>
+                          </div>
+                          {q.dueDate && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Clock size={11} />
+                              <span>Due: {q.dueDate}</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Notes & Terms */}
+                        <td style={{ padding: '14px', maxWidth: '240px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {q.notes || '—'}
+                          </div>
+                        </td>
+
+                        {/* Action */}
+                        <td style={{ padding: '14px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuote(q)}
+                            title="Delete Quote Record"
+                            style={{
+                              width: '30px',
+                              height: '30px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'background 0.15s ease'
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <CredPagination
+                page={quotePage}
+                totalPages={totalQuotePages}
+                rangeStart={quoteRangeStart}
+                rangeEnd={quoteRangeEnd}
+                total={totalQuoteCount}
+                onPageChange={setQuotePage}
+                isMobile={false}
+              />
+            </>
+          )
+        ) : (
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted, #8C8C8C)' }}>
+            <HardHat size={36} style={{ opacity: 0.35, marginBottom: '10px' }} />
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
+              No labour quotes found
+            </div>
+            <div style={{ fontSize: '12px', marginTop: '4px' }}>
+              Click "+ record labour price quote" above to track worker rates and sector benchmarks
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 5. MODAL: RECORD LABOUR PRICE QUOTE */}
+      {isModalOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: isMobile ? '12px' : '16px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmitting) setIsModalOpen(false);
+          }}
+        >
+          <div 
+            style={{
+              background: 'var(--bg-panel, #FFFFFF)',
+              border: '1px solid var(--border, #E4E4E4)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '520px',
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              padding: isMobile ? '20px 16px 24px' : '24px',
+              boxSizing: 'border-box',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              color: 'var(--text)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text, #0A0A0A)' }}>
+                  Record Labour Price Quote
+                </h3>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>
+                  Track labourer charges and trade sector benchmarks
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSubmitting}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted, #8C8C8C)',
+                  padding: '4px'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuote} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. Labourer Selection */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
+                  Labourer / Worker Name *
+                </label>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '8px' }}>
+                  <select
+                    value={uniqueWorkers.some(w => w.name === modalForm.labourer_name) ? modalForm.labourer_name : ''}
+                    onChange={(e) => {
+                      const sel = uniqueWorkers.find(w => w.name === e.target.value);
+                      if (sel) {
+                        setModalForm(prev => ({
+                          ...prev,
+                          labourer_name: sel.name,
+                          phone: sel.phone || prev.phone
+                        }));
+                      } else {
+                        setModalForm(prev => ({
+                          ...prev,
+                          labourer_name: e.target.value
+                        }));
+                      }
+                    }}
+                    style={{
+                      width: isMobile ? '100%' : '45%',
+                      height: '40px',
+                      padding: '0 8px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--bg, #F9F9F9)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '12px',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">Select Labourer</option>
+                    {uniqueWorkers.map(w => (
+                      <option key={w.name} value={w.name}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="or type Labourer name..."
+                    value={modalForm.labourer_name}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, labourer_name: e.target.value }))}
+                    required
+                    style={{
+                      flex: 1,
+                      height: '40px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--bg, #F9F9F9)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '13px',
+                      outline: 'none',
+                      width: isMobile ? '100%' : 'auto',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 2. Sector / Trade Selection */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
+                  Sector / Trade *
+                </label>
+                <select
+                  value={modalForm.sector}
+                  onChange={(e) => setModalForm(prev => ({ ...prev, sector: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 12px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--bg, #F9F9F9)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">-- Select Sector / Trade --</option>
+                  {STANDARD_SECTORS.map(sec => (
+                    <option key={sec} value={sec}>{sec}</option>
+                  ))}
+                  <option value="Other / Custom">+ Custom / Other Sector...</option>
+                </select>
+
+                {modalForm.sector === 'Other / Custom' && (
+                  <input
+                    type="text"
+                    placeholder="Enter custom trade/sector (e.g. Scaffolding, HVAC)"
+                    value={modalForm.custom_sector}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, custom_sector: e.target.value }))}
+                    required
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--bg, #F9F9F9)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      marginTop: '8px'
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* 3. Rate / Charge & Rate Unit */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.5fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
+                    Quoted Charge (SAR) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 150.00"
+                    value={modalForm.charge}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, charge: e.target.value }))}
+                    required
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--bg, #F9F9F9)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
+                    Rate Unit *
+                  </label>
+                  <select
+                    value={modalForm.unit}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, unit: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 10px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--bg, #F9F9F9)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '12px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {!RATE_UNITS.includes(modalForm.unit) && modalForm.unit && (
+                      <option value={modalForm.unit}>{modalForm.unit} (Current)</option>
+                    )}
+                    {RATE_UNITS.map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 4. Quote Date & Duration Timeline */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
+                    Quote Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={modalForm.date}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 10px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--bg, #F9F9F9)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '12px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
+                    Due Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={modalForm.due_date}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, due_date: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 10px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--bg, #F9F9F9)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '12px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 5. Notes & Terms */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
+                  Notes & Quotation Terms
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Includes own tools, overtime rate 1.5x, site location requirements..."
+                  value={modalForm.notes}
+                  onChange={(e) => setModalForm(prev => ({ ...prev, notes: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--bg, #F9F9F9)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting}
+                  style={{
+                    height: '38px',
+                    padding: '0 18px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--bg, #F9F9F9)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  style={{
+                    height: '38px',
+                    padding: '0 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'var(--text, #0A0A0A)',
+                    color: 'var(--bg, #FFFFFF)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  {isSubmitting ? 'Saving Quote...' : 'Save Quote Record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+export default CredLabourChartView;

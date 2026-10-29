@@ -169,9 +169,9 @@ const CredDropdownSelect = ({
           height: '40px',
           padding: '0 14px',
           borderRadius: '999px',
-          border: isSelectedNonDefault ? '1.5px solid var(--accent, #3b82f6)' : '1px solid var(--border, #E4E4E4)',
-          background: isSelectedNonDefault ? (isDarkMode ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff') : 'var(--bg-panel, #FFFFFF)',
-          color: isSelectedNonDefault ? (isDarkMode ? '#93c5fd' : '#1d4ed8') : 'var(--text, #0A0A0A)',
+          border: '1px solid var(--border, #E4E4E4)',
+          background: 'var(--bg-panel, #FFFFFF)',
+          color: 'var(--text, #0A0A0A)',
           fontSize: '13px',
           fontWeight: 600,
           display: 'inline-flex',
@@ -185,10 +185,10 @@ const CredDropdownSelect = ({
           ...triggerStyle
         }}
         onMouseEnter={(e) => { 
-          if (!isSelectedNonDefault) e.currentTarget.style.borderColor = 'var(--text, #0A0A0A)'; 
+          e.currentTarget.style.borderColor = 'var(--text, #0A0A0A)'; 
         }}
         onMouseLeave={(e) => { 
-          if (!isSelectedNonDefault) e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'; 
+          e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'; 
         }}
       >
         {selectedOption?.avatarText ? (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookText, 
   LayoutDashboard, 
@@ -10,17 +10,24 @@ import {
   Landmark, 
   Library, 
   PanelLeftClose, 
-  PanelLeftOpen 
+  PanelLeftOpen,
+  ChevronDown,
+  LineChart,
+  TrendingUp,
+  BarChart3
 } from 'lucide-react';
 
 /**
  * SideRail
- * Fixed black sidebar for desktop Cashbook.
- * - Starts with section MENU: 9 items in exact order:
+ * Fixed black sidebar for desktop Cashbook with expandable submenus.
+ * - Starts with section MENU: items in exact order:
  *   cash ledger, dashboard, expenses, customers, vendors, labour, job orders, accounts, books
+ * - Submenus for:
+ *   - Customers -> customers, customer chart
+ *   - Vendors -> vendors, vendor price chart
+ *   - Labour -> labour, labour chart
  * - Bottom: 36px rounded 12px icon-only collapse toggle (PanelLeftClose / PanelLeftOpen)
  * - Collapsed mode: icons with tooltips
- * - No scrollbars (only MENU, which fits)
  */
 const SideRail = ({
   activeTab = 'ledger',
@@ -35,6 +42,30 @@ const SideRail = ({
   className = '',
   style = {}
 }) => {
+  const [expandedKeys, setExpandedKeys] = useState(() => {
+    const initial = {};
+    if (activeTab === 'customers' || activeTab === 'customer_chart') initial['customers'] = true;
+    if (activeTab === 'vendors' || activeTab === 'vendor_price_chart') initial['vendors'] = true;
+    if (activeTab === 'labour' || activeTab === 'labour_chart') initial['labour'] = true;
+    return initial;
+  });
+
+  // Automatically keep parent submenu expanded when its child is active
+  useEffect(() => {
+    if (activeTab === 'customers' || activeTab === 'customer_chart') {
+      setExpandedKeys(prev => ({ ...prev, customers: true }));
+    } else if (activeTab === 'vendors' || activeTab === 'vendor_price_chart') {
+      setExpandedKeys(prev => ({ ...prev, vendors: true }));
+    } else if (activeTab === 'labour' || activeTab === 'labour_chart') {
+      setExpandedKeys(prev => ({ ...prev, labour: true }));
+    }
+  }, [activeTab]);
+
+  const toggleExpand = (key, e) => {
+    if (e) e.stopPropagation();
+    setExpandedKeys(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const menuItems = [
     { 
       key: 'ledger', 
@@ -60,21 +91,33 @@ const SideRail = ({
       label: 'customers', 
       icon: Users, 
       count: counts.customers ?? null, 
-      isActive: activeTab === 'customers' 
+      isActive: activeTab === 'customers' || activeTab === 'customer_chart',
+      isExactActive: activeTab === 'customers',
+      children: [
+        { key: 'customer_chart', label: 'customer chart', icon: LineChart, isActive: activeTab === 'customer_chart' }
+      ]
     },
     { 
       key: 'vendors', 
       label: 'vendors', 
       icon: Building2, 
       count: counts.vendors ?? null, 
-      isActive: activeTab === 'vendors' 
+      isActive: activeTab === 'vendors' || activeTab === 'vendor_price_chart' || activeTab === 'vendor_chart',
+      isExactActive: activeTab === 'vendors',
+      children: [
+        { key: 'vendor_price_chart', label: 'vendor chart', icon: TrendingUp, isActive: activeTab === 'vendor_price_chart' || activeTab === 'vendor_chart' }
+      ]
     },
     { 
       key: 'labour', 
       label: 'labour', 
       icon: HardHat, 
       count: counts.labour ?? null, 
-      isActive: activeTab === 'labour' 
+      isActive: activeTab === 'labour' || activeTab === 'labour_chart',
+      isExactActive: activeTab === 'labour',
+      children: [
+        { key: 'labour_chart', label: 'labour chart', icon: BarChart3, isActive: activeTab === 'labour_chart' }
+      ]
     },
     { 
       key: 'job_orders', 
@@ -126,7 +169,8 @@ const SideRail = ({
       <div 
         style={{ 
           flex: 1, 
-          overflow: 'hidden', 
+          overflowY: 'auto', 
+          overflowX: 'hidden',
           padding: '16px 8px 12px',
           display: 'flex',
           flexDirection: 'column',
@@ -155,64 +199,179 @@ const SideRail = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
             {menuItems.map((item) => {
               const Icon = item.icon;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => onNavigate(item.key)}
-                  title={isCollapsed ? item.label : undefined}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: isCollapsed ? 'center' : 'space-between',
-                    gap: '10px',
-                    padding: isCollapsed ? '10px 0' : '9px 12px',
-                    borderRadius: '12px',
-                    background: item.isActive ? '#1A1A1A' : 'transparent',
-                    color: item.isActive ? '#FFFFFF' : '#9A9A9A',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: item.isActive ? 500 : 400,
-                    textTransform: 'lowercase',
-                    transition: 'all 0.15s ease',
-                    width: '100%'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!item.isActive) {
-                      e.currentTarget.style.background = '#141414';
-                      e.currentTarget.style.color = '#FFFFFF';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!item.isActive) {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = '#9A9A9A';
-                    }
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Icon size={17} strokeWidth={item.isActive ? 2.2 : 1.6} style={{ flexShrink: 0 }} />
-                    {!isCollapsed && <span>{item.label}</span>}
-                  </div>
+              const hasChildren = Boolean(item.children && item.children.length > 0);
+              const isExpanded = Boolean(expandedKeys[item.key]);
 
-                  {!isCollapsed && item.count !== null && item.count !== undefined && item.count > 0 && (
-                    <span 
+              return (
+                <div key={item.key} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onNavigate(item.key);
+                      if (hasChildren && !isCollapsed) {
+                        setExpandedKeys(prev => ({ ...prev, [item.key]: true }));
+                      }
+                    }}
+                    title={isCollapsed ? item.label : undefined}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: isCollapsed ? 'center' : 'space-between',
+                      gap: '10px',
+                      padding: isCollapsed ? '10px 0' : '9px 12px',
+                      borderRadius: '12px',
+                      background: item.isExactActive ? '#1A1A1A' : 'transparent',
+                      color: item.isActive ? '#FFFFFF' : '#9A9A9A',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: item.isExactActive ? 600 : item.isActive ? 500 : 400,
+                      textTransform: 'lowercase',
+                      transition: 'all 0.15s ease',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!item.isExactActive) {
+                        e.currentTarget.style.background = '#141414';
+                        e.currentTarget.style.color = '#FFFFFF';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!item.isExactActive) {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = item.isActive ? '#FFFFFF' : '#9A9A9A';
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                      <Icon size={17} strokeWidth={item.isActive ? 2.2 : 1.6} style={{ flexShrink: 0 }} />
+                      {!isCollapsed && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>}
+                    </div>
+
+                    {!isCollapsed && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {item.count !== null && item.count !== undefined && item.count > 0 && (
+                          <span 
+                            style={{ 
+                              fontSize: '11px', 
+                              fontWeight: 600, 
+                              background: '#222222', 
+                              color: '#E4E4E4', 
+                              padding: '1px 7px', 
+                              borderRadius: '999px',
+                              minWidth: '18px',
+                              textAlign: 'center'
+                            }}
+                          >
+                            {item.count}
+                          </span>
+                        )}
+
+                        {hasChildren && (
+                          <span
+                            role="button"
+                            aria-label={`Toggle ${item.label} submenu`}
+                            onClick={(e) => toggleExpand(item.key, e)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#8C8C8C',
+                              padding: '2px',
+                              transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                            }}
+                          >
+                            <ChevronDown size={14} />
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+
+                  {/* SUBMENU ITEMS */}
+                  {!isCollapsed && hasChildren && isExpanded && (
+                    <div 
                       style={{ 
-                        fontSize: '11px', 
-                        fontWeight: 600, 
-                        background: '#222222', 
-                        color: '#E4E4E4', 
-                        padding: '1px 7px', 
-                        borderRadius: '999px',
-                        minWidth: '18px',
-                        textAlign: 'center'
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '2px', 
+                        margin: '2px 0 4px',
+                        paddingLeft: '14px',
+                        borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+                        marginLeft: '18px'
                       }}
                     >
-                      {item.count}
-                    </span>
+                      {item.children.map(child => (
+                        <button
+                          key={child.key}
+                          type="button"
+                          onClick={() => onNavigate(child.key)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            background: child.isActive ? '#1E1E1E' : 'transparent',
+                            color: child.isActive ? '#FFFFFF' : '#8C8C8C',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: child.isActive ? 600 : 400,
+                            textTransform: 'lowercase',
+                            transition: 'all 0.15s ease',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!child.isActive) {
+                              e.currentTarget.style.background = '#141414';
+                              e.currentTarget.style.color = '#FFFFFF';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!child.isActive) {
+                              e.currentTarget.style.background = 'transparent';
+                              e.currentTarget.style.color = '#8C8C8C';
+                            }
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                            <span 
+                              style={{
+                                width: '4px',
+                                height: '4px',
+                                borderRadius: '50%',
+                                background: child.isActive ? '#FFFFFF' : '#555555',
+                                flexShrink: 0
+                              }} 
+                            />
+                            <span>{child.label}</span>
+                          </div>
+
+                          {child.count !== null && child.count !== undefined && child.count > 0 && (
+                            <span 
+                              style={{ 
+                                fontSize: '10px', 
+                                fontWeight: 600, 
+                                background: '#222222', 
+                                color: '#A0A0A0', 
+                                padding: '1px 6px', 
+                                borderRadius: '999px',
+                                minWidth: '16px',
+                                textAlign: 'center'
+                              }}
+                            >
+                              {child.count}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
