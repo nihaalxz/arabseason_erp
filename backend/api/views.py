@@ -362,17 +362,15 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
         order_id = serializer.validated_data.get('order_id')
         if not order_id:
-            import datetime
             import re
-            cur_month = datetime.date.today().strftime('%b').upper()
-            existing = JobOrder.objects.filter(order_id__istartswith=f"#{cur_month}")
+            prefix = "JOB"
             nums = []
-            for j in existing:
+            for j in JobOrder.objects.all():
                 m = re.search(r'\d+', j.order_id or '')
                 if m:
                     nums.append(int(m.group()))
-            next_num = max(nums) + 1 if nums else (existing.count() + 1)
-            order_id = f"#{cur_month}{str(next_num).zfill(2)}"
+            seq = max(nums) + 1 if nums else 1
+            order_id = f"{prefix}{seq:04d}"
 
         created_by_staff = serializer.validated_data.get('created_by_staff')
         if not created_by_staff and user and user.is_authenticated:
@@ -457,7 +455,7 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                         amount=advance_amount_val,
                         date=datetime.date.today(),
                         time=datetime.datetime.now().time().strftime('%H:%M:%S'),
-                        remark=f"Advance payment against Job #{str(job.order_id or job.id).replace('#', '')} - {job.title}",
+                        remark=f"Job {str(job.order_id or job.id).strip() if str(job.order_id or job.id).strip().upper().startswith('JOB') else '#' + str(job.order_id or job.id).lstrip('#')} - {job.title} (Advance)",
                         category='Sales',
                         payment_mode=payment_mode,
                         transaction_type='Customer Payment',
@@ -592,7 +590,7 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                         amount=advance_amount,
                         date=datetime.date.today(),
                         time=datetime.datetime.now().time().strftime('%H:%M:%S'),
-                        remark=f"Advance payment against Job #{str(job.order_id or job.id).replace('#', '')} - {job.title}",
+                        remark=f"Job {str(job.order_id or job.id).strip() if str(job.order_id or job.id).strip().upper().startswith('JOB') else '#' + str(job.order_id or job.id).lstrip('#')} - {job.title} (Advance)",
                         category='Sales',
                         payment_mode=payment_mode,
                         transaction_type='Customer Payment',
@@ -952,15 +950,14 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         # Ensure order_id is present
         if not job.order_id:
             import re
-            cur_month = timezone.now().date().strftime('%b').upper()
-            existing = JobOrder.objects.filter(order_id__istartswith=f"#{cur_month}")
+            prefix = "JOB"
             nums = []
-            for j in existing:
+            for j in JobOrder.objects.all():
                 m = re.search(r'\d+', j.order_id or '')
                 if m:
                     nums.append(int(m.group()))
-            next_num = max(nums) + 1 if nums else (existing.count() + 1)
-            job.order_id = f"#{cur_month}{str(next_num).zfill(2)}"
+            seq = max(nums) + 1 if nums else 1
+            job.order_id = f"{prefix}{seq:04d}"
 
         job.status = 'Cancelled'
         job.assignment_status = 'cancelled'

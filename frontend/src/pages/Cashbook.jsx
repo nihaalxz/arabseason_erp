@@ -14710,7 +14710,7 @@ const Cashbook = ({ currentUser = null }) => {
                 job_order: String(job.id),
                 job_order_title: job.title || '',
                 amount: bal > 0 ? String(bal) : '',
-                remark: `Payment against Job #${String(job.order_id || job.id).replace(/^#+/, '')} - ${job.title}`,
+                remark: `Job ${String(job.order_id || job.id).trim().startsWith('JOB') ? String(job.order_id || job.id).trim() : `#${String(job.order_id || job.id).replace(/^#+/, '')}`} - ${job.title}`,
                 category: 'Sales',
                 payment_mode: 'Petty Cash',
                 is_creating_rough_job: false
@@ -18128,7 +18128,7 @@ const Cashbook = ({ currentUser = null }) => {
                               rough_job_attachment: '',
                               rough_job_attachment_name: '',
                               rough_job_attachment_type: '',
-                              remark: foundJob ? `Payment against Job #${String(foundJob.order_id || foundJob.id).replace(/^#+/, '')} - ${foundJob.title}` : prev.remark
+                              remark: foundJob ? `Job ${String(foundJob.order_id || foundJob.id).trim().startsWith('JOB') ? String(foundJob.order_id || foundJob.id).trim() : `#${String(foundJob.order_id || foundJob.id).replace(/^#+/, '')}`} - ${foundJob.title}` : prev.remark
                             }))
                           }
                         }}
@@ -18136,10 +18136,11 @@ const Cashbook = ({ currentUser = null }) => {
                           { id: '__rough__', label: '+ Create Job order' },
                           { id: '', label: '-- General Customer Credit (No Job Order) --' },
                           ...customerJobOrders.map(j => {
-                            const orderIdStr = String(j.order_id || j.id || '').replace(/^#+/, '')
+                            const orderIdStr = String(j.order_id || j.id || '').trim().replace(/^#+/, '')
+                            const displayId = /^JOB/i.test(orderIdStr) ? orderIdStr.toUpperCase() : `#${orderIdStr}`
                             return {
                               id: String(j.id),
-                              label: `#${orderIdStr} — ${j.title}`
+                              label: `${displayId} — ${j.title}`
                             }
                           })
                         ]}
@@ -18163,7 +18164,7 @@ const Cashbook = ({ currentUser = null }) => {
                         onChange={(e) => setEntryFormData(prev => ({
                           ...prev,
                           rough_job_title: e.target.value,
-                          remark: prev.remark ? prev.remark : `Payment against Job #${e.target.value}`
+                          remark: prev.remark ? prev.remark : `Job #${e.target.value}`
                         }))}
                         required
                         style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
@@ -18778,7 +18779,7 @@ const Cashbook = ({ currentUser = null }) => {
                               job_order: val,
                               job_order_title: foundJob ? foundJob.title : '',
                               is_creating_rough_job: false,
-                              remark: foundJob ? `Payment against Job #${String(foundJob.order_id || foundJob.id).replace(/^#+/, '')} - ${foundJob.title}` : prev.remark
+                              remark: foundJob ? `Job ${String(foundJob.order_id || foundJob.id).trim().startsWith('JOB') ? String(foundJob.order_id || foundJob.id).trim() : `#${String(foundJob.order_id || foundJob.id).replace(/^#+/, '')}`} - ${foundJob.title}` : prev.remark
                             }))
                           }
                         }}
@@ -18787,10 +18788,11 @@ const Cashbook = ({ currentUser = null }) => {
                         ] : [
                           { id: '', label: '-- General Customer Credit (No Job Order) --' },
                           ...customerJobOrders.map(j => {
-                            const orderIdStr = String(j.order_id || j.id || '').replace(/^#+/, '')
+                            const orderIdStr = String(j.order_id || j.id || '').trim().replace(/^#+/, '')
+                            const displayId = /^JOB/i.test(orderIdStr) ? orderIdStr.toUpperCase() : `#${orderIdStr}`
                             return {
                               id: String(j.id),
-                              label: `#${orderIdStr} — ${j.title}`
+                              label: `${displayId} — ${j.title}`
                             }
                           }),
                           { id: '__rough__', label: '+ Create Job order' }

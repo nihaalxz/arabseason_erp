@@ -318,7 +318,7 @@ const JobOrders = ({ embedded = false }) => {
   // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingJob, setEditingJob] = useState(null)
-  const [contractPrefix, setContractPrefix] = useState('#' + getCurrentMonthCode())
+  const [contractPrefix, setContractPrefix] = useState('JOB')
   const [contractNumber, setContractNumber] = useState('')
   const [formData, setFormData] = useState({
     order_id: '',
@@ -696,19 +696,21 @@ const JobOrders = ({ embedded = false }) => {
         : ['']
       setDescriptions(initialDescriptions.length > 0 ? initialDescriptions : [''])
 
-      // Parse existing order_id (e.g. #AUG23, AUG23, #SEP42, #AS03, 23)
+      // Parse existing order_id (e.g. JOB0012, #OCT12, 12)
       const rawOrderId = (job.order_id || '').trim()
-      let pfx = '#' + getCurrentMonthCode()
+      let pfx = 'JOB'
       let num = ''
-      const match = rawOrderId.match(/^(#?[A-Za-z]+)(\d*)$/)
+      const match = rawOrderId.match(/^([A-Za-z]+)(\d*)$/)
       if (match) {
         pfx = match[1].toUpperCase()
         num = match[2]
       } else if (rawOrderId) {
-        num = rawOrderId.replace(/\D/g, '')
+        const mNum = rawOrderId.match(/\d+/)
+        num = mNum ? mNum[0] : ''
+        pfx = rawOrderId.replace(/\d+/g, '').replace(/^#+/, '').trim().toUpperCase() || 'JOB'
       }
-      setContractPrefix(pfx)
-      setContractNumber(num)
+      setContractPrefix(pfx || 'JOB')
+      setContractNumber(num ? num.padStart(4, '0') : '')
 
       setFormData({
         order_id: job.order_id || '',
@@ -740,18 +742,18 @@ const JobOrders = ({ embedded = false }) => {
       setExpenses([])
       setDescriptions([''])
 
-      // Compute dynamic current month and suggest next sequence number
-      const curMonth = getCurrentMonthCode()
-      const pfx = '#' + curMonth
-      setContractPrefix(pfx)
-
-      // Find highest number in current month among existing jobs
-      const monthNumbers = (jobs || []).map(j => {
-        const m = (j.order_id || '').match(new RegExp(`^#?${curMonth}(\\d+)$`, 'i'))
-        return m ? parseInt(m[1], 10) : 0
-      }).filter(n => !isNaN(n) && n > 0)
-      const nextSeq = monthNumbers.length > 0 ? Math.max(...monthNumbers) + 1 : 1
-      setContractNumber(nextSeq.toString().padStart(2, '0'))
+      // Suggest next sequence number for JOB
+      let maxNum = 0
+      ;(jobs || []).forEach(j => {
+        const m = (j.order_id || '').match(/\d+/)
+        if (m) {
+          const val = parseInt(m[0], 10)
+          if (!isNaN(val) && val > maxNum) maxNum = val
+        }
+      })
+      const nextSeq = maxNum + 1
+      setContractPrefix('JOB')
+      setContractNumber(nextSeq.toString().padStart(4, '0'))
 
       let defaultCreator = ''
       try {
@@ -800,17 +802,18 @@ const JobOrders = ({ embedded = false }) => {
     setEditingJob(null)
     setExpenses([])
 
-    // Compute dynamic current month and suggest next sequence number
-    const curMonth = getCurrentMonthCode()
-    const pfx = '#' + curMonth
-    setContractPrefix(pfx)
-
-    const monthNumbers = (jobs || []).map(j => {
-      const m = (j.order_id || '').match(new RegExp(`^#?${curMonth}(\\d+)$`, 'i'))
-      return m ? parseInt(m[1], 10) : 0
-    }).filter(n => !isNaN(n) && n > 0)
-    const nextSeq = monthNumbers.length > 0 ? Math.max(...monthNumbers) + 1 : 1
-    setContractNumber(nextSeq.toString().padStart(2, '0'))
+    // Suggest next sequence number for JOB
+    let maxNum = 0
+    ;(jobs || []).forEach(j => {
+      const m = (j.order_id || '').match(/\d+/)
+      if (m) {
+        const val = parseInt(m[0], 10)
+        if (!isNaN(val) && val > maxNum) maxNum = val
+      }
+    })
+    const nextSeq = maxNum + 1
+    setContractPrefix('JOB')
+    setContractNumber(nextSeq.toString().padStart(4, '0'))
 
     let creatorName = ''
     try {
@@ -910,12 +913,12 @@ const JobOrders = ({ embedded = false }) => {
       return setFormError('Title, Customer, and Current Status are required')
     }
 
-    const pfx = contractPrefix ? contractPrefix.trim().toUpperCase() : ('#' + getCurrentMonthCode())
-    const numPart = (contractNumber || '').trim()
+    const pfx = (contractPrefix || 'JOB').trim().toUpperCase().replace(/^#+/, '')
+    const numPart = (contractNumber || '').trim().replace(/^[A-Za-z]+/i, '')
     if (!numPart) {
-      return setFormError(`Contract ID number is required (e.g. 23 for ${pfx}23)`)
+      return setFormError(`Contract ID number is required (e.g. 12 for ${pfx}0012)`)
     }
-    const finalOrderId = `${pfx}${numPart.padStart(2, '0')}`
+    const finalOrderId = `${pfx}${numPart.padStart(4, '0')}`
 
     // Client-side quick check
     const duplicate = jobs.find(j => 
@@ -2416,7 +2419,7 @@ const JobOrders = ({ embedded = false }) => {
                             letterSpacing: '0.02em',
                             border: '1px solid #e0e7ff'
                           }}>
-                            {job.order_id || `#${getCurrentMonthCode()}${job.id.toString().padStart(2, '0')}`}
+                            {job.order_id || `JOB${job.id.toString().padStart(4, '0')}`}
                           </span>
                         </td>
                         <td style={{ padding: '0.85rem 1rem', maxWidth: '300px' }}>
@@ -2631,7 +2634,7 @@ const JobOrders = ({ embedded = false }) => {
                 const paid = parseFloat(job.paid_amount) || 0
                 const balance = parseFloat(job.balance) || 0
                 const pct = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0
-                const orderId = job.order_id || `#${getCurrentMonthCode()}${job.id.toString().padStart(2, '0')}`
+                const orderId = job.order_id || `JOB${job.id.toString().padStart(4, '0')}`
                 const sColor = getStatusColor(job.status)
 
                 return (
@@ -3314,15 +3317,13 @@ const JobOrders = ({ embedded = false }) => {
               </div>
             </div>
 
-            {/* Contract ID — dynamic monthwise selection + number input */}
+            {/* Contract ID — sequence ID (e.g. JOB0012) */}
             <div className="form-group">
               <label>Contract ID *</label>
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <select
-                  value={contractPrefix}
-                  onChange={(e) => setContractPrefix(e.target.value)}
+                <span
                   style={{
-                    padding: '0.65rem 0.6rem',
+                    padding: '0.65rem 0.85rem',
                     background: 'var(--bg-main, #f1f5f9)',
                     border: '1px solid var(--border-color)',
                     borderRight: 'none',
@@ -3330,29 +3331,26 @@ const JobOrders = ({ embedded = false }) => {
                     fontWeight: '800',
                     fontSize: '0.85rem',
                     color: 'var(--primary, #2563eb)',
-                    cursor: 'pointer',
-                    outline: 'none'
+                    userSelect: 'none'
                   }}
                 >
-                  {MONTH_CHOICES.map(m => (
-                    <option key={m} value={`#${m}`}>#{m}</option>
-                  ))}
-                  {!MONTH_CHOICES.includes(contractPrefix.replace('#', '')) && (
-                    <option value={contractPrefix}>{contractPrefix}</option>
-                  )}
-                </select>
+                  {contractPrefix || 'JOB'}
+                </span>
                 <input 
-                  type="number" 
+                  type="text" 
                   className="input-field" 
                   style={{ borderRadius: '0 8px 8px 0', borderLeft: '1px solid var(--border-color)' }}
                   value={contractNumber} 
-                  onChange={(e) => setContractNumber(e.target.value)}
-                  onWheel={(e) => e.currentTarget.blur()}
+                  placeholder="0012"
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/^[A-Za-z]+/i, '').replace(/[^\d]/g, '')
+                    setContractNumber(clean)
+                  }}
                   required
                 />
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                Full Contract ID: <strong style={{ color: 'var(--primary, #2563eb)', fontWeight: '800' }}>{contractPrefix}{contractNumber ? contractNumber.padStart(2, '0') : '??'}</strong>
+                Full Contract ID: <strong style={{ color: 'var(--primary, #2563eb)', fontWeight: '800' }}>{(contractPrefix || 'JOB').replace(/^#+/, '')}{contractNumber ? contractNumber.padStart(4, '0') : '????'}</strong>
               </div>
             </div>
 

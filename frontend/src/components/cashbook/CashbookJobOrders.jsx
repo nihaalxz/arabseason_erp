@@ -436,13 +436,16 @@ export default function CashbookJobOrders({
 
   // Modal open / edit
   const handleOpenAddModal = () => {
-    const curMonth = getCurrentMonthCode()
-    const monthNumbers = (jobOrders || []).map(j => {
-      const m = (j.order_id || '').match(new RegExp(`^#?${curMonth}(\\d+)$`, 'i'))
-      return m ? parseInt(m[1], 10) : 0
-    }).filter(n => !isNaN(n) && n > 0)
-    const nextSeq = monthNumbers.length > 0 ? Math.max(...monthNumbers) + 1 : 1
-    const defaultOrderId = `#${curMonth}${nextSeq.toString().padStart(2, '0')}`
+    let maxNum = 0
+    ;(jobOrders || []).forEach(j => {
+      const m = (j.order_id || '').match(/\d+/)
+      if (m) {
+        const val = parseInt(m[0], 10)
+        if (!isNaN(val) && val > maxNum) maxNum = val
+      }
+    })
+    const nextSeq = maxNum + 1
+    const defaultOrderId = `JOB${nextSeq.toString().padStart(4, '0')}`
 
     let defaultStaff = ''
     try {
@@ -610,7 +613,7 @@ export default function CashbookJobOrders({
       selected_account_id: pettyCashAccounts[0]?.id || '',
       cashbook: cashbooks[0]?.id || '',
       payment_mode: 'Petty Cash',
-      remark: `Payment against Job #${String(job.order_id || job.id).replace(/^#+/, '')} - ${job.title}`
+      remark: `Job ${String(job.order_id || job.id).trim().startsWith('JOB') ? String(job.order_id || job.id).trim() : `#${String(job.order_id || job.id).replace(/^#+/, '')}`} - ${job.title}`
     })
     setPaymentError('')
     setIsPaymentModalOpen(true)
@@ -638,7 +641,7 @@ export default function CashbookJobOrders({
         amount: amt,
         date: paymentFormData.date,
         time: '12:00:00',
-        remark: paymentFormData.remark.trim() || `Payment against Job #${String(selectedJobForPayment.order_id || selectedJobForPayment.id).replace(/^#+/, '')} - ${selectedJobForPayment.title}`,
+        remark: paymentFormData.remark.trim() || `Job ${String(selectedJobForPayment.order_id || selectedJobForPayment.id).trim().startsWith('JOB') ? String(selectedJobForPayment.order_id || selectedJobForPayment.id).trim() : `#${String(selectedJobForPayment.order_id || selectedJobForPayment.id).replace(/^#+/, '')}`} - ${selectedJobForPayment.title}`,
         category: 'Sales',
         payment_mode: isBank ? 'Bank Transfer' : 'Petty Cash',
         transaction_type: 'Customer Payment',
@@ -1519,7 +1522,7 @@ export default function CashbookJobOrders({
                   const bal = parseFloat(job.due_amount != null ? job.due_amount : job.balance)
                   const due = !isNaN(bal) ? bal : Math.max(0, total - paid)
                   const hasDue = due > 0.01
-                  const orderIdCode = formatJobRef(job.order_id || `${getCurrentMonthCode()}${job.id.toString().padStart(2, '0')}`)
+                  const orderIdCode = formatJobRef(job.order_id || `JOB${job.id.toString().padStart(4, '0')}`)
                   
                   const statusNormalized = String(job.status || '').toLowerCase().trim()
                   const statusTone = (statusNormalized === 'in progress' || statusNormalized === 'in_progress')

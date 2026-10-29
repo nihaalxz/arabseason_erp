@@ -94,6 +94,7 @@ export function formatJobRef(id) {
   const str = String(id).trim();
   if (!str) return '';
   const clean = str.replace(/^#+/, '');
+  if (/^JOB/i.test(clean)) return clean.toUpperCase();
   return `#${clean}`;
 }
 
