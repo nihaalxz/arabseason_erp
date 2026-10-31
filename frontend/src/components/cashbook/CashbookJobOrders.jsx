@@ -317,26 +317,49 @@ export default function CashbookJobOrders({
   }, [initialCustomers])
 
   // Computed Metrics
-  const totalOrdersCount = jobOrders.length
-  const totalContractValue = useMemo(() => {
-    return jobOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
+  const isCancelledView = statusFilter === 'Cancelled'
+
+  const activeJobOrders = useMemo(() => {
+    return jobOrders.filter(j => (j.status || '').toLowerCase() !== 'cancelled')
   }, [jobOrders])
+
+  const cancelledOrders = useMemo(() => {
+    return jobOrders.filter(j => (j.status || '').toLowerCase() === 'cancelled')
+  }, [jobOrders])
+
+  const totalOrdersCount = isCancelledView ? cancelledOrders.length : jobOrders.length
+
+  const totalContractValue = useMemo(() => {
+    return activeJobOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
+  }, [activeJobOrders])
+
+  const cancelledContractValue = useMemo(() => {
+    return cancelledOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
+  }, [cancelledOrders])
+
+  const displayContractValue = isCancelledView ? cancelledContractValue : totalContractValue
 
   const totalPaid = useMemo(() => {
-    return jobOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
-  }, [jobOrders])
+    return activeJobOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
+  }, [activeJobOrders])
+
+  const cancelledPaid = useMemo(() => {
+    return cancelledOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
+  }, [cancelledOrders])
+
+  const displayPaid = isCancelledView ? cancelledPaid : totalPaid
 
   const totalDue = useMemo(() => {
-    return jobOrders
-      .filter(j => (j.status || '').toLowerCase() !== 'cancelled')
-      .reduce((sum, j) => {
-        const bal = parseFloat(j.balance)
-        if (!isNaN(bal) && bal > 0) return sum + bal
-        const total = parseFloat(j.total_amount) || 0
-        const paid = parseFloat(j.paid_amount) || 0
-        return sum + Math.max(0, total - paid)
-      }, 0)
-  }, [jobOrders])
+    return activeJobOrders.reduce((sum, j) => {
+      const bal = parseFloat(j.balance)
+      if (!isNaN(bal) && bal > 0) return sum + bal
+      const total = parseFloat(j.total_amount) || 0
+      const paid = parseFloat(j.paid_amount) || 0
+      return sum + Math.max(0, total - paid)
+    }, 0)
+  }, [activeJobOrders])
+
+  const displayDue = isCancelledView ? 0 : totalDue
 
   const inProgressOrders = useMemo(() => {
     return jobOrders.filter(j => (j.status || '').toLowerCase() === 'in progress')
@@ -348,10 +371,6 @@ export default function CashbookJobOrders({
 
   const pendingOrders = useMemo(() => {
     return jobOrders.filter(j => (j.status || '').toLowerCase() === 'pending')
-  }, [jobOrders])
-
-  const cancelledOrders = useMemo(() => {
-    return jobOrders.filter(j => (j.status || '').toLowerCase() === 'cancelled')
   }, [jobOrders])
 
   const dueOrders = useMemo(() => {
@@ -426,7 +445,7 @@ export default function CashbookJobOrders({
   } = usePagination(filteredJobOrders, effectiveIsMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, jobOrdersResetKey);
 
   const filterPills = [
-    { id: 'All', label: 'All', count: totalOrdersCount },
+    { id: 'All', label: 'All', count: jobOrders.length },
     { id: 'In Progress', label: 'In Progress', count: inProgressOrders.length },
     { id: 'Payment Due', label: 'Payment Due', count: dueOrders.length },
     { id: 'Completed', label: 'Completed', count: completedOrders.length },
@@ -895,7 +914,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Total Orders
+              {isCancelledView ? 'Cancelled Orders' : 'Total Orders'}
             </span>
             <div style={{
               width: '30px',
@@ -915,17 +934,22 @@ export default function CashbookJobOrders({
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {inProgressOrders.length} in progress · {completedOrders.length} completed{cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}
+              {isCancelledView
+                ? `${cancelledOrders.length} orders cancelled`
+                : `${inProgressOrders.length} in progress · ${completedOrders.length} completed${cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}`
+              }
             </div>
           )}
         </div>
 
         {/* Card 2: Total Contract Value */}
         <div 
-          onClick={() => setStatusFilter('All')}
+          onClick={() => setStatusFilter(isCancelledView ? 'All' : 'Cancelled')}
           style={{
             background: cardBg,
-            border: `1px solid ${borderColor}`,
+            border: isCancelledView
+              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
+              : `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: isMobileScreen ? '84px' : 'auto',
@@ -940,7 +964,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Contract Value
+              {isCancelledView ? 'Cancelled Value' : 'Contract Value'}
             </span>
             <div style={{
               width: '30px',
@@ -956,15 +980,15 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {effectiveIsMobile && formatCompactKpi(totalContractValue) ? (
-              <span className="cred-tnum">{formatCompactKpi(totalContractValue)}</span>
+            {effectiveIsMobile && formatCompactKpi(displayContractValue) ? (
+              <span className="cred-tnum">{formatCompactKpi(displayContractValue)}</span>
             ) : (
-              `SAR ${safeFormatAmount(totalContractValue)}`
+              `SAR ${safeFormatAmount(displayContractValue)}`
             )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              Total order book value
+              {isCancelledView ? 'Total cancelled order value' : 'Total order book value'}
             </div>
           )}
         </div>
@@ -991,7 +1015,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Cash In Paid
+              {isCancelledView ? 'Cancelled Paid' : 'Cash In Paid'}
             </span>
             <div style={{
               width: '30px',
@@ -1007,15 +1031,15 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#60a5fa' : '#2563eb', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {effectiveIsMobile && formatCompactKpi(totalPaid) ? (
-              <span className="cred-tnum">{formatCompactKpi(totalPaid)}</span>
+            {effectiveIsMobile && formatCompactKpi(displayPaid) ? (
+              <span className="cred-tnum">{formatCompactKpi(displayPaid)}</span>
             ) : (
-              `SAR ${safeFormatAmount(totalPaid)}`
+              `SAR ${safeFormatAmount(displayPaid)}`
             )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              Collected from customers
+              {isCancelledView ? 'Paid towards cancelled orders' : 'Collected from customers'}
             </div>
           )}
         </div>
@@ -1058,15 +1082,15 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#f87171' : '#dc2626', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {effectiveIsMobile && formatCompactKpi(totalDue) ? (
-              <span className="cred-tnum">{formatCompactKpi(totalDue)}</span>
+            {effectiveIsMobile && formatCompactKpi(displayDue) ? (
+              <span className="cred-tnum">{formatCompactKpi(displayDue)}</span>
             ) : (
-              `SAR ${safeFormatAmount(totalDue)}`
+              `SAR ${safeFormatAmount(displayDue)}`
             )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {dueOrders.length} orders with pending balance
+              {isCancelledView ? 'No balance due on cancelled' : `${dueOrders.length} orders with pending balance`}
             </div>
           )}
         </div>
