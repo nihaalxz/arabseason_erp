@@ -286,6 +286,17 @@ export default function CashbookJobOrders({
     }
   }, [])
 
+  const [jobSummary, setJobSummary] = useState(null)
+
+  const fetchJobSummary = useCallback(async () => {
+    try {
+      const res = await api.get('job-orders/summary/')
+      if (res.data) setJobSummary(res.data)
+    } catch (err) {
+      console.error('Failed to load job summary for cashbook:', err)
+    }
+  }, [])
+
   const customersFetchedRef = useRef(false)
 
   // Fetch customers if not passed
@@ -301,13 +312,14 @@ export default function CashbookJobOrders({
 
   useEffect(() => {
     fetchJobOrders()
+    fetchJobSummary()
     if (!customersFetchedRef.current) {
       customersFetchedRef.current = true
       if (!initialCustomers || initialCustomers.length === 0) {
         fetchCustomers()
       }
     }
-  }, [fetchJobOrders, fetchCustomers, initialCustomers])
+  }, [fetchJobOrders, fetchJobSummary, fetchCustomers, initialCustomers])
 
   // Sync passed customers if updated
   useEffect(() => {
@@ -327,8 +339,6 @@ export default function CashbookJobOrders({
     return jobOrders.filter(j => (j.status || '').toLowerCase() === 'cancelled')
   }, [jobOrders])
 
-  const totalOrdersCount = isCancelledView ? cancelledOrders.length : jobOrders.length
-
   const totalContractValue = useMemo(() => {
     return activeJobOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
   }, [activeJobOrders])
@@ -337,7 +347,9 @@ export default function CashbookJobOrders({
     return cancelledOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
   }, [cancelledOrders])
 
-  const displayContractValue = isCancelledView ? cancelledContractValue : totalContractValue
+  const displayContractValue = isCancelledView 
+    ? (jobSummary?.cancelled_summary?.total_value ?? cancelledContractValue)
+    : (jobSummary?.total_value ?? totalContractValue)
 
   const totalPaid = useMemo(() => {
     return activeJobOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
@@ -347,19 +359,22 @@ export default function CashbookJobOrders({
     return cancelledOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
   }, [cancelledOrders])
 
-  const displayPaid = isCancelledView ? cancelledPaid : totalPaid
+  const displayPaid = isCancelledView 
+    ? (jobSummary?.cancelled_summary?.total_paid ?? cancelledPaid)
+    : (jobSummary?.total_paid ?? totalPaid)
 
+  // Net balance due matches /jobs and backend summary: max(0, total_val - total_paid)
   const totalDue = useMemo(() => {
-    return activeJobOrders.reduce((sum, j) => {
-      const bal = parseFloat(j.balance)
-      if (!isNaN(bal) && bal > 0) return sum + bal
-      const total = parseFloat(j.total_amount) || 0
-      const paid = parseFloat(j.paid_amount) || 0
-      return sum + Math.max(0, total - paid)
-    }, 0)
-  }, [activeJobOrders])
+    return Math.max(0, totalContractValue - totalPaid)
+  }, [totalContractValue, totalPaid])
 
-  const displayDue = isCancelledView ? 0 : totalDue
+  const displayDue = isCancelledView 
+    ? 0 
+    : (jobSummary?.total_balance !== undefined ? jobSummary.total_balance : totalDue)
+
+  const displayOrdersCount = isCancelledView 
+    ? (jobSummary?.cancelled_summary?.count ?? cancelledOrders.length)
+    : (jobSummary?.count ?? activeJobOrders.length)
 
   const inProgressOrders = useMemo(() => {
     return jobOrders.filter(j => (j.status || '').toLowerCase() === 'in progress')
@@ -608,6 +623,7 @@ export default function CashbookJobOrders({
       }
       setIsModalOpen(false)
       fetchJobOrders()
+      fetchJobSummary()
     } catch (err) {
       console.error('Failed to save job order:', err)
       const msg = err.response?.data?.order_id?.[0] || 
@@ -679,6 +695,7 @@ export default function CashbookJobOrders({
       setIsPaymentModalOpen(false)
       setSelectedJobForPayment(null)
       fetchJobOrders()
+      fetchJobSummary()
     } catch (err) {
       console.error('Failed to record customer payment:', err)
       const msg = err.response?.data?.detail || 'Failed to record customer payment.'
@@ -698,6 +715,7 @@ export default function CashbookJobOrders({
     try {
       await api.delete(`job-orders/${job.id}/`)
       setJobOrders(prev => prev.filter(j => j.id !== job.id))
+      fetchJobSummary()
       showToast('Job order deleted', 'info')
     } catch (err) {
       console.error('Failed to delete job order:', err)
@@ -914,7 +932,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {isCancelledView ? 'Cancelled Orders' : 'Total Orders'}
+              {isCancelledView ? 'Cancelled Orders' : 'Total Contracts'}
             </span>
             <div style={{
               width: '30px',
@@ -930,13 +948,13 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {totalOrdersCount}
+            {displayOrdersCount}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
               {isCancelledView
                 ? `${cancelledOrders.length} orders cancelled`
-                : `${inProgressOrders.length} in progress · ${completedOrders.length} completed${cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}`
+                : `${inProgressOrders.length} in progress · ${completedOrders.length} completed${pendingOrders.length > 0 ? ` · ${pendingOrders.length} pending` : ''}${cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}`
               }
             </div>
           )}
