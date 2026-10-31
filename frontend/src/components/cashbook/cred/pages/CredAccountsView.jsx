@@ -18,6 +18,8 @@ import {
 import CredAnimatedTabs from '../CredAnimatedTabs';
 import GooeyMenu from '../GooeyMenu';
 import CredPagination from '../CredPagination';
+import CredCardCarousel from '../CredCardCarousel';
+import MoneyCard from '../MoneyCard';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst, formatJobRef } from '../usePagination';
 
 const PERIOD_OPTIONS = [
@@ -279,219 +281,71 @@ const CredAccountsView = ({
         </div>
       </div>
 
-      {/* ── 4. 4 KPI CARDS DECK (INTERACTIVE FILTER WITH ACTIVE INDICATOR) ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-        gap: '0.75rem',
-        marginBottom: '1rem'
-      }}>
+      {/* ── 4. 4 KPI CARDS DECK (CRED CARD CAROUSEL SLIDESHOW ON MOBILE, GRID ON DESKTOP) ── */}
+      <CredCardCarousel
+        isMobile={isMobile}
+        activeId={statementFlowFilter}
+        desktopGridColumns="repeat(4, 1fr)"
+        style={{
+          marginBottom: isMobile ? '16px' : '20px'
+        }}
+      >
         {/* Card 1: Opening Balance */}
-        <div
-          onClick={() => {
-            onFlowFilterChange?.('all');
-          }}
-          title="Click to view all transactions"
-          style={{
-            background: cardBg,
-            border: isOpeningActive && statementFlowFilter === 'all'
-              ? `2px solid ${activeBorderColor}`
-              : `1px solid ${borderColor}`,
-            borderRadius: '14px',
-            padding: isMobile ? '0.75rem' : '1rem 1.15rem',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            minHeight: '88px',
-            boxSizing: 'border-box',
-            cursor: 'pointer',
-            transition: 'all 0.18s ease',
-            boxShadow: isOpeningActive && statementFlowFilter === 'all'
-              ? (isDarkMode ? '0 4px 20px rgba(255,255,255,0.06)' : '0 4px 14px rgba(15,23,42,0.08)')
-              : (isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)')
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              OPENING BALANCE
-            </span>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: isDarkMode ? '#181a1e' : '#f8fafc',
-              border: `1px solid ${borderColor}`,
-              color: textPrimary,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Coins size={16} strokeWidth={2.2} />
-            </div>
-          </div>
-          <div style={{ fontSize: isMobile ? '1.15rem' : '1.35rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', marginTop: '0.35rem' }}>
-            {safeFormatAmount(summary.opening_balance)} <span style={{ fontSize: '0.72rem', fontWeight: '600', color: textMuted }}>SAR</span>
-          </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-            Starting balance
-          </div>
-        </div>
+        <MoneyCard
+          icon={Coins}
+          label="OPENING BALANCE"
+          value={summary.opening_balance}
+          caption="Starting balance"
+          isActive={isOpeningActive && statementFlowFilter === 'all'}
+          onClick={() => onFlowFilterChange?.('all')}
+          iconBg={isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9'}
+          iconColor={isDarkMode ? '#ffffff' : '#0f172a'}
+        />
 
         {/* Card 2: Cash In / Received */}
-        <div
+        <MoneyCard
+          icon={ArrowUpRight}
+          label="TOTAL CASH IN"
+          value={summary.total_credits}
+          variant="positive"
+          caption="Total received"
+          isActive={isInActive}
           onClick={() => {
             const next = statementFlowFilter === 'in' ? 'all' : 'in';
             onFlowFilterChange?.(next);
           }}
-          title="Click to filter by Inflows (+)"
-          style={{
-            background: cardBg,
-            border: isInActive
-              ? `2px solid ${activeBorderColor}`
-              : `1px solid ${borderColor}`,
-            borderRadius: '14px',
-            padding: isMobile ? '0.75rem' : '1rem 1.15rem',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            minHeight: '88px',
-            boxSizing: 'border-box',
-            cursor: 'pointer',
-            transition: 'all 0.18s ease',
-            boxShadow: isInActive
-              ? (isDarkMode ? '0 4px 20px rgba(255,255,255,0.06)' : '0 4px 14px rgba(15,23,42,0.08)')
-              : (isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)')
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              TOTAL CASH IN
-            </span>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: isDarkMode ? '#181a1e' : '#f8fafc',
-              border: `1px solid ${borderColor}`,
-              color: '#16a34a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ArrowUpRight size={16} strokeWidth={2.4} />
-            </div>
-          </div>
-          <div style={{ fontSize: isMobile ? '1.15rem' : '1.35rem', fontWeight: '800', color: '#16a34a', letterSpacing: '-0.02em', marginTop: '0.35rem' }}>
-            +{safeFormatAmount(summary.total_credits)} <span style={{ fontSize: '0.72rem', fontWeight: '600', color: textMuted }}>SAR</span>
-          </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-            Total received
-          </div>
-        </div>
+          iconBg={isDarkMode ? 'rgba(22, 163, 74, 0.12)' : '#dcfce7'}
+          iconColor="#16a34a"
+        />
 
         {/* Card 3: Cash Out / Spent */}
-        <div
+        <MoneyCard
+          icon={ArrowDownRight}
+          label="TOTAL CASH OUT"
+          value={summary.total_debits}
+          variant="danger"
+          caption="Total spent"
+          isActive={isOutActive}
           onClick={() => {
             const next = statementFlowFilter === 'out' ? 'all' : 'out';
             onFlowFilterChange?.(next);
           }}
-          title="Click to filter by Outflows (−)"
-          style={{
-            background: cardBg,
-            border: isOutActive
-              ? `2px solid ${activeBorderColor}`
-              : `1px solid ${borderColor}`,
-            borderRadius: '14px',
-            padding: isMobile ? '0.75rem' : '1rem 1.15rem',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            minHeight: '88px',
-            boxSizing: 'border-box',
-            cursor: 'pointer',
-            transition: 'all 0.18s ease',
-            boxShadow: isOutActive
-              ? (isDarkMode ? '0 4px 20px rgba(255,255,255,0.06)' : '0 4px 14px rgba(15,23,42,0.08)')
-              : (isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)')
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              TOTAL CASH OUT
-            </span>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: isDarkMode ? '#181a1e' : '#f8fafc',
-              border: `1px solid ${borderColor}`,
-              color: '#dc2626',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ArrowDownRight size={16} strokeWidth={2.4} />
-            </div>
-          </div>
-          <div style={{ fontSize: isMobile ? '1.15rem' : '1.35rem', fontWeight: '800', color: '#dc2626', letterSpacing: '-0.02em', marginTop: '0.35rem' }}>
-            -{safeFormatAmount(summary.total_debits)} <span style={{ fontSize: '0.72rem', fontWeight: '600', color: textMuted }}>SAR</span>
-          </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-            Total spent
-          </div>
-        </div>
+          iconBg={isDarkMode ? 'rgba(220, 38, 38, 0.12)' : '#fee2e2'}
+          iconColor="#dc2626"
+        />
 
         {/* Card 4: Closing Balance */}
-        <div
-          onClick={() => {
-            onFlowFilterChange?.('all');
-          }}
-          title="Click to view all transactions"
-          style={{
-            background: cardBg,
-            border: isClosingActive && statementFlowFilter === 'all'
-              ? `2px solid ${activeBorderColor}`
-              : `1px solid ${borderColor}`,
-            borderRadius: '14px',
-            padding: isMobile ? '0.75rem' : '1rem 1.15rem',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            minHeight: '88px',
-            boxSizing: 'border-box',
-            cursor: 'pointer',
-            transition: 'all 0.18s ease',
-            boxShadow: isClosingActive && statementFlowFilter === 'all'
-              ? (isDarkMode ? '0 4px 20px rgba(255,255,255,0.06)' : '0 4px 14px rgba(15,23,42,0.08)')
-              : (isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)')
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              CLOSING BALANCE
-            </span>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: isDarkMode ? '#181a1e' : '#f8fafc',
-              border: `1px solid ${borderColor}`,
-              color: textPrimary,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <TrendingUp size={16} strokeWidth={2.4} />
-            </div>
-          </div>
-          <div style={{ fontSize: isMobile ? '1.15rem' : '1.35rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', marginTop: '0.35rem' }}>
-            {safeFormatAmount(summary.closing_balance)} <span style={{ fontSize: '0.72rem', fontWeight: '600', color: textMuted }}>SAR</span>
-          </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-            {summary.transactions_count || transactionsList.length} entries
-          </div>
-        </div>
-      </div>
+        <MoneyCard
+          icon={TrendingUp}
+          label="CLOSING BALANCE"
+          value={summary.closing_balance}
+          caption={`${summary.transactions_count || transactionsList.length} entries`}
+          isActive={false}
+          onClick={() => onFlowFilterChange?.('all')}
+          iconBg={isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9'}
+          iconColor={isDarkMode ? '#ffffff' : '#0f172a'}
+        />
+      </CredCardCarousel>
 
       {/* ── 5. SEARCH & GOOEY PERIOD DROPDOWN TOOLBAR ── */}
       <div style={{
