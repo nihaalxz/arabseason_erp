@@ -5,9 +5,6 @@ import {
   Wallet, 
   Coins, 
   ArrowLeftRight, 
-  Plus, 
-  Pencil, 
-  Trash2, 
   Search, 
   X, 
   RefreshCw, 
@@ -96,32 +93,10 @@ const CredAccountsView = ({
         label: itemName,
         sub: `${bal} SAR`,
         icon: isBanksTab ? Landmark : Wallet,
-        actions: [
-          {
-            id: 'edit',
-            icon: Pencil,
-            label: `Edit ${itemName}`,
-            onClick: () => {
-              if (isBanksTab) onEditBank?.(item);
-              else onEditPettyCash?.(item);
-            }
-          },
-          {
-            id: 'delete',
-            icon: Trash2,
-            label: `Delete ${itemName}`,
-            color: '#ef4444',
-            hoverColor: '#ef4444',
-            onClick: () => {
-              if (isBanksTab) onDeleteBank?.(item.id, itemName);
-              else onDeletePettyCash?.(item.id, itemName);
-            }
-          }
-        ],
         raw: item
       };
     });
-  }, [isBanksTab, banks, pettyCashAccounts, onEditBank, onEditPettyCash, onDeleteBank, onDeletePettyCash, safeFormatAmount]);
+  }, [isBanksTab, banks, pettyCashAccounts, safeFormatAmount]);
 
   const selectedAccountId = activeAccObj?.id ? String(activeAccObj.id) : (accountOptions[0]?.value || '');
 

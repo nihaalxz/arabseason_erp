@@ -9355,69 +9355,11 @@ const Cashbook = ({ currentUser = null }) => {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setIsAccountDropdownOpen(false)
-                            if (isBanksTab) {
-                              handleOpenBankModal(item)
-                            } else {
-                              handleOpenPettyCashAccountModal(item)
-                            }
-                          }}
-                          title={`Edit ${itemName}`}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: isDarkMode ? '#8b9096' : '#64748b',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            borderRadius: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = isDarkMode ? '#ffffff' : '#0f172a' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = isDarkMode ? '#8b9096' : '#64748b' }}
-                        >
-                          <Pencil size={12} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setIsAccountDropdownOpen(false)
-                            if (isBanksTab) {
-                              handleDeleteBank(item.id, itemName)
-                            } else {
-                              handleDeletePettyCashAccount(item.id, itemName)
-                            }
-                          }}
-                          title={`Delete ${itemName}`}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            borderRadius: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-
-                        {isItemSelected && (
+                      {isItemSelected && (
+                        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                           <Check size={14} strokeWidth={2.8} color={isDarkMode ? '#ffffff' : '#0f172a'} style={{ marginLeft: '2px' }} />
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -9757,69 +9699,6 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {activeAccObj?.id && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isBankType) {
-                        handleOpenBankModal(activeAccObj)
-                      } else {
-                        handleOpenPettyCashAccountModal(activeAccObj)
-                      }
-                    }}
-                    className="cb-hover-invert"
-                    style={{
-                      background: isDarkMode ? '#141517' : '#ffffff',
-                      border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
-                      borderRadius: '6px',
-                      padding: '0.35rem 0.75rem',
-                      fontSize: '0.74rem',
-                      fontWeight: '600',
-                      color: isDarkMode ? '#cbd5e1' : '#475569',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title={`Edit ${activeAccName}`}
-                  >
-                    <Pencil size={12} strokeWidth={2.2} />
-                    <span>Edit Account</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isBankType) {
-                        handleDeleteBank(activeAccObj.id, activeAccName)
-                      } else {
-                        handleDeletePettyCashAccount(activeAccObj.id, activeAccName)
-                      }
-                    }}
-                    style={{
-                      background: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
-                      border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid #fecaca',
-                      borderRadius: '6px',
-                      padding: '0.35rem 0.75rem',
-                      fontSize: '0.74rem',
-                      fontWeight: '700',
-                      color: isDarkMode ? '#f87171' : '#dc2626',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title={`Delete ${activeAccName}`}
-                  >
-                    <Trash2 size={12} strokeWidth={2.2} />
-                    <span>Delete {isBankType ? 'Bank' : 'Petty Cash'}</span>
-                  </button>
-                </>
-              )}
-
               <button
                 type="button"
                 onClick={handleExportStatementCSV}
