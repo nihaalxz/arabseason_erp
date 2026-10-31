@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { 
   Plus, Minus, RefreshCw, AlertCircle, Trash2, Edit, 
   Download, Search, ChevronDown, Check, X,
@@ -25,6 +25,7 @@ const DEFAULT_SECTIONS = ['All Items', 'Outside', 'VIP Room', 'Storage Room']
 
 const Estimations = () => {
   const navigate = useNavigate()
+  const basePath = '/accounting'
   // Navigation
   const [activeTab, setActiveTab] = useState('estimations') // 'estimations' | 'materials'
   
@@ -704,7 +705,7 @@ const Estimations = () => {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => navigate('/estimations/new')}
+              onClick={() => navigate(`${basePath}/estimations/new`)}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1.25rem', fontWeight: '700' }}
             >
               <Plus size={16} strokeWidth={2.5} />
@@ -911,7 +912,7 @@ const Estimations = () => {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => navigate('/estimations/new')}
+                onClick={() => navigate(`${basePath}/estimations/new`)}
                 style={{ fontWeight: '700' }}
               >
                 + Create Estimate
@@ -1038,7 +1039,7 @@ const Estimations = () => {
 
                                 <button
                                   type="button"
-                                  onClick={() => navigate(`/estimations/${est.id}/edit`)}
+                                  onClick={() => navigate(`${basePath}/estimations/${est.id}/edit`)}
                                   title="Edit Estimate"
                                   style={{
                                     padding: '4px 6px',
@@ -1218,7 +1219,7 @@ const Estimations = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => navigate(`/estimations/${est.id}/edit`)}
+                          onClick={() => navigate(`${basePath}/estimations/${est.id}/edit`)}
                           title="Edit Estimate"
                           style={{
                             padding: '0.45rem 0.65rem',
@@ -2305,7 +2306,7 @@ const Estimations = () => {
                   onClick={() => {
                     const targetId = viewingEstimate?.id
                     setViewingEstimate(null)
-                    if (targetId) navigate(`/estimations/${targetId}/edit`)
+                    if (targetId) navigate(`${basePath}/estimations/${targetId}/edit`)
                   }}
                 >
                   Edit

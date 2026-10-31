@@ -11,9 +11,11 @@ const Modal = ({
   onClose, 
   title, 
   children, 
+  footer = null,
   maxWidth = '660px', 
   style = {},
-  isDirty = undefined 
+  isDirty = undefined,
+  closeOnBackdrop = false 
 }) => {
   const overlayRef = useRef(null)
   const containerRef = useRef(null)
@@ -204,8 +206,12 @@ const Modal = ({
   // Outside click handler: safely ignore clicks outside the modal (no close, no jiggle/blink)
   const handleOverlayClick = (e) => {
     if (e.target === overlayRef.current) {
-      e.preventDefault()
-      e.stopPropagation()
+      if (closeOnBackdrop) {
+        handleRequestClose()
+      } else {
+        e.preventDefault()
+        e.stopPropagation()
+      }
     }
   }
 
@@ -269,7 +275,7 @@ const Modal = ({
             overflowY: 'auto', 
             overflowX: 'hidden', 
             flex: 1, 
-            maxHeight: 'calc(94vh - 65px)', 
+            maxHeight: footer ? 'calc(94vh - 135px)' : 'calc(94vh - 65px)', 
             width: '100%', 
             maxWidth: '100%', 
             boxSizing: 'border-box',
@@ -280,6 +286,26 @@ const Modal = ({
         >
           {children}
         </div>
+        {footer && (
+          <div 
+            className="modal-footer"
+            style={{
+              flexShrink: 0,
+              borderTop: '1px solid var(--border, #E4E4E4)',
+              padding: '16px 24px',
+              background: 'var(--card-bg, #FFFFFF)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: '12px',
+              zIndex: 50,
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            {footer}
+          </div>
+        )}
 
         {/* Discard Confirmation Dialog */}
         {showDiscardConfirm && (

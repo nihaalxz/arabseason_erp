@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import DashboardLayout from './components/layout/DashboardLayout'
 import Login from './pages/Login'
@@ -37,6 +37,12 @@ import { SettingsProvider } from './contexts/SettingsContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ModuleProvider } from './contexts/ModuleContext'
 import { WorkspaceProvider } from './contexts/WorkspaceContext'
+
+// Legacy ERP route redirector: preserves full path and query string with replace
+const RedirectToAccounting = () => {
+  const location = useLocation()
+  return <Navigate to={`/accounting${location.pathname}${location.search}`} replace />
+}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -198,11 +204,25 @@ function App() {
             >
               <Route index element={<Dashboard />} />
               <Route path="accounting" element={canAccess('payments') ? <AccountingDashboard /> : <Navigate to="/" />} />
+              
+              {/* Accounting & Books Section-Aware Routes */}
+              <Route path="accounting/customers" element={canAccess('customers') ? <Customers /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/customers/:id" element={canAccess('customers') ? <CustomerDetail /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/vendors" element={canAccess('vendors') ? <Vendors /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/vendors/:id" element={canAccess('vendors') ? <VendorDetail /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/estimations" element={canAccess('estimations') ? <Estimations /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/estimations/new" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/estimations/:id/edit" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/quotations" element={canAccess('quotations') ? <Quotations /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/quotations/new" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/quotations/:id/edit" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/banks" element={<Navigate to="/cashbook?tab=bank_accounts" replace />} />
               <Route path="enquiries" element={<Enquiries currentUser={currentUser} />} />
-              <Route path="customers" element={canAccess('customers') ? <Customers /> : <Navigate to="/" />} />
-              <Route path="customers/:id" element={canAccess('customers') ? <CustomerDetail /> : <Navigate to="/" />} />
-              <Route path="vendors" element={canAccess('vendors') ? <Vendors /> : <Navigate to="/" />} />
-              <Route path="vendors/:id" element={canAccess('vendors') ? <VendorDetail /> : <Navigate to="/" />} />
+              {/* Legacy ERP Route Redirects to Accounting */}
+              <Route path="customers" element={<RedirectToAccounting />} />
+              <Route path="customers/:id" element={<RedirectToAccounting />} />
+              <Route path="vendors" element={<RedirectToAccounting />} />
+              <Route path="vendors/:id" element={<RedirectToAccounting />} />
               <Route path="jobs" element={(canAccess('jobs') || canAccess('planning')) ? <JobOrders /> : <Navigate to="/" />} />
               
               {/* Invoices */}
@@ -210,10 +230,10 @@ function App() {
               <Route path="invoices/new" element={canAccess('invoices') ? <InvoiceBuilder /> : <Navigate to="/" />} />
               <Route path="invoices/:id/edit" element={canAccess('invoices') ? <InvoiceBuilder /> : <Navigate to="/" />} />
 
-              {/* Quotations */}
-              <Route path="quotations" element={canAccess('quotations') ? <Quotations /> : <Navigate to="/" />} />
-              <Route path="quotations/new" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/" />} />
-              <Route path="quotations/:id/edit" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/" />} />
+              {/* Legacy Quotations Redirects */}
+              <Route path="quotations" element={<RedirectToAccounting />} />
+              <Route path="quotations/new" element={<RedirectToAccounting />} />
+              <Route path="quotations/:id/edit" element={<RedirectToAccounting />} />
 
               {/* Credit Notes */}
               <Route path="credit-notes" element={canAccess('credit_notes') ? <CreditNotes /> : <Navigate to="/" />} />
@@ -227,9 +247,10 @@ function App() {
 
               <Route path="payments" element={canAccess('payments') ? <Payments /> : <Navigate to="/" />} />
               <Route path="payment-requests" element={canAccess('payment-requests') ? <PaymentRequests /> : <Navigate to="/" />} />
-              <Route path="estimations" element={canAccess('estimations') ? <Estimations /> : <Navigate to="/" />} />
-              <Route path="estimations/new" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/" />} />
-              <Route path="estimations/:id/edit" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/" />} />
+              {/* Legacy Estimations Redirects */}
+              <Route path="estimations" element={<RedirectToAccounting />} />
+              <Route path="estimations/new" element={<RedirectToAccounting />} />
+              <Route path="estimations/:id/edit" element={<RedirectToAccounting />} />
               <Route path="expenses" element={canAccess('expenses') ? <Expenses /> : <Navigate to="/" />} />
               <Route path="banks" element={<Navigate to="/cashbook?tab=bank_accounts" replace />} />
               <Route path="cashbook" element={(isAdmin || canAccess('cashbook')) ? <Cashbook /> : <Navigate to="/" replace />} />

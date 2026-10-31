@@ -1,23 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
 import api from '../../api'
-import { 
-  Plus, Search, Filter, Edit2, Trash2, Calendar, 
-  Wrench, Users, Briefcase, FileText, Check, X, 
-  AlertCircle, CheckCircle2, RefreshCw, Clock, ChevronDown,
-  Layers, HardHat
-} from '../icons'
-import SearchBar from '../common/SearchBar'
+import { Plus, Edit, Trash2, X, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
+import PlainFilterDropdown from '../common/PlainFilterDropdown'
+import CredSearchInput from '../cashbook/cred/CredSearchInput'
+import Modal from '../common/Modal'
 import { showConfirm, showError, showToast } from '../../utils/swal'
 
-const STATUS_COLORS = {
-  'Planned': { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)' },
-  'In Progress': { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
-  'Completed': { bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: 'rgba(16, 185, 129, 0.3)' },
-  'On Hold': { bg: 'rgba(148, 163, 184, 0.15)', color: '#64748b', border: 'rgba(148, 163, 184, 0.3)' }
-}
-
-const ProjectPlanning = ({ jobOrders = [], onRefreshJobs }) => {
+const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,25 +47,6 @@ const ProjectPlanning = ({ jobOrders = [], onRefreshJobs }) => {
   const toolDropdownRef = useRef(null)
   const workerDropdownRef = useRef(null)
 
-  useEffect(() => {
-    fetchPlans()
-    fetchCatalogs()
-  }, [])
-
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (toolDropdownRef.current && !toolDropdownRef.current.contains(e.target)) {
-        setShowToolSuggestions(false)
-      }
-      if (workerDropdownRef.current && !workerDropdownRef.current.contains(e.target)) {
-        setShowWorkerSuggestions(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   const fetchPlans = async () => {
     try {
       setLoading(true)
@@ -107,6 +77,38 @@ const ProjectPlanning = ({ jobOrders = [], onRefreshJobs }) => {
     }
   }
 
+  useEffect(() => {
+    fetchPlans()
+    fetchCatalogs()
+  }, [])
+
+  // Universal top strip refresh handler
+  useEffect(() => {
+    const handleAppRefresh = () => {
+      fetchPlans()
+      fetchCatalogs()
+      if (typeof onRefreshJobs === 'function') {
+        onRefreshJobs()
+      }
+    }
+    window.addEventListener('app:refresh', handleAppRefresh)
+    return () => window.removeEventListener('app:refresh', handleAppRefresh)
+  }, [onRefreshJobs])
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (toolDropdownRef.current && !toolDropdownRef.current.contains(e.target)) {
+        setShowToolSuggestions(false)
+      }
+      if (workerDropdownRef.current && !workerDropdownRef.current.contains(e.target)) {
+        setShowWorkerSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleOpenCreateModal = () => {
     setEditingPlanId(null)
     setFormData({
@@ -124,6 +126,12 @@ const ProjectPlanning = ({ jobOrders = [], onRefreshJobs }) => {
     setIsModalOpen(true)
     setError(null)
   }
+
+  // Expose methods to parent ref (for the Create Project Plan button in JobOrders page header)
+  useImperativeHandle(ref, () => ({
+    openCreateModal: handleOpenCreateModal,
+    fetchPlans: fetchPlans
+  }))
 
   const handleOpenEditModal = (plan) => {
     setEditingPlanId(plan.id)
@@ -245,14 +253,15 @@ const ProjectPlanning = ({ jobOrders = [], onRefreshJobs }) => {
 
   // Filtered plans
   const filteredPlans = plans.filter(p => {
-    const matchesSearch = 
-      p.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.job_order_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.job_order_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (Array.isArray(p.tools) && p.tools.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))) ||
-      (Array.isArray(p.workers) && p.workers.some(w => w.toLowerCase().includes(searchQuery.toLowerCase())))
+    const q = searchQuery.toLowerCase()
+    const matchesSearch = !q ||
+      p.title?.toLowerCase().includes(q) ||
+      p.description?.toLowerCase().includes(q) ||
+      p.job_order_title?.toLowerCase().includes(q) ||
+      p.job_order_code?.toLowerCase().includes(q) ||
+      p.customer_name?.toLowerCase().includes(q) ||
+      (Array.isArray(p.tools) && p.tools.some(t => t.toLowerCase().includes(q))) ||
+      (Array.isArray(p.workers) && p.workers.some(w => w.toLowerCase().includes(q)))
 
     const matchesStatus = statusFilter === 'All' || p.status === statusFilter
     const matchesJob = jobFilter === 'All' || String(p.job_order) === String(jobFilter)
@@ -267,728 +276,866 @@ const ProjectPlanning = ({ jobOrders = [], onRefreshJobs }) => {
   const uniqueTools = new Set(plans.flatMap(p => p.tools || [])).size
   const uniqueWorkers = new Set(plans.flatMap(p => p.workers || [])).size
 
+  // Status dot & label renderer
+  const renderPlanStatus = (status) => {
+    const s = String(status || '').trim().toLowerCase()
+    let dotColor = '#8C8C8C'
+    let label = status || 'Planned'
+
+    if (s === 'in progress') {
+      dotColor = '#3b82f6'
+      label = 'In Progress'
+    } else if (s === 'completed') {
+      dotColor = '#10b981'
+      label = 'Completed'
+    } else if (s === 'planned') {
+      dotColor = '#8C8C8C'
+      label = 'Planned'
+    } else if (s === 'on hold') {
+      dotColor = '#8C8C8C'
+      label = 'On Hold'
+    }
+
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 400, color: 'var(--text, #111111)' }}>
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
+        {label}
+      </span>
+    )
+  }
+
+  // Comma-separated summary helper for tools & workers (shows first 2 and +N if > 2)
+  const renderItemsSummary = (items) => {
+    if (!Array.isArray(items) || items.length === 0) {
+      return <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12.5px' }}>—</span>
+    }
+    const fullStr = items.join(', ')
+    if (items.length <= 2) {
+      return (
+        <span 
+          title={fullStr} 
+          style={{ 
+            color: 'var(--text-muted, #8C8C8C)', 
+            fontSize: '12.5px', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap', 
+            display: 'block' 
+          }}
+        >
+          {fullStr}
+        </span>
+      )
+    }
+    const firstTwo = items.slice(0, 2).join(', ')
+    const extra = items.length - 2
+    return (
+      <span 
+        title={fullStr} 
+        style={{ 
+          color: 'var(--text-muted, #8C8C8C)', 
+          fontSize: '12.5px', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis', 
+          whiteSpace: 'nowrap', 
+          display: 'block' 
+        }}
+      >
+        {firstTwo}, +{extra}
+      </span>
+    )
+  }
+
   return (
     <div className="project-planning-container" style={{ width: '100%', maxWidth: '100%' }}>
-      {/* Notifications */}
+      {/* Alerts */}
       {successMsg && (
-        <div className="success-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <CheckCircle2 size={18} /> {successMsg}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '13px', marginBottom: '16px' }}>
+          <CheckCircle2 size={16} /> {successMsg}
         </div>
       )}
       {error && (
-        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <AlertCircle size={18} /> {error}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '13px', marginBottom: '16px' }}>
+          <AlertCircle size={16} /> {error}
         </div>
       )}
 
-      {/* Metrics Row */}
-      <div className="summary-cards-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Layers size={24} />
+      {/* 2. KPI Cards (Cashbook CRED style: 1px outline, muted label, 26px ink number, no colored tiles) */}
+      <div 
+        className="summary-cards-grid" 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+          gap: '16px', 
+          marginBottom: '20px' 
+        }}
+      >
+        <div style={{ background: 'var(--card-bg, #FFFFFF)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '20px', padding: '18px 20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+            Total plans
           </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>TOTAL PLANS</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-main)' }}>{totalPlans}</div>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Clock size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>IN PROGRESS</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#f59e0b' }}>{inProgressPlans}</div>
+          <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+            {totalPlans}
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <CheckCircle2 size={24} />
+        <div style={{ background: 'var(--card-bg, #FFFFFF)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '20px', padding: '18px 20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+            In progress
           </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>COMPLETED</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#10b981' }}>{completedPlans}</div>
+          <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+            {inProgressPlans}
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <HardHat size={24} />
+        <div style={{ background: 'var(--card-bg, #FFFFFF)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '20px', padding: '18px 20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+            Completed
           </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>ACTIVE TEAMS</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-main)' }}>
-              {uniqueWorkers} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '500' }}>workers / {uniqueTools} tools</span>
-            </div>
+          <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+            {completedPlans}
+          </div>
+        </div>
+
+        <div style={{ background: 'var(--card-bg, #FFFFFF)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '20px', padding: '18px 20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+            Active teams
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+            {uniqueWorkers}
+          </div>
+          <div style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>
+            {uniqueWorkers} workers / {uniqueTools} tools
           </div>
         </div>
       </div>
 
-      {/* Action and Filter Bar */}
-      <div className="glass-panel" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.85rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', flex: 1, minWidth: '240px' }}>
-          <SearchBar
+      {/* 3. Search and Filter Row (Directly on page, no outer card border) */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '8px',
+        marginBottom: '20px'
+      }}>
+        <div style={{ flex: '1 1 280px', minWidth: '220px' }}>
+          <CredSearchInput
             value={searchQuery}
-            onChange={(val) => setSearchQuery(val)}
-            style={{ flex: '1 1 240px', minWidth: '220px', maxWidth: '420px' }}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
+            placeholder="Search project plans..."
           />
-          <div style={{ flex: '1 1 130px', minWidth: '120px' }}>
-            <select className="input-field" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="All">All Statuses</option>
-              <option value="Planned">Planned</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-              <option value="On Hold">On Hold</option>
-            </select>
-          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <PlainFilterDropdown
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'All', label: 'All statuses' },
+              { value: 'Planned', label: 'Planned' },
+              { value: 'In Progress', label: 'In Progress' },
+              { value: 'Completed', label: 'Completed' },
+              { value: 'On Hold', label: 'On Hold' }
+            ]}
+            ariaLabel="Filter by status"
+            minWidth={130}
+          />
           {jobOrders.length > 0 && (
-            <div style={{ flex: '1 1 180px', minWidth: '150px' }}>
-              <select className="input-field" value={jobFilter} onChange={(e) => setJobFilter(e.target.value)}>
-                <option value="All">All Job Orders</option>
-                {jobOrders.map(j => (
-                  <option key={j.id} value={j.id}>
-                    {j.order_id || `#AS${j.id}`} - {j.title?.substring(0, 20)}...
-                  </option>
-                ))}
-              </select>
-            </div>
+            <PlainFilterDropdown
+              value={jobFilter}
+              onChange={setJobFilter}
+              options={[
+                { value: 'All', label: 'All job orders' },
+                ...jobOrders.map(j => ({
+                  value: String(j.id),
+                  label: `${j.order_id || `#AS${j.id}`} - ${j.title || 'Job'}`
+                }))
+              ]}
+              ariaLabel="Filter by job order"
+              minWidth={150}
+            />
           )}
         </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button className="btn btn-secondary" onClick={fetchPlans} title="Refresh Plans" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
-          </button>
-          <button className="btn btn-primary" onClick={handleOpenCreateModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
-            <Plus size={18} /> Create Project Plan
-          </button>
-        </div>
       </div>
 
-      {/* Plans List / Grid */}
+      {/* 4. Plans Table / Empty State */}
       {loading && plans.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <RefreshCw size={32} className="spin" style={{ margin: '0 auto 1rem', display: 'block' }} />
+        <div style={{ padding: '3.5rem 1rem', textAlign: 'center', color: 'var(--text-muted, #8C8C8C)', fontSize: '13px' }}>
           Loading project plans...
         </div>
       ) : filteredPlans.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
-          <Layers size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
-          <h4 style={{ fontWeight: '700', marginBottom: '0.5rem' }}>No Project Plans Found</h4>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto 1.5rem' }}>
-            {searchQuery || statusFilter !== 'All' || jobFilter !== 'All' 
-              ? 'No plans match your current search and filter parameters.' 
-              : 'Create multiple project plans for your job orders with customized tools and worker rosters.'}
+        <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+          <Layers size={22} strokeWidth={1.6} style={{ color: 'var(--text-muted, #8C8C8C)', opacity: 0.6, marginBottom: '8px' }} />
+          <p style={{ margin: 0, fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+            No project plans yet.
           </p>
-          <button className="btn btn-primary" onClick={handleOpenCreateModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Plus size={18} /> Create First Project Plan
-          </button>
         </div>
       ) : (
-        <div className="glass-panel" style={{ overflowX: 'auto', borderRadius: '12px' }}>
-          <div className="table-container">
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--border-light)' }}>
-                  <th style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: '220px' }}>Plan Title & Scope</th>
-                  <th style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: '180px' }}>Contract / Client</th>
-                  <th style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: '150px' }}>Timeline</th>
-                  <th style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: '200px' }}>Tools Required</th>
-                  <th style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: '200px' }}>Assigned Workers</th>
-                  <th style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: '120px' }}>Status</th>
-                  <th style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', minWidth: '100px' }}>Actions</th>
+        <div className="desktop-only-table" style={{ width: '100%' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '26%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '80px' }} />
+            </colgroup>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                  Plan Title & Scope
+                </th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                  Contract / Client
+                </th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                  Timeline
+                </th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                  Tools Required
+                </th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                  Assigned Workers
+                </th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                  Status
+                </th>
+                <th style={{ width: '100px', minWidth: '100px', padding: '10px 8px 10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPlans.map((plan) => (
+                <tr 
+                  key={plan.id}
+                  className="cred-table-row"
+                  style={{ 
+                    borderBottom: '1px solid var(--border, #E4E4E4)',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #FAFAFA)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  {/* Plan Title & Scope */}
+                  <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 500, color: 'var(--text, #111111)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {plan.title}
+                    </div>
+                    {plan.description && (
+                      <div style={{ 
+                        fontSize: '12px', 
+                        color: 'var(--text-muted, #8C8C8C)', 
+                        marginTop: '2px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {plan.description}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Contract / Client */}
+                  <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                    {plan.job_order_title ? (
+                      <div style={{ overflow: 'hidden' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {plan.job_order_code || `#AS${plan.job_order}`} - {plan.job_order_title}
+                        </div>
+                        {plan.customer_name && (
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                            {plan.customer_name}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '13px', color: 'var(--text-muted, #8C8C8C)' }}>
+                        Standalone plan
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Timeline */}
+                  <td style={{ padding: '10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '12.5px', color: (plan.start_date || plan.end_date) ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)' }}>
+                      {(plan.start_date || plan.end_date)
+                        ? `${plan.start_date || 'TBD'} to ${plan.end_date || 'Open'}`
+                        : '—'}
+                    </span>
+                  </td>
+
+                  {/* Tools Required */}
+                  <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                    {renderItemsSummary(plan.tools)}
+                  </td>
+
+                  {/* Assigned Workers */}
+                  <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                    {renderItemsSummary(plan.workers)}
+                  </td>
+
+                  {/* Status */}
+                  <td style={{ padding: '10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                    {renderPlanStatus(plan.status)}
+                  </td>
+
+                  {/* Actions */}
+                  <td style={{ width: '100px', minWidth: '100px', textAlign: 'right', padding: '10px 8px 10px 16px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'inline-flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+                      <button
+                        type="button"
+                        className="cred-icon-action-btn"
+                        onClick={() => handleOpenEditModal(plan)}
+                        title="Edit"
+                        aria-label="Edit"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          width: '32px',
+                          height: '32px',
+                          flexShrink: 0,
+                          padding: 0,
+                          color: 'var(--text-muted, #8C8C8C)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '6px',
+                          transition: 'color 0.15s ease, background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--text, #0A0A0A)'
+                          e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }}
+                      >
+                        <Edit size={16} strokeWidth={1.8} />
+                      </button>
+                      <button
+                        type="button"
+                        className="cred-icon-action-btn"
+                        onClick={() => handleDelete(plan.id)}
+                        title="Delete"
+                        aria-label="Delete"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          width: '32px',
+                          height: '32px',
+                          flexShrink: 0,
+                          padding: 0,
+                          color: 'var(--text-muted, #8C8C8C)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '6px',
+                          transition: 'color 0.15s ease, background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--danger, #DC2626)'
+                          e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }}
+                      >
+                        <Trash2 size={16} strokeWidth={1.8} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredPlans.map((plan) => {
-                  const statusConfig = STATUS_COLORS[plan.status] || STATUS_COLORS['Planned']
-                  return (
-                    <tr 
-                      key={plan.id}
-                      style={{ 
-                        borderBottom: '1px solid var(--border-color)',
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.015)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      {/* Plan Title & Scope */}
-                      <td style={{ padding: '1rem 1.25rem', verticalAlign: 'top', maxWidth: '280px' }}>
-                        <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.95rem', marginBottom: '0.25rem' }}>
-                          {plan.title}
-                        </div>
-                        {plan.description && (
-                          <div style={{ 
-                            fontSize: '0.8rem', 
-                            color: 'var(--text-muted)', 
-                            lineHeight: 1.4,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
-                          }}>
-                            {plan.description}
-                          </div>
-                        )}
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '0.35rem' }}>
-                          Created {new Date(plan.created_at).toLocaleDateString()}
-                        </div>
-                      </td>
-
-                      {/* Contract / Client */}
-                      <td style={{ padding: '1rem 1.25rem', verticalAlign: 'top', maxWidth: '200px' }}>
-                        {plan.job_order_title ? (
-                          <div>
-                            <span style={{ 
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.3rem',
-                              fontSize: '0.75rem', 
-                              fontWeight: '800', 
-                              color: 'var(--primary)',
-                              background: 'var(--border-light)',
-                              padding: '0.2rem 0.5rem',
-                              borderRadius: '4px',
-                              marginBottom: '0.25rem'
-                            }}>
-                              <Briefcase size={12} />
-                              {plan.job_order_code || `#AS${plan.job_order}`}
-                            </span>
-                            <div style={{ fontSize: '0.825rem', fontWeight: '600', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {plan.job_order_title}
-                            </div>
-                            {plan.customer_name && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                {plan.customer_name}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                            Standalone Plan
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Timeline */}
-                      <td style={{ padding: '1rem 1.25rem', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                        {(plan.start_date || plan.end_date) ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8rem', color: 'var(--text-main)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
-                              <span>{plan.start_date || 'TBD'}</span>
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', paddingLeft: '1rem' }}>
-                              to {plan.end_date || 'Open'}
-                            </div>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Unscheduled</span>
-                        )}
-                      </td>
-
-                      {/* Tools Required */}
-                      <td style={{ padding: '1rem 1.25rem', verticalAlign: 'top', maxWidth: '240px' }}>
-                        {Array.isArray(plan.tools) && plan.tools.length > 0 ? (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                            {plan.tools.map((tool, tIdx) => (
-                              <span 
-                                key={tIdx}
-                                style={{
-                                  fontSize: '0.725rem',
-                                  padding: '0.2rem 0.5rem',
-                                  borderRadius: '6px',
-                                  background: 'rgba(59, 130, 246, 0.08)',
-                                  color: '#2563eb',
-                                  border: '1px solid rgba(59, 130, 246, 0.2)',
-                                  fontWeight: '600',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                {tool}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>None specified</span>
-                        )}
-                      </td>
-
-                      {/* Assigned Workers */}
-                      <td style={{ padding: '1rem 1.25rem', verticalAlign: 'top', maxWidth: '240px' }}>
-                        {Array.isArray(plan.workers) && plan.workers.length > 0 ? (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                            {plan.workers.map((worker, wIdx) => (
-                              <span 
-                                key={wIdx}
-                                style={{
-                                  fontSize: '0.725rem',
-                                  padding: '0.2rem 0.5rem',
-                                  borderRadius: '6px',
-                                  background: 'rgba(16, 185, 129, 0.08)',
-                                  color: '#059669',
-                                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                                  fontWeight: '600',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                {worker}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>None assigned</span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: '1rem 1.25rem', verticalAlign: 'top' }}>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: '700',
-                          padding: '0.3rem 0.75rem',
-                          borderRadius: '999px',
-                          background: statusConfig.bg,
-                          color: statusConfig.color,
-                          border: `1px solid ${statusConfig.border}`,
-                          display: 'inline-block',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {plan.status}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '1rem 1.25rem', verticalAlign: 'top', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
-                          <button
-                            className="btn-icon"
-                            onClick={() => handleOpenEditModal(plan)}
-                            title="Edit Plan"
-                            style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'var(--border-light)' }}
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            className="btn-icon"
-                            onClick={() => handleDelete(plan.id)}
-                            title="Delete Plan"
-                            style={{ width: '32px', height: '32px', borderRadius: '6px', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.08)' }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Create / Edit Plan Modal */}
-      {isModalOpen && createPortal(
-        <div className="modal-overlay" onClick={() => !saving && setIsModalOpen(false)}>
-          <div 
-            className="modal-container"
-            onClick={(e) => e.stopPropagation()}
-            style={{ 
-              maxWidth: '680px', 
-              width: '100%', 
-              maxHeight: '90vh', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              overflow: 'hidden',
-              background: 'var(--card-bg, #ffffff)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '16px'
-            }}
-          >
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.75rem', borderBottom: '1px solid var(--border-color)', flexShrink: 0, background: 'var(--card-bg, #ffffff)' }}>
-              <div>
-                <h3 style={{ margin: 0, fontWeight: '800', fontSize: '1.25rem', color: 'var(--text-main)' }}>
-                  {editingPlanId ? 'Edit Project Plan' : 'Create Project Plan'}
-                </h3>
-                <p style={{ margin: '0.2rem 0 0', color: 'var(--text-muted)', fontSize: '0.825rem' }}>
-                  Allocate equipment, tools, and workforces with auto-persisted catalogs
-                </p>
-              </div>
-              <button className="btn-icon" onClick={() => !saving && setIsModalOpen(false)}>
-                <X size={20} />
-              </button>
+      {/* 6. Create / Edit Plan Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => !saving && setIsModalOpen(false)}
+        title={editingPlanId ? 'Edit Project Plan' : 'Create Project Plan'}
+        maxWidth="640px"
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              disabled={saving}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '9999px',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'transparent',
+                color: 'var(--text, #111111)',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="project-plan-form"
+              disabled={saving}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 20px',
+                borderRadius: '9999px',
+                background: 'var(--text, #0A0A0A)',
+                color: 'var(--card-bg, #FFFFFF)',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                transition: 'opacity 0.15s ease',
+                opacity: saving ? 0.7 : 1
+              }}
+            >
+              {saving ? 'Saving...' : editingPlanId ? 'Save Changes' : 'Create Project Plan'}
+            </button>
+          </div>
+        }
+      >
+        <form id="project-plan-form" onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Plan Title */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                Plan Title <span style={{ color: 'var(--danger, #DC2626)' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="input-field"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+                placeholder="e.g. Stage Setup & Audio Rigging"
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  padding: '0 12px',
+                  fontSize: '13px',
+                  background: 'var(--card-bg, #FFFFFF)',
+                  color: 'var(--text, #111111)',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
 
-            <div className="modal-body" style={{ overflowY: 'auto', padding: '1.75rem', flex: 1, background: 'var(--card-bg, #ffffff)' }}>
-              <form onSubmit={handleSubmit}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-                {/* Plan Title */}
-                <div className="form-group">
-                  <label style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'block' }}>
-                    Plan Title <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
+            {/* Associated Job Order & Status */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                  Associated Job Order
+                </label>
+                <select
+                  className="input-field plain-modal-select"
+                  value={formData.job_order}
+                  onChange={(e) => setFormData({ ...formData, job_order: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    padding: '0 12px',
+                    fontSize: '13px',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #111111)',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">Standalone plan</option>
+                  {jobOrders.map(j => (
+                    <option key={j.id} value={j.id}>
+                      {j.order_id || `#AS${j.id}`} - {j.title} ({j.customer_name || 'Customer'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                  Plan Status
+                </label>
+                <select
+                  className="input-field plain-modal-select"
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    padding: '0 12px',
+                    fontSize: '13px',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #111111)',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="Planned">Planned</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On Hold">On Hold</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Target Dates */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                  Target Start Date
+                </label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    padding: '0 12px',
+                    fontSize: '13px',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #111111)',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                  Target End Date
+                </label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    padding: '0 12px',
+                    fontSize: '13px',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #111111)',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Tools Required */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                Tools Required
+              </label>
+              {formData.tools.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {formData.tools.map((tool, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'var(--fill-ghost, #F4F4F4)',
+                        color: 'var(--text, #111111)',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 400
+                      }}
+                    >
+                      {tool}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTool(tool)}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex' }}
+                        title="Remove tool"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ position: 'relative' }} ref={toolDropdownRef}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
                     type="text"
                     className="input-field"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
+                    value={toolInput}
+                    onChange={(e) => {
+                      setToolInput(e.target.value)
+                      setShowToolSuggestions(true)
+                    }}
+                    onFocus={() => setShowToolSuggestions(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleAddTool()
+                      }
+                    }}
+                    placeholder="Add tool name..."
+                    style={{
+                      flex: 1,
+                      height: '38px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      padding: '0 12px',
+                      fontSize: '13px',
+                      background: 'var(--card-bg, #FFFFFF)',
+                      color: 'var(--text, #111111)',
+                      boxSizing: 'border-box'
+                    }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => handleAddTool()}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      padding: '0 8px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    + Add Tool
+                  </button>
                 </div>
-
-                {/* Job Order & Status */}
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'block' }}>
-                      Associated Job Order
-                    </label>
-                    <select
-                      className="input-field"
-                      value={formData.job_order}
-                      onChange={(e) => setFormData({ ...formData, job_order: e.target.value })}
-                    >
-                      <option value="">-- Standalone / General Plan --</option>
-                      {jobOrders.map(j => (
-                        <option key={j.id} value={j.id}>
-                          {j.order_id || `#AS${j.id}`} - {j.title} ({j.customer_name || 'Customer'})
-                        </option>
+                {/* Tool Suggestions */}
+                {showToolSuggestions && savedTools.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--card-bg, #FFFFFF)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                    maxHeight: '160px',
+                    overflowY: 'auto',
+                    zIndex: 100,
+                    marginTop: '4px'
+                  }}>
+                    <div style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', borderBottom: '1px solid var(--border, #E4E4E4)', fontWeight: 500 }}>
+                      PREVIOUSLY SAVED TOOLS (CLICK TO ADD)
+                    </div>
+                    {savedTools
+                      .filter(st => !formData.tools.includes(st.name) && st.name.toLowerCase().includes(toolInput.toLowerCase()))
+                      .map((st, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleAddTool(st.name)}
+                          style={{
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            fontSize: '12.5px',
+                            borderBottom: '1px solid var(--border, #E4E4E4)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            color: 'var(--text, #111111)'
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span>{st.name}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>+ Add</span>
+                        </div>
                       ))}
-                    </select>
                   </div>
+                )}
+              </div>
+            </div>
 
-                  <div className="form-group">
-                    <label style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'block' }}>
-                      Plan Status
-                    </label>
-                    <select
-                      className="input-field"
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            {/* Workers / Personnel */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                Workers / Personnel
+              </label>
+              {formData.workers.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {formData.workers.map((worker, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'var(--fill-ghost, #F4F4F4)',
+                        color: 'var(--text, #111111)',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 400
+                      }}
                     >
-                      <option value="Planned">Planned</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Completed">Completed</option>
-                      <option value="On Hold">On Hold</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Timeline Dates */}
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'block' }}>
-                      Target Start Date
-                    </label>
-                    <input
-                      type="date"
-                      className="input-field"
-                      value={formData.start_date}
-                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'block' }}>
-                      Target End Date
-                    </label>
-                    <input
-                      type="date"
-                      className="input-field"
-                      value={formData.end_date}
-                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                {/* Tools Roster with Auto-Save */}
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                    <label style={{ fontWeight: '700', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Wrench size={15} style={{ color: 'var(--accent)' }} />
-                      Tools Required
-                    </label>
-                    <span style={{ fontSize: '0.725rem', color: 'var(--accent)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Check size={12} /> Auto-saved for future entries
-                    </span>
-                  </div>
-
-                  {/* Selected Tools Chips */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.5rem', minHeight: '32px' }}>
-                    {formData.tools.map((tool, idx) => (
-                      <span
-                        key={idx}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          background: 'rgba(59, 130, 246, 0.1)',
-                          color: '#2563eb',
-                          border: '1px solid rgba(59, 130, 246, 0.25)',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600'
-                        }}
-                      >
-                        {tool}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTool(tool)}
-                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: '#2563eb', display: 'flex' }}
-                        >
-                          <X size={13} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Tool Input with Suggestions */}
-                  <div style={{ position: 'relative' }} ref={toolDropdownRef}>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input
-                        type="text"
-                        className="input-field"
-                        value={toolInput}
-                        onChange={(e) => {
-                          setToolInput(e.target.value)
-                          setShowToolSuggestions(true)
-                        }}
-                        onFocus={() => setShowToolSuggestions(true)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleAddTool()
-                          }
-                        }}
-                      />
+                      {worker}
                       <button
                         type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleAddTool()}
-                        style={{ whiteSpace: 'nowrap' }}
+                        onClick={() => handleRemoveWorker(worker)}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex' }}
+                        title="Remove worker"
                       >
-                        + Add Tool
+                        <X size={12} />
                       </button>
-                    </div>
-
-                    {/* Suggestions Dropdown */}
-                    {showToolSuggestions && savedTools.length > 0 && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        boxShadow: 'var(--shadow-md)',
-                        maxHeight: '160px',
-                        overflowY: 'auto',
-                        zIndex: 100,
-                        marginTop: '0.25rem'
-                      }}>
-                        <div style={{ padding: '0.4rem 0.75rem', fontSize: '0.7rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', fontWeight: '700' }}>
-                          PREVIOUSLY SAVED TOOLS (CLICK TO ADD):
-                        </div>
-                        {savedTools
-                          .filter(st => !formData.tools.includes(st.name) && st.name.toLowerCase().includes(toolInput.toLowerCase()))
-                          .map((st, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => handleAddTool(st.name)}
-                              style={{
-                                padding: '0.5rem 0.85rem',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                borderBottom: '1px solid var(--border-light)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--border-light)'}
-                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            >
-                              <span>{st.name}</span>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>+ Add</span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Workers Roster with Auto-Save */}
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                    <label style={{ fontWeight: '700', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Users size={15} style={{ color: '#10b981' }} />
-                      Workers / Personnel
-                    </label>
-                    <span style={{ fontSize: '0.725rem', color: '#10b981', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Check size={12} /> Auto-saved for future entries
                     </span>
-                  </div>
-
-                  {/* Selected Workers Chips */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.5rem', minHeight: '32px' }}>
-                    {formData.workers.map((worker, idx) => (
-                      <span
-                        key={idx}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          background: 'rgba(16, 185, 129, 0.1)',
-                          color: '#059669',
-                          border: '1px solid rgba(16, 185, 129, 0.25)',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600'
-                        }}
-                      >
-                        {worker}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveWorker(worker)}
-                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: '#059669', display: 'flex' }}
-                        >
-                          <X size={13} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Worker Input with Suggestions */}
-                  <div style={{ position: 'relative' }} ref={workerDropdownRef}>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input
-                        type="text"
-                        className="input-field"
-                        value={workerInput}
-                        onChange={(e) => {
-                          setWorkerInput(e.target.value)
-                          setShowWorkerSuggestions(true)
-                        }}
-                        onFocus={() => setShowWorkerSuggestions(true)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleAddWorker()
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleAddWorker()}
-                        style={{ whiteSpace: 'nowrap' }}
-                      >
-                        + Add Worker
-                      </button>
-                    </div>
-
-                    {/* Suggestions Dropdown */}
-                    {showWorkerSuggestions && savedWorkers.length > 0 && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        boxShadow: 'var(--shadow-md)',
-                        maxHeight: '160px',
-                        overflowY: 'auto',
-                        zIndex: 100,
-                        marginTop: '0.25rem'
-                      }}>
-                        <div style={{ padding: '0.4rem 0.75rem', fontSize: '0.7rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', fontWeight: '700' }}>
-                          PREVIOUSLY SAVED WORKERS (CLICK TO ADD):
-                        </div>
-                        {savedWorkers
-                          .filter(sw => !formData.workers.includes(sw.name) && sw.name.toLowerCase().includes(workerInput.toLowerCase()))
-                          .map((sw, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => handleAddWorker(sw.name)}
-                              style={{
-                                padding: '0.5rem 0.85rem',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                borderBottom: '1px solid var(--border-light)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--border-light)'}
-                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            >
-                              <span>{sw.name}</span>
-                              <span style={{ fontSize: '0.7rem', color: '#10b981' }}>+ Add</span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
+                  ))}
                 </div>
-
-                {/* Description */}
-                <div className="form-group">
-                  <label style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <FileText size={15} style={{ color: 'var(--primary)' }} />
-                    Plan Scope & Description
-                  </label>
-                  <textarea
-                    rows={4}
+              )}
+              <div style={{ position: 'relative' }} ref={workerDropdownRef}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
                     className="input-field"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    style={{ resize: 'vertical' }}
+                    value={workerInput}
+                    onChange={(e) => {
+                      setWorkerInput(e.target.value)
+                      setShowWorkerSuggestions(true)
+                    }}
+                    onFocus={() => setShowWorkerSuggestions(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleAddWorker()
+                      }
+                    }}
+                    placeholder="Add worker name..."
+                    style={{
+                      flex: 1,
+                      height: '38px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      padding: '0 12px',
+                      fontSize: '13px',
+                      background: 'var(--card-bg, #FFFFFF)',
+                      color: 'var(--text, #111111)',
+                      boxSizing: 'border-box'
+                    }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => handleAddWorker()}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      padding: '0 8px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    + Add Worker
+                  </button>
                 </div>
+                {/* Worker Suggestions */}
+                {showWorkerSuggestions && savedWorkers.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--card-bg, #FFFFFF)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                    maxHeight: '160px',
+                    overflowY: 'auto',
+                    zIndex: 100,
+                    marginTop: '4px'
+                  }}>
+                    <div style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', borderBottom: '1px solid var(--border, #E4E4E4)', fontWeight: 500 }}>
+                      PREVIOUSLY SAVED WORKERS (CLICK TO ADD)
+                    </div>
+                    {savedWorkers
+                      .filter(sw => !formData.workers.includes(sw.name) && sw.name.toLowerCase().includes(workerInput.toLowerCase()))
+                      .map((sw, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleAddWorker(sw.name)}
+                          style={{
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            fontSize: '12.5px',
+                            borderBottom: '1px solid var(--border, #E4E4E4)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            color: 'var(--text, #111111)'
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span>{sw.name}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>+ Add</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
+            </div>
 
-              {/* Form Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.75rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={saving}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  {saving ? (
-                    <>
-                      <RefreshCw size={16} className="spin" /> Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={16} /> {editingPlanId ? 'Save Changes' : 'Create Project Plan'}
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+            {/* Plan Scope & Description */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
+                Plan Scope & Description
+              </label>
+              <textarea
+                rows={3}
+                className="input-field"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Detailed breakdown of work stages, requirements, or safety notes..."
+                style={{
+                  width: '100%',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  background: 'var(--card-bg, #FFFFFF)',
+                  color: 'var(--text, #111111)',
+                  boxSizing: 'border-box',
+                  resize: 'vertical'
+                }}
+              />
             </div>
           </div>
-        </div>,
-        document.body
-      )}
+        </form>
+      </Modal>
     </div>
   )
-}
+})
 
 export default ProjectPlanning

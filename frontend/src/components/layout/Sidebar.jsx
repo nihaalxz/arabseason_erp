@@ -3,15 +3,19 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, Users, Building2, Briefcase, FileSpreadsheet, 
   Layers, CreditCard, ShieldCheck, Receipt, FileBarChart, 
-  Banknote, Settings, UserCog, Pin, PinOff, X, BookOpen, Landmark, FileText, Trash2 
+  Banknote, Settings, UserCog, BookOpen, Landmark, FileText, Trash2 
 } from '../icons'
-import { Truck, RotateCcw, ChevronLeft, ChevronRight, HardHat, MessageSquareQuote } from 'lucide-react'
+import { Truck, RotateCcw, HardHat, MessageSquareQuote, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useModule } from '../../contexts/ModuleContext'
 import { useWorkspace } from '../../contexts/WorkspaceContext'
 import api from '../../api'
 
 const MODULE_KEY_MAP = {
   '/accounting': 'payments',
+  '/accounting/customers': 'customers',
+  '/accounting/vendors': 'vendors',
+  '/accounting/estimations': 'estimations',
+  '/accounting/quotations': 'quotations',
   '/enquiries': 'enquiries',
   '/customers': 'customers',
   '/vendors': 'vendors',
@@ -31,6 +35,7 @@ const MODULE_KEY_MAP = {
   '/reports?tab=salary': 'salary',
   '/salary': 'salary',
   '/settings': 'settings',
+  '/users': 'users',
 }
 
 const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser }) => {
@@ -113,7 +118,7 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
     return location.pathname === itemPath || location.pathname.startsWith(itemPath + '/')
   }
 
-  // Define Navigation Items adapted to Active Module (or Unified View)
+  // Define Navigation Items adapted to Active Module
   let allNavItems = []
 
   if (activeModule === 'cashbook') {
@@ -132,18 +137,21 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
   } else if (activeModule === 'accounting') {
     allNavItems = [
       { name: 'Accounting Dashboard', path: '/accounting', icon: LayoutDashboard },
-      { type: 'divider', label: 'BILLING & INVOICING' },
+      { type: 'divider', label: 'SALES' },
+      { name: 'Customers', path: '/accounting/customers', icon: Users },
+      { name: 'Estimations', path: '/accounting/estimations', icon: FileSpreadsheet },
+      { name: 'Quotations', path: '/accounting/quotations', icon: FileText },
       { name: 'Invoices', path: '/invoices', icon: Receipt },
       { name: 'Credit Notes', path: '/credit-notes', icon: RotateCcw },
-      { type: 'divider', label: 'TREASURY & PAYMENTS' },
-      { name: 'Payments & Receipts', path: '/payments', icon: CreditCard },
-      { name: 'Payment Requests', path: '/payment-requests', icon: ShieldCheck },
-      { type: 'divider', label: 'COST & PAYROLL' },
+      { type: 'divider', label: 'PURCHASES' },
+      { name: 'Vendors', path: '/accounting/vendors', icon: Building2 },
       { name: 'Expenses', path: '/expenses', icon: Receipt },
       { name: 'Salary & Payroll', path: '/salary', icon: Banknote },
-      { type: 'divider', label: 'FINANCIAL INTELLIGENCE' },
+      { type: 'divider', label: 'BANKING' },
+      { name: 'Payments & Receipts', path: '/payments', icon: CreditCard },
+      { name: 'Payment Requests', path: '/payment-requests', icon: ShieldCheck },
+      { type: 'divider', label: 'REPORTS' },
       { name: 'Financial Reports', path: '/reports', icon: FileBarChart },
-      { type: 'divider', label: 'ADMINISTRATION' },
       { name: 'Settings', path: '/settings', icon: Settings },
       ...(isAdmin ? [{ name: 'User Management', path: '/users', icon: UserCog }] : []),
     ]
@@ -151,37 +159,31 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
     // Default: 'erp' (ERP Operations)
     allNavItems = [
       { name: 'ERP Dashboard', path: '/', icon: LayoutDashboard },
-      { type: 'divider', label: 'CRM & DIRECTORY' },
+      { type: 'divider', label: 'CRM' },
       { name: 'Enquiries', path: '/enquiries', icon: MessageSquareQuote },
-      { name: 'Customers', path: '/customers', icon: Users },
-      { name: 'Vendors', path: '/vendors', icon: Building2 },
-      { type: 'divider', label: 'SALES & ESTIMATION' },
-      { name: 'Estimations', path: '/estimations', icon: FileSpreadsheet },
-      { name: 'Quotations', path: '/quotations', icon: FileText },
-      { type: 'divider', label: 'OPERATIONS & FULFILLMENT' },
+      { type: 'divider', label: 'OPERATIONS' },
       { name: 'Job Orders', path: '/jobs', icon: Briefcase },
       { name: 'Project Planning', path: '/jobs?tab=planning', icon: Layers },
       { name: 'Delivery Notes', path: '/delivery-notes', icon: Truck },
-      { type: 'divider', label: 'ADMINISTRATION' },
       { name: 'Settings', path: '/settings', icon: Settings },
       ...(isAdmin ? [{ name: 'User Management', path: '/users', icon: UserCog }] : []),
     ]
   }
 
   const rawNavItems = allNavItems.filter(item => {
-    if (!item.path) return true // dividers (processed below)
+    if (!item.path) return true // dividers
     if (item.path === '/' || item.path === '/accounting' || item.path === '/settings' || item.path === '/recycle-bin' || item.path.startsWith('/cashbook')) return true
 
-    // Check workspace feature visibility first
+    // Check workspace feature visibility
     const moduleKey = MODULE_KEY_MAP[item.path]
     if (moduleKey && !isFeatureVisible(moduleKey)) {
       return false
     }
 
-    if (isAdmin) return true // admins see all permitted active features
+    if (isAdmin) return true
     if (!moduleKey) return true
     const accessList = currentUser?.access_list || []
-    if (['/quotations', '/credit-notes', '/delivery-notes'].includes(item.path)) {
+    if (['/credit-notes', '/delivery-notes', '/accounting/quotations'].includes(item.path)) {
       return accessList.includes(moduleKey) || accessList.includes('invoices')
     }
     if (item.path === '/jobs?tab=planning') {
@@ -203,81 +205,87 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
     return false
   })
 
-  return (
-    <aside className={`sidebar zoho-sidebar ${isOpen ? 'open' : ''} ${!isPinned && !isMobile ? 'mini' : ''} ${isPinned && !isMobile ? 'pinned' : ''}`}>
-      {/* Top bar: Title & Pin/Unpin */}
-      <div className="sidebar-top-bar" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: isPinned ? 'space-between' : 'center',
-        padding: '0.5rem 0.75rem',
-        borderBottom: '1px solid #edf0f5',
-        height: '40px'
-      }}>
-        {(!isMobile && isPinned) && (
-          <span style={{ fontSize: '0.675rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Navigation
-          </span>
-        )}
-        {!isMobile ? (
-          <button
-            type="button"
-            className={`pin-button ${isPinned ? 'active' : ''}`}
-            onClick={onTogglePin}
-            title={isPinned ? 'Contract Sidebar' : 'Expand Sidebar'}
-            style={{
-              background: isPinned ? 'transparent' : '#F0EEFD',
-              border: isPinned ? 'none' : '1px solid #ECEBF7',
-              color: isPinned ? '#64748b' : '#5B4BDB',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.18s ease',
-              width: isPinned ? '28px' : '36px',
-              height: isPinned ? '28px' : '36px'
-            }}
-          >
-            {isPinned ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ 
-              color: '#64748b', 
-              background: '#f1f5f9', 
-              border: 'none', 
-              padding: '0.35rem', 
-              borderRadius: '4px',
-              marginLeft: 'auto',
-              cursor: 'pointer'
-            }}
-            title="Close Menu"
-          >
-            <X size={16} />
-          </button>
-        )}
-      </div>
+  const isMini = !isMobile && !isPinned;
 
-      <nav className="sidebar-nav">
-        {navItems.map((item, idx) => (
-          item.type === 'divider' ? (
-            <div key={idx} className="divider-label" style={{
-              fontSize: '0.65rem',
-              fontWeight: '700',
-              color: '#94a3b8',
-              marginTop: '1.1rem',
-              marginBottom: '0.35rem',
-              padding: '0 0.65rem',
-              letterSpacing: '0.05em',
-              whiteSpace: 'nowrap',
-              textTransform: 'uppercase'
-            }}>
-              {item.label}
-            </div>
+  return (
+    <aside 
+      className={`sidebar cred-desktop-sidebar ${isOpen ? 'open' : ''} ${isMini ? 'mini is-collapsed' : ''} ${isPinned && !isMobile ? 'pinned' : ''}`} 
+      style={{ 
+        width: isMini ? '76px' : '240px', 
+        minWidth: isMini ? '76px' : '240px', 
+        background: 'var(--black, #0A0A0A)', 
+        borderRight: '1px solid rgba(255, 255, 255, 0.08)', 
+        position: 'fixed', 
+        top: '50px', 
+        bottom: 0, 
+        left: 0, 
+        zIndex: 900, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        boxSizing: 'border-box', 
+        overflow: 'hidden', 
+        transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.2s cubic-bezier(0.16, 1, 0.3, 1)', 
+        willChange: 'width, min-width', 
+        userSelect: 'none' 
+      }}
+      aria-label="Navigation"
+    >
+      {/* Top Header: simple "MENU" title */}
+      {(!isMobile && isPinned) ? (
+        <div 
+          className="sidebar-menu-header" 
+          style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.14em',
+            color: '#8C8C8C',
+            padding: '16px 14px 6px',
+            flexShrink: 0
+          }}
+        >
+          MENU
+        </div>
+      ) : (
+        <div style={{ height: '14px', flexShrink: 0 }} />
+      )}
+
+      {/* Scrollable list without scrollbar gutter (identical width for ERP and Accounting) */}
+      <nav 
+        className="sidebar-nav" 
+        style={{ 
+          padding: isMini ? '8px 6px 60px' : '8px 8px 60px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '3px', 
+          background: 'transparent', 
+          flex: '1 1 0%', 
+          minHeight: 0, 
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}
+      >
+        {navItems.map((item, idx) => {
+          return item.type === 'divider' ? (
+            isMini ? null : (
+              <div 
+                key={`divider-${idx}-${item.label}`} 
+                className="divider-label" 
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#8C8C8C',
+                  marginTop: '1.2rem',
+                  marginBottom: '0.4rem',
+                  padding: '0 12px',
+                  letterSpacing: '0.14em',
+                  whiteSpace: 'nowrap',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {item.label}
+              </div>
+            )
           ) : (() => {
             const isItemActive = checkIsActive(item.path)
 
@@ -285,15 +293,70 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
               <Link
                 key={item.path}
                 to={item.path}
-                className={`nav-link zoho-nav-item ${isItemActive ? 'active' : ''}`}
+                className={`cred-side-nav-item ${isItemActive ? 'is-active' : ''}`}
                 onClick={() => { 
                   if (item.onSwitch) setActiveModule(item.onSwitch)
                   if (isMobile) onClose() 
                 }}
                 title={item.name}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: isMini ? 'center' : 'flex-start',
+                  gap: isMini ? 0 : '10px',
+                  padding: isMini ? '10px 0' : '9px 12px',
+                  borderRadius: '12px',
+                  background: isItemActive ? '#1A1A1A' : 'transparent',
+                  color: isItemActive ? '#FFFFFF' : '#9A9A9A',
+                  fontSize: '13px',
+                  fontWeight: isItemActive ? 500 : 400,
+                  whiteSpace: 'nowrap',
+                  textDecoration: 'none',
+                  transition: 'all 0.15s ease',
+                  position: 'relative',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  zIndex: 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!isItemActive) {
+                    e.currentTarget.style.background = '#141414';
+                    e.currentTarget.style.color = '#FFFFFF';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isItemActive) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#9A9A9A';
+                  }
+                }}
               >
-                <item.icon size={17} style={{ minWidth: '17px', flexShrink: 0 }} />
-                <span>{item.name}</span>
+                {/* Icons are always pure white (#FFFFFF) in default, hover and active states */}
+                <item.icon 
+                  size={17} 
+                  strokeWidth={isItemActive ? 2.2 : 1.6} 
+                  style={{ 
+                    minWidth: '17px', 
+                    flexShrink: 0, 
+                    color: '#FFFFFF', 
+                    stroke: '#FFFFFF',
+                    position: 'relative',
+                    zIndex: 2
+                  }} 
+                />
+                {!isMini && (
+                  <span style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                    position: 'relative',
+                    zIndex: 2,
+                    color: isItemActive ? '#FFFFFF' : 'inherit'
+                  }}>
+                    {item.name}
+                  </span>
+                )}
                 {item.path === '/jobs' && pendingJobCount > 0 && (
                   <span
                     className="pending-red-dot"
@@ -304,23 +367,28 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
                       borderRadius: '50%',
                       background: '#ef4444',
                       boxShadow: '0 0 6px rgba(239, 68, 68, 0.9)',
-                      marginLeft: 'auto',
-                      flexShrink: 0
+                      position: isMini ? 'absolute' : 'static',
+                      top: isMini ? '7px' : undefined,
+                      right: isMini ? '12px' : undefined,
+                      marginLeft: isMini ? undefined : 'auto',
+                      flexShrink: 0,
+                      zIndex: 2
                     }}
                   />
                 )}
-                {item.path === '/enquiries' && dueEnquiriesCount > 0 && (
+                {!isMini && item.path === '/enquiries' && dueEnquiriesCount > 0 && (
                   <span
                     title={`${dueEnquiriesCount} follow-up ${dueEnquiriesCount === 1 ? 'call' : 'calls'} due today`}
                     style={{
                       background: '#f59e0b',
                       color: '#ffffff',
-                      fontSize: '0.65rem',
-                      fontWeight: '800',
-                      padding: '1px 6px',
-                      borderRadius: '10px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '1px 7px',
+                      borderRadius: '999px',
                       marginLeft: 'auto',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      zIndex: 2
                     }}
                   >
                     {dueEnquiriesCount}
@@ -329,10 +397,63 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
               </Link>
             )
           })()
-        ))}
+        })}
       </nav>
+
+      {/* Bottom bar: Collapse / Expand toggle */}
+      {!isMobile && (
+        <div 
+          className="sidebar-bottom-bar"
+          style={{ 
+            padding: '12px 14px', 
+            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            justifyContent: isPinned ? 'flex-end' : 'center',
+            alignItems: 'center',
+            flexShrink: 0,
+            background: 'var(--black, #0A0A0A)',
+            zIndex: 10
+          }}
+        >
+          <button
+            type="button"
+            className="sidebar-collapse-btn"
+            onClick={onTogglePin}
+            title={isPinned ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-label={isPinned ? 'Collapse sidebar' : 'Expand sidebar'}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '12px',
+              background: 'transparent',
+              border: 'none',
+              color: '#8C8C8C',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: 0,
+              transition: 'background-color 0.15s ease, color 0.15s ease'
+            }}
+            onMouseEnter={(e) => { 
+              e.currentTarget.style.color = '#FFFFFF'; 
+              e.currentTarget.style.background = '#1A1A1A';
+            }}
+            onMouseLeave={(e) => { 
+              e.currentTarget.style.color = '#8C8C8C'; 
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            {isPinned ? (
+              <PanelLeftClose size={18} strokeWidth={1.8} />
+            ) : (
+              <PanelLeftOpen size={18} strokeWidth={1.8} />
+            )}
+          </button>
+        </div>
+      )}
     </aside>
   )
 }
 
-export default Sidebar
+export default Sidebar;

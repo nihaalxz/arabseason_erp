@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Plus, Trash2, Check, X,
   FileText, Download, Printer, AlertCircle,
@@ -38,6 +38,7 @@ const ZohoLabel = ({ children, required, hint }) => (
 const EstimateBuilder = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const basePath = '/accounting'
   const isEditing = Boolean(id)
 
   // Loading & Action States
@@ -381,7 +382,7 @@ const EstimateBuilder = () => {
         await api.post('estimations/', payload)
         showToast(finalStatus === 'Draft' ? 'Estimate saved as Draft!' : 'Estimate saved successfully!', 'success')
       }
-      navigate('/estimations')
+      navigate(`${basePath}/estimations`)
     } catch (err) {
       console.error('Failed to save estimate:', err)
       let errMsg = 'An error occurred while saving the estimate.'
@@ -480,7 +481,7 @@ const EstimateBuilder = () => {
         <div className="builder-header-top" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button
             type="button"
-            onClick={() => navigate('/estimations')}
+            onClick={() => navigate(`${basePath}/estimations`)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -502,7 +503,7 @@ const EstimateBuilder = () => {
           </button>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '12px', color: '#64748b' }}>
-              <Link to="/estimations" style={{ color: '#1366d9', textDecoration: 'none', fontWeight: '500' }}>Estimations</Link>
+              <Link to={`${basePath}/estimations`} style={{ color: '#1366d9', textDecoration: 'none', fontWeight: '500' }}>Estimations</Link>
               <ChevronRight size={12} />
               <span>{isEditing ? 'Edit Estimate' : 'New Estimate'}</span>
             </div>
@@ -564,7 +565,7 @@ const EstimateBuilder = () => {
 
           <button
             type="button"
-            onClick={() => navigate('/estimations')}
+            onClick={() => navigate(`${basePath}/estimations`)}
             style={{
               padding: '0.45rem 0.85rem',
               fontSize: '13px',
@@ -1678,7 +1679,7 @@ const EstimateBuilder = () => {
         <div className="builder-sticky-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <button
             type="button"
-            onClick={() => navigate('/estimations')}
+            onClick={() => navigate(`${basePath}/estimations`)}
             style={{
               padding: '0.5rem 1.1rem',
               fontSize: '13.5px',

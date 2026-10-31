@@ -83,7 +83,7 @@ const SearchResults = () => {
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
                 {results.customers.map(c => (
-                  <Link key={c.id} to="/customers" className="glass-panel" style={{ padding: '1.25rem', display: 'block', textDecoration: 'none', color: 'inherit' }}>
+                  <Link key={c.id} to={`/accounting/customers/${c.id}`} className="glass-panel" style={{ padding: '1.25rem', display: 'block', textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>{c.name}</div>

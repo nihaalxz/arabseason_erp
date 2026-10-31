@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { 
   Plus, Search, RefreshCw, Trash2, Edit, ArrowDownTray, 
   CheckCircle, Clock, AlertCircle, 
@@ -35,6 +35,7 @@ const Quotations = () => {
   const { settings, formatCurrency } = useSettings()
   const currency = settings?.currency || 'SAR'
   const navigate = useNavigate()
+  const basePath = '/accounting'
 
   // Data states
   const [quotations, setQuotations] = useState([])
@@ -230,7 +231,7 @@ const Quotations = () => {
           </button>
 
           <Link
-            to="/quotations/new"
+            to={`${basePath}/quotations/new`}
             className="btn btn-primary"
             style={{
               display: 'inline-flex',
@@ -464,7 +465,7 @@ const Quotations = () => {
             No quotation matches your current search criteria or none have been created yet.
           </p>
           <Link
-            to="/quotations/new"
+            to={`${basePath}/quotations/new`}
             className="btn btn-primary"
             style={{
               display: 'inline-flex',
@@ -509,7 +510,7 @@ const Quotations = () => {
                   return (
                     <tr key={q.id} style={{ borderBottom: '1px solid #f1f5f9' }} className="hover-row">
                       <td style={{ padding: '12px 14px', fontWeight: '600' }}>
-                        <Link to={`/quotations/${q.id}/edit`} style={{ color: '#4f46e5', textDecoration: 'none' }}>
+                        <Link to={`${basePath}/quotations/${q.id}/edit`} className="doc-code" style={{ color: '#4f46e5', textDecoration: 'none' }}>
                           {q.quotation_number}
                         </Link>
                         {q.reference_number && (
@@ -610,7 +611,7 @@ const Quotations = () => {
                           {/* Edit */}
                           <button
                             type="button"
-                            onClick={() => navigate(`/quotations/${q.id}/edit`)}
+                            onClick={() => navigate(`${basePath}/quotations/${q.id}/edit`)}
                             title="Edit Quotation"
                             style={{
                               padding: '5px 8px',
@@ -671,7 +672,8 @@ const Quotations = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                     <div>
                       <Link
-                        to={`/quotations/${q.id}/edit`}
+                        to={`${basePath}/quotations/${q.id}/edit`}
+                        className="doc-code"
                         style={{ fontSize: '0.95rem', fontWeight: '700', color: '#4f46e5', textDecoration: 'none' }}
                       >
                         {q.quotation_number}
@@ -765,7 +767,7 @@ const Quotations = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate(`/quotations/${q.id}/edit`)}
+                        onClick={() => navigate(`${basePath}/quotations/${q.id}/edit`)}
                         style={{
                           padding: '6px 10px',
                           background: '#eff6ff',
