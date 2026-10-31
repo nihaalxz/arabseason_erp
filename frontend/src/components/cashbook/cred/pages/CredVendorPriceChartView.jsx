@@ -25,19 +25,19 @@ import {
 } from 'lucide-react';
 import api from '../../../../api';
 import Money from '../Money';
-import CredAnimatedTabs from '../CredAnimatedTabs';
+import GooeyMenu from '../GooeyMenu';
 import MoneyCard from '../MoneyCard';
 import CredCardCarousel from '../CredCardCarousel';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
 
-const DURATION_TABS = [
-  { id: 'all', label: 'all time' },
-  { id: '30d', label: 'last 30 days' },
-  { id: '90d', label: 'last 90 days' },
-  { id: '180d', label: 'last 6 months' },
-  { id: 'year', label: 'this year' }
+const DURATION_OPTIONS = [
+  { value: 'all', id: 'all', label: 'all time', icon: Calendar },
+  { value: '30d', id: '30d', label: 'last 30 days', icon: Calendar },
+  { value: '90d', id: '90d', label: 'last 90 days', icon: Calendar },
+  { value: '180d', id: '180d', label: 'last 6 months', icon: Calendar },
+  { value: 'year', id: 'year', label: 'this year', icon: Calendar }
 ];
 
 const COMMON_UNITS = [
@@ -74,7 +74,6 @@ const CredVendorPriceChartView = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVendorFilter, setSelectedVendorFilter] = useState('all');
   const [selectedMaterialFilter, setSelectedMaterialFilter] = useState('all');
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [duration, setDuration] = useState('all');
 
   // Modal State
@@ -211,6 +210,17 @@ const CredVendorPriceChartView = ({
     return Array.from(set).sort();
   }, [allQuotes]);
 
+  // Gooey menu options for Material and Vendor filters (clean titles without counts)
+  const materialGooeyOptions = useMemo(() => [
+    { value: 'all', label: 'All Materials', icon: Layers },
+    ...uniqueMaterialOptions.map(m => ({ value: m, label: m, icon: Layers }))
+  ], [uniqueMaterialOptions]);
+
+  const vendorGooeyOptions = useMemo(() => [
+    { value: 'all', label: 'All Vendors', icon: Building2 },
+    ...uniqueVendorOptions.map(v => ({ value: v, label: v, icon: Building2 }))
+  ], [uniqueVendorOptions]);
+
   // Duration Filter Calculation
   const filteredQuotes = useMemo(() => {
     const now = new Date();
@@ -241,12 +251,7 @@ const CredVendorPriceChartView = ({
         }
       }
 
-      // 4. Category Filter
-      if (selectedCategoryFilter !== 'all') {
-        if (q.categoryName !== selectedCategoryFilter) return false;
-      }
-
-      // 5. Duration Filter
+      // 4. Duration Filter
       if (duration !== 'all') {
         const qDate = new Date(q.date);
         const diffMs = now - qDate;
@@ -259,7 +264,7 @@ const CredVendorPriceChartView = ({
 
       return true;
     });
-  }, [allQuotes, searchQuery, selectedVendorFilter, selectedMaterialFilter, selectedCategoryFilter, duration]);
+  }, [allQuotes, searchQuery, selectedVendorFilter, selectedMaterialFilter, duration]);
 
   // Compute KPI Metrics
   const kpis = useMemo(() => {
@@ -279,7 +284,7 @@ const CredVendorPriceChartView = ({
   }, [filteredQuotes]);
 
   // Client-side pagination matching CredVendorsView
-  const quoteResetKey = `${duration}_${selectedMaterialFilter}_${selectedVendorFilter}_${selectedCategoryFilter}_${searchQuery}`;
+  const quoteResetKey = `${duration}_${selectedMaterialFilter}_${selectedVendorFilter}_${searchQuery}`;
   const {
     pageItems: pagedQuotes,
     page: quotePage,
@@ -417,25 +422,6 @@ const CredVendorPriceChartView = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
-                onClick={() => fetchData(false)}
-                title="Refresh prices"
-                style={{
-                  height: '32px',
-                  width: '32px',
-                  borderRadius: '50%',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  background: 'var(--bg-panel, #FFFFFF)',
-                  color: 'var(--text, #0A0A0A)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
-              >
-                <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-              <button
-                type="button"
                 id="btn-record-price-mobile"
                 onClick={() => setIsModalOpen(true)}
                 style={{
@@ -459,88 +445,45 @@ const CredVendorPriceChartView = ({
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              type="button"
-              onClick={onBack}
-              title="Back to Vendors"
-              aria-label="Back to Vendors"
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '50%',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg-panel, #FFFFFF)',
-                color: 'var(--text, #0A0A0A)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                padding: 0,
-                transition: 'border-color 0.15s, transform 0.15s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--text, #0A0A0A)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'; }}
-            >
-              <ArrowLeft size={17} strokeWidth={2} />
-            </button>
-
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-muted, #8C8C8C)' }}>
-                Vendors &nbsp;/&nbsp; Materials &nbsp;/&nbsp; Price Charts
-              </div>
-              <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '2px 0 0', color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }}>
-                vendor price chart
-              </h1>
-            </div>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '12px' }}>
+          <h1 
+            style={{ 
+              fontSize: '1.75rem', 
+              fontWeight: 600, 
+              margin: 0, 
+              color: 'var(--text, #0A0A0A)', 
+              letterSpacing: '-0.025em' 
+            }}
+          >
+            Vendor Price Chart
+          </h1>
 
           {/* Desktop Action Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
-              onClick={() => fetchData(false)}
-              title="Refresh prices"
-              style={{
-                height: '38px',
-                width: '38px',
-                borderRadius: '50%',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg-panel, #FFFFFF)',
-                color: 'var(--text, #0A0A0A)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
-
-            <button
-              type="button"
+              id="btn-record-price"
               onClick={() => setIsModalOpen(true)}
               style={{
-                height: '38px',
-                padding: '0 16px',
-                borderRadius: '999px',
+                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
                 border: 'none',
-                background: 'var(--text, #0A0A0A)',
-                color: 'var(--bg, #FFFFFF)',
+                borderRadius: '12px',
+                padding: '8px 18px',
                 fontSize: '13px',
-                fontWeight: 600,
+                fontWeight: 700,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
                 cursor: 'pointer',
-                transition: 'opacity 0.15s'
+                boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)',
+                transition: 'transform 0.15s ease, opacity 0.15s ease'
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
             >
-              <Plus size={15} strokeWidth={2.5} />
-              <span>record price quote</span>
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Record Price Quote</span>
             </button>
           </div>
         </div>
@@ -550,7 +493,7 @@ const CredVendorPriceChartView = ({
       <CredCardCarousel 
         isMobile={isMobile}
         desktopGridColumns="repeat(4, 1fr)"
-        style={{ marginBottom: isMobile ? '16px' : '22px' }}
+        style={{ marginBottom: '22px' }}
       >
         <MoneyCard
           label="MATERIALS TRACKED"
@@ -607,172 +550,134 @@ const CredVendorPriceChartView = ({
         />
       </CredCardCarousel>
 
-      {/* 3. FILTER AND SEARCH CONTROL STRIP */}
+      {/* 3. FILTER & SEARCH BAR */}
       <div 
         style={{
-          background: 'var(--bg-panel, #FFFFFF)',
-          border: '1px solid var(--border, #E4E4E4)',
-          borderRadius: '18px',
-          padding: isMobile ? '12px' : '16px',
-          marginBottom: '20px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          marginBottom: '16px',
+          position: 'relative',
+          zIndex: 40,
+          overflow: 'visible'
         }}
       >
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: '10px' }}>
-          {/* Search Box */}
-          <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '1 1 280px', minWidth: '220px' }}>
-            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #8C8C8C)' }} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search material, specs, or vendor name..."
-              style={{
-                width: '100%',
-                height: '38px',
-                padding: '0 30px 0 34px',
-                borderRadius: '10px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg, #F9F9F9)',
-                color: 'var(--text, #0A0A0A)',
-                fontSize: '13px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+        {/* Left: Filter Dropdowns & Date Filter */}
+        <div 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            flex: 1,
+            minWidth: 0,
+            position: 'relative',
+            zIndex: 50,
+            overflow: 'visible'
+          }}
+        >
+          {/* Material Filter: Non-gooey Dropdown */}
+          <GooeyMenu
+            id="vendor-chart-material-filter"
+            value={selectedMaterialFilter}
+            onSelect={(opt) => setSelectedMaterialFilter(opt.value || opt.id || opt)}
+            onChange={(val) => setSelectedMaterialFilter(val)}
+            options={materialGooeyOptions}
+            width={isMobile ? '100%' : 170}
+            pillHeight={36}
+            gooey={false}
+            className="case-preserve"
+            ariaLabel="Filter materials"
+          />
 
-          {/* Duration Tabs */}
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%', paddingBottom: isMobile ? '2px' : 0 }}>
-            <CredAnimatedTabs
-              tabs={DURATION_TABS}
-              value={duration}
-              onChange={(d) => setDuration(d)}
-              layoutId="vendor-chart-duration-tabs"
-            />
-          </div>
+          {/* Vendor Filter: Non-gooey Dropdown */}
+          <GooeyMenu
+            id="vendor-chart-vendor-filter"
+            value={selectedVendorFilter}
+            onSelect={(opt) => setSelectedVendorFilter(opt.value || opt.id || opt)}
+            onChange={(val) => setSelectedVendorFilter(val)}
+            options={vendorGooeyOptions}
+            width={isMobile ? '100%' : 160}
+            pillHeight={36}
+            gooey={false}
+            className="case-preserve"
+            ariaLabel="Filter vendors"
+          />
+
+          {/* Duration Date Filter: GooeyMenu Liquid Dropdown */}
+          <GooeyMenu
+            id="vendor-chart-date-filter"
+            value={duration}
+            onSelect={(opt) => setDuration(opt.value || opt.id || opt)}
+            onChange={(val) => setDuration(val)}
+            options={DURATION_OPTIONS}
+            width={isMobile ? '100%' : 145}
+            pillHeight={36}
+            ariaLabel="Filter date range"
+          />
+
         </div>
 
-        {/* Secondary Filter Dropdowns */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, auto) 1fr', 
-          gap: '8px', 
-          alignItems: 'center',
-          paddingTop: '4px',
-          borderTop: '1px solid var(--border, #E4E4E4)'
-        }}>
-          {/* Material Filter */}
-          <div style={{ minWidth: 0 }}>
-            <select
-              value={selectedMaterialFilter}
-              onChange={(e) => setSelectedMaterialFilter(e.target.value)}
+        {/* Right: Search Bar */}
+        <div 
+          style={{
+            position: 'relative',
+            width: isMobile ? '100%' : '280px',
+            flexShrink: 0
+          }}
+        >
+          <Search 
+            size={15} 
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted, #8C8C8C)',
+              pointerEvents: 'none'
+            }} 
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search price records..."
+            style={{
+              width: '100%',
+              height: '36px',
+              padding: '0 30px 0 34px',
+              borderRadius: '12px',
+              border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid var(--border, #E4E4E4)',
+              background: 'var(--bg, #FFFFFF)',
+              color: 'var(--text, #0A0A0A)',
+              fontSize: '13px',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
               style={{
-                width: '100%',
-                height: '34px',
-                padding: '0 8px',
-                borderRadius: '8px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg, #F9F9F9)',
-                color: 'var(--text, #0A0A0A)',
-                fontSize: '12px',
-                outline: 'none',
-                cursor: 'pointer'
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted, #8C8C8C)',
+                cursor: 'pointer',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              <option value="all">All Materials ({uniqueMaterialOptions.length})</option>
-              {uniqueMaterialOptions.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Vendor Filter */}
-          <div style={{ minWidth: 0 }}>
-            <select
-              value={selectedVendorFilter}
-              onChange={(e) => setSelectedVendorFilter(e.target.value)}
-              style={{
-                width: '100%',
-                height: '34px',
-                padding: '0 8px',
-                borderRadius: '8px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg, #F9F9F9)',
-                color: 'var(--text, #0A0A0A)',
-                fontSize: '12px',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="all">All Vendors ({uniqueVendorOptions.length})</option>
-              {uniqueVendorOptions.map(v => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Category Filter */}
-          <div style={{ minWidth: 0, gridColumn: isMobile ? 'span 2' : 'auto' }}>
-            <select
-              value={selectedCategoryFilter}
-              onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-              style={{
-                width: '100%',
-                height: '34px',
-                padding: '0 8px',
-                borderRadius: '8px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg, #F9F9F9)',
-                color: 'var(--text, #0A0A0A)',
-                fontSize: '12px',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="all">All Categories ({categories.length})</option>
-              {categories.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Reset button if active filter */}
-          {(selectedMaterialFilter !== 'all' || selectedVendorFilter !== 'all' || selectedCategoryFilter !== 'all' || duration !== 'all' || searchQuery) && (
-            <div style={{ gridColumn: isMobile ? 'span 2' : 'auto', textAlign: isMobile ? 'center' : 'right' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setDuration('all');
-                  setSelectedMaterialFilter('all');
-                  setSelectedVendorFilter('all');
-                  setSelectedCategoryFilter('all');
-                  setSearchQuery('');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#ef4444',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '4px 8px'
-                }}
-              >
-                Reset Filters
-              </button>
-            </div>
+              <X size={14} />
+            </button>
           )}
         </div>
       </div>
@@ -821,7 +726,7 @@ const CredVendorPriceChartView = ({
             No price records found
           </h3>
           <p style={{ fontSize: '13px', color: 'var(--text-muted, #8C8C8C)', margin: '0 0 16px' }}>
-            {searchQuery || selectedMaterialFilter !== 'all' || selectedVendorFilter !== 'all' || selectedCategoryFilter !== 'all' || duration !== 'all'
+            {searchQuery || selectedMaterialFilter !== 'all' || selectedVendorFilter !== 'all' || duration !== 'all'
               ? 'No quotes matching current filter selection'
               : 'Click "+ Record Price Quote" to log historical supplier rates'}
           </p>
@@ -1092,136 +997,174 @@ const CredVendorPriceChartView = ({
           />
         </div>
       ) : (
-        /* DESKTOP VIEW: Table with pagination */
-        <div 
-          style={{
-            background: 'var(--bg-panel, #FFFFFF)',
-            border: '1px solid var(--border, #E4E4E4)',
-            borderRadius: '18px',
-            overflow: 'hidden'
-          }}
-        >
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border, #E4E4E4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text, #0A0A0A)' }}>
-                Historical Price Quotes Log
-              </h3>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)' }}>
-                Showing {quoteRangeStart}-{quoteRangeEnd} of {totalQuoteCount} quotes across suppliers
-              </span>
-            </div>
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: isDarkMode ? '#171717' : '#FAFAFA', borderBottom: '1px solid var(--border, #E4E4E4)', color: 'var(--text-muted, #8C8C8C)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  <th style={{ padding: '12px 18px', fontWeight: 700 }}>Material / Specs</th>
-                  <th style={{ padding: '12px 18px', fontWeight: 700 }}>Vendor / Supplier</th>
-                  <th style={{ padding: '12px 18px', fontWeight: 700, textAlign: 'right' }}>Quoted Rate</th>
-                  <th style={{ padding: '12px 18px', fontWeight: 700 }}>Unit</th>
-                  <th style={{ padding: '12px 18px', fontWeight: 700 }}>Quote Date</th>
-                  <th style={{ padding: '12px 18px', fontWeight: 700 }}>Project / Notes</th>
-                  <th style={{ padding: '12px 18px', fontWeight: 700, textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedQuotes.map((q) => (
+        /* DESKTOP VIEW: Table sized to match CredVendorsView */
+        <>
+          <div 
+            style={{
+              background: 'var(--bg, #FFFFFF)',
+              border: '1px solid var(--border, #E4E4E4)',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: isDarkMode ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            <div style={{ width: '100%', overflowX: isMobile ? 'auto' : 'hidden' }}>
+              <table 
+                style={{ 
+                  width: '100%', 
+                  borderCollapse: 'collapse', 
+                  textAlign: 'left',
+                  tableLayout: 'auto'
+                }}
+              >
+                <thead>
                   <tr 
-                    key={q.id} 
-                    style={{ borderBottom: '1px solid var(--border, #E4E4E4)', transition: 'background 0.1s' }}
-                    className="table-row-hover"
+                    style={{
+                      borderBottom: '1px solid var(--border, #E4E4E4)',
+                      background: isDarkMode ? '#141517' : '#f8fafc'
+                    }}
                   >
-                    {/* Material Name & Category */}
-                    <td style={{ padding: '12px 18px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>{q.materialName}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                        <span style={{ background: isDarkMode ? '#222' : '#F0F0F0', padding: '1px 6px', borderRadius: '4px' }}>
-                          {q.categoryName}
-                        </span>
-                        {q.measurements && <span>{q.measurements}</span>}
-                      </div>
-                    </td>
-
-                    {/* Vendor Name */}
-                    <td style={{ padding: '12px 18px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: isDarkMode ? '#262626' : '#EFEFEF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--text)' }}>
-                          {q.vendorName.charAt(0).toUpperCase()}
-                        </div>
-                        <span style={{ fontWeight: 500, color: 'var(--text)' }}>{q.vendorName}</span>
-                      </div>
-                    </td>
-
-                    {/* Quoted Price */}
-                    <td style={{ padding: '12px 18px', textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' }}>
-                        <Money value={q.price} currency="SAR" />
-                      </div>
-                      {q.isLowest && (
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#16a34a', background: 'rgba(22, 163, 74, 0.1)', padding: '1px 6px', borderRadius: '999px', display: 'inline-block', marginTop: '2px' }}>
-                          ★ Lowest Rate
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Unit */}
-                    <td style={{ padding: '12px 18px', color: 'var(--text-muted, #8C8C8C)' }}>
-                      {q.unit}
-                    </td>
-
-                    {/* Date */}
-                    <td style={{ padding: '12px 18px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text)' }}>
-                        <Calendar size={13} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
-                        <span>{q.date}</span>
-                      </div>
-                    </td>
-
-                    {/* Job Order & Notes */}
-                    <td style={{ padding: '12px 18px' }}>
-                      {q.jobOrder && (
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
-                          Job: {q.jobOrder}
-                        </div>
-                      )}
-                      {q.notes && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
-                          {q.notes}
-                        </div>
-                      )}
-                      {!q.jobOrder && !q.notes && (
-                        <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12px' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* Action */}
-                    <td style={{ padding: '12px 18px', textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleDeletePriceQuote(q)}
-                        title="Delete Quote Record"
-                        style={{
-                          width: '30px',
-                          height: '30px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: 'transparent',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background 0.15s ease'
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
+                    <th style={{ ...headerCellStyle, width: '28%' }}>MATERIAL / SPECS</th>
+                    <th style={{ ...headerCellStyle, width: '20%' }}>VENDOR / SUPPLIER</th>
+                    <th style={{ ...headerCellStyle, width: '13%', textAlign: 'right' }}>QUOTED RATE</th>
+                    <th style={{ ...headerCellStyle, width: '9%' }}>UNIT</th>
+                    <th style={{ ...headerCellStyle, width: '11%' }}>QUOTE DATE</th>
+                    <th style={{ ...headerCellStyle, width: '14%' }}>PROJECT / NOTES</th>
+                    <th style={{ ...headerCellStyle, width: '5%', textAlign: 'center' }}>ACTION</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pagedQuotes.map((q) => (
+                    <tr 
+                      key={q.id} 
+                      className="cred-table-row"
+                      style={{
+                        borderBottom: '1px solid var(--border, #E4E4E4)'
+                      }}
+                    >
+                      {/* Material Name & Category */}
+                      <td style={bodyCellStyle}>
+                        <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #0A0A0A)' }}>{q.materialName}</div>
+                        <div style={{ fontSize: '10.5px', color: 'var(--text-muted, #8C8C8C)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
+                          <span style={{ 
+                            background: isDarkMode ? '#1e2024' : '#f1f5f9', 
+                            padding: '1px 6px', 
+                            borderRadius: '4px',
+                            fontWeight: 500
+                          }}>
+                            {q.categoryName}
+                          </span>
+                          {q.measurements && <span>{q.measurements}</span>}
+                        </div>
+                      </td>
+
+                      {/* Vendor Name */}
+                      <td style={bodyCellStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ 
+                            width: '26px', 
+                            height: '26px', 
+                            borderRadius: '50%', 
+                            background: isDarkMode ? '#1e2024' : '#e2e8f0', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: '11px', 
+                            fontWeight: 700, 
+                            color: isDarkMode ? '#ffffff' : '#0f172a',
+                            flexShrink: 0
+                          }}>
+                            {q.vendorName.charAt(0).toUpperCase()}
+                          </div>
+                          <span style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #0A0A0A)' }}>{q.vendorName}</span>
+                        </div>
+                      </td>
+
+                      {/* Quoted Price */}
+                      <td style={{ ...bodyCellStyle, textAlign: 'right' }}>
+                        <div style={{ 
+                          fontWeight: 700, 
+                          fontSize: '13px', 
+                          fontVariantNumeric: 'tabular-nums',
+                          color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' 
+                        }}>
+                          <Money value={q.price} currency="SAR" />
+                        </div>
+                        {q.isLowest && (
+                          <span style={{ 
+                            fontSize: '9px', 
+                            fontWeight: 700, 
+                            color: '#16a34a', 
+                            background: 'rgba(22, 163, 74, 0.1)', 
+                            padding: '1px 6px', 
+                            borderRadius: '999px', 
+                            display: 'inline-block', 
+                            marginTop: '1px' 
+                          }}>
+                            ★ Lowest
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Unit */}
+                      <td style={{ ...bodyCellStyle, color: 'var(--text-muted, #8C8C8C)', fontSize: '12px' }}>
+                        {q.unit}
+                      </td>
+
+                      {/* Date */}
+                      <td style={{ ...bodyCellStyle, color: 'var(--text, #0A0A0A)', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Calendar size={11} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                          <span>{q.date}</span>
+                        </div>
+                      </td>
+
+                      {/* Job Order & Notes */}
+                      <td style={{ ...bodyCellStyle, maxWidth: '200px' }}>
+                        {q.jobOrder && (
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
+                            Job: {q.jobOrder}
+                          </div>
+                        )}
+                        {q.notes && (
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {q.notes}
+                          </div>
+                        )}
+                        {!q.jobOrder && !q.notes && (
+                          <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12px' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Action */}
+                      <td style={{ ...bodyCellStyle, textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePriceQuote(q)}
+                          title="Delete Quote Record"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted, #8C8C8C)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Desktop Pagination */}
@@ -1234,7 +1177,7 @@ const CredVendorPriceChartView = ({
             onPageChange={setQuotePage}
             isMobile={false}
           />
-        </div>
+        </>
       )}
 
       {/* 6. MODAL: RECORD VENDOR PRICE QUOTE */}
@@ -1590,6 +1533,22 @@ const CredVendorPriceChartView = ({
       )}
     </div>
   );
+};
+
+const headerCellStyle = {
+  padding: '10px 8px',
+  fontSize: '11px',
+  fontWeight: 500,
+  color: 'var(--text-muted, #8C8C8C)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  whiteSpace: 'nowrap'
+};
+
+const bodyCellStyle = {
+  padding: '9px 8px',
+  verticalAlign: 'middle',
+  fontSize: '13px'
 };
 
 export default CredVendorPriceChartView;

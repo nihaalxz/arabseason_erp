@@ -13154,6 +13154,7 @@ const Cashbook = ({ currentUser = null }) => {
             isMobile={isMobileScreen}
             isDarkMode={isDarkMode}
             onBack={() => navigateToTab(isMobileScreen ? 'more' : 'customers')}
+            onNavigate={(tab, params) => navigateToTab(tab, params)}
           />
         ) : activeTab === 'vendor_price_chart' || activeTab === 'vendor_chart' ? (
           <CredVendorPriceChartView

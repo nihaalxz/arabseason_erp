@@ -2328,6 +2328,194 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-gooey-trigger:focus:not(:focu
   text-transform: none !important;
 }
 
+.cred-gooey-root.non-gooey .cred-gooey-trigger {
+  background: #F1F3F5 !important;
+  color: #0A0A0A !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+.cred-gooey-root.non-gooey .cred-gooey-trigger:hover {
+  background: #E5E7EB !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+.cred-gooey-root.non-gooey .cred-gooey-trigger .cred-gooey-trigger-label {
+  color: #0A0A0A !important;
+}
+
+.cred-gooey-root.non-gooey .cred-gooey-trigger svg {
+  stroke: #0A0A0A !important;
+}
+
+.cred-gooey-root.non-gooey .cred-gooey-trigger span {
+  color: #0A0A0A !important;
+}
+
+.cred-gooey-options-list.non-gooey-panel {
+  background: #FFFFFF !important;
+  border: 1px solid var(--border, #E4E4E4) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+}
+
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-row {
+  color: #374151 !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-row span {
+  color: inherit !important;
+}
+
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-row svg {
+  stroke: currentColor !important;
+  color: currentColor !important;
+}
+
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active,
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover {
+  background: #F1F3F5 !important;
+  color: #0A0A0A !important;
+}
+
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active span,
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover span {
+  color: #0A0A0A !important;
+}
+
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-dot {
+  background-color: #0A0A0A !important;
+}
+
+.cred-gooey-options-list.non-gooey-panel .cred-gooey-check {
+  color: #0A0A0A !important;
+}
+
+/* Dark mode overrides for non-gooey dropdown */
+[data-theme='dark'] .cred-gooey-root.non-gooey .cred-gooey-trigger,
+.cashbook-dark .cred-gooey-root.non-gooey .cred-gooey-trigger,
+.cb-dark-bw .cred-gooey-root.non-gooey .cred-gooey-trigger,
+.dark .cred-gooey-root.non-gooey .cred-gooey-trigger {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #F4F4F4 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-theme='dark'] .cred-gooey-root.non-gooey .cred-gooey-trigger:hover,
+.cashbook-dark .cred-gooey-root.non-gooey .cred-gooey-trigger:hover,
+.cb-dark-bw .cred-gooey-root.non-gooey .cred-gooey-trigger:hover,
+.dark .cred-gooey-root.non-gooey .cred-gooey-trigger:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+[data-theme='dark'] .cred-gooey-root.non-gooey .cred-gooey-trigger .cred-gooey-trigger-label,
+.cashbook-dark .cred-gooey-root.non-gooey .cred-gooey-trigger .cred-gooey-trigger-label,
+.cb-dark-bw .cred-gooey-root.non-gooey .cred-gooey-trigger .cred-gooey-trigger-label,
+.dark .cred-gooey-root.non-gooey .cred-gooey-trigger .cred-gooey-trigger-label {
+  color: #F4F4F4 !important;
+}
+
+[data-theme='dark'] .cred-gooey-root.non-gooey .cred-gooey-trigger svg,
+.cashbook-dark .cred-gooey-root.non-gooey .cred-gooey-trigger svg,
+.cb-dark-bw .cred-gooey-root.non-gooey .cred-gooey-trigger svg,
+.dark .cred-gooey-root.non-gooey .cred-gooey-trigger svg {
+  stroke: #F4F4F4 !important;
+}
+
+[data-theme='dark'] .cred-gooey-root.non-gooey .cred-gooey-trigger span,
+.cashbook-dark .cred-gooey-root.non-gooey .cred-gooey-trigger span,
+.cb-dark-bw .cred-gooey-root.non-gooey .cred-gooey-trigger span,
+.dark .cred-gooey-root.non-gooey .cred-gooey-trigger span {
+  color: #F4F4F4 !important;
+}
+
+/* Dark mode panel: deep dark background with subtle border */
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel,
+.dark .cred-gooey-options-list.non-gooey-panel {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Unselected rows in dark mode: muted grey text and icon, transparent background */
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row {
+  color: #9CA3AF !important;
+  background: transparent !important;
+}
+
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row span,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row span,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row span,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row span {
+  color: #9CA3AF !important;
+}
+
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row svg,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row svg,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row svg,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row svg {
+  stroke: #9CA3AF !important;
+  color: #9CA3AF !important;
+}
+
+/* Active or hovered row in dark mode: subtle dark pill, crisp white text & icon */
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active,
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active span,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active span,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active span,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active span,
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover span,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover span,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover span,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover span {
+  color: #FFFFFF !important;
+}
+
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active svg,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active svg,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active svg,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active svg,
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover svg,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover svg,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover svg,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover svg {
+  stroke: #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+
+/* White dot in dark mode */
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-dot,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-dot,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-dot,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-dot {
+  background-color: #FFFFFF !important;
+}
+
+[data-theme='dark'] .cred-gooey-options-list.non-gooey-panel .cred-gooey-check,
+.cashbook-dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-check,
+.cb-dark-bw .cred-gooey-options-list.non-gooey-panel .cred-gooey-check,
+.dark .cred-gooey-options-list.non-gooey-panel .cred-gooey-check {
+  color: #FFFFFF !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cred-gooey-surface {
     filter: none !important;

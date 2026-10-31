@@ -34,6 +34,7 @@ export const GooeyMenu = ({
   id,
   style = {},
   labelPrefix = '',
+  gooey = true,
   ...props
 }) => {
   const reactId = useId();
@@ -210,7 +211,7 @@ export const GooeyMenu = ({
     <div
       ref={containerRef}
       onKeyDown={handleKeyDown}
-      className={`cred-gooey-root ${className}`}
+      className={`cred-gooey-root ${!gooey ? 'non-gooey' : ''} ${className}`}
       style={{
         width,
         height: pillHeight, // Strictly width x pillHeight — zero layout shift!
@@ -219,78 +220,82 @@ export const GooeyMenu = ({
       }}
       {...props}
     >
-      {/* SVG Gooey Metamorphic Matrix Filter */}
-      <svg
-        width="0"
-        height="0"
-        className="cred-gooey-svg"
-        aria-hidden="true"
-      >
-        <defs>
-          <filter
-            id={filterId}
-            x="-30%"
-            y="-30%"
-            width="160%"
-            height="160%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feGaussianBlur in="SourceGraphic" stdDeviation={blur} result="blur" />
-            <feColorMatrix
-              in="blur"
-              mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -14"
-              result="goo"
-            />
-            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-          </filter>
-        </defs>
-      </svg>
+      {/* SVG Gooey Metamorphic Matrix Filter (Only when gooey=true) */}
+      {gooey && (
+        <svg
+          width="0"
+          height="0"
+          className="cred-gooey-svg"
+          aria-hidden="true"
+        >
+          <defs>
+            <filter
+              id={filterId}
+              x="-30%"
+              y="-30%"
+              width="160%"
+              height="160%"
+              colorInterpolationFilters="sRGB"
+            >
+              <feGaussianBlur in="SourceGraphic" stdDeviation={blur} result="blur" />
+              <feColorMatrix
+                in="blur"
+                mode="matrix"
+                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -14"
+                result="goo"
+              />
+              <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+            </filter>
+          </defs>
+        </svg>
+      )}
 
-      {/* Surface Layer - Pure Solid Blobs for fast 60fps GPU rasterization */}
-      <div
-        className="cred-gooey-surface"
-        style={{
-          width,
-          height: panelY + panelHeight + 60,
-          filter: isReducedMotion ? 'none' : `url(#${filterId})`
-        }}
-      >
-        {/* Top Pill Solid Shape */}
+      {/* Surface Layer - Pure Solid Blobs for fast 60fps GPU rasterization (Only when gooey=true) */}
+      {gooey && (
         <div
-          className="cred-gooey-pill-shape"
+          className="cred-gooey-surface"
           style={{
             width,
-            height: pillHeight,
-            borderRadius: pillHeight / 2
+            height: panelY + panelHeight + 60,
+            filter: isReducedMotion ? 'none' : `url(#${filterId})`
           }}
-        />
+        >
+          {/* Top Pill Solid Shape */}
+          <div
+            className="cred-gooey-pill-shape"
+            style={{
+              width,
+              height: pillHeight,
+              borderRadius: pillHeight / 2
+            }}
+          />
 
-        {/* Morphing Dropping Panel Solid Shape */}
-        <motion.div
-          className="cred-gooey-panel-shape"
-          style={{
-            width,
-            height: panelHeight,
-            borderRadius: 20
-          }}
-          initial={false}
-          animate={
-            open
-              ? { y: panelY, scaleY: 1 }
-              : { y: 0, scaleY: pillHeight / panelHeight }
-          }
-          transition={
-            isReducedMotion
-              ? { duration: 0.12 }
-              : open
-                ? { y: DROP_SPRING, scaleY: { ...GROW_SPRING, delay: 0.05 } }
-                : { y: SNAP_SPRING, scaleY: SNAP_SPRING }
-          }
-        />
-      </div>
+          {/* Morphing Dropping Panel Solid Shape */}
+          <motion.div
+            className="cred-gooey-panel-shape"
+            style={{
+              width,
+              height: panelHeight,
+              borderRadius: 20
+            }}
+            initial={false}
+            animate={
+              open
+                ? { y: panelY, scaleY: 1 }
+                : { y: 0, scaleY: pillHeight / panelHeight }
+            }
+            transition={
+              isReducedMotion
+                ? { duration: 0.12 }
+                : open
+                  ? { y: DROP_SPRING, scaleY: { ...GROW_SPRING, delay: 0.05 } }
+                  : { y: SNAP_SPRING, scaleY: SNAP_SPRING }
+            }
+          />
+        </div>
+      )}
 
-      {/* Trigger Header Button (Transparent on top of surface) */}
+      {/* Trigger Header Button (Solid black pill when non-gooey) */}
       <button
         type="button"
         ref={triggerRef}
@@ -322,13 +327,15 @@ export const GooeyMenu = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                color: 'var(--goo-text, #F4F4F4)'
+                color: gooey ? 'var(--goo-text, #F4F4F4)' : 'currentColor'
               }}
             >
               <SelectedIcon size={16} strokeWidth={1.8} />
             </span>
           )}
-          <span className="cred-gooey-trigger-label">
+          <span 
+            className="cred-gooey-trigger-label"
+          >
             {labelPrefix ? `${labelPrefix}${selectedOption.label}` : selectedOption.label}
           </span>
         </div>
@@ -338,7 +345,7 @@ export const GooeyMenu = ({
           height="16"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="var(--goo-chevron, #CFCFCF)"
+          stroke={gooey ? 'var(--goo-chevron, #CFCFCF)' : 'currentColor'}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -362,29 +369,38 @@ export const GooeyMenu = ({
             role="listbox"
             aria-label={ariaLabel}
             aria-activedescendant={`${menuId}-opt-${activeIndex}`}
-            className="cred-gooey-options-list"
+            className={`cred-gooey-options-list ${!gooey ? 'non-gooey-panel' : ''}`}
             style={{
-              top: panelY,
+              top: gooey ? panelY : pillHeight + 6,
               width,
-              height: panelHeight,
+              minWidth: '100%',
+              height: gooey ? panelHeight : 'auto',
               maxHeight: panelHeight,
               overflowY: normalizedOptions.length > maxVisibleRows ? 'auto' : 'hidden',
               overflowX: 'hidden',
-              padding: `${panelPadding}px 0`
+              padding: `${panelPadding}px 0`,
+              ...(!gooey ? {
+                zIndex: 100
+              } : {})
             }}
             initial="closed"
             animate="open"
             exit="closed"
             variants={
-              isReducedMotion
+              !gooey
                 ? {
-                    open: { opacity: 1, transition: { duration: 0.12 } },
-                    closed: { opacity: 0, transition: { duration: 0.12 } }
+                    open: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.14, ease: [0.16, 1, 0.3, 1] } },
+                    closed: { opacity: 0, y: -4, scale: 0.98, transition: { duration: 0.1, ease: [0.16, 1, 0.3, 1] } }
                   }
-                : {
-                    open: { transition: { staggerChildren: 0.035, delayChildren: 0.12 } },
-                    closed: { transition: { staggerChildren: 0.015, staggerDirection: -1 } }
-                  }
+                : isReducedMotion
+                  ? {
+                      open: { opacity: 1, transition: { duration: 0.12 } },
+                      closed: { opacity: 0, transition: { duration: 0.12 } }
+                    }
+                  : {
+                      open: { transition: { staggerChildren: 0.035, delayChildren: 0.12 } },
+                      closed: { transition: { staggerChildren: 0.015, staggerDirection: -1 } }
+                    }
             }
           >
             {normalizedOptions.map((opt, i) => {
@@ -401,24 +417,31 @@ export const GooeyMenu = ({
                   onMouseEnter={() => setActiveIndex(i)}
                   onClick={() => choose(i)}
                   variants={
-                    isReducedMotion
+                    !gooey
                       ? {
-                          open: { opacity: 1, y: 0, transition: { duration: 0.12 } },
-                          closed: { opacity: 0, y: -4, transition: { duration: 0.12 } }
+                          open: { opacity: 1, y: 0, transition: { duration: 0.1 } },
+                          closed: { opacity: 0, y: -4, transition: { duration: 0.1 } }
                         }
-                      : {
-                          open: { opacity: 1, y: 0, transition: ROW_SPRING },
-                          closed: { opacity: 0, y: -10, transition: SNAP_SPRING }
-                        }
+                      : isReducedMotion
+                        ? {
+                            open: { opacity: 1, y: 0, transition: { duration: 0.12 } },
+                            closed: { opacity: 0, y: -4, transition: { duration: 0.12 } }
+                          }
+                        : {
+                            open: { opacity: 1, y: 0, transition: ROW_SPRING },
+                            closed: { opacity: 0, y: -10, transition: SNAP_SPRING }
+                          }
                   }
-                  className="cred-gooey-row"
+                  className={`cred-gooey-row ${isActive ? 'is-active' : ''} ${isCurrentSelected ? 'is-selected' : ''}`}
                   style={{
                     height: rowHeight,
                     margin: '0 8px',
                     borderRadius: '12px',
                     padding: '0 12px',
-                    background: isActive ? 'var(--goo-row-active, #232323)' : 'transparent',
-                    color: isActive ? 'var(--goo-text, #F4F4F4)' : 'var(--goo-text-muted, #DCDCDC)'
+                    ...(gooey ? {
+                      background: isActive ? 'var(--goo-row-active, #232323)' : 'transparent',
+                      color: isActive ? 'var(--goo-text, #F4F4F4)' : 'var(--goo-text-muted, #DCDCDC)'
+                    } : {})
                   }}
                 >
                   <div
@@ -524,11 +547,13 @@ export const GooeyMenu = ({
                         );
                       })}
                       {isCurrentSelected && (
-                        <Check size={14} strokeWidth={2.8} style={{ color: 'var(--goo-text, #ffffff)', marginLeft: '2px' }} />
+                        <Check size={14} strokeWidth={2.8} className="cred-gooey-check" style={{ marginLeft: '2px' }} />
                       )}
                     </div>
                   ) : isCurrentSelected ? (
-                    <span className="cred-gooey-dot" />
+                    <span 
+                      className="cred-gooey-dot" 
+                    />
                   ) : null}
                 </motion.li>
               );

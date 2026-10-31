@@ -404,14 +404,12 @@ const RecycleBin = ({
 
   const statusTabs = useMemo(() => [
     { id: 'active', label: `In Recycle Bin (${activeDisplayCount})` },
-    { id: 'restored', label: `Restored (${restoredDisplayCount})` },
-    { id: 'all', label: `All History` }
+    { id: 'restored', label: `Restored (${restoredDisplayCount})` }
   ], [activeDisplayCount, restoredDisplayCount])
 
   const mobileStatusTabs = useMemo(() => [
     { id: 'active', label: `Recycle Bin (${activeDisplayCount})` },
-    { id: 'restored', label: `Restored (${restoredDisplayCount})` },
-    { id: 'all', label: `All History` }
+    { id: 'restored', label: `Restored (${restoredDisplayCount})` }
   ], [activeDisplayCount, restoredDisplayCount])
 
   const sortedItems = useMemo(() => {
@@ -1044,23 +1042,6 @@ const RecycleBin = ({
                 <CheckCircle2 size={13} />
                 Restored ({restoredDisplayCount})
               </button>
-              <button
-                onClick={() => setStatusFilter('all')}
-                style={{
-                  padding: '0.45rem 1rem',
-                  borderRadius: '7px',
-                  fontSize: '0.8125rem',
-                  fontWeight: statusFilter === 'all' ? '700' : '500',
-                  border: 'none',
-                  background: statusFilter === 'all' ? theme.tabActiveBg : 'transparent',
-                  color: statusFilter === 'all' ? (isDark ? '#60a5fa' : '#2563eb') : theme.tabInactiveColor,
-                  boxShadow: statusFilter === 'all' ? (isDark ? '0 1px 3px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.08)') : 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                All History
-              </button>
             </div>
           </div>
         </div>
@@ -1373,26 +1354,6 @@ const RecycleBin = ({
                       >
                         <CheckCircle2 size={14} /> Restored
                       </button>
-                      <button
-                        onClick={() => handlePermanentDelete(item)}
-                        disabled={restoringId === item.id}
-                        title="Permanently Delete Item"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          padding: '0.45rem 0.75rem',
-                          borderRadius: '8px',
-                          fontSize: '0.8125rem',
-                          fontWeight: '600',
-                          border: isDark ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(239, 68, 68, 0.25)',
-                          background: isDark ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
-                          color: '#ef4444',
-                          cursor: restoringId === item.id ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        <Trash2 size={13} /> Delete
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1509,25 +1470,27 @@ const RecycleBin = ({
               >
                 Close
               </button>
-              <button
-                type="button"
-                onClick={() => handlePermanentDelete(detailItem)}
-                disabled={restoringId === detailItem.id}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '8px',
-                  border: isDark ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                  background: isDark ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
-                  color: '#ef4444',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                <Trash2 size={14} /> Delete
-              </button>
+              {!detailItem.is_restored && (
+                <button
+                  type="button"
+                  onClick={() => handlePermanentDelete(detailItem)}
+                  disabled={restoringId === detailItem.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                    background: isDark ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                    color: '#ef4444',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              )}
               {!detailItem.is_restored && (
                 <button
                   type="button"

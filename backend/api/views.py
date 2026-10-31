@@ -22,7 +22,7 @@ from .models import (Customer, Vendor, JobOrder, PendingJobOrder, CustomerPaymen
                     MaterialCategory, Material, Estimation, EstimationItem,
                     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
                     Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson,
-                    LabourPriceQuote, VendorPriceQuote)
+                    LabourPriceQuote, VendorPriceQuote, CustomerWorkRecord)
 from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializer, PendingJobOrderSerializer, 
                         CustomerPaymentSerializer, VendorPaymentSerializer,
                         ExpenseSerializer, SiteSettingsSerializer,
@@ -39,7 +39,8 @@ from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializ
                         DeliveryNoteSerializer, DeliveryNoteItemSerializer,
                         NotificationSerializer, RecycleBinItemSerializer,
                         EnquirySerializer, EnquiryFollowUpSerializer, SalespersonSerializer,
-                        LabourPriceQuoteSerializer, VendorPriceQuoteSerializer)
+                        LabourPriceQuoteSerializer, VendorPriceQuoteSerializer,
+                        CustomerWorkRecordSerializer)
 
 def is_admin_user(user):
     return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'Admin'))
@@ -5043,6 +5044,35 @@ class VendorPriceQuoteViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class CustomerWorkRecordViewSet(viewsets.ModelViewSet):
+    serializer_class = CustomerWorkRecordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = CustomerWorkRecord.objects.all().select_related('created_by', 'customer')
+        customer_id = self.request.query_params.get('customer')
+        if customer_id and customer_id != 'all':
+            queryset = queryset.filter(customer_id=customer_id)
+        category = self.request.query_params.get('category')
+        if category and category != 'all':
+            queryset = queryset.filter(work_category=category)
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(customer_name__icontains=search) |
+                Q(work__icontains=search) |
+                Q(work_category__icontains=search) |
+                Q(notes__icontains=search) |
+                Q(customer__name__icontains=search) |
+                Q(customer__company_name__icontains=search)
+            )
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 
 
 

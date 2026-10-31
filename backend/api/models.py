@@ -1174,4 +1174,24 @@ class VendorPriceQuote(models.Model):
         return f"{self.material_name} - {self.vendor_name} (SAR {self.price}/{self.unit})"
 
 
+class CustomerWorkRecord(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='work_records')
+    customer_name = models.CharField(max_length=255)
+    work = models.TextField()
+    work_category = models.CharField(max_length=100, blank=True, default='General Work')
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    date = models.DateField(default=timezone.now)
+    notes = models.TextField(blank=True, default='')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_work_records')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"{self.customer_name} - {self.work[:30]} (SAR {self.amount})"
+
+
+
 

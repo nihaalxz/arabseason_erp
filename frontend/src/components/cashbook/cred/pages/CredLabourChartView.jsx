@@ -30,17 +30,17 @@ import api from '../../../../api';
 import Money from '../Money';
 import MoneyCard from '../MoneyCard';
 import CredCardCarousel from '../CredCardCarousel';
-import CredAnimatedTabs from '../CredAnimatedTabs';
+import GooeyMenu from '../GooeyMenu';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
 
-const DURATION_TABS = [
-  { id: 'all', label: 'all time' },
-  { id: '30d', label: 'last 30 days' },
-  { id: '90d', label: 'last 90 days' },
-  { id: '180d', label: 'last 6 months' },
-  { id: 'year', label: 'this year' }
+const DURATION_OPTIONS = [
+  { value: 'all', id: 'all', label: 'all time', icon: Calendar },
+  { value: '30d', id: '30d', label: 'last 30 days', icon: Calendar },
+  { value: '90d', id: '90d', label: 'last 90 days', icon: Calendar },
+  { value: '180d', id: '180d', label: 'last 6 months', icon: Calendar },
+  { value: 'year', id: 'year', label: 'this year', icon: Calendar }
 ];
 
 const STANDARD_SECTORS = [
@@ -218,6 +218,17 @@ const CredLabourChartView = ({
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [systemWorkers, quoteRecords]);
+
+  // Gooey menu options for Sector and Labourer filters (clean titles without counts)
+  const sectorGooeyOptions = useMemo(() => [
+    { value: 'all', label: 'All Sectors', icon: Layers },
+    ...uniqueSectors.map(s => ({ value: s, label: s, icon: Layers }))
+  ], [uniqueSectors]);
+
+  const workerGooeyOptions = useMemo(() => [
+    { value: 'all', label: 'All Labourers', icon: User },
+    ...uniqueWorkers.map(w => ({ value: w.name, label: w.name, icon: User, sub: w.phone || null }))
+  ], [uniqueWorkers]);
 
   // Filtered Quotes
   const filteredQuotes = useMemo(() => {
@@ -423,74 +434,51 @@ const CredLabourChartView = ({
     >
       {/* 1. TOP HEADER & BREADCRUMBS */}
       {isMobile ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '14px', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              type="button"
-              onClick={onBack}
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg-panel, #FFFFFF)',
-                color: 'var(--text, #0A0A0A)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-              aria-label="Back"
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0, letterSpacing: '-0.02em', color: 'var(--text, #0A0A0A)' }}>
+        <div style={{ marginBottom: '16px', width: '100%' }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid var(--border, #E4E4E4)',
+              background: 'transparent',
+              color: 'var(--text, #0A0A0A)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              marginBottom: '10px',
+              padding: 0
+            }}
+            aria-label="Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, letterSpacing: '-0.02em', color: 'var(--text, #0A0A0A)' }}>
               labour chart
             </h1>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => fetchData(false)}
-              disabled={isRefreshing}
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg-panel, #FFFFFF)',
-                color: 'var(--text, #0A0A0A)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-              aria-label="Refresh"
-            >
-              <RefreshCw size={14} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
-            </button>
-
             <button
               type="button"
               onClick={handleOpenModal}
               style={{
-                height: '36px',
-                padding: '0 14px',
                 borderRadius: '999px',
                 background: 'var(--text, #0A0A0A)',
                 color: 'var(--bg, #FFFFFF)',
                 border: 'none',
                 fontWeight: 600,
                 fontSize: '12px',
-                display: 'flex',
+                padding: '6px 14px',
+                cursor: 'pointer',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '5px',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+                boxShadow: isDarkMode ? '0 2px 10px rgba(255,255,255,0.08)' : '0 2px 8px rgba(0,0,0,0.12)'
               }}
             >
-              <Plus size={15} strokeWidth={2.5} />
+              <Plus size={14} />
               <span>Record</span>
             </button>
           </div>
@@ -505,78 +493,31 @@ const CredLabourChartView = ({
             marginBottom: '20px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              type="button"
-              onClick={onBack}
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg-panel, #FFFFFF)',
-                color: 'var(--text, #0A0A0A)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)' }}>
-                LABOUR / SECTORS / PRICE CHARTS
-              </div>
-              <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '2px 0 0', letterSpacing: '-0.02em', color: 'var(--text, #0A0A0A)' }}>
-                labour chart
-              </h1>
-            </div>
-          </div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 600, margin: 0, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.025em' }}>
+            Labour Chart
+          </h1>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               type="button"
-              onClick={() => fetchData(false)}
-              disabled={isRefreshing}
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '50%',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg-panel, #FFFFFF)',
-                color: 'var(--text, #0A0A0A)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              <RefreshCw size={15} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
-            </button>
-
-            <button
-              type="button"
               onClick={handleOpenModal}
               style={{
-                height: '38px',
-                padding: '0 16px',
-                borderRadius: '999px',
-                background: 'var(--text, #0A0A0A)',
-                color: 'var(--bg, #FFFFFF)',
+                background: isDarkMode ? '#ffffff' : '#0f172a',
+                color: isDarkMode ? '#0f172a' : '#ffffff',
                 border: 'none',
-                fontWeight: 600,
+                borderRadius: '12px',
+                padding: '8px 18px',
                 fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
+                fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)'
               }}
             >
               <Plus size={16} />
-              <span>record labour price quote</span>
+              <span>Record Labour Quote</span>
             </button>
           </div>
         </div>
@@ -586,7 +527,7 @@ const CredLabourChartView = ({
       <CredCardCarousel 
         isMobile={isMobile}
         desktopGridColumns="repeat(4, 1fr)"
-        style={{ marginBottom: isMobile ? '16px' : '22px' }}
+        style={{ marginBottom: '22px' }}
       >
         <MoneyCard
           label="SECTORS TRACKED"
@@ -643,512 +584,559 @@ const CredLabourChartView = ({
         />
       </CredCardCarousel>
 
-      {/* 3. FILTER STRIP */}
+      {/* 3. FILTER & SEARCH BAR */}
       <div 
         style={{
-          background: 'var(--bg-panel, #FFFFFF)',
-          border: '1px solid var(--border, #E4E4E4)',
-          borderRadius: '18px',
-          padding: isMobile ? '12px' : '16px',
-          marginBottom: '20px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          marginBottom: '16px',
+          position: 'relative',
+          zIndex: 40,
+          overflow: 'visible'
         }}
       >
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: '10px' }}>
-          {/* Search Input */}
-          <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '1 1 280px', minWidth: '220px' }}>
-            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #8C8C8C)' }} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search labourer, sector, job order, terms..."
-              style={{
-                width: '100%',
-                height: '38px',
-                padding: '0 30px 0 34px',
-                borderRadius: '10px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--bg, #F9F9F9)',
-                color: 'var(--text, #0A0A0A)',
-                fontSize: '13px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+        {/* Left: Filter Dropdowns & Date Filter */}
+        <div 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            flex: 1,
+            minWidth: 0,
+            position: 'relative',
+            zIndex: 50,
+            overflow: 'visible'
+          }}
+        >
+          {/* Sector Filter: Non-gooey Dropdown */}
+          <GooeyMenu
+            id="labour-chart-sector-filter"
+            value={selectedSectorFilter}
+            onSelect={(opt) => setSelectedSectorFilter(opt.value || opt.id || opt)}
+            onChange={(val) => setSelectedSectorFilter(val)}
+            options={sectorGooeyOptions}
+            width={isMobile ? '100%' : 155}
+            pillHeight={36}
+            gooey={false}
+            className="case-preserve"
+            ariaLabel="Filter sectors"
+          />
 
-          {/* Duration Tabs */}
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%', paddingBottom: isMobile ? '2px' : 0 }}>
-            <CredAnimatedTabs
-              tabs={DURATION_TABS}
-              value={duration}
-              onChange={(d) => setDuration(d)}
-              layoutId="labour-price-duration-tabs"
-            />
-          </div>
+          {/* Labourer Filter: Non-gooey Dropdown */}
+          <GooeyMenu
+            id="labour-chart-worker-filter"
+            value={selectedWorkerFilter}
+            onSelect={(opt) => setSelectedWorkerFilter(opt.value || opt.id || opt)}
+            onChange={(val) => setSelectedWorkerFilter(val)}
+            options={workerGooeyOptions}
+            width={isMobile ? '100%' : 165}
+            pillHeight={36}
+            gooey={false}
+            className="case-preserve"
+            ariaLabel="Filter labourers"
+          />
+
+          {/* Duration Date Filter: GooeyMenu Liquid Dropdown */}
+          <GooeyMenu
+            id="labour-chart-date-filter"
+            value={duration}
+            onSelect={(opt) => setDuration(opt.value || opt.id || opt)}
+            onChange={(val) => setDuration(val)}
+            options={DURATION_OPTIONS}
+            width={isMobile ? '100%' : 145}
+            pillHeight={36}
+            ariaLabel="Filter date range"
+          />
+
         </div>
 
-        {/* Secondary Filter Dropdowns */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(180px, max-content))',
-          gap: '10px',
-          alignItems: 'center',
-          paddingTop: '2px'
-        }}>
-          {/* Sector Filter Dropdown */}
-          <select
-            value={selectedSectorFilter}
-            onChange={(e) => setSelectedSectorFilter(e.target.value)}
+        {/* Right: Search Bar */}
+        <div 
+          style={{
+            position: 'relative',
+            width: isMobile ? '100%' : '280px',
+            flexShrink: 0
+          }}
+        >
+          <Search 
+            size={15} 
             style={{
-              height: '34px',
-              padding: '0 10px',
-              borderRadius: '8px',
-              border: '1px solid var(--border, #E4E4E4)',
-              background: 'var(--bg, #F9F9F9)',
-              color: 'var(--text, #0A0A0A)',
-              fontSize: '12px',
-              outline: 'none',
-              cursor: 'pointer',
-              width: '100%'
-            }}
-          >
-            <option value="all">All Sectors ({uniqueSectors.length})</option>
-            {uniqueSectors.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-
-          {/* Labourer Filter Dropdown */}
-          <select
-            value={selectedWorkerFilter}
-            onChange={(e) => setSelectedWorkerFilter(e.target.value)}
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted, #8C8C8C)',
+              pointerEvents: 'none'
+            }} 
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search labourer, sector, job order..."
             style={{
-              height: '34px',
-              padding: '0 10px',
-              borderRadius: '8px',
-              border: '1px solid var(--border, #E4E4E4)',
-              background: 'var(--bg, #F9F9F9)',
+              width: '100%',
+              height: '36px',
+              padding: '0 30px 0 34px',
+              borderRadius: '12px',
+              border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid var(--border, #E4E4E4)',
+              background: 'var(--bg, #FFFFFF)',
               color: 'var(--text, #0A0A0A)',
-              fontSize: '12px',
+              fontSize: '13px',
               outline: 'none',
-              cursor: 'pointer',
-              width: '100%'
+              boxSizing: 'border-box'
             }}
-          >
-            <option value="all">All Labourers ({uniqueWorkers.length})</option>
-            {uniqueWorkers.map(w => (
-              <option key={w.name} value={w.name}>{w.name}</option>
-            ))}
-          </select>
-
-          {/* Active filters reset */}
-          {(selectedSectorFilter !== 'all' || selectedWorkerFilter !== 'all' || searchQuery) && (
+          />
+          {searchQuery && (
             <button
               type="button"
-              onClick={() => {
-                setSelectedSectorFilter('all');
-                setSelectedWorkerFilter('all');
-                setSearchQuery('');
-              }}
+              onClick={() => setSearchQuery('')}
               style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
                 background: 'none',
                 border: 'none',
-                color: '#ef4444',
-                fontSize: '11px',
-                fontWeight: 600,
+                color: 'var(--text-muted, #8C8C8C)',
                 cursor: 'pointer',
-                padding: '6px 8px',
-                justifySelf: isMobile ? 'start' : 'auto',
-                gridColumn: isMobile ? 'span 2' : 'auto'
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              Reset Filters
+              <X size={14} />
             </button>
           )}
         </div>
       </div>
 
-      {/* 4. HISTORICAL QUOTES LOG TABLE / MOBILE CARDS */}
-      <div 
-        style={{
-          background: 'var(--bg-panel, #FFFFFF)',
-          border: '1px solid var(--border, #E4E4E4)',
-          borderRadius: '18px',
-          padding: isMobile ? '12px 14px 16px' : '20px',
-          boxSizing: 'border-box'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-          <div>
-            <h2 style={{ fontSize: isMobile ? '15px' : '16px', fontWeight: 700, margin: 0, color: 'var(--text, #0A0A0A)' }}>
-              Historical Labour Price Quotes Log
-            </h2>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>
-              Showing {filteredQuotes.length} quotes across sectors
-            </div>
-          </div>
+      {/* 4. HISTORICAL QUOTES TABLE / LIST */}
+      {isLoading ? (
+        <div 
+          style={{
+            background: 'var(--bg-panel, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '16px',
+            padding: '48px 24px',
+            textAlign: 'center',
+            color: 'var(--text-muted, #8C8C8C)'
+          }}
+        >
+          <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px', display: 'block' }} />
+          <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading labour quotes...</div>
         </div>
-
-        {isLoading ? (
-          <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted, #8C8C8C)' }}>
-            <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '8px' }} />
-            <div style={{ fontSize: '13px' }}>Loading labour price quotes...</div>
+      ) : filteredQuotes.length === 0 ? (
+        <div 
+          style={{
+            background: 'var(--bg-panel, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '16px',
+            padding: '54px 24px',
+            textAlign: 'center'
+          }}
+        >
+          <div 
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'var(--bg, #f1f5f9)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 14px',
+              color: 'var(--text-muted, #8C8C8C)'
+            }}
+          >
+            <HardHat size={22} />
           </div>
-        ) : filteredQuotes.length > 0 ? (
-          isMobile ? (
-            /* MOBILE TWO-TIER QUOTE CARDS */
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {pagedQuotes.map((q) => (
-                <div
-                  key={q.id}
-                  style={{
-                    padding: '12px 0 10px',
-                    background: 'transparent',
-                    position: 'relative'
-                  }}
-                >
-                  {/* Tier 1: Avatar + Name / Sector + Quoted Rate / Badge */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-                      <div style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '50%',
-                        background: isDarkMode ? '#1e2024' : '#e2e8f0',
-                        color: 'var(--text, #0A0A0A)',
-                        fontWeight: '700',
-                        fontSize: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        {(q.name || 'W').charAt(0).toUpperCase()}
-                      </div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text, #0A0A0A)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {q.name}
-                          </span>
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            padding: '2px 8px',
-                            borderRadius: '999px',
-                            background: 'var(--bg, #F4F4F5)',
-                            border: '1px solid var(--border, #E4E4E4)',
-                            color: 'var(--text, #0A0A0A)'
-                          }}>
-                            {q.sector}
-                          </span>
-                        </div>
-                        {q.phone && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Phone size={10} />
-                            <span>{q.phone}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' }}>
-                        SAR {q.charge.toFixed(2)}
-                      </div>
-                      {q.isLowest && (
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          color: '#16a34a',
-                          background: 'rgba(22, 163, 74, 0.1)',
-                          padding: '1px 6px',
-                          borderRadius: '999px',
-                          display: 'inline-block',
-                          marginTop: '2px'
-                        }}>
-                          ★ Lowest Rate
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tier 2: Quiet inline trio (inset 54px to align with text) */}
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text, #0A0A0A)', margin: '0 0 6px' }}>
+            No labour quotes found
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted, #8C8C8C)', margin: '0 0 16px' }}>
+            {searchQuery || selectedSectorFilter !== 'all' || selectedWorkerFilter !== 'all' || duration !== 'all'
+              ? 'No quotes matching current filter selection'
+              : 'Click "+ Record Labour Quote" to track worker rates and sector benchmarks'}
+          </p>
+          <button
+            type="button"
+            onClick={handleOpenModal}
+            style={{
+              background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+              color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '8px 16px',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            + Record Labour Quote
+          </button>
+        </div>
+      ) : isMobile ? (
+        /* MOBILE TWO-TIER QUOTE CARDS */
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '20px' }}>
+          {pagedQuotes.map((q) => (
+            <div
+              key={q.id}
+              style={{
+                padding: '12px 0 10px',
+                background: 'transparent',
+                position: 'relative'
+              }}
+            >
+              {/* Tier 1: Avatar + Name / Sector + Quoted Rate / Badge */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                   <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                    gap: '8px',
-                    padding: '6px 0 4px 54px',
-                    boxSizing: 'border-box'
-                  }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
-                        Sector
-                      </div>
-                      <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text, #0A0A0A)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {q.sector}
-                      </div>
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
-                        Unit
-                      </div>
-                      <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {q.unit}
-                      </div>
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
-                        Date
-                      </div>
-                      <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {q.date}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Extra metadata: Notes & Actions */}
-                  <div style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: isDarkMode ? '#1e2024' : '#e2e8f0',
+                    color: 'var(--text, #0A0A0A)',
+                    fontWeight: '700',
+                    fontSize: '14px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '8px',
-                    padding: '2px 0 4px 54px',
-                    fontSize: '11px',
-                    color: 'var(--text-muted, #8C8C8C)'
+                    justifyContent: 'center',
+                    flexShrink: 0
                   }}>
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                      {q.notes && <span>{q.notes}</span>}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteQuote(q)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#ef4444',
-                        cursor: 'pointer',
-                        padding: '2px 4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        fontSize: '11px'
-                      }}
-                      title="Delete quote"
-                    >
-                      <Trash2 size={12} />
-                      <span>Delete</span>
-                    </button>
+                    {(q.name || 'W').charAt(0).toUpperCase()}
                   </div>
-
-                  {/* Inset dashed hairline divider */}
-                  <div style={{
-                    marginLeft: '54px',
-                    marginTop: '6px',
-                    borderBottom: isDarkMode ? '1px dashed rgba(255,255,255,0.08)' : '1px dashed rgba(0,0,0,0.08)'
-                  }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text, #0A0A0A)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {q.name}
+                      </span>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        background: 'var(--bg, #F4F4F5)',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        color: 'var(--text, #0A0A0A)'
+                      }}>
+                        {q.sector}
+                      </span>
+                    </div>
+                    {q.phone && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Phone size={10} />
+                        <span>{q.phone}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
 
-              <CredPagination
-                page={quotePage}
-                totalPages={totalQuotePages}
-                rangeStart={quoteRangeStart}
-                rangeEnd={quoteRangeEnd}
-                total={totalQuoteCount}
-                onPageChange={setQuotePage}
-                isMobile={true}
-              />
-            </div>
-          ) : (
-            /* DESKTOP TABLE */
-            <>
-              <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)', color: 'var(--text-muted, #8C8C8C)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Labourer</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Sector / Trade</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 600, textAlign: 'right' }}>Quoted Charge</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Rate Unit</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Quote Date & Duration</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 600 }}>Notes & Terms</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 600, textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedQuotes.map((q) => (
-                      <tr 
-                        key={q.id}
-                        style={{
-                          borderBottom: '1px solid var(--border, #F0F0F0)',
-                          transition: 'background 0.15s ease'
-                        }}
-                      >
-                        {/* Labourer Name & Contact */}
-                        <td style={{ padding: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '50%',
-                              background: 'var(--bg, #F0F0F0)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 700,
-                              fontSize: '12px',
-                              color: 'var(--text, #0A0A0A)'
-                            }}>
-                              {(q.name || 'W').charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
-                                {q.name}
-                              </div>
-                              {q.phone && (
-                                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
-                                  <Phone size={10} />
-                                  <span>{q.phone}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Sector / Trade */}
-                        <td style={{ padding: '14px' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '3px 10px',
-                            borderRadius: '999px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            background: 'var(--bg, #F4F4F5)',
-                            border: '1px solid var(--border, #E4E4E4)',
-                            color: 'var(--text, #0A0A0A)'
-                          }}>
-                            <HardHat size={12} style={{ color: 'var(--text-muted, #71717A)' }} />
-                            {q.sector}
-                          </span>
-                        </td>
-
-                        {/* Quoted Charge */}
-                        <td style={{ padding: '14px', textAlign: 'right' }}>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' }}>
-                            <Money value={q.charge} currency="SAR" />
-                          </div>
-                          {q.isLowest && (
-                            <span style={{
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              color: '#16a34a',
-                              background: 'rgba(22, 163, 74, 0.1)',
-                              padding: '1px 7px',
-                              borderRadius: '999px',
-                              display: 'inline-block',
-                              marginTop: '2px'
-                            }}>
-                              ★ Lowest Rate
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Rate Unit */}
-                        <td style={{ padding: '14px', color: 'var(--text-muted, #8C8C8C)', fontSize: '12px', fontWeight: 500 }}>
-                          {q.unit}
-                        </td>
-
-                        {/* Date & Duration */}
-                        <td style={{ padding: '14px', color: 'var(--text, #0A0A0A)', fontSize: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Calendar size={12} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
-                            <span>{q.date}</span>
-                          </div>
-                          {q.dueDate && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Clock size={11} />
-                              <span>Due: {q.dueDate}</span>
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Notes & Terms */}
-                        <td style={{ padding: '14px', maxWidth: '240px' }}>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {q.notes || '—'}
-                          </div>
-                        </td>
-
-                        {/* Action */}
-                        <td style={{ padding: '14px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteQuote(q)}
-                            title="Delete Quote Record"
-                            style={{
-                              width: '30px',
-                              height: '30px',
-                              borderRadius: '6px',
-                              border: 'none',
-                              background: 'transparent',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'background 0.15s ease'
-                            }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' }}>
+                    SAR {q.charge.toFixed(2)}
+                  </div>
+                  {q.isLowest && (
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: '#16a34a',
+                      background: 'rgba(22, 163, 74, 0.1)',
+                      padding: '1px 6px',
+                      borderRadius: '999px',
+                      display: 'inline-block',
+                      marginTop: '2px'
+                    }}>
+                      ★ Lowest Rate
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <CredPagination
-                page={quotePage}
-                totalPages={totalQuotePages}
-                rangeStart={quoteRangeStart}
-                rangeEnd={quoteRangeEnd}
-                total={totalQuoteCount}
-                onPageChange={setQuotePage}
-                isMobile={false}
-              />
-            </>
-          )
-        ) : (
-          <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted, #8C8C8C)' }}>
-            <HardHat size={36} style={{ opacity: 0.35, marginBottom: '10px' }} />
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
-              No labour quotes found
+              {/* Tier 2: Quiet inline trio (inset 54px to align with text) */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: '8px',
+                padding: '6px 0 4px 54px',
+                boxSizing: 'border-box'
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
+                    Sector
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text, #0A0A0A)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {q.sector}
+                  </div>
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
+                    Unit
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {q.unit}
+                  </div>
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted, #8C8C8C)', marginBottom: '2px' }}>
+                    Date
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {q.date}
+                  </div>
+                </div>
+              </div>
+
+              {/* Extra metadata: Notes & Actions */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                padding: '2px 0 4px 54px',
+                fontSize: '11px',
+                color: 'var(--text-muted, #8C8C8C)'
+              }}>
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  {q.notes && <span>{q.notes}</span>}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteQuote(q)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    fontSize: '11px'
+                  }}
+                  title="Delete quote"
+                >
+                  <Trash2 size={12} />
+                  <span>Delete</span>
+                </button>
+              </div>
+
+              {/* Inset dashed hairline divider */}
+              <div style={{
+                marginLeft: '54px',
+                marginTop: '6px',
+                borderBottom: isDarkMode ? '1px dashed rgba(255,255,255,0.08)' : '1px dashed rgba(0,0,0,0.08)'
+              }} />
             </div>
-            <div style={{ fontSize: '12px', marginTop: '4px' }}>
-              Click "+ record labour price quote" above to track worker rates and sector benchmarks
+          ))}
+
+          <CredPagination
+            page={quotePage}
+            totalPages={totalQuotePages}
+            rangeStart={quoteRangeStart}
+            rangeEnd={quoteRangeEnd}
+            total={totalQuoteCount}
+            onPageChange={setQuotePage}
+            isMobile={true}
+          />
+        </div>
+      ) : (
+        /* DESKTOP TABLE */
+        <>
+          <div 
+            style={{
+              background: 'var(--bg, #FFFFFF)',
+              border: '1px solid var(--border, #E4E4E4)',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: isDarkMode ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            <div style={{ width: '100%', overflowX: isMobile ? 'auto' : 'hidden' }}>
+              <table 
+                style={{ 
+                  width: '100%', 
+                  borderCollapse: 'collapse', 
+                  textAlign: 'left',
+                  tableLayout: 'auto'
+                }}
+              >
+                <thead>
+                  <tr 
+                    style={{
+                      borderBottom: '1px solid var(--border, #E4E4E4)',
+                      background: isDarkMode ? '#141517' : '#f8fafc'
+                    }}
+                  >
+                    <th style={{ ...headerCellStyle, width: '25%' }}>LABOURER</th>
+                    <th style={{ ...headerCellStyle, width: '18%' }}>SECTOR / TRADE</th>
+                    <th style={{ ...headerCellStyle, width: '15%', textAlign: 'right' }}>QUOTED CHARGE</th>
+                    <th style={{ ...headerCellStyle, width: '12%' }}>RATE UNIT</th>
+                    <th style={{ ...headerCellStyle, width: '14%' }}>QUOTE DATE</th>
+                    <th style={{ ...headerCellStyle, width: '12%' }}>NOTES & TERMS</th>
+                    <th style={{ ...headerCellStyle, width: '4%', textAlign: 'center' }}>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedQuotes.map((q) => (
+                    <tr 
+                      key={q.id}
+                      className="cred-table-row"
+                      style={{
+                        borderBottom: '1px solid var(--border, #E4E4E4)'
+                      }}
+                    >
+                      {/* Labourer Name & Contact */}
+                      <td style={bodyCellStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '50%',
+                            background: isDarkMode ? '#1e2024' : '#e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: isDarkMode ? '#ffffff' : '#0f172a',
+                            flexShrink: 0
+                          }}>
+                            {(q.name || 'W').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #0A0A0A)' }}>
+                              {q.name}
+                            </div>
+                            {q.phone && (
+                              <div style={{ fontSize: '10.5px', color: 'var(--text-muted, #8C8C8C)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                                <Phone size={10} />
+                                <span>{q.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Sector / Trade */}
+                      <td style={bodyCellStyle}>
+                        <span style={{
+                          background: isDarkMode ? '#1e2024' : '#f1f5f9',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 500,
+                          fontSize: '11px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <HardHat size={11} style={{ color: 'var(--text-muted, #71717A)' }} />
+                          {q.sector}
+                        </span>
+                      </td>
+
+                      {/* Quoted Charge */}
+                      <td style={{ ...bodyCellStyle, textAlign: 'right' }}>
+                        <div style={{ 
+                          fontWeight: 700, 
+                          fontSize: '13px', 
+                          fontVariantNumeric: 'tabular-nums',
+                          color: q.isLowest ? '#16a34a' : 'var(--text, #0A0A0A)' 
+                        }}>
+                          <Money value={q.charge} currency="SAR" />
+                        </div>
+                        {q.isLowest && (
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            color: '#16a34a',
+                            background: 'rgba(22, 163, 74, 0.1)',
+                            padding: '1px 6px',
+                            borderRadius: '999px',
+                            display: 'inline-block',
+                            marginTop: '1px'
+                          }}>
+                            ★ Lowest
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Rate Unit */}
+                      <td style={{ ...bodyCellStyle, color: 'var(--text-muted, #8C8C8C)', fontSize: '12px' }}>
+                        {q.unit}
+                      </td>
+
+                      {/* Date */}
+                      <td style={{ ...bodyCellStyle, color: 'var(--text, #0A0A0A)', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Calendar size={11} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                          <span>{q.date}</span>
+                        </div>
+                        {q.dueDate && (
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock size={10} />
+                            <span>Due: {q.dueDate}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Notes & Terms */}
+                      <td style={{ ...bodyCellStyle, maxWidth: '200px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {q.notes || '—'}
+                        </div>
+                      </td>
+
+                      {/* Action */}
+                      <td style={{ ...bodyCellStyle, textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteQuote(q)}
+                          title="Delete Quote Record"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted, #8C8C8C)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
-      </div>
+
+          <CredPagination
+            page={quotePage}
+            totalPages={totalQuotePages}
+            rangeStart={quoteRangeStart}
+            rangeEnd={quoteRangeEnd}
+            total={totalQuoteCount}
+            onPageChange={setQuotePage}
+            isMobile={false}
+          />
+        </>
+      )}
 
       {/* 5. MODAL: RECORD LABOUR PRICE QUOTE */}
       {isModalOpen && typeof document !== 'undefined' && createPortal(
@@ -1483,6 +1471,22 @@ const CredLabourChartView = ({
       )}
     </div>
   );
+};
+
+const headerCellStyle = {
+  padding: '10px 8px',
+  fontSize: '11px',
+  fontWeight: 500,
+  color: 'var(--text-muted, #8C8C8C)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  whiteSpace: 'nowrap'
+};
+
+const bodyCellStyle = {
+  padding: '9px 8px',
+  verticalAlign: 'middle',
+  fontSize: '13px'
 };
 
 export default CredLabourChartView;

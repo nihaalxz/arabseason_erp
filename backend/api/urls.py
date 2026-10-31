@@ -12,7 +12,7 @@ from .views import (
     PettyCashAccountViewSet,
     QuotationViewSet, CreditNoteViewSet, DeliveryNoteViewSet,
     NotificationViewSet, RecycleBinViewSet, EnquiryViewSet, SalespersonViewSet,
-    LabourPriceQuoteViewSet, VendorPriceQuoteViewSet
+    LabourPriceQuoteViewSet, VendorPriceQuoteViewSet, CustomerWorkRecordViewSet
 )
 
 router = DefaultRouter()
@@ -51,6 +51,7 @@ router.register(r'notifications', NotificationViewSet, basename='notifications')
 router.register(r'recycle-bin', RecycleBinViewSet, basename='recycle-bin')
 router.register(r'labour-price-quotes', LabourPriceQuoteViewSet, basename='labour-price-quotes')
 router.register(r'vendor-price-quotes', VendorPriceQuoteViewSet, basename='vendor-price-quotes')
+router.register(r'customer-work-records', CustomerWorkRecordViewSet, basename='customer-work-records')
 
 urlpatterns = [
     path('dashboard/', DashboardAPIView.as_view(), name='dashboard'),

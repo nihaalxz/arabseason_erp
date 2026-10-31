@@ -8,7 +8,7 @@ from .models import (
     MaterialCategory, Material, Estimation, EstimationItem,
     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
     Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson,
-    LabourPriceQuote, VendorPriceQuote
+    LabourPriceQuote, VendorPriceQuote, CustomerWorkRecord
 )
 from decimal import Decimal
 from django.db import models
@@ -1605,4 +1605,16 @@ class VendorPriceQuoteSerializer(serializers.ModelSerializer):
         model = VendorPriceQuote
         fields = '__all__'
         read_only_fields = ['created_by', 'created_at', 'updated_at']
+
+
+class CustomerWorkRecordSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.ReadOnlyField(source='created_by.username')
+    customer_phone = serializers.ReadOnlyField(source='customer.phone')
+    customer_company = serializers.ReadOnlyField(source='customer.company_name')
+
+    class Meta:
+        model = CustomerWorkRecord
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
 
