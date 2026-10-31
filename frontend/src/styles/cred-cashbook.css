@@ -2087,19 +2087,20 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   border: 1px solid var(--border, #E4E4E4);
   border-radius: 20px;
   padding: 8px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
   z-index: 1000;
   min-width: 210px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   animation: credFadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  isolation: isolate;
 }
 
 [data-theme='dark'] .cred-gear-popover,
 .cashbook-dark .cred-gear-popover {
-  background: #141414;
-  border-color: #262626;
+  background: #141414 !important;
+  border-color: #262626 !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
 }
 
