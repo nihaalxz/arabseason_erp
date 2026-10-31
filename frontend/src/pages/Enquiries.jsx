@@ -320,6 +320,10 @@ export default function Enquiries({ currentUser }) {
   const handleOpenModal = (enq = null) => {
     setFormError('')
     if (enq) {
+      if (enq.status === 'converted' || Boolean(enq.converted_at)) {
+        showToast('Converted leads cannot be edited.', 'info')
+        return
+      }
       setSelectedEnquiry(enq)
       setIsEditing(true)
       setFormData({
@@ -2327,17 +2331,19 @@ export default function Enquiries({ currentUser }) {
                     {downloadingPdfId === selectedEnquiry.id ? 'Printing...' : 'Print PDF'}
                   </button>
 
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setIsDetailModalOpen(false)
-                      handleOpenModal(selectedEnquiry)
-                    }}
-                    style={{ height: '36px', padding: '0 0.85rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', borderRadius: '6px', cursor: 'pointer' }}
-                  >
-                    <Edit3 size={13} /> Edit Enquiry
-                  </button>
+                  {selectedEnquiry.status !== 'converted' && !selectedEnquiry.converted_at && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setIsDetailModalOpen(false)
+                        handleOpenModal(selectedEnquiry)
+                      }}
+                      style={{ height: '36px', padding: '0 0.85rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                      <Edit3 size={13} /> Edit Enquiry
+                    </button>
+                  )}
 
                   <button
                     type="button"
