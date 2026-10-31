@@ -425,7 +425,7 @@ const CredAccountsView = ({
                 onPresetChange?.(raw.value || raw.id);
               }
             }}
-            width={185}
+            width={200}
             pillHeight={38}
             rowHeight={38}
             labelPrefix="Period: "

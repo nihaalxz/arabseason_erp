@@ -647,7 +647,7 @@ const CredLabourChartView = ({
             onSelect={(opt) => setDuration(opt.value || opt.id || opt)}
             onChange={(val) => setDuration(val)}
             options={DURATION_OPTIONS}
-            width={isMobile ? '100%' : 145}
+            width={isMobile ? '100%' : 190}
             pillHeight={36}
             ariaLabel="Filter date range"
           />
