@@ -20,7 +20,8 @@ import {
   ChevronDown,
   X,
   FileText,
-  BarChart2
+  BarChart2,
+  Trash2
 } from 'lucide-react';
 import api from '../../../../api';
 import Money from '../Money';
@@ -29,7 +30,7 @@ import MoneyCard from '../MoneyCard';
 import CredCardCarousel from '../CredCardCarousel';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
-import { showToast, showError, showSuccess } from '../../../../utils/swal';
+import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
 
 const DURATION_TABS = [
   { id: 'all', label: 'all time' },
@@ -61,6 +62,7 @@ const CredVendorPriceChartView = ({
   onBack = () => {},
   onNavigate = () => {}
 }) => {
+  const [quoteRecords, setQuoteRecords] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [materialCategories, setMaterialCategories] = useState([]);
@@ -105,18 +107,21 @@ const CredVendorPriceChartView = ({
     else setIsRefreshing(true);
 
     try {
-      const [matRes, venRes, catRes, jobsRes] = await Promise.all([
+      const [quotesRes, matRes, venRes, catRes, jobsRes] = await Promise.all([
+        api.get('vendor-price-quotes/').catch(() => ({ data: [] })),
         api.get('materials/').catch(() => ({ data: [] })),
         api.get('vendors/').catch(() => ({ data: [] })),
         api.get('material-categories/').catch(() => ({ data: [] })),
         api.get('job-orders/').catch(() => ({ data: [] }))
       ]);
 
+      const quotesData = quotesRes.data?.results || quotesRes.data || [];
       const matData = matRes.data?.results || matRes.data || [];
       const venData = venRes.data?.results || venRes.data || [];
       const catData = catRes.data?.results || catRes.data || [];
       const jobsData = jobsRes.data?.results || jobsRes.data || [];
 
+      setQuoteRecords(Array.isArray(quotesData) ? quotesData : []);
       setMaterials(Array.isArray(matData) ? matData : []);
       setVendors(Array.isArray(venData) ? venData : []);
       setMaterialCategories(Array.isArray(catData) ? catData : []);
@@ -134,55 +139,77 @@ const CredVendorPriceChartView = ({
     fetchData();
   }, []);
 
-  // Extract all categories from both MaterialCategory table and materials
+  // Extract all categories from both MaterialCategory table and price quotes
   const categories = useMemo(() => {
     const set = new Set();
     materialCategories.forEach(c => {
       if (c.name) set.add(c.name);
     });
-    materials.forEach(m => {
-      const cat = m.category_name || (typeof m.category === 'string' ? m.category : null);
-      if (cat) set.add(cat);
+    quoteRecords.forEach(q => {
+      if (q.category_name) set.add(q.category_name);
     });
     return Array.from(set).sort();
-  }, [materials, materialCategories]);
+  }, [quoteRecords, materialCategories]);
 
-  // Normalize quotes into a flat chronological log
+  // Normalize quotes from dedicated vendor-price-quotes table
   const allQuotes = useMemo(() => {
-    const list = [];
-
-    materials.forEach(mat => {
-      const shopPrices = Array.isArray(mat.shop_prices) ? mat.shop_prices : [];
-      const catName = mat.category_name || (typeof mat.category === 'string' ? mat.category : 'General');
-      const lowest = mat.lowest_shop_price;
-
-      shopPrices.forEach((sp, idx) => {
-        const pNum = parseFloat(sp.price || 0);
-        if (pNum > 0) {
-          const quoteDate = sp.date || mat.created_at || '2026-01-01';
-          list.push({
-            id: `${mat.id}_${idx}_${sp.shop_name || 'shop'}`,
-            materialId: String(mat.id),
-            materialName: mat.name,
-            measurements: mat.measurements || '',
-            categoryName: catName,
-            customerPrice: parseFloat(mat.customer_price || 0),
-            unit: sp.unit || mat.unit || 'pcs',
-            vendorName: sp.shop_name || sp.vendor_name || 'Vendor',
-            vendorId: sp.vendor_id ? String(sp.vendor_id) : '',
-            price: pNum,
-            isLowest: lowest && Math.abs(pNum - lowest) < 0.01,
-            date: quoteDate.substring(0, 10),
-            notes: sp.notes || '',
-            jobOrder: sp.job_order || ''
-          });
+    // 1. Calculate lowest benchmark price per material
+    const lowestByMaterial = {};
+    quoteRecords.forEach(r => {
+      const pNum = parseFloat(r.price || 0);
+      const mKey = (r.material_name || '').trim().toLowerCase();
+      if (pNum > 0 && mKey) {
+        if (!lowestByMaterial[mKey] || pNum < lowestByMaterial[mKey]) {
+          lowestByMaterial[mKey] = pNum;
         }
-      });
+      }
+    });
+
+    const list = quoteRecords.map(r => {
+      const pNum = parseFloat(r.price || 0);
+      const mKey = (r.material_name || '').trim().toLowerCase();
+      const quoteDate = r.date || (r.created_at ? r.created_at.substring(0, 10) : '2026-01-01');
+      const isLowest = pNum > 0 && Math.abs(pNum - (lowestByMaterial[mKey] || 0)) < 0.01;
+
+      return {
+        id: r.id,
+        materialId: String(r.id),
+        materialName: r.material_name || 'Material',
+        measurements: '',
+        categoryName: r.category_name || 'General',
+        customerPrice: 0,
+        unit: r.unit || 'pcs',
+        vendorName: r.vendor_name || 'Vendor',
+        vendorId: r.vendor ? String(r.vendor) : '',
+        price: pNum,
+        isLowest: isLowest,
+        date: quoteDate.substring(0, 10),
+        notes: r.notes || '',
+        jobOrder: r.job_order || ''
+      };
     });
 
     // Sort newest date first
     return list.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [materials]);
+  }, [quoteRecords]);
+
+  // Unique Materials present in quotes (for filter dropdown)
+  const uniqueMaterialOptions = useMemo(() => {
+    const set = new Set();
+    allQuotes.forEach(q => {
+      if (q.materialName) set.add(q.materialName);
+    });
+    return Array.from(set).sort();
+  }, [allQuotes]);
+
+  // Unique Vendors present in quotes (for filter dropdown)
+  const uniqueVendorOptions = useMemo(() => {
+    const set = new Set();
+    allQuotes.forEach(q => {
+      if (q.vendorName) set.add(q.vendorName);
+    });
+    return Array.from(set).sort();
+  }, [allQuotes]);
 
   // Duration Filter Calculation
   const filteredQuotes = useMemo(() => {
@@ -208,7 +235,8 @@ const CredVendorPriceChartView = ({
 
       // 3. Material Filter
       if (selectedMaterialFilter !== 'all') {
-        if (q.materialId !== selectedMaterialFilter && q.materialName !== selectedMaterialFilter) {
+        const target = selectedMaterialFilter.toLowerCase();
+        if (q.materialName.toLowerCase() !== target) {
           return false;
         }
       }
@@ -270,63 +298,39 @@ const CredVendorPriceChartView = ({
       return;
     }
     if (!modalForm.vendor_name.trim()) {
-      showError('Please specify the vendor or shop name');
+      showError('Please select a vendor or supplier from the dropdown');
       return;
     }
 
     setIsSubmitting(true);
     try {
       let targetMat = materials.find(m => String(m.id) === String(modalForm.material_id));
+      const matName = targetMat ? targetMat.name : (modalForm.custom_material_name.trim() || 'Material');
       const finalUnit = (modalForm.unit === '__custom__' || !modalForm.unit?.trim())
         ? (targetMat?.unit || 'pcs')
         : modalForm.unit.trim();
 
-      // If adding quote for an existing material
-      if (targetMat) {
-        const existingPrices = Array.isArray(targetMat.shop_prices) ? [...targetMat.shop_prices] : [];
-        const newEntry = {
-          shop_name: modalForm.vendor_name.trim(),
-          vendor_id: modalForm.vendor_id || null,
-          price: parseFloat(modalForm.price),
-          unit: finalUnit,
-          date: modalForm.date || new Date().toISOString().split('T')[0],
-          notes: modalForm.notes.trim(),
-          job_order: modalForm.job_order.trim()
-        };
-
-        const updatedShopPrices = [newEntry, ...existingPrices];
-        const updatePayload = {
-          ...targetMat,
-          shop_prices: updatedShopPrices
-        };
-        if (modalForm.category_id) {
-          updatePayload.category = modalForm.category_id;
-        }
-        await api.put(`materials/${targetMat.id}/`, updatePayload);
-      } else {
-        // Create new Material if entered custom name
-        const matName = modalForm.custom_material_name.trim() || 'New Material';
-        const newEntry = {
-          shop_name: modalForm.vendor_name.trim(),
-          vendor_id: modalForm.vendor_id || null,
-          price: parseFloat(modalForm.price),
-          unit: finalUnit,
-          date: modalForm.date || new Date().toISOString().split('T')[0],
-          notes: modalForm.notes.trim()
-        };
-
-        const newMatPayload = {
-          name: matName,
-          unit: finalUnit,
-          customer_price: parseFloat(modalForm.price) * 1.25, // Default markup
-          shop_prices: [newEntry]
-        };
-        if (modalForm.category_id) {
-          newMatPayload.category = modalForm.category_id;
-        }
-
-        await api.post('materials/', newMatPayload);
+      let categoryName = 'General';
+      if (modalForm.category_id) {
+        const catObj = materialCategories.find(c => String(c.id) === String(modalForm.category_id));
+        if (catObj) categoryName = catObj.name;
+      } else if (targetMat) {
+        categoryName = targetMat.category_name || (typeof targetMat.category === 'string' ? targetMat.category : 'General');
       }
+
+      const payload = {
+        vendor: modalForm.vendor_id ? parseInt(modalForm.vendor_id) : null,
+        vendor_name: modalForm.vendor_name.trim(),
+        material_name: matName,
+        category_name: categoryName,
+        price: parseFloat(modalForm.price),
+        unit: finalUnit,
+        date: modalForm.date || new Date().toISOString().split('T')[0],
+        notes: modalForm.notes.trim(),
+        job_order: modalForm.job_order ? modalForm.job_order.trim() : ''
+      };
+
+      await api.post('vendor-price-quotes/', payload);
 
       showSuccess('Vendor price quote recorded successfully');
       setIsModalOpen(false);
@@ -349,6 +353,25 @@ const CredVendorPriceChartView = ({
       showError('Failed to save vendor price quote');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handle Delete Vendor Price Quote
+  const handleDeletePriceQuote = async (quote) => {
+    const confirmed = await showConfirm(
+      'Delete Price Quote?',
+      `Are you sure you want to remove the quote of SAR ${quote.price} for ${quote.materialName} (${quote.vendorName})?`,
+      'Yes, Delete'
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`vendor-price-quotes/${quote.id}/`);
+      showSuccess('Quote record removed');
+      fetchData(false);
+    } catch (err) {
+      console.error('Error deleting quote:', err);
+      showError('Failed to remove quote record');
     }
   };
 
@@ -668,9 +691,9 @@ const CredVendorPriceChartView = ({
                 cursor: 'pointer'
               }}
             >
-              <option value="all">All Materials ({materials.length})</option>
-              {materials.map(m => (
-                <option key={m.id} value={String(m.id)}>{m.name} {m.measurements ? `(${m.measurements})` : ''}</option>
+              <option value="all">All Materials ({uniqueMaterialOptions.length})</option>
+              {uniqueMaterialOptions.map(m => (
+                <option key={m} value={m}>{m}</option>
               ))}
             </select>
           </div>
@@ -693,9 +716,9 @@ const CredVendorPriceChartView = ({
                 cursor: 'pointer'
               }}
             >
-              <option value="all">All Vendors ({vendors.length})</option>
-              {vendors.map(v => (
-                <option key={v.id} value={String(v.id)}>{v.name}</option>
+              <option value="all">All Vendors ({uniqueVendorOptions.length})</option>
+              {uniqueVendorOptions.map(v => (
+                <option key={v} value={v}>{v}</option>
               ))}
             </select>
           </div>
@@ -1009,13 +1032,17 @@ const CredVendorPriceChartView = ({
                   </div>
                 </div>
 
-                {/* Notes or Job Order */}
-                {(q.notes || q.jobOrder) && (
-                  <div style={{
-                    padding: '2px 0 6px 54px',
-                    fontSize: '11px',
-                    color: 'var(--text-muted, #8C8C8C)'
-                  }}>
+                {/* Notes or Job Order & Delete Action */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  padding: '2px 0 6px 54px',
+                  fontSize: '11px',
+                  color: 'var(--text-muted, #8C8C8C)'
+                }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                     {q.jobOrder && (
                       <span style={{ fontWeight: 600, color: 'var(--text, #0A0A0A)', marginRight: '8px' }}>
                         Job: {q.jobOrder}
@@ -1023,7 +1050,25 @@ const CredVendorPriceChartView = ({
                     )}
                     {q.notes && <span>{q.notes}</span>}
                   </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePriceQuote(q)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ef4444',
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '11px'
+                    }}
+                  >
+                    <Trash2 size={12} />
+                    <span>Delete</span>
+                  </button>
+                </div>
 
                 {/* Inset dashed separator */}
                 <div style={{
@@ -1077,6 +1122,7 @@ const CredVendorPriceChartView = ({
                   <th style={{ padding: '12px 18px', fontWeight: 700 }}>Unit</th>
                   <th style={{ padding: '12px 18px', fontWeight: 700 }}>Quote Date</th>
                   <th style={{ padding: '12px 18px', fontWeight: 700 }}>Project / Notes</th>
+                  <th style={{ padding: '12px 18px', fontWeight: 700, textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1147,6 +1193,30 @@ const CredVendorPriceChartView = ({
                       {!q.jobOrder && !q.notes && (
                         <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12px' }}>—</span>
                       )}
+                    </td>
+
+                    {/* Action */}
+                    <td style={{ padding: '12px 18px', textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePriceQuote(q)}
+                        title="Delete Quote Record"
+                        style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'background 0.15s ease'
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1304,56 +1374,37 @@ const CredVendorPriceChartView = ({
               {/* Vendor Selection */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Vendor / Supplier Name *</label>
-                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '8px' }}>
-                  <select
-                    value={modalForm.vendor_id}
-                    onChange={(e) => {
-                      const vId = e.target.value;
-                      const ven = vendors.find(v => String(v.id) === String(vId));
-                      setModalForm(prev => ({
-                        ...prev,
-                        vendor_id: vId,
-                        vendor_name: ven ? ven.name : prev.vendor_name
-                      }));
-                    }}
-                    style={{
-                      width: isMobile ? '100%' : '45%',
-                      height: '38px',
-                      padding: '0 8px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--bg, #F9F9F9)',
-                      color: 'var(--text)',
-                      fontSize: '12px',
-                      outline: 'none'
-                    }}
-                  >
-                    <option value="">Select Vendor</option>
-                    {vendors.map(v => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    value={modalForm.vendor_name}
-                    onChange={(e) => setModalForm(prev => ({ ...prev, vendor_name: e.target.value }))}
-                    placeholder="or type Supplier / Shop..."
-                    required
-                    style={{
-                      flex: 1,
-                      width: isMobile ? '100%' : 'auto',
-                      height: '38px',
-                      padding: '0 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--bg, #F9F9F9)',
-                      color: 'var(--text)',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
+                <select
+                  value={modalForm.vendor_id}
+                  onChange={(e) => {
+                    const vId = e.target.value;
+                    const ven = vendors.find(v => String(v.id) === String(vId));
+                    setModalForm(prev => ({
+                      ...prev,
+                      vendor_id: vId,
+                      vendor_name: ven ? ven.name : ''
+                    }));
+                  }}
+                  required
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--bg, #F9F9F9)',
+                    color: 'var(--text)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">-- Select Vendor / Supplier --</option>
+                  {vendors.map(v => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Price & Unit & Date */}

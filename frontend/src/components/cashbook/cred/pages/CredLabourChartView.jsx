@@ -89,7 +89,8 @@ const CredLabourChartView = ({
   onBack = () => {},
   onNavigate = () => {}
 }) => {
-  const [labourRecords, setLabourRecords] = useState([]);
+  const [quoteRecords, setQuoteRecords] = useState([]);
+  const [systemWorkers, setSystemWorkers] = useState([]);
   const [jobOrders, setJobOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -123,16 +124,19 @@ const CredLabourChartView = ({
     else setIsRefreshing(true);
 
     try {
-      const [labRes, jobsRes] = await Promise.all([
-        api.get('labours/').catch(() => ({ data: [] })),
-        api.get('job-orders/').catch(() => ({ data: [] }))
+      const [quotesRes, jobsRes, workersRes] = await Promise.all([
+        api.get('labour-price-quotes/').catch(() => ({ data: [] })),
+        api.get('job-orders/').catch(() => ({ data: [] })),
+        api.get('labours/').catch(() => ({ data: [] }))
       ]);
 
-      const labData = labRes.data?.results || labRes.data || [];
+      const quotesData = quotesRes.data?.results || quotesRes.data || [];
       const jobsData = jobsRes.data?.results || jobsRes.data || [];
+      const workersData = workersRes.data?.results || workersRes.data || [];
 
-      setLabourRecords(Array.isArray(labData) ? labData : []);
+      setQuoteRecords(Array.isArray(quotesData) ? quotesData : []);
       setJobOrders(Array.isArray(jobsData) ? jobsData : []);
+      setSystemWorkers(Array.isArray(workersData) ? workersData : []);
     } catch (err) {
       console.error('Error fetching labour price chart data:', err);
       showError('Failed to load labour price data');
@@ -146,19 +150,19 @@ const CredLabourChartView = ({
     fetchData();
   }, []);
 
-  // Normalise flat list of quotes from labour records
+  // Normalise flat list of quotes from dedicated labour-price-quotes
   const allQuotes = useMemo(() => {
     const list = [];
-    labourRecords.forEach(r => {
-      const charge = parseFloat(r.payment_amount || 0);
-      const sector = (r.work_done || 'General Labour').trim();
+    quoteRecords.forEach(r => {
+      const charge = parseFloat(r.charge || 0);
+      const sector = (r.sector || 'General Labour').trim();
       const quoteDate = r.date || (r.created_at ? r.created_at.substring(0, 10) : '2026-01-01');
-      const unit = parseUnitFromNotes(r.notes);
+      const unit = r.unit || parseUnitFromNotes(r.notes);
       const displayNotes = cleanNotesText(r.notes);
 
       list.push({
         id: r.id,
-        name: (r.name || 'Worker').trim(),
+        name: (r.labourer_name || 'Worker').trim(),
         phone: r.phone || '',
         sector: sector,
         charge: charge,
@@ -186,7 +190,7 @@ const CredLabourChartView = ({
       ...q,
       isLowest: q.charge > 0 && Math.abs(q.charge - lowestBySector[q.sector]) < 0.01
     })).sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [labourRecords]);
+  }, [quoteRecords]);
 
   // Extract distinct sectors and distinct labourers
   const uniqueSectors = useMemo(() => {
@@ -199,13 +203,21 @@ const CredLabourChartView = ({
 
   const uniqueWorkers = useMemo(() => {
     const map = new Map();
-    allQuotes.forEach(q => {
-      if (q.name && !map.has(q.name)) {
-        map.set(q.name, { name: q.name, phone: q.phone });
+    // 1. Registered system workers (for dropdown selection)
+    systemWorkers.forEach(w => {
+      if (w.name && !map.has(w.name)) {
+        map.set(w.name, { name: w.name, phone: w.phone || '' });
+      }
+    });
+    // 2. Workers who have recorded quotes
+    quoteRecords.forEach(q => {
+      const name = q.labourer_name || q.name;
+      if (name && !map.has(name)) {
+        map.set(name, { name: name, phone: q.phone || '' });
       }
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allQuotes]);
+  }, [systemWorkers, quoteRecords]);
 
   // Filtered Quotes
   const filteredQuotes = useMemo(() => {
@@ -302,7 +314,6 @@ const CredLabourChartView = ({
   // Open Modal with fresh state
   const handleOpenModal = () => {
     setModalForm({
-      labourer_mode: uniqueWorkers.length > 0 ? 'existing' : 'new',
       labourer_name: uniqueWorkers[0]?.name || '',
       phone: uniqueWorkers[0]?.phone || '',
       sector: 'Carpentry',
@@ -321,12 +332,10 @@ const CredLabourChartView = ({
   const handleSaveQuote = async (e) => {
     e.preventDefault();
 
-    const workerName = modalForm.labourer_mode === 'existing' 
-      ? modalForm.labourer_name.trim() 
-      : modalForm.labourer_name.trim();
+    const workerName = (modalForm.labourer_name || '').trim();
 
     if (!workerName) {
-      showError('Please specify the labourer name');
+      showError('Please select a labourer from the dropdown');
       return;
     }
 
@@ -347,23 +356,19 @@ const CredLabourChartView = ({
 
     setIsSubmitting(true);
     try {
-      // Store unit in structured format inside notes so it can be re-parsed reliably
-      const formattedNotes = `[Unit: ${modalForm.unit}] ${modalForm.notes.trim()}`.trim();
-
       const payload = {
-        name: workerName,
+        labourer_name: workerName,
         phone: modalForm.phone.trim(),
-        work_done: sectorName,
-        payment_amount: chargeNum,
-        paid_amount: 0.00,
-        status: 'pending',
+        sector: sectorName,
+        charge: chargeNum,
+        unit: modalForm.unit || 'per day',
         date: modalForm.date || new Date().toISOString().split('T')[0],
         due_date: modalForm.due_date || null,
         job_order: modalForm.job_order ? parseInt(modalForm.job_order) : null,
-        notes: formattedNotes
+        notes: modalForm.notes.trim()
       };
 
-      await api.post('labours/', payload);
+      await api.post('labour-price-quotes/', payload);
 
       showSuccess('Labour price quote recorded successfully');
       setIsModalOpen(false);
@@ -386,7 +391,7 @@ const CredLabourChartView = ({
     if (!confirmed) return;
 
     try {
-      await api.delete(`labours/${quote.id}/`);
+      await api.delete(`labour-price-quotes/${quote.id}/`);
       showSuccess('Quote record removed');
       fetchData(false);
     } catch (err) {
@@ -1210,66 +1215,38 @@ const CredLabourChartView = ({
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)', display: 'block', marginBottom: '6px' }}>
                   Labourer / Worker Name *
                 </label>
-                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '8px' }}>
-                  <select
-                    value={uniqueWorkers.some(w => w.name === modalForm.labourer_name) ? modalForm.labourer_name : ''}
-                    onChange={(e) => {
-                      const sel = uniqueWorkers.find(w => w.name === e.target.value);
-                      if (sel) {
-                        setModalForm(prev => ({
-                          ...prev,
-                          labourer_name: sel.name,
-                          phone: sel.phone || prev.phone
-                        }));
-                      } else {
-                        setModalForm(prev => ({
-                          ...prev,
-                          labourer_name: e.target.value
-                        }));
-                      }
-                    }}
-                    style={{
-                      width: isMobile ? '100%' : '45%',
-                      height: '40px',
-                      padding: '0 8px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--bg, #F9F9F9)',
-                      color: 'var(--text, #0A0A0A)',
-                      fontSize: '12px',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="">Select Labourer</option>
-                    {uniqueWorkers.map(w => (
-                      <option key={w.name} value={w.name}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="or type Labourer name..."
-                    value={modalForm.labourer_name}
-                    onChange={(e) => setModalForm(prev => ({ ...prev, labourer_name: e.target.value }))}
-                    required
-                    style={{
-                      flex: 1,
-                      height: '40px',
-                      padding: '0 12px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--bg, #F9F9F9)',
-                      color: 'var(--text, #0A0A0A)',
-                      fontSize: '13px',
-                      outline: 'none',
-                      width: isMobile ? '100%' : 'auto',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
+                <select
+                  value={modalForm.labourer_name}
+                  onChange={(e) => {
+                    const sel = uniqueWorkers.find(w => w.name === e.target.value);
+                    setModalForm(prev => ({
+                      ...prev,
+                      labourer_name: e.target.value,
+                      phone: sel?.phone || prev.phone
+                    }));
+                  }}
+                  required
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 12px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--bg, #F9F9F9)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">-- Select Labourer --</option>
+                  {uniqueWorkers.map(w => (
+                    <option key={w.name} value={w.name}>
+                      {w.name}{w.phone ? ` (${w.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* 2. Sector / Trade Selection */}

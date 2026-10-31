@@ -21,7 +21,8 @@ from .models import (Customer, Vendor, JobOrder, PendingJobOrder, CustomerPaymen
                     Invoice, InvoiceItem, CustomFormField,
                     MaterialCategory, Material, Estimation, EstimationItem,
                     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
-                    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson)
+                    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson,
+                    LabourPriceQuote, VendorPriceQuote)
 from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializer, PendingJobOrderSerializer, 
                         CustomerPaymentSerializer, VendorPaymentSerializer,
                         ExpenseSerializer, SiteSettingsSerializer,
@@ -37,7 +38,8 @@ from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializ
                         CreditNoteSerializer, CreditNoteItemSerializer,
                         DeliveryNoteSerializer, DeliveryNoteItemSerializer,
                         NotificationSerializer, RecycleBinItemSerializer,
-                        EnquirySerializer, EnquiryFollowUpSerializer, SalespersonSerializer)
+                        EnquirySerializer, EnquiryFollowUpSerializer, SalespersonSerializer,
+                        LabourPriceQuoteSerializer, VendorPriceQuoteSerializer)
 
 def is_admin_user(user):
     return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'Admin'))
@@ -4983,6 +4985,65 @@ class EnquiryViewSet(viewsets.ModelViewSet):
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="{filename}"'
         return response
+
+
+class LabourPriceQuoteViewSet(viewsets.ModelViewSet):
+    serializer_class = LabourPriceQuoteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = LabourPriceQuote.objects.all().select_related('created_by', 'job_order')
+        sector = self.request.query_params.get('sector')
+        if sector and sector != 'all':
+            queryset = queryset.filter(sector=sector)
+        worker = self.request.query_params.get('worker')
+        if worker and worker != 'all':
+            queryset = queryset.filter(labourer_name=worker)
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(labourer_name__icontains=search) |
+                Q(phone__icontains=search) |
+                Q(sector__icontains=search) |
+                Q(notes__icontains=search) |
+                Q(job_order__title__icontains=search) |
+                Q(job_order__order_id__icontains=search)
+            )
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class VendorPriceQuoteViewSet(viewsets.ModelViewSet):
+    serializer_class = VendorPriceQuoteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = VendorPriceQuote.objects.all().select_related('created_by', 'vendor')
+        vendor_id = self.request.query_params.get('vendor')
+        if vendor_id and vendor_id != 'all':
+            queryset = queryset.filter(vendor_id=vendor_id)
+        category = self.request.query_params.get('category')
+        if category and category != 'all':
+            queryset = queryset.filter(category_name=category)
+        material = self.request.query_params.get('material')
+        if material and material != 'all':
+            queryset = queryset.filter(material_name=material)
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(material_name__icontains=search) |
+                Q(vendor_name__icontains=search) |
+                Q(category_name__icontains=search) |
+                Q(notes__icontains=search) |
+                Q(job_order__icontains=search)
+            )
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 
 
 

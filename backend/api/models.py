@@ -1132,3 +1132,46 @@ class EnquiryFollowUp(models.Model):
         return f"Follow-up #{self.follow_up_number} for {self.enquiry.enquiry_number} ({self.get_outcome_display()})"
 
 
+class LabourPriceQuote(models.Model):
+    labourer_name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=50, blank=True, default='')
+    sector = models.CharField(max_length=100)
+    charge = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    unit = models.CharField(max_length=50, default='per day')
+    date = models.DateField(default=timezone.now)
+    due_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True, default='')
+    job_order = models.ForeignKey(JobOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='labour_quotes')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='labour_quotes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"{self.labourer_name} - {self.sector} (SAR {self.charge})"
+
+
+class VendorPriceQuote(models.Model):
+    vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True, related_name='price_quotes')
+    vendor_name = models.CharField(max_length=255)
+    material_name = models.CharField(max_length=255)
+    category_name = models.CharField(max_length=100, blank=True, default='General')
+    price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    unit = models.CharField(max_length=50, default='pcs')
+    date = models.DateField(default=timezone.now)
+    notes = models.TextField(blank=True, default='')
+    job_order = models.CharField(max_length=100, blank=True, default='')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='vendor_quotes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"{self.material_name} - {self.vendor_name} (SAR {self.price}/{self.unit})"
+
+
+

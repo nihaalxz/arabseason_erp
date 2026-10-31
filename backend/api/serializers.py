@@ -7,7 +7,8 @@ from .models import (
     Invoice, InvoiceItem, CustomFormField,
     MaterialCategory, Material, Estimation, EstimationItem,
     Quotation, QuotationItem, CreditNote, CreditNoteItem, DeliveryNote, DeliveryNoteItem,
-    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson
+    Notification, RecycleBinItem, Enquiry, EnquiryFollowUp, Salesperson,
+    LabourPriceQuote, VendorPriceQuote
 )
 from decimal import Decimal
 from django.db import models
@@ -1583,3 +1584,25 @@ class EnquirySerializer(serializers.ModelSerializer):
         model = Enquiry
         fields = '__all__'
         read_only_fields = ['enquiry_number', 'created_by', 'created_at', 'updated_at']
+
+
+class LabourPriceQuoteSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.ReadOnlyField(source='created_by.username')
+    job_order_title = serializers.ReadOnlyField(source='job_order.title')
+    job_order_number = serializers.ReadOnlyField(source='job_order.order_id')
+
+    class Meta:
+        model = LabourPriceQuote
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
+
+class VendorPriceQuoteSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.ReadOnlyField(source='created_by.username')
+    vendor_phone = serializers.ReadOnlyField(source='vendor.phone')
+
+    class Meta:
+        model = VendorPriceQuote
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
