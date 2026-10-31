@@ -100,14 +100,9 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
     } else if (
       location.pathname === '/' ||
       location.pathname === '/jobs' ||
-      location.pathname === '/customers' ||
-      location.pathname.startsWith('/customers/') ||
-      location.pathname === '/vendors' ||
-      location.pathname.startsWith('/vendors/') ||
-      location.pathname === '/estimations' ||
-      location.pathname.startsWith('/estimations/') ||
-      location.pathname === '/quotations' ||
-      location.pathname.startsWith('/quotations/') ||
+      location.pathname.startsWith('/jobs/') ||
+      location.pathname === '/enquiries' ||
+      location.pathname.startsWith('/enquiries/') ||
       location.pathname === '/delivery-notes' ||
       location.pathname.startsWith('/delivery-notes/')
     ) {
@@ -185,7 +180,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
   }
 
   return (
-    <header className={`header zoho-header ${!isCashbook ? 'soft-fintech-header' : ''}`}>
+    <header className="header zoho-header" style={{ background: 'var(--black, #0A0A0A)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: '#FFFFFF', position: 'fixed', top: 0, left: 0, right: 0, width: '100%', height: '50px', zIndex: 1010, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 0.85rem' : '0 1.25rem', boxSizing: 'border-box' }}>
       {/* Left: Logo + Module Switcher */}
       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.85rem', minWidth: 0 }}>
         <Link to={isMobile ? "/cashbook" : "/"} className="header-logo-link" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: isMobile ? '0.2rem' : '0.4rem' }}>
@@ -199,8 +194,8 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
 
         {!isMobile && (
           <div 
-            className={`header-module-switcher ${!isCashbook ? 'soft-fintech-switcher' : 'cashbook-pill-switcher'}`}
-            style={!isCashbook ? {} : {
+            className="header-module-switcher cashbook-pill-switcher"
+            style={{
               display: 'flex', alignItems: 'center',
               background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)',
               borderRadius: '999px', padding: '3px', gap: '3px', marginLeft: '0.5rem'
@@ -214,25 +209,25 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                   key={mod.id}
                   type="button"
                   onClick={() => handleModuleSwitch(key)}
-                  className={`header-module-btn ${isActive ? 'active' : ''} ${!isCashbook ? 'soft-fintech-btn' : 'cb-header-pill-btn'}`}
-                  style={!isCashbook ? {} : {
+                  className={`header-module-btn ${isActive ? 'active' : ''} cb-header-pill-btn`}
+                  style={{
                     display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 14px',
                     borderRadius: '999px', border: 'none', cursor: 'pointer', fontSize: '0.8rem',
-                    fontWeight: isActive ? '700' : '500',
+                    fontWeight: isActive ? '600' : '400',
                     background: isActive ? '#ffffff' : 'transparent',
-                    color: isActive ? '#0f172a' : '#cbd5e1',
-                    boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none',
+                    color: isActive ? '#0A0A0A' : '#9A9A9A',
+                    boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.25)' : 'none',
                     transition: 'all 0.15s ease'
                   }}
                   onMouseEnter={(e) => { 
-                    if (isCashbook && !isActive) { 
+                    if (!isActive) { 
                       e.currentTarget.style.color = '#ffffff'; 
                       e.currentTarget.style.background = 'rgba(255,255,255,0.08)' 
                     } 
                   }}
                   onMouseLeave={(e) => { 
-                    if (isCashbook && !isActive) { 
-                      e.currentTarget.style.color = '#cbd5e1'; 
+                    if (!isActive) { 
+                      e.currentTarget.style.color = '#9A9A9A'; 
                       e.currentTarget.style.background = 'transparent' 
                     } 
                   }}
@@ -260,13 +255,13 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
             <button
               type="button"
               onClick={() => setShowQuickAdd(!showQuickAdd)}
-              className={`header-quick-add-btn ${!isCashbook ? 'soft-fintech-icon-btn soft-fintech-add-btn' : ''}`}
-              style={!isCashbook ? {} : {
+              className="header-quick-add-btn"
+              style={{
                 width: '32px', height: '32px',
-                background: '#ffffff', color: '#0f172a', border: 'none',
+                background: '#ffffff', color: '#0A0A0A', border: 'none',
                 borderRadius: '50%', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', cursor: 'pointer', fontWeight: '700',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)', transition: 'all 0.15s ease'
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)', transition: 'all 0.15s ease'
               }}
               title="Create New"
             >
@@ -283,10 +278,10 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                 {(isFeatureVisible('customers') || isFeatureVisible('jobs') || isFeatureVisible('estimations') || isFeatureVisible('quotations') || isFeatureVisible('delivery_notes')) && (
                   <>
                     <div style={{ padding: '0.35rem 0.6rem', fontSize: '0.675rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sales & Operations</div>
-                    {isFeatureVisible('quotations') && <Link to="/quotations/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileText size={14} style={{ color: 'var(--primary)' }} /><span>New Quotation</span></Link>}
-                    {isFeatureVisible('customers') && <Link to="/customers" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Users size={14} style={{ color: 'var(--primary)' }} /><span>New Customer</span></Link>}
+                    {isFeatureVisible('quotations') && <Link to="/accounting/quotations/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileText size={14} style={{ color: 'var(--primary)' }} /><span>New Quotation</span></Link>}
+                    {isFeatureVisible('customers') && <Link to="/accounting/customers" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Users size={14} style={{ color: 'var(--primary)' }} /><span>New Customer</span></Link>}
                     {isFeatureVisible('jobs') && <Link to="/jobs" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Briefcase size={14} style={{ color: 'var(--primary)' }} /><span>New Job Order</span></Link>}
-                    {isFeatureVisible('estimations') && <Link to="/estimations/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileSpreadsheet size={14} style={{ color: 'var(--primary)' }} /><span>New Estimation</span></Link>}
+                    {isFeatureVisible('estimations') && <Link to="/accounting/estimations/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileSpreadsheet size={14} style={{ color: 'var(--primary)' }} /><span>New Estimation</span></Link>}
                     {isFeatureVisible('delivery_notes') && <Link to="/delivery-notes/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileText size={14} style={{ color: 'var(--primary)' }} /><span>New Delivery Note</span></Link>}
                   </>
                 )}
@@ -296,11 +291,11 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                     <div style={{ padding: '0.35rem 0.6rem', fontSize: '0.675rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Billing & Financials</div>
                     {isFeatureVisible('invoices') && <Link to="/invoices/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--primary)' }} /><span>New Invoice</span></Link>}
                     {isFeatureVisible('credit_notes') && <Link to="/credit-notes/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--warning)' }} /><span>New Credit Note</span></Link>}
-                    {isFeatureVisible('vendors') && <Link to="/vendors" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Building2 size={14} style={{ color: 'var(--warning)' }} /><span>New Vendor</span></Link>}
+                    {isFeatureVisible('vendors') && <Link to="/accounting/vendors" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Building2 size={14} style={{ color: 'var(--warning)' }} /><span>New Vendor</span></Link>}
                     {isFeatureVisible('expenses') && <Link to="/expenses" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--danger)' }} /><span>Record Expense</span></Link>}
                     {isFeatureVisible('payments') && <Link to="/payments" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><CreditCard size={14} style={{ color: 'var(--success)' }} /><span>Record Payment</span></Link>}
                     {isFeatureVisible('payment_requests') && <Link to="/payment-requests" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><ShieldCheck size={14} style={{ color: 'var(--info, #0284c7)' }} /><span>Payment Request</span></Link>}
-                    {isFeatureVisible('banks') && <Link to="/banks" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Landmark size={14} style={{ color: '#6366f1' }} /><span>Bank Accounts</span></Link>}
+                    
                   </>
                 )}
                 {isFeatureVisible('cashbook') && (
@@ -320,8 +315,8 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
           <button
             type="button"
             onClick={() => { setShowNotifications(v => !v); if (!showNotifications) fetchNotifications() }}
-            className={`header-notif-btn ${!isCashbook ? 'soft-fintech-icon-btn' : ''}`}
-            style={!isCashbook ? { position: 'relative' } : {
+            className="header-notif-btn"
+            style={{
               width: isMobile ? '28px' : '32px', height: isMobile ? '28px' : '32px',
               background: showNotifications ? 'rgba(255,255,255,0.12)' : 'transparent',
               border: 'none', color: unreadCount > 0 ? '#fbbf24' : '#cbd5e1',
@@ -329,8 +324,8 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
               borderRadius: '50%', cursor: 'pointer', transition: 'color 0.15s ease', position: 'relative'
             }}
             title={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-            onMouseEnter={(e) => { if (isCashbook && unreadCount === 0) e.currentTarget.style.color = '#ffffff' }}
-            onMouseLeave={(e) => { if (isCashbook && unreadCount === 0) e.currentTarget.style.color = '#cbd5e1' }}
+            onMouseEnter={(e) => { if (unreadCount === 0) e.currentTarget.style.color = '#ffffff' }}
+            onMouseLeave={(e) => { if (unreadCount === 0) e.currentTarget.style.color = '#cbd5e1' }}
           >
             <Bell size={isMobile ? 16 : 18} />
             {unreadCount > 0 && (
@@ -452,18 +447,18 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
         {/* User Avatar */}
         <div ref={dropdownRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <div
-            className={`header-avatar-btn ${!isCashbook ? 'soft-fintech-avatar' : ''}`}
-            style={!isCashbook ? { display: 'flex', alignItems: 'center', cursor: 'pointer', padding: 0 } : { display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '50%', padding: 0 }}
+            className="header-avatar-btn"
+            style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '50%', padding: 0 }}
             onClick={() => {
               setShowDropdown(!showDropdown)
             }}
             title={displayName}
           >
-            <div style={!isCashbook ? {} : {
+            <div style={{
               width: isMobile ? '28px' : '30px', height: isMobile ? '28px' : '30px',
-              borderRadius: '50%', background: '#ffffff', color: '#0f172a',
+              borderRadius: '50%', background: '#ffffff', color: '#0A0A0A',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: '800', fontSize: isMobile ? '0.7rem' : '0.75rem',
+              fontWeight: '700', fontSize: isMobile ? '0.7rem' : '0.75rem',
               border: '1.5px solid rgba(255,255,255,0.6)'
             }}>
               {initials}

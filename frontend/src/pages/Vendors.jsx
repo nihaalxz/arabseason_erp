@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, RefreshCw, AlertCircle, Edit, Trash2, MoreVertical, Phone, Mail, ChevronRight, Building2 } from '../components/icons'
 import api from '../api'
 import Modal from '../components/common/Modal'
@@ -15,6 +15,7 @@ const Vendors = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
+  const basePath = '/accounting'
 
   // Modal and Form state
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -215,7 +216,7 @@ const Vendors = () => {
                   </thead>
                   <tbody>
                     {vendors.map(vendor => (
-                      <tr key={vendor.id} onClick={() => navigate(`/vendors/${vendor.id}`)} style={{ cursor: 'pointer' }} className="hover-row">
+                      <tr key={vendor.id} onClick={() => navigate(`${basePath}/vendors/${vendor.id}`)} style={{ cursor: 'pointer' }} className="hover-row">
                         <td>
                           <div style={{ fontWeight: '700', color: 'var(--primary)' }}>{vendor.name}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.2rem' }}>VID-{vendor.id.toString().padStart(5, '0')}</div>
@@ -261,7 +262,7 @@ const Vendors = () => {
                   <div 
                     key={vendor.id} 
                     className="mobile-entity-card"
-                    onClick={() => navigate(`/vendors/${vendor.id}`)}
+                    onClick={() => navigate(`${basePath}/vendors/${vendor.id}`)}
                   >
                     <div className="mobile-card-header">
                       <div className="mobile-card-title-group">

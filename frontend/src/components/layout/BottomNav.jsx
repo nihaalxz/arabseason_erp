@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Briefcase, Users, Layers, MoreHorizontal, 
   CreditCard, Receipt, Banknote, BookOpen, Settings, FileText, FileBarChart
 } from '../icons'
+import { MessageSquareQuote } from 'lucide-react'
 import { useModule } from '../../contexts/ModuleContext'
 import { useWorkspace } from '../../contexts/WorkspaceContext'
 import api from '../../api'
@@ -44,9 +45,11 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     location.pathname.includes('/edit') ||
     location.pathname.startsWith('/invoices/new') ||
     location.pathname.startsWith('/quotations/new') ||
+    location.pathname.startsWith('/accounting/quotations/new') ||
     location.pathname.startsWith('/credit-notes/new') ||
     location.pathname.startsWith('/delivery-notes/new') ||
     location.pathname.startsWith('/estimations/new') ||
+    location.pathname.startsWith('/accounting/estimations/new') ||
     location.pathname.startsWith('/jobs/new')
 
   if (location.pathname === '/cashbook' || location.pathname.startsWith('/cashbook/') || isBuilderPage) {
@@ -98,14 +101,19 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     // Default ERP Operations
     navItems = [
       { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+      { name: 'Enquiries', path: '/enquiries', icon: MessageSquareQuote },
       { name: 'Jobs', path: '/jobs', icon: Briefcase },
-      { name: 'Quotations', path: '/quotations', icon: FileText },
-      { name: 'Customers', path: '/customers', icon: Users },
+      { name: 'Planning', path: '/jobs?tab=planning', icon: Layers },
     ]
   }
 
   const MODULE_PATH_KEY = {
     '/accounting': 'payments',
+    '/accounting/customers': 'customers',
+    '/accounting/vendors': 'vendors',
+    '/accounting/estimations': 'estimations',
+    '/accounting/quotations': 'quotations',
+    '/enquiries': 'enquiries',
     '/customers': 'customers',
     '/vendors': 'vendors',
     '/estimations': 'estimations',

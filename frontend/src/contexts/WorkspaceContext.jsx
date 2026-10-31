@@ -88,25 +88,25 @@ export const FEATURE_DEFINITIONS = [
         key: 'customers',
         label: 'Customers & CRM',
         description: 'Client profiles, customer balances, and account statements.',
-        path: '/customers'
+        path: '/accounting/customers'
       },
       {
         key: 'vendors',
         label: 'Vendors & Suppliers',
         description: 'Supplier directory, vendor bills, and purchase records.',
-        path: '/vendors'
+        path: '/accounting/vendors'
       },
       {
         key: 'estimations',
         label: 'Cost Estimations',
         description: 'Pre-sale quotations, pricing breakdowns, and cost estimates.',
-        path: '/estimations'
+        path: '/accounting/estimations'
       },
       {
         key: 'quotations',
         label: 'Commercial Quotations',
         description: 'Customer quotes, proposals, and commercial pricing offers.',
-        path: '/quotations'
+        path: '/accounting/quotations'
       },
       {
         key: 'jobs',

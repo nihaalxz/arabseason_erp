@@ -14,7 +14,7 @@ export const MODULES = {
   },
   ACCOUNTING: {
     id: 'accounting',
-    name: 'Accounting & Books',
+    name: 'Accounting',
     shortName: 'Accounting',
     icon: 'Receipt',
     color: '#059669',

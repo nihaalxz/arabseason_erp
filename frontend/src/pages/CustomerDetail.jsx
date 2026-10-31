@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { 
   ArrowLeft, Activity, ListOrdered, FileText, CheckCircle, 
   Clock, CreditCard, Box, Tag, Plus, Minus, Edit, Trash2 
@@ -13,6 +13,7 @@ import { showConfirm, showError, showToast } from '../utils/swal'
 const CustomerDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const basePath = '/accounting'
   const { formatCurrency } = useSettings()
 
   const [customer, setCustomer] = useState(null)
@@ -219,7 +220,7 @@ const CustomerDetail = () => {
     <div className="customer-detail-page erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
       <div className="page-header" style={{ marginBottom: '0.85rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button className="btn-icon" onClick={() => navigate('/customers')} style={{ background: 'var(--glass-bg)', padding: '0.5rem', borderRadius: '8px' }}>
+          <button className="btn-icon" onClick={() => navigate(`${basePath}/customers`)} style={{ background: 'var(--glass-bg)', padding: '0.5rem', borderRadius: '8px' }}>
             <ArrowLeft size={20} />
           </button>
           <div>

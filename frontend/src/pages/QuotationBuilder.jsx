@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Plus, Trash2, RefreshCw, FileText,
   AlertCircle, CheckCircle, Users, Calendar, Download,
@@ -41,6 +41,7 @@ const ZohoLabel = ({ children, required, hint }) => (
 const QuotationBuilder = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const basePath = '/accounting'
   const isEditing = Boolean(id)
   const { settings, formatCurrency } = useSettings()
   const currency = settings?.currency || 'SAR'
@@ -414,7 +415,7 @@ const QuotationBuilder = () => {
       } else {
         const res = await api.post('quotations/', payload)
         showSuccess('Created!', `Quotation ${form.quotation_number} created successfully.`)
-        navigate(`/quotations/${res.data.id}/edit`, { replace: true })
+        navigate(`${basePath}/quotations/${res.data.id}/edit`, { replace: true })
       }
     } catch (err) {
       console.error('Submit error:', err)
@@ -468,7 +469,7 @@ const QuotationBuilder = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             type="button"
-            onClick={() => navigate('/quotations')}
+            onClick={() => navigate(`${basePath}/quotations`)}
             style={{
               padding: '6px 10px',
               background: '#ffffff',
@@ -1296,7 +1297,7 @@ const QuotationBuilder = () => {
         <div className="builder-sticky-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <button
             type="button"
-            onClick={() => navigate('/quotations')}
+            onClick={() => navigate(`${basePath}/quotations`)}
             style={{
               padding: '0.55rem 1.1rem',
               fontSize: '13.5px',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Edit, Trash2, Plus, RefreshCw, AlertCircle, Phone, Mail, ChevronRight } from '../components/icons'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
@@ -18,6 +18,7 @@ const Customers = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
+  const basePath = '/accounting'
 
   // Section Switcher State: 'pending' (Customers with pending balance) | 'all' (Full list)
   const [activeSection, setActiveSection] = useState('pending')
@@ -369,7 +370,7 @@ const Customers = () => {
                   </thead>
                   <tbody>
                     {customers.map(customer => (
-                      <tr key={customer.id} onClick={() => navigate(`/customers/${customer.id}`)} style={{ cursor: 'pointer' }} className="hover-row">
+                      <tr key={customer.id} onClick={() => navigate(`${basePath}/customers/${customer.id}`)} style={{ cursor: 'pointer' }} className="hover-row">
                         <td>
                           <div style={{ fontWeight: '700', color: 'var(--primary)' }}>{customer.name}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.2rem' }}>CID-{customer.id.toString().padStart(5, '0')}</div>
@@ -432,7 +433,7 @@ const Customers = () => {
                   <div 
                     key={customer.id} 
                     className="mobile-entity-card"
-                    onClick={() => navigate(`/customers/${customer.id}`)}
+                    onClick={() => navigate(`${basePath}/customers/${customer.id}`)}
                   >
                     <div className="mobile-card-header">
                       <div className="mobile-card-title-group">

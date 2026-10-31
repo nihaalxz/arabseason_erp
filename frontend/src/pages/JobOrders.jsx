@@ -1,8 +1,11 @@
 import React from 'react'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import PlainFilterDropdown from '../components/common/PlainFilterDropdown'
+import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
+import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import { useSearchParams } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
-import { Clock, Paperclip, Download, Eye as LucideEye, ExternalLink, UploadCloud } from 'lucide-react'
+import { Clock, Paperclip, Download, Eye as LucideEye, ExternalLink, UploadCloud, FilePlus, X, RotateCcw } from 'lucide-react'
 import { Edit, Trash2, Plus, Eye, RefreshCw, AlertCircle, CreditCard, CheckCircle2, XCircle, UserPlus, User, FileText, ArrowUpDown, ArrowUp, ArrowDown, Briefcase, Layers, BookOpen, Folder, ChevronRight } from '../components/icons'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import Select from 'react-select'
@@ -43,6 +46,7 @@ const JobOrders = ({ embedded = false }) => {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortField, setSortField] = useState('created_at')
   const [sortDirection, setSortDirection] = useState('desc')
+  const [totalJobsCount, setTotalJobsCount] = useState(0)
 
   // Client Books Architecture & Summary
   const [selectedClientBook, setSelectedClientBook] = useState('all')
@@ -106,6 +110,7 @@ const JobOrders = ({ embedded = false }) => {
   const [pendingSearchQuery, setPendingSearchQuery] = useState('')
   const [selectedPendingForCreation, setSelectedPendingForCreation] = useState(null)
   const [previewAttachment, setPreviewAttachment] = useState(null)
+  const projectPlanningRef = useRef(null)
 
   const handleDownloadAttachment = (dataUrl, fileName, mimeType) => {
     if (!dataUrl) return
@@ -265,9 +270,11 @@ const JobOrders = ({ embedded = false }) => {
       if (Array.isArray(data)) {
         setJobs(data)
         setTotalPages(1)
+        setTotalJobsCount(data.length)
       } else {
         setJobs(data.results || [])
         setTotalPages(Math.ceil((data.count || 0) / 20) || 1)
+        setTotalJobsCount(data.count !== undefined ? data.count : (data.results || []).length)
       }
       setError('')
     } catch (err) {
@@ -1355,200 +1362,259 @@ const JobOrders = ({ embedded = false }) => {
         ? (jobSummary.total_balance || jobs.reduce((s, j) => s + (parseFloat(j.balance) || 0), 0))
         : (activeClientStat ? activeClientStat.total_balance : jobs.reduce((s, j) => s + (parseFloat(j.balance) || 0), 0)))
 
+
+
+  // Cashbook Amount Formatter Helper
+  const renderCashbookAmount = (val, suffix = 'SAR') => {
+    if (val === null || val === undefined || val === '') return '—'
+    const num = parseFloat(val)
+    if (isNaN(num)) return '—'
+    const parts = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
+    return (
+      <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: '13px', fontWeight: 400, color: 'var(--text, #111111)' }}>
+        {parts[0]}<span style={{ opacity: 0.55, fontSize: '11px' }}>.{parts[1]}</span>
+        {suffix && <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '3px' }}>{suffix}</span>}
+      </span>
+    )
+  }
+
+  // Operational Status Dot + Label Helper
+  const renderOperationalStatus = (status) => {
+    const s = String(status || '').trim()
+    let dotColor = '#8C8C8C'
+    let label = s || 'Pending'
+
+    if (s.toLowerCase() === 'pending') {
+      dotColor = '#f59e0b'
+      label = 'Pending'
+    } else if (s.toLowerCase() === 'in progress') {
+      dotColor = '#3b82f6'
+      label = 'In Progress'
+    } else if (s.toLowerCase() === 'completed') {
+      dotColor = '#10b981'
+      label = 'Completed'
+    } else if (s.toLowerCase() === 'cancelled') {
+      dotColor = '#dc2626'
+      label = 'Cancelled'
+    }
+
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 400, color: 'var(--text, #111111)' }}>
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
+        {label}
+      </span>
+    )
+  }
+
+  // Pending Entry Status Dot + Label Helper
+  const renderPendingStatus = (status) => {
+    const s = String(status || '').toLowerCase()
+    let dotColor = '#8C8C8C'
+    let label = 'Cancelled'
+
+    if (s === 'pending') {
+      dotColor = '#f59e0b'
+      label = 'Pending creation'
+    } else if (s === 'converted') {
+      dotColor = '#10b981'
+      label = 'Converted'
+    } else if (s === 'dismissed' || s === 'cancelled') {
+      dotColor = '#8C8C8C'
+      label = 'Dismissed'
+    }
+
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 400, color: 'var(--text, #111111)' }}>
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
+        {label}
+      </span>
+    )
+  }
+
+  // Plain dropdown options with short labels
+  const statusDropdownOptions = useMemo(() => [
+    { value: '', label: 'All statuses' },
+    { value: 'Pending', label: 'Pending' },
+    { value: 'In Progress', label: 'In Progress' },
+    { value: 'Completed', label: 'Completed' },
+    { value: 'Cancelled', label: 'Cancelled' }
+  ], [])
+
+  const paymentDropdownOptions = useMemo(() => [
+    { value: '', label: 'All payments' },
+    { value: 'paid', label: 'Fully Settled' },
+    { value: 'unpaid', label: 'Has Balance' }
+  ], [])
+
+  const sortDropdownOptions = useMemo(() => [
+    { value: 'created_at:desc', label: 'Newest first' },
+    { value: 'created_at:asc', label: 'Oldest first' },
+    { value: 'order_id:asc', label: 'Contract ID: A-Z' },
+    { value: 'order_id:desc', label: 'Contract ID: Z-A' },
+    { value: 'total_amount:desc', label: 'Total: High to Low' },
+    { value: 'total_amount:asc', label: 'Total: Low to High' },
+    { value: 'title:asc', label: 'Title: A to Z' },
+    { value: 'title:desc', label: 'Title: Z to A' },
+    { value: 'customer:asc', label: 'Client: A to Z' },
+    { value: 'customer:desc', label: 'Client: Z to A' },
+    { value: 'status:asc', label: 'Status: A to Z' }
+  ], [])
+
+  const clientDropdownOptions = useMemo(() => [
+    { value: 'all', label: 'All clients' },
+    ...customers.map(c => ({
+      value: String(c.id),
+      label: c.name
+    }))
+  ], [customers])
+
+  const staffDropdownOptions = useMemo(() => [
+    { value: 'all', label: 'All staff' },
+    ...staffOptions.map(st => ({
+      value: st.username,
+      label: st.name || st.username
+    }))
+  ], [staffOptions])
+
+  // Universal refresh event listener
+  useEffect(() => {
+    const handleAppRefresh = () => {
+      fetchJobs({ page, status: filterStatus, payment: filterPayment, search: debouncedSearch, sortField, sortDirection, client: selectedClientBook, adminTab, staffFilter: assignedStaffFilter })
+      fetchJobSummary()
+      fetchPendingJobOrders()
+      if (isAdmin) fetchAssignedCount()
+      fetchCustomers()
+    }
+    window.addEventListener('app:refresh', handleAppRefresh)
+    return () => window.removeEventListener('app:refresh', handleAppRefresh)
+  }, [page, filterStatus, filterPayment, debouncedSearch, sortField, sortDirection, selectedClientBook, adminTab, assignedStaffFilter, isAdmin, fetchAssignedCount, fetchPendingJobOrders])
+
   return (
     <div className={`jobs-page erp-page-container ${embedded ? 'embedded-job-orders' : ''}`} style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', padding: embedded ? '0' : undefined }}>
-      <div className="page-header" style={{ marginBottom: '1.25rem' }}>
+      
+      {/* ── 1. PAGE HEADER (CRED Style) ── */}
+      <div className="page-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontWeight: '700', letterSpacing: '-0.01em', fontSize: '1.35rem' }}>
+          <h2 style={{ fontWeight: 600, letterSpacing: '-0.02em', fontSize: '24px', margin: 0, color: 'var(--text, #0A0A0A)' }}>
             {activeSection === 'planning' ? 'Project Planning' : 'Job Orders'}
           </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>
-            {activeSection === 'planning' 
-              ? 'Formulate project work plans, designate tools, and assign skilled workforces' 
-              : activeSection === 'pending'
+          {activeSection !== 'planning' && (
+            <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
+              {activeSection === 'pending'
                 ? 'Review and formalize rough job order entries recorded from Cash In / Quick Log'
                 : 'Manage service delivery, operational milestones, and customer invoicing'}
-          </p>
+            </p>
+          )}
         </div>
-        {(activeSection === 'orders' || activeSection === 'pending') && (
-          <div style={{ display: 'flex', gap: '0.6rem' }}>
-            <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ borderRadius: 'var(--radius-sm)' }}>
-              <Plus size={16} /> New Job Order
+        {activeSection === 'planning' ? (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button 
+              type="button"
+              className="cred-jobs-submit-btn" 
+              onClick={() => projectPlanningRef.current?.openCreateModal?.()} 
+              style={{
+                background: 'var(--black, #0A0A0A)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '9999px',
+                padding: '8px 18px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Plus size={15} /> Create Project Plan
+            </button>
+          </div>
+        ) : (activeSection === 'orders' || activeSection === 'pending') && (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button 
+              type="button"
+              className="cred-jobs-submit-btn" 
+              onClick={() => handleOpenModal()} 
+              style={{
+                background: 'var(--black, #0A0A0A)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '9999px',
+                padding: '8px 18px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Plus size={15} /> New Job Order
             </button>
           </div>
         )}
       </div>
 
-      {/* Sub-Navigation Tabs: Segmented Control */}
-      <div style={{
-        display: 'inline-flex',
-        gap: '0.35rem',
-        background: 'rgba(0, 0, 0, 0.04)',
-        padding: '0.3rem',
-        borderRadius: '12px',
-        marginBottom: '1.25rem',
-        flexWrap: 'wrap'
-      }}>
-        <button
-          type="button"
-          onClick={() => handleTabSwitch('orders')}
-          style={{
-            padding: '0.5rem 1.15rem',
-            border: 'none',
-            borderRadius: '9px',
-            background: activeSection === 'orders' ? '#ffffff' : 'transparent',
-            color: activeSection === 'orders' ? 'var(--primary, #5B4BDB)' : 'var(--text-muted, #64748b)',
-            boxShadow: activeSection === 'orders' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-            fontWeight: activeSection === 'orders' ? '700' : '600',
-            fontSize: '0.85rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <Briefcase size={15} /> Job Orders
-          <span style={{
-            background: activeSection === 'orders' ? 'rgba(91, 75, 219, 0.1)' : 'rgba(0,0,0,0.05)',
-            color: activeSection === 'orders' ? 'var(--primary, #5B4BDB)' : 'inherit',
-            padding: '1px 7px',
-            borderRadius: '999px',
-            fontSize: '0.72rem',
-            fontWeight: '700'
-          }}>
-            {jobs.length}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabSwitch('planning')}
-          style={{
-            padding: '0.5rem 1.15rem',
-            border: 'none',
-            borderRadius: '9px',
-            background: activeSection === 'planning' ? '#ffffff' : 'transparent',
-            color: activeSection === 'planning' ? 'var(--primary, #5B4BDB)' : 'var(--text-muted, #64748b)',
-            boxShadow: activeSection === 'planning' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-            fontWeight: activeSection === 'planning' ? '700' : '600',
-            fontSize: '0.85rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <Layers size={15} /> Project Planning
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabSwitch('pending')}
-          style={{
-            padding: '0.5rem 1.15rem',
-            border: 'none',
-            borderRadius: '9px',
-            background: activeSection === 'pending' ? '#ffffff' : 'transparent',
-            color: activeSection === 'pending' ? 'var(--primary, #5B4BDB)' : 'var(--text-muted, #64748b)',
-            boxShadow: activeSection === 'pending' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-            fontWeight: activeSection === 'pending' ? '700' : '600',
-            fontSize: '0.85rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <Clock size={15} /> Pending Job Order Entries
-          {pendingJobOrders.filter(p => p.status === 'pending').length > 0 && (
-            <span style={{
-              background: '#ef4444',
-              color: '#ffffff',
-              padding: '1px 7px',
-              borderRadius: '999px',
-              fontSize: '0.72rem',
-              fontWeight: '800'
-            }}>
-              {pendingJobOrders.filter(p => p.status === 'pending').length}
-            </span>
-          )}
-        </button>
-      </div>
+      {/* Top Tabs: Hidden on Project Planning */}
+      {activeSection !== 'planning' && (
+        <div style={{ marginBottom: '20px' }}>
+          <CredAnimatedTabs
+            className="cred-jobs-tabs"
+            tabs={[
+              { id: 'orders', label: 'Job Orders', count: jobs.length },
+              { 
+                id: 'pending', 
+                label: 'Pending Job Order Entries', 
+                count: pendingJobOrders.filter(p => p.status === 'pending').length || undefined 
+              }
+            ]}
+            value={activeSection === 'pending' ? 'pending' : 'orders'}
+            onChange={(tabId) => handleTabSwitch(tabId)}
+            layoutId="job-orders-top-tabs"
+          />
+        </div>
+      )}
 
       {activeSection === 'planning' ? (
-        <ProjectPlanning jobOrders={jobs} onRefreshJobs={fetchJobs} />
+        <ProjectPlanning ref={projectPlanningRef} jobOrders={jobs} onRefreshJobs={fetchJobs} />
       ) : activeSection === 'pending' ? (
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px' }}>
-          {/* Top Bar for Pending Entries */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, maxWidth: '420px' }}>
-              <SearchBar
+        /* ── PART 4: PENDING JOB ORDER ENTRIES ── */
+        <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
+          {/* Top Bar for Pending Entries: Search on Left, Filter Tabs on Right */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ flex: '1 1 300px', maxWidth: '420px' }}>
+              <CredSearchInput
                 value={pendingSearchQuery}
-                onChange={setPendingSearchQuery}
+                onChange={(e) => setPendingSearchQuery(e.target.value)}
+                onClear={() => setPendingSearchQuery('')}
+                placeholder="Search pending entries..."
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {/* Filter Pills */}
-              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.04)', padding: '3px', borderRadius: '8px', gap: '2px' }}>
-                {['pending', 'converted', 'all'].map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => setPendingFilterStatus(st)}
-                    style={{
-                      border: 'none',
-                      background: pendingFilterStatus === st ? '#ffffff' : 'transparent',
-                      color: pendingFilterStatus === st ? 'var(--primary, #5B4BDB)' : 'var(--text-muted, #64748b)',
-                      fontWeight: pendingFilterStatus === st ? '700' : '500',
-                      fontSize: '0.78rem',
-                      padding: '0.35rem 0.75rem',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      textTransform: 'capitalize',
-                      boxShadow: pendingFilterStatus === st ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-                    }}
-                  >
-                    {st === 'pending' ? `Pending (${pendingJobOrders.filter(p => p.status === 'pending').length})` : st}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                className="btn glass-panel"
-                onClick={fetchPendingJobOrders}
-                title="Refresh Pending Entries"
-                style={{ padding: '0.45rem 0.65rem' }}
-              >
-                <RefreshCw size={14} className={pendingJobsLoading ? 'animate-spin' : ''} />
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => handleOpenModal()}
-                title="Open Create Job Order Form"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.45rem 0.9rem',
-                  fontSize: '0.82rem',
-                  fontWeight: '600',
-                  borderRadius: 'var(--radius-sm)'
-                }}
-              >
-                <Plus size={15} /> Create Job Directly
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <CredAnimatedTabs
+                className="cred-jobs-tabs"
+                tabs={[
+                  { id: 'pending', label: 'Pending', count: pendingJobOrders.filter(p => p.status === 'pending').length },
+                  { id: 'converted', label: 'Converted' },
+                  { id: 'all', label: 'All' }
+                ]}
+                value={pendingFilterStatus}
+                onChange={(st) => setPendingFilterStatus(st)}
+                layoutId="pending-jobs-filter-tabs"
+              />
             </div>
           </div>
 
-          {/* Table / List */}
+          {/* Pending Table / List */}
           {pendingJobsLoading ? (
-            <SkeletonLoader rows={5} columns={6} />
-          ) : pendingJobOrders.filter(p => {
+            <div style={{ padding: '1.5rem 0' }}>
+              <SkeletonLoader type="table" />
+            </div>
+          ) : (() => {
+            const filteredPending = pendingJobOrders.filter(p => {
               if (pendingFilterStatus !== 'all' && p.status !== pendingFilterStatus) return false
               if (!pendingSearchQuery.trim()) return true
               const q = pendingSearchQuery.toLowerCase()
@@ -1557,1067 +1623,202 @@ const JobOrders = ({ embedded = false }) => {
                 p.customer_name?.toLowerCase().includes(q) ||
                 p.description?.toLowerCase().includes(q)
               )
-            }).length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-              <Clock size={36} style={{ margin: '0 auto 0.75rem', opacity: 0.4 }} />
-              <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-main)' }}>
-                No Pending Job Order Entries
+            })
+
+            return filteredPending.length === 0 ? (
+              <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+                <Clock size={22} strokeWidth={1.6} style={{ color: 'var(--text-muted, #8C8C8C)', opacity: 0.6, marginBottom: '8px' }} />
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                  {pendingSearchQuery
+                    ? `No entries matching "${pendingSearchQuery}".`
+                    : pendingFilterStatus === 'converted'
+                    ? 'No converted entries.'
+                    : pendingFilterStatus === 'pending'
+                    ? 'No pending entries.'
+                    : 'No job order entries.'}
+                </p>
               </div>
-              <p style={{ fontSize: '0.82rem', maxWidth: '400px', margin: '0.35rem auto 1.25rem' }}>
-                Rough job order entries logged from Cashbook (Cash In / Customer Credit) will automatically appear here for formalization into official Job Orders.
-              </p>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => handleOpenModal()}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.5rem 1.15rem',
-                  fontSize: '0.85rem',
-                  fontWeight: '600',
-                  borderRadius: 'var(--radius-sm)'
-                }}
-              >
-                <Plus size={15} /> Create Job Order Directly
-              </button>
-            </div>
-          ) : (
-            <div className="table-responsive" style={{ overflowX: 'auto' }}>
-              <table className="data-table" style={{ width: '100%', fontSize: '0.85rem' }}>
-                <thead>
-                  <tr>
-                    <th>Created</th>
-                    <th>Customer</th>
-                    <th>Job Name</th>
-                    <th>Description</th>
-                    <th>Deposit Received</th>
-                    <th>Status</th>
-                    <th>Logged By</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingJobOrders
-                    .filter(p => {
-                      if (pendingFilterStatus !== 'all' && p.status !== pendingFilterStatus) return false
-                      if (!pendingSearchQuery.trim()) return true
-                      const q = pendingSearchQuery.toLowerCase()
-                      return (
-                        p.title?.toLowerCase().includes(q) ||
-                        p.customer_name?.toLowerCase().includes(q) ||
-                        p.description?.toLowerCase().includes(q)
-                      )
-                    })
-                    .map((item) => (
-                      <tr key={item.id}>
-                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            ) : (
+              <div className="desktop-only-table" style={{ width: '100%', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+                      <th style={{ width: '10%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Created</th>
+                      <th style={{ width: '16%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Customer</th>
+                      <th style={{ width: '14%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Job Name</th>
+                      <th style={{ width: '18%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Description</th>
+                      <th style={{ width: '12%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Deposit Received</th>
+                      <th style={{ width: '12%', padding: '10px 12px 10px 24px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Status</th>
+                      <th style={{ width: '8%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Logged By</th>
+                      <th style={{ width: '10%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPending.map((item) => (
+                      <tr 
+                        key={item.id}
+                        className="cred-table-row"
+                        style={{ borderBottom: '1px solid var(--border, #E4E4E4)', transition: 'background-color 0.15s ease' }}
+                      >
+                        {/* Created Date */}
+                        <td style={{ padding: '10px 12px', verticalAlign: 'middle', fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                           {item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB') : '—'}
                         </td>
-                        <td style={{ fontWeight: '700' }}>
-                          <div>{item.customer_name || `Customer #${item.customer}`}</div>
+
+                        {/* Customer (name only, phone below, '-' if missing) */}
+                        <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.customer_name || (item.customer ? `Customer #${item.customer}` : '—')}
+                          </div>
                           {item.customer_phone && (
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                               {item.customer_phone}
                             </div>
                           )}
                         </td>
-                        <td style={{ fontWeight: '700', color: 'var(--primary, #5B4BDB)' }}>
-                          {item.title}
+
+                        {/* Job Name */}
+                        <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.title}>
+                            {item.title}
+                          </div>
                         </td>
-                        <td style={{ maxWidth: '280px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          <div>{item.description || <span style={{ opacity: 0.5 }}>—</span>}</div>
+
+                        {/* Description */}
+                        <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                          <div 
+                            style={{ fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            title={item.description}
+                          >
+                            {item.description || '—'}
+                          </div>
                           {item.attachment && (
-                            <div style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              marginTop: '6px',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              background: 'rgba(91, 75, 219, 0.08)',
-                              border: '1px solid rgba(91, 75, 219, 0.2)',
-                              flexWrap: 'wrap'
-                            }}>
-                              <span
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAttachmentPreview(item.attachment, item.attachment_name, item.attachment_type)}
                                 style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: 0,
+                                  fontSize: '11px',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '4px',
-                                  fontSize: '0.74rem',
-                                  fontWeight: '600',
-                                  color: 'var(--primary, #5B4BDB)',
-                                  maxWidth: '130px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
+                                  gap: '3px',
+                                  textDecoration: 'underline'
                                 }}
-                                title={item.attachment_name || 'Attached file'}
+                                title={item.attachment_name || 'View file'}
                               >
-                                <Paperclip size={12} />
-                                {item.attachment_name || (item.attachment_type?.includes('pdf') ? 'Document.pdf' : 'Image.jpg')}
-                              </span>
-
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', borderLeft: '1px solid rgba(91, 75, 219, 0.25)', paddingLeft: '6px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenAttachmentPreview(item.attachment, item.attachment_name, item.attachment_type)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    padding: '2px 7px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: '600',
-                                    background: 'rgba(91, 75, 219, 0.15)',
-                                    color: 'var(--primary, #5B4BDB)',
-                                    border: '1px solid rgba(91, 75, 219, 0.25)',
-                                    cursor: 'pointer'
-                                  }}
-                                  title="View File"
-                                >
-                                  <LucideEye size={12} /> View
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleDownloadAttachment(item.attachment, item.attachment_name, item.attachment_type)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    padding: '2px 7px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: '600',
-                                    background: '#16a34a',
-                                    color: '#ffffff',
-                                    border: '1px solid #15803d',
-                                    cursor: 'pointer'
-                                  }}
-                                  title="Download File"
-                                >
-                                  <Download size={12} /> Download
-                                </button>
-                              </div>
+                                <Paperclip size={11} /> {item.attachment_name || 'View Attachment'}
+                              </button>
                             </div>
                           )}
                         </td>
-                        <td style={{ fontWeight: '800', color: '#16a34a' }}>
-                          {(parseFloat(item.initial_deposit) || 0) > 0 ? (
-                            `${(parseFloat(item.initial_deposit)).toLocaleString('en-US', { minimumFractionDigits: 2 })} SAR`
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>0.00 SAR</span>
-                          )}
+
+                        {/* Deposit Received (Right aligned, Cashbook amount) */}
+                        <td style={{ textAlign: 'right', padding: '10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          {renderCashbookAmount(item.initial_deposit)}
                         </td>
-                        <td>
-                          {item.status === 'pending' ? (
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              color: '#dc2626',
-                              border: '1px solid rgba(239, 68, 68, 0.25)',
-                              padding: '2px 8px',
-                              borderRadius: '999px',
-                              fontSize: '0.72rem',
-                              fontWeight: '700'
-                            }}>
-                              <Clock size={11} /> Pending Creation
-                            </span>
-                          ) : item.status === 'converted' ? (
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              background: 'rgba(34, 197, 94, 0.12)',
-                              color: '#15803d',
-                              border: '1px solid rgba(34, 197, 94, 0.25)',
-                              padding: '2px 8px',
-                              borderRadius: '999px',
-                              fontSize: '0.72rem',
-                              fontWeight: '700'
-                            }}>
-                              <CheckCircle2 size={11} /> Converted {item.converted_job_order_id ? `(${item.converted_job_order_id})` : ''}
-                            </span>
-                          ) : (
-                            <span style={{
-                              background: 'rgba(0,0,0,0.06)',
-                              color: 'var(--text-muted)',
-                              padding: '2px 8px',
-                              borderRadius: '999px',
-                              fontSize: '0.72rem',
-                              fontWeight: '600'
-                            }}>
-                              Cancelled
-                            </span>
-                          )}
+
+                        {/* Status (Extra left padding so clearly separated from Deposit Received) */}
+                        <td style={{ padding: '10px 12px 10px 24px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          {renderPendingStatus(item.status)}
                         </td>
-                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+
+                        {/* Logged By (Plain muted text, truncated with ellipsis) */}
+                        <td style={{ padding: '10px 12px', verticalAlign: 'middle', fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.created_by_name || 'System'}>
                           {item.created_by_name || 'System'}
                         </td>
-                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+
+                        {/* Actions (Icon-only buttons with 8px gap) */}
+                        <td style={{ textAlign: 'right', padding: '10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                           {item.status === 'pending' ? (
-                            <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                            <div style={{ display: 'inline-flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
                               <button
                                 type="button"
-                                className="btn btn-primary"
+                                className="cred-pending-icon-btn"
                                 onClick={() => handleCreateFromPending(item)}
-                                title="Open Create Form populated with this entry"
+                                title="Create job order"
+                                aria-label="Create job order"
                                 style={{
-                                  padding: '0.35rem 0.75rem',
-                                  fontSize: '0.78rem',
-                                  fontWeight: '600',
-                                  borderRadius: '8px',
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '6px',
+                                  borderRadius: '50%',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '0.35rem'
+                                  justifyContent: 'center',
+                                  transition: 'color 0.15s ease, background-color 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = 'var(--text, #0A0A0A)'
+                                  e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                  e.currentTarget.style.backgroundColor = 'transparent'
                                 }}
                               >
-                                <Plus size={13} /> Create Job Order
+                                <FilePlus size={16} strokeWidth={1.8} />
                               </button>
                               <button
                                 type="button"
-                                className="btn"
+                                className="cred-pending-icon-btn"
                                 onClick={() => handleDismissPending(item.id)}
-                                title="Dismiss rough entry"
+                                title="Dismiss"
+                                aria-label="Dismiss"
                                 style={{
-                                  padding: '0.35rem 0.65rem',
-                                  fontSize: '0.78rem',
-                                  borderRadius: '8px',
-                                  color: '#dc2626',
-                                  border: '1px solid rgba(220, 38, 38, 0.2)'
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '6px',
+                                  borderRadius: '50%',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'color 0.15s ease, background-color 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = 'var(--danger, #DC2626)'
+                                  e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                  e.currentTarget.style.backgroundColor = 'transparent'
                                 }}
                               >
-                                Dismiss
+                                <X size={16} strokeWidth={1.8} />
                               </button>
                             </div>
                           ) : item.status === 'converted' && item.converted_job ? (
                             <button
                               type="button"
-                              className="btn glass-panel"
                               onClick={() => {
                                 const j = jobs.find(job => job.id === item.converted_job)
                                 if (j) handleOpenModal(j)
                                 else handleTabSwitch('orders')
                               }}
-                              style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem', fontWeight: '600' }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text, #0A0A0A)',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                padding: '4px 6px',
+                                borderRadius: '6px',
+                                textDecoration: 'underline'
+                              }}
                             >
-                              View Job #{item.converted_job_order_id || item.converted_job}
+                              View #{item.converted_job_order_id || item.converted_job}
                             </button>
                           ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Admin Job Order Tabs & Staff Filter Toolbar */}
-          {isAdmin && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '0.75rem',
-              marginBottom: '1rem',
-              padding: '0.5rem 0.75rem',
-              background: '#ffffff',
-              borderRadius: '12px',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
-              <div style={{ display: 'flex', gap: '0.35rem', background: 'rgba(0,0,0,0.04)', padding: '0.25rem', borderRadius: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => { setAdminTab('my'); setPage(1); }}
-                  style={{
-                    padding: '0.45rem 1rem',
-                    border: 'none',
-                    borderRadius: '8px',
-                    background: adminTab === 'my' ? '#ffffff' : 'transparent',
-                    color: adminTab === 'my' ? 'var(--primary, #5B4BDB)' : 'var(--text-muted, #64748b)',
-                    fontWeight: adminTab === 'my' ? '700' : '600',
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    boxShadow: adminTab === 'my' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <Briefcase size={14} /> My Job Orders
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => { setAdminTab('assigned'); setPage(1); }}
-                  style={{
-                    padding: '0.45rem 1rem',
-                    border: 'none',
-                    borderRadius: '8px',
-                    background: adminTab === 'assigned' ? '#ffffff' : 'transparent',
-                    color: adminTab === 'assigned' ? 'var(--primary, #5B4BDB)' : 'var(--text-muted, #64748b)',
-                    fontWeight: adminTab === 'assigned' ? '700' : '600',
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    boxShadow: adminTab === 'assigned' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <User size={14} /> Assigned Job Orders
-                  {pendingAssignedCount > 0 && (
-                    <span style={{
-                      background: '#ef4444',
-                      color: '#ffffff',
-                      padding: '1px 7px',
-                      borderRadius: '999px',
-                      fontSize: '0.7rem',
-                      fontWeight: '800'
-                    }}>
-                      {pendingAssignedCount}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {adminTab === 'assigned' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Staff Filter:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => { setAssignedStaffFilter('all'); setPage(1); }}
-                    style={{
-                      padding: '0.25rem 0.7rem',
-                      borderRadius: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: '600',
-                      border: assignedStaffFilter === 'all' ? '1px solid var(--primary, #5B4BDB)' : '1px solid #e2e8f0',
-                      background: assignedStaffFilter === 'all' ? 'var(--primary, #5B4BDB)' : '#f8fafc',
-                      color: assignedStaffFilter === 'all' ? '#ffffff' : '#475569',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    All Staff
-                  </button>
-                  {staffOptions.map(st => {
-                    const isSel = assignedStaffFilter === st.username || String(assignedStaffFilter) === String(st.id)
-                    return (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => { setAssignedStaffFilter(st.username); setPage(1); }}
-                        style={{
-                          padding: '0.25rem 0.7rem',
-                          borderRadius: '6px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          border: isSel ? '1px solid var(--primary, #5B4BDB)' : '1px solid #e2e8f0',
-                          background: isSel ? 'var(--primary, #5B4BDB)' : '#f8fafc',
-                          color: isSel ? '#ffffff' : '#475569',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        {st.name || st.username}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {isAdmin && adminTab === 'assigned' && (
-            <div style={{
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: '10px',
-              padding: '0.75rem 1rem',
-              marginBottom: '1.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.65rem',
-              fontSize: '0.82rem',
-              color: '#1e40af'
-            }}>
-              <AlertCircle size={18} style={{ flexShrink: 0 }} />
-              <div>
-                <strong>Incoming Assigned Job Orders:</strong> Staff members created and delegated these job orders to you. Click <strong>Accept</strong> to verify and transfer full ownership & financial ledger into your account, or <strong>Cancel</strong> to cancel the job order.
-              </div>
-            </div>
-          )}
-
-          {/* 4 Financial KPI Summary Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '0.85rem',
-            marginBottom: '1.25rem'
-          }}>
-            <div style={{
-              background: '#ffffff',
-              borderRadius: '12px',
-              padding: '1rem 1.15rem',
-              border: isCancelledView ? '1px solid #fecaca' : '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isCancelledView ? '#dc2626' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {isCancelledView ? 'Cancelled Contracts' : 'Total Contracts'}
-                </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isCancelledView ? '#fef2f2' : 'rgba(91, 75, 219, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCancelledView ? '#dc2626' : 'var(--primary, #5B4BDB)' }}>
-                  {isCancelledView ? <XCircle size={16} /> : <Briefcase size={16} />}
-                </div>
-              </div>
-              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: isCancelledView ? '#dc2626' : '#0f172a', letterSpacing: '-0.02em' }}>
-                {currentJobCount}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                {isCancelledView ? 'Terminated / Void Orders' : (selectedClientBook === 'all' ? 'All client engagements' : (customers.find(c => String(c.id) === String(selectedClientBook))?.name || 'Selected client'))}
-              </div>
-            </div>
-
-            <div style={{
-              background: '#ffffff',
-              borderRadius: '12px',
-              padding: '1rem 1.15rem',
-              border: isCancelledView ? '1px solid #fed7aa' : '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isCancelledView ? '#ea580c' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {isCancelledView ? 'Cancelled Contract Value' : 'Total Contract Value'}
-                </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isCancelledView ? '#fff7ed' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCancelledView ? '#ea580c' : '#2563eb' }}>
-                  <FileText size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em' }}>
-                {formatCurrency(currentTotalVal)}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                {isCancelledView ? 'Void contract commitments' : 'Cumulative contract commitments'}
-              </div>
-            </div>
-
-            <div style={{
-              background: '#ffffff',
-              borderRadius: '12px',
-              padding: '1rem 1.15rem',
-              border: isCancelledView ? '1px solid #fed7aa' : '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isCancelledView ? '#ea580c' : '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {isCancelledView ? 'Money Collected' : 'Amount Collected'}
-                </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isCancelledView ? '#fff7ed' : '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCancelledView ? '#ea580c' : '#059669' }}>
-                  <CreditCard size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: isCancelledView ? '#ea580c' : '#059669', letterSpacing: '-0.02em' }}>
-                {formatCurrency(currentTotalPaid)}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: isCancelledView ? '#ea580c' : '#059669', marginTop: '2px' }}>
-                {isCancelledView ? (currentTotalPaid > 0 ? 'Money collected from clients on cancelled jobs' : 'No money collected') : 'Payments collected to date'}
-              </div>
-            </div>
-
-            <div style={{
-              background: '#ffffff',
-              borderRadius: '12px',
-              padding: '1rem 1.15rem',
-              border: (!isCancelledView && currentTotalBalance > 0) ? '1px solid #fecaca' : '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {isCancelledView ? 'Net Receivable Due' : 'Pending Balance'}
-                </span>
-                <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: (!isCancelledView && currentTotalBalance > 0) ? '#fef2f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#64748b' }}>
-                  <AlertCircle size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.45rem', fontWeight: '800', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#059669', letterSpacing: '-0.02em' }}>
-                {formatCurrency(currentTotalBalance)}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: (!isCancelledView && currentTotalBalance > 0) ? '#dc2626' : '#64748b', marginTop: '2px' }}>
-                {isCancelledView ? 'Cancelled orders carry 0 receivable' : (currentTotalBalance > 0 ? 'Outstanding client receivables' : 'All contracts fully settled')}
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Client Filter Pills */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            overflowX: 'auto',
-            paddingBottom: '0.4rem',
-            marginBottom: '1rem',
-            scrollbarWidth: 'thin'
-          }}>
-            <button 
-              type="button"
-              onClick={() => setSelectedClientBook('all')}
-              style={{
-                padding: '0.35rem 0.85rem',
-                borderRadius: '20px',
-                fontSize: '0.8rem',
-                fontWeight: '600',
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                border: selectedClientBook === 'all' && !isCancelledView ? '1px solid var(--primary, #5B4BDB)' : '1px solid #e2e8f0',
-                background: selectedClientBook === 'all' && !isCancelledView ? 'var(--primary, #5B4BDB)' : '#ffffff',
-                color: selectedClientBook === 'all' && !isCancelledView ? '#ffffff' : '#475569',
-                boxShadow: selectedClientBook === 'all' && !isCancelledView ? '0 2px 6px rgba(91, 75, 219, 0.25)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              All Active Clients ({jobSummary.count || jobs.length})
-            </button>
-            <button 
-              type="button"
-              onClick={() => {
-                if (filterStatus === 'Cancelled') {
-                  setFilterStatus('')
-                } else {
-                  setFilterStatus('Cancelled')
-                }
-                setPage(1)
-              }}
-              style={{
-                padding: '0.35rem 0.85rem',
-                borderRadius: '20px',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                border: filterStatus === 'Cancelled' ? '1px solid #dc2626' : '1px solid #fecaca',
-                background: filterStatus === 'Cancelled' ? '#dc2626' : '#fff1f2',
-                color: filterStatus === 'Cancelled' ? '#ffffff' : '#dc2626',
-                boxShadow: filterStatus === 'Cancelled' ? '0 2px 6px rgba(220, 38, 38, 0.25)' : 'none',
-                transition: 'all 0.15s ease',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem'
-              }}
-            >
-              <XCircle size={13} />
-              Cancelled Orders ({jobSummary.cancelled_summary?.count || 0})
-            </button>
-            {customers.map(c => {
-              const isSelected = String(selectedClientBook) === String(c.id)
-              const clientStat = jobSummary.by_client?.find(cl => String(cl.customer_id) === String(c.id))
-              return (
-                <button 
-                  key={c.id} 
-                  type="button"
-                  onClick={() => setSelectedClientBook(String(c.id))}
-                  style={{
-                    padding: '0.35rem 0.85rem',
-                    borderRadius: '20px',
-                    fontSize: '0.8rem',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap',
-                    cursor: 'pointer',
-                    border: isSelected ? '1px solid var(--primary, #5B4BDB)' : '1px solid #e2e8f0',
-                    background: isSelected ? 'var(--primary, #5B4BDB)' : '#ffffff',
-                    color: isSelected ? '#ffffff' : '#475569',
-                    boxShadow: isSelected ? '0 2px 6px rgba(91, 75, 219, 0.25)' : 'none',
-                    transition: 'all 0.15s ease',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.35rem'
-                  }}
-                >
-                  {c.name}
-                  {clientStat?.count ? (
-                    <span style={{
-                      fontSize: '0.7rem',
-                      background: isSelected ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
-                      color: isSelected ? '#ffffff' : '#64748b',
-                      padding: '1px 6px',
-                      borderRadius: '10px'
-                    }}>
-                      {clientStat.count}
-                    </span>
-                  ) : null}
-                </button>
-              )
-            })}
-          </div>
-
-          {error && (
-            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <AlertCircle size={18} /> {error}
-            </div>
-          )}
-
-          {/* Search & Filter Panel */}
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            padding: '0.75rem 1rem',
-            marginBottom: '1.15rem',
-            display: 'flex',
-            gap: '0.75rem',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-          }}>
-            <SearchBar 
-              value={searchQuery}
-              onChange={(val) => setSearchQuery(val)}
-              style={{ flex: '1 1 240px', minWidth: '220px', maxWidth: 'none' }}
-            />
-            <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
-              <select 
-                className="input-field" 
-                value={filterStatus} 
-                onChange={(e) => setFilterStatus(e.target.value)}
-                style={{
-                  height: '38px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  fontSize: '0.85rem'
-                }}
-              >
-                <option value="">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
-              <select 
-                className="input-field" 
-                value={filterPayment} 
-                onChange={(e) => setFilterPayment(e.target.value)}
-                style={{
-                  height: '38px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  fontSize: '0.85rem'
-                }}
-              >
-                <option value="">All Payment States</option>
-                <option value="paid">Fully Settled</option>
-                <option value="unpaid">Has Balance</option>
-              </select>
-            </div>
-            <div style={{ flex: '1 1 160px', minWidth: '150px' }}>
-              <select 
-                className="input-field" 
-                value={`${sortField}:${sortDirection}`} 
-                onChange={(e) => {
-                  const [sf, sd] = e.target.value.split(':')
-                  setSortField(sf)
-                  setSortDirection(sd)
-                  setPage(1)
-                }}
-                style={{
-                  height: '38px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  fontSize: '0.85rem'
-                }}
-              >
-                <option value="created_at:desc">Date: Newest First</option>
-                <option value="created_at:asc">Date: Oldest First</option>
-                <option value="order_id:asc">Contract ID: A-Z / 1-9</option>
-                <option value="order_id:desc">Contract ID: Z-A / 9-1</option>
-                <option value="total_amount:desc">Total Val: High to Low</option>
-                <option value="total_amount:asc">Total Val: Low to High</option>
-                <option value="title:asc">Title: A to Z</option>
-                <option value="title:desc">Title: Z to A</option>
-                <option value="customer:asc">Client: A to Z</option>
-                <option value="customer:desc">Client: Z to A</option>
-                <option value="status:asc">Status: A to Z</option>
-              </select>
-            </div>
-            {(searchQuery || filterStatus || filterPayment || selectedClientBook !== 'all') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('')
-                  setFilterStatus('')
-                  setFilterPayment('')
-                  setSelectedClientBook('all')
-                }}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#64748b',
-                  fontSize: '0.8rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  padding: '6px 10px',
-                  borderRadius: '6px'
-                }}
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-
-
-      <div style={{
-        background: '#ffffff',
-        borderRadius: '14px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
-        marginBottom: '1.5rem'
-      }}>
-        {loading ? (
-          <div style={{ padding: '1.5rem' }}>
-            <SkeletonLoader type="table" />
-          </div>
-        ) : (
-          <>
-            {jobs.length === 0 && !error && (
-              <div style={{ padding: '3.5rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Briefcase size={36} style={{ color: '#cbd5e1', margin: '0 auto 0.75rem', display: 'block' }} />
-                <div style={{ fontWeight: '700', fontSize: '1rem', color: '#334155', marginBottom: '0.25rem' }}>
-                  No Job Orders Found
-                </div>
-                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                  {selectedClientBook !== 'all' 
-                    ? `No job orders found for ${customers.find(c => String(c.id) === String(selectedClientBook))?.name || 'this client'}.`
-                    : (searchQuery ? `No contracts match "${searchQuery}".` : 'No job orders on record yet. Click "+ New Job Order" to create one.')}
-                </div>
-              </div>
-            )}
-
-            {jobs.length > 0 && (
-              <>
-                {/* Desktop Table View */}
-                <div className="desktop-only-table">
-                  <div className="table-container" style={{ margin: 0, border: 'none' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                          <th 
-                            onClick={() => handleSort('order_id')}
-                            style={{ cursor: 'pointer', userSelect: 'none', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}
-                            title="Sort by Contract ID"
-                          >
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: sortField === 'order_id' ? 'var(--primary, #5B4BDB)' : 'inherit' }}>
-                              Contract ID
-                              {sortField === 'order_id' ? (
-                                sortDirection === 'asc' ? <ArrowUp size={13} color="var(--primary, #5B4BDB)" /> : <ArrowDown size={13} color="var(--primary, #5B4BDB)" />
-                              ) : (
-                                <ArrowUpDown size={12} style={{ opacity: 0.35 }} />
-                              )}
-                            </div>
-                          </th>
-                          <th 
-                            onClick={() => handleSort('title')}
-                            style={{ cursor: 'pointer', userSelect: 'none', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}
-                            title="Sort by Title"
-                          >
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: sortField === 'title' ? 'var(--primary, #5B4BDB)' : 'inherit' }}>
-                              Engagement Title
-                              {sortField === 'title' ? (
-                                sortDirection === 'asc' ? <ArrowUp size={13} color="var(--primary, #5B4BDB)" /> : <ArrowDown size={13} color="var(--primary, #5B4BDB)" />
-                              ) : (
-                                <ArrowUpDown size={12} style={{ opacity: 0.35 }} />
-                              )}
-                            </div>
-                          </th>
-                          <th 
-                            onClick={() => handleSort('customer')}
-                            style={{ cursor: 'pointer', userSelect: 'none', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}
-                            title="Sort by Client"
-                          >
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: sortField === 'customer' ? 'var(--primary, #5B4BDB)' : 'inherit' }}>
-                              Associated Client
-                              {sortField === 'customer' ? (
-                                sortDirection === 'asc' ? <ArrowUp size={13} color="var(--primary, #5B4BDB)" /> : <ArrowDown size={13} color="var(--primary, #5B4BDB)" />
-                              ) : (
-                                <ArrowUpDown size={12} style={{ opacity: 0.35 }} />
-                              )}
-                            </div>
-                          </th>
-                          <th 
-                            onClick={() => handleSort('status')}
-                            style={{ cursor: 'pointer', userSelect: 'none', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}
-                            title="Sort by Status"
-                          >
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: sortField === 'status' ? 'var(--primary, #5B4BDB)' : 'inherit' }}>
-                              Operational Status
-                              {sortField === 'status' ? (
-                                sortDirection === 'asc' ? <ArrowUp size={13} color="var(--primary, #5B4BDB)" /> : <ArrowDown size={13} color="var(--primary, #5B4BDB)" />
-                              ) : (
-                                <ArrowUpDown size={12} style={{ opacity: 0.35 }} />
-                              )}
-                            </div>
-                          </th>
-                          <th 
-                            onClick={() => handleSort('total_amount')}
-                            style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}
-                            title="Sort by Total Value"
-                          >
-                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem', color: sortField === 'total_amount' ? 'var(--primary, #5B4BDB)' : 'inherit', width: '100%' }}>
-                              Total Val.
-                              {sortField === 'total_amount' ? (
-                                sortDirection === 'asc' ? <ArrowUp size={13} color="var(--primary, #5B4BDB)" /> : <ArrowDown size={13} color="var(--primary, #5B4BDB)" />
-                              ) : (
-                                <ArrowUpDown size={12} style={{ opacity: 0.35 }} />
-                              )}
-                            </div>
-                          </th>
-                          <th style={{ textAlign: 'right', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}>Paid</th>
-                          <th style={{ textAlign: 'right', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}>Balance</th>
-                          {customColumns.map(col => (
-                            <th key={col.id} style={{ whiteSpace: 'nowrap', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}>
-                              {col.label}
-                            </th>
-                          ))}
-                          <th style={{ textAlign: 'center', padding: '0.85rem 1rem', fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                    {jobs.map(job => (
-                      <tr 
-                        key={job.id}
-                        className="hover-row"
-                        style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background-color 0.15s ease' }}
-                        onClick={() => handleOpenModal(job)}
-                      >
-                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <span style={{ 
-                            fontWeight: '700', 
-                            color: '#4f46e5', 
-                            background: '#eef2ff', 
-                            padding: '3px 8px', 
-                            borderRadius: '6px', 
-                            fontSize: '0.8rem',
-                            letterSpacing: '0.02em',
-                            border: '1px solid #e0e7ff'
-                          }}>
-                            {job.order_id || `JOB${job.id.toString().padStart(4, '0')}`}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', maxWidth: '300px' }}>
-                          <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.88rem', lineHeight: 1.35 }}>{job.title}</div>
-                          {getLinkedProjectTitle(job) && (
-                            <div style={{ marginTop: '4px' }}>
-                              <span style={{ 
-                                display: 'inline-flex', alignItems: 'center', gap: '0.3rem', 
-                                fontSize: '0.72rem', fontWeight: '600', color: '#4338ca', 
-                                background: '#e0e7ff', padding: '2px 7px', borderRadius: '4px' 
-                              }}>
-                                <Folder size={11} /> {getLinkedProjectTitle(job)}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>
-                          <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.85rem' }}>{job.customer_name}</div>
-                          {job.created_by_name && (
-                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px' }}>
-                              <User size={11} /> <span>{job.created_by_name}</span>
-                            </div>
-                          )}
-                          {job.assigned_by_name && (
-                            <div style={{ fontSize: '0.72rem', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px', fontWeight: '600' }}>
-                              <span>Assigned by {job.assigned_by_name}</span>
-                            </div>
-                          )}
-                          {job.payment_collected_by && (
-                            <div style={{ fontSize: '0.72rem', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px', fontWeight: '600' }}>
-                              <CreditCard size={11} /> <span>Collected: {job.payment_collected_by}</span>
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <span style={{ 
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.375rem',
-                            padding: '0.3rem 0.65rem', 
-                            borderRadius: '20px', 
-                            fontSize: '0.74rem', 
-                            fontWeight: '700',
-                            backgroundColor: `${getStatusColor(job.status)}12`, 
-                            color: getStatusColor(job.status),
-                            border: `1px solid ${getStatusColor(job.status)}30`,
-                            letterSpacing: '0.02em'
-                          }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: getStatusColor(job.status) }}></span>
-                            {job.status.toUpperCase()}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.88rem' }}>{formatCurrency(job.total_amount)}</div>
-                          {parseFloat(job.total_cost || 0) > 0 && (
-                            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '500', marginTop: '2px' }}>
-                              Cost: {formatCurrency(job.total_cost)}
-                              {job.margin_percentage !== undefined && (
-                                <span style={{ 
-                                  marginLeft: '4px', 
-                                  fontWeight: '700',
-                                  color: (job.margin_percentage || 0) >= 20 ? '#16a34a' : ((job.margin_percentage || 0) >= 0 ? '#d97706' : '#dc2626')
-                                }}>
-                                  ({job.margin_percentage}%)
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontWeight: '700', color: '#16a34a', fontSize: '0.88rem' }}>{formatCurrency(job.paid_amount)}</div>
-                          {parseFloat(job.advance_amount || 0) > 0 && (
-                            <div style={{ fontSize: '0.68rem', color: '#16a34a', fontWeight: '600', marginTop: '1px' }} title="Advance paid at job creation">
-                              Adv: {formatCurrency(job.advance_amount)}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          {job.status === 'Cancelled' ? (
-                            <div>
-                              <div style={{ fontWeight: '800', color: '#64748b', fontSize: '0.8rem', letterSpacing: '0.02em' }}>
-                                CANCELLED
-                              </div>
-                              {parseFloat(job.paid_amount || 0) > 0 ? (
-                                <div style={{ fontSize: '0.72rem', color: '#ea580c', fontWeight: '700', marginTop: '2px' }} title="Money collected from customer on this cancelled contract">
-                                  Money Collected: {formatCurrency(job.paid_amount)}
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>
-                                  No Due (SAR 0.00)
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              <div style={{ fontWeight: '800', color: job.balance > 0 ? '#dc2626' : '#16a34a', fontSize: '0.88rem' }}>
-                                {job.balance > 0 ? formatCurrency(job.balance) : 'SETTLED'}
-                              </div>
-                              {parseFloat(job.prior_balance || 0) > 0 && (
-                                <div style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: '600', marginTop: '1px' }} title="Prior outstanding carried forward">
-                                  + Prior: {formatCurrency(job.prior_balance)}
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </td>
-                        {customColumns.map(col => (
-                          <td key={col.id} style={{ color: '#334155', fontSize: '0.85rem', padding: '0.85rem 1rem' }}>
-                            {job.custom_fields?.[col.name] !== undefined && job.custom_fields?.[col.name] !== ''
-                              ? String(job.custom_fields[col.name])
-                              : '-'}
-                          </td>
-                        ))}
-                        <td style={{ textAlign: 'center', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                          {isAdmin && adminTab === 'assigned' ? (
-                            <div style={{ display: 'inline-flex', gap: '0.45rem', alignItems: 'center' }}>
-                              <button 
-                                type="button"
-                                style={{
-                                  padding: '0.35rem 0.75rem',
-                                  fontSize: '0.76rem',
-                                  fontWeight: '700',
-                                  borderRadius: '6px',
-                                  background: '#16a34a',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.3rem',
-                                  cursor: 'pointer',
-                                  boxShadow: '0 1px 3px rgba(22, 163, 74, 0.25)'
-                                }}
-                                onClick={() => handleAcceptJob(job)}
-                                title="Accept & take ownership of this job order"
-                              >
-                                <CheckCircle2 size={13} /> Accept
-                              </button>
-                              <button 
-                                type="button"
-                                style={{
-                                  padding: '0.35rem 0.65rem',
-                                  fontSize: '0.76rem',
-                                  fontWeight: '600',
-                                  borderRadius: '6px',
-                                  background: '#fff1f2',
-                                  color: '#dc2626',
-                                  border: '1px solid #fecaca',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.3rem',
-                                  cursor: 'pointer'
-                                }}
-                                onClick={() => handleCancelJob(job)}
-                                title="Cancel this job order (job order ID retained)"
-                              >
-                                <XCircle size={13} /> Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div style={{ display: 'inline-flex', gap: '0.375rem', alignItems: 'center' }}>
-                              <button 
-                                className="btn-icon" 
-                                style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569' }}
-                                onClick={() => handleOpenModal(job)}
-                                title="Edit Contract & Payments"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              {job.status !== 'Cancelled' ? (
-                                <button 
-                                  className="btn-icon" 
-                                  style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #fed7aa', background: '#fff7ed', color: '#ea580c' }}
-                                  onClick={() => handleCancelJob(job)}
-                                  title="Cancel Job Order"
-                                >
-                                  <XCircle size={14} />
-                                </button>
-                              ) : (
-                                isAdmin && (
-                                  <button 
-                                    className="btn-icon" 
-                                    style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#16a34a' }}
-                                    onClick={() => handleRestoreJob(job)}
-                                    title="Restore Cancelled Job Order"
-                                  >
-                                    <RefreshCw size={13} />
-                                  </button>
-                                )
-                              )}
-                              <button 
-                                className="btn-icon" 
-                                style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fff1f2', color: '#dc2626' }}
-                                onClick={() => handleDelete(job.id)}
-                                title="Terminate Contract"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                            <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12.5px' }}>—</span>
                           )}
                         </td>
                       </tr>
@@ -2625,288 +1826,767 @@ const JobOrders = ({ embedded = false }) => {
                   </tbody>
                 </table>
               </div>
+            )
+          })()}
+        </div>
+      ) : (
+        /* ── PART 2 & PART 3: ORDERS VIEW (MY JOB ORDERS & ASSIGNED JOB ORDERS) ── */
+        <>
+          {/* Admin Job Order Second Toggle (My Job Orders / Assigned Job Orders) */}
+          {isAdmin && (
+            <div style={{ marginBottom: '20px' }}>
+              <CredAnimatedTabs
+                className="cred-jobs-subtabs"
+                tabs={[
+                  { id: 'my', label: 'My Job Orders' },
+                  { 
+                    id: 'assigned', 
+                    label: 'Assigned Job Orders', 
+                    count: pendingAssignedCount > 0 ? pendingAssignedCount : undefined 
+                  }
+                ]}
+                value={adminTab}
+                onChange={(val) => { setAdminTab(val); setPage(1); }}
+                layoutId="job-orders-admin-tabs"
+              />
             </div>
+          )}
 
-            {/* Mobile Native Cards View (<= 768px) */}
-            <div className="mobile-only-cards" style={{ padding: '0.75rem' }}>
-              {jobs.map(job => {
-                const total = parseFloat(job.total_amount) || 0
-                const paid = parseFloat(job.paid_amount) || 0
-                const balance = parseFloat(job.balance) || 0
-                const pct = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0
-                const orderId = job.order_id || `JOB${job.id.toString().padStart(4, '0')}`
-                const sColor = getStatusColor(job.status)
-
-                return (
-                  <div 
-                    key={job.id} 
-                    className="mobile-entity-card"
-                    onClick={() => handleOpenModal(job)}
-                  >
-                    <div className="mobile-card-header">
-                      <div className="mobile-card-title-group">
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap', marginBottom: '3px' }}>
-                            <span style={{ fontWeight: '800', color: 'var(--primary)', fontSize: '0.82rem' }}>
-                              {orderId}
-                            </span>
-                            <span 
-                              className="mobile-card-badge"
-                              style={{ 
-                                background: `${sColor}15`, 
-                                color: sColor,
-                                border: `1px solid ${sColor}30` 
-                              }}
-                            >
-                              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: sColor }}></span>
-                              {job.status.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="mobile-card-title" style={{ fontSize: '0.95rem' }}>
-                            {job.title}
-                          </div>
-                          {getLinkedProjectTitle(job) && (
-                            <div style={{ marginTop: '2px', marginBottom: '3px' }}>
-                              <span style={{ 
-                                display: 'inline-flex', alignItems: 'center', gap: '0.25rem', 
-                                fontSize: '0.7rem', fontWeight: '700', color: '#4338ca', 
-                                background: '#e0e7ff', padding: '1px 6px', borderRadius: '4px' 
-                              }}>
-                                <Folder size={10} /> {getLinkedProjectTitle(job)}
-                              </span>
-                            </div>
-                          )}
-                          <div className="mobile-card-sub">
-                            <span style={{ fontWeight: '600', color: '#1e293b' }}>{job.customer_name}</span>
-                            {job.created_by_name && <span>&bull; {job.created_by_name}</span>}
-                            {job.assigned_by_name && (
-                              <span style={{ color: '#7c3aed', fontWeight: '700' }}>&bull; Assigned by {job.assigned_by_name}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mobile-card-progress">
-                      <div 
-                        className="mobile-card-progress-fill" 
-                        style={{ width: `${pct}%`, background: balance <= 0 ? '#16a34a' : '#1366d9' }} 
-                      />
-                    </div>
-
-                    <div className="mobile-card-grid">
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Total Val</span>
-                        <span className="mobile-card-metric-value">{formatCurrency(total)}</span>
-                        {parseFloat(job.total_cost || 0) > 0 && (
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', marginTop: '1px' }}>
-                            Cost: {formatCurrency(job.total_cost)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Paid ({pct}%)</span>
-                        <span className="mobile-card-metric-value" style={{ color: '#16a34a' }}>{formatCurrency(paid)}</span>
-                        {parseFloat(job.advance_amount || 0) > 0 && (
-                          <span style={{ fontSize: '0.65rem', color: '#16a34a', display: 'block', marginTop: '1px' }}>
-                            Adv: {formatCurrency(job.advance_amount)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Balance</span>
-                        {job.status === 'Cancelled' ? (
-                          <>
-                            <span className="mobile-card-metric-value" style={{ color: '#64748b' }}>
-                              CANCELLED
-                            </span>
-                            {parseFloat(job.paid_amount || 0) > 0 && (
-                              <span style={{ fontSize: '0.65rem', color: '#ea580c', display: 'block', fontWeight: '700', marginTop: '1px' }}>
-                                Collected: {formatCurrency(job.paid_amount)}
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <span className="mobile-card-metric-value" style={{ color: balance > 0 ? '#dc2626' : '#16a34a' }}>
-                              {balance > 0 ? formatCurrency(balance) : 'SETTLED'}
-                            </span>
-                            {parseFloat(job.prior_balance || 0) > 0 && (
-                              <span style={{ fontSize: '0.65rem', color: '#b45309', display: 'block', marginTop: '1px' }}>
-                                + Prior: {formatCurrency(job.prior_balance)}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mobile-card-footer" onClick={(e) => e.stopPropagation()}>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                        Tap card to open contract details & ledger
-                      </div>
-                      <div className="mobile-card-actions">
-                        {isAdmin && adminTab === 'assigned' ? (
-                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                            <button 
-                              style={{
-                                padding: '0.35rem 0.75rem',
-                                fontSize: '0.76rem',
-                                fontWeight: '700',
-                                borderRadius: '6px',
-                                background: '#16a34a',
-                                color: '#fff',
-                                border: 'none',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.3rem',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => handleAcceptJob(job)}
-                            >
-                              <CheckCircle2 size={13} /> Accept
-                            </button>
-                            <button 
-                              style={{
-                                padding: '0.35rem 0.65rem',
-                                fontSize: '0.76rem',
-                                fontWeight: '600',
-                                borderRadius: '6px',
-                                background: '#fff1f2',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.3rem',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => handleCancelJob(job)}
-                            >
-                              <XCircle size={13} /> Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <button 
-                              className="mobile-card-action-btn" 
-                              onClick={() => handleOpenModal(job)}
-                              title="Edit Contract & Payments"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            {job.status !== 'Cancelled' ? (
-                              <button 
-                                className="mobile-card-action-btn" 
-                                style={{ color: '#ea580c' }}
-                                onClick={() => handleCancelJob(job)}
-                                title="Cancel Job Order"
-                              >
-                                <XCircle size={14} />
-                              </button>
-                            ) : (
-                              isAdmin && (
-                                <button 
-                                  className="mobile-card-action-btn" 
-                                  style={{ color: '#16a34a' }}
-                                  onClick={() => handleRestoreJob(job)}
-                                  title="Restore Cancelled Job Order"
-                                >
-                                  <RefreshCw size={14} />
-                                </button>
-                              )
-                            )}
-                            <button 
-                              className="mobile-card-action-btn delete" 
-                              onClick={() => handleDelete(job.id)}
-                              title="Terminate Contract"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Integrated Table Footer */}
-            {(() => {
-              const activeClientStat = jobSummary.by_client?.find(cl => String(cl.customer_id) === String(selectedClientBook))
-              const currentJobCount = selectedClientBook === 'all' ? (jobSummary.count || jobs.length) : (activeClientStat?.count || jobs.length)
-
-              return (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.85rem 1.25rem',
-                  background: '#f8fafc',
-                  borderTop: '1px solid #e2e8f0',
-                  fontSize: '0.82rem',
-                  color: '#64748b',
-                  flexWrap: 'wrap',
-                  gap: '0.85rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Briefcase size={15} color="#6366f1" />
-                    <span>Showing <strong>{jobs.length}</strong> of <strong>{currentJobCount}</strong> job orders</span>
-                    {selectedClientBook !== 'all' && (
-                      <span style={{ color: '#475569', fontWeight: '600' }}>
-                        &bull; Client: {customers.find(c => String(c.id) === String(selectedClientBook))?.name || 'Selected'}
-                      </span>
-                    )}
-                  </div>
+          {/* 4 Financial KPI Summary Cards (My Job Orders only - Part 2.2 & 3) */}
+          {adminTab === 'my' && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '16px',
+              marginBottom: '20px'
+            }}>
+              <div style={{
+                background: 'var(--card-bg, #FFFFFF)',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '20px',
+                padding: '18px 20px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+                  {isCancelledView ? 'Cancelled Contracts' : 'Total Contracts'}
                 </div>
-              )
-            })()}
-
-            {totalPages > 1 && (
-              <div className="pagination" style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: '#ffffff' }}>
-                <button 
-                  className="btn" 
-                  disabled={page === 1}
-                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                  style={{
-                    padding: '5px 12px',
-                    fontSize: '0.8rem',
-                    borderRadius: '6px',
-                    border: '1px solid #e2e8f0',
-                    background: page === 1 ? '#f8fafc' : '#ffffff',
-                    color: page === 1 ? '#94a3b8' : '#334155',
-                    cursor: page === 1 ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Previous
-                </button>
-                <span style={{ display: 'flex', alignItems: 'center', padding: '0 0.75rem', fontSize: '0.82rem', color: '#64748b', fontWeight: '500' }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button 
-                  className="btn" 
-                  disabled={page === totalPages}
-                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-                  style={{
-                    padding: '5px 12px',
-                    fontSize: '0.8rem',
-                    borderRadius: '6px',
-                    border: '1px solid #e2e8f0',
-                    background: page === totalPages ? '#f8fafc' : '#ffffff',
-                    color: page === totalPages ? '#94a3b8' : '#334155',
-                    cursor: page === totalPages ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Next
-                </button>
+                <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                  {currentJobCount}
+                </div>
               </div>
+
+              <div style={{
+                background: 'var(--card-bg, #FFFFFF)',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '20px',
+                padding: '18px 20px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+                  {isCancelledView ? 'Cancelled Contract Value' : 'Total Contract Value'}
+                </div>
+                <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                  {(() => {
+                    const parts = parseFloat(currentTotalVal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
+                    return (
+                      <>
+                        {parts[0]}<span style={{ opacity: 0.55, fontSize: '18px' }}>.{parts[1]}</span>
+                        <span style={{ fontSize: '14px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 400 }}>SAR</span>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              <div style={{
+                background: 'var(--card-bg, #FFFFFF)',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '20px',
+                padding: '18px 20px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+                  {isCancelledView ? 'Money Collected' : 'Amount Collected'}
+                </div>
+                <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                  {(() => {
+                    const parts = parseFloat(currentTotalPaid || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
+                    return (
+                      <>
+                        {parts[0]}<span style={{ opacity: 0.55, fontSize: '18px' }}>.{parts[1]}</span>
+                        <span style={{ fontSize: '14px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 400 }}>SAR</span>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              <div style={{
+                background: 'var(--card-bg, #FFFFFF)',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '20px',
+                padding: '18px 20px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginBottom: '8px' }}>
+                  {isCancelledView ? 'Net Receivable Due' : 'Pending Balance'}
+                </div>
+                <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                  {(() => {
+                    const parts = parseFloat(currentTotalBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
+                    return (
+                      <>
+                        {parts[0]}<span style={{ opacity: 0.55, fontSize: '18px' }}>.{parts[1]}</span>
+                        <span style={{ fontSize: '14px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 400 }}>SAR</span>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <AlertCircle size={18} /> {error}
+            </div>
+          )}
+
+          {/* Search & Plain Filter Row (Part 1) */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginBottom: '20px',
+            position: 'relative',
+            zIndex: 30
+          }}>
+            <div style={{ flex: '1 1 240px', minWidth: '200px' }}>
+              <CredSearchInput
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onClear={() => setSearchQuery('')}
+                placeholder="Search contract, client or title..."
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <PlainFilterDropdown
+                id="jobs-status-filter"
+                value={filterStatus}
+                onChange={(val) => { setFilterStatus(val); setPage(1); }}
+                options={statusDropdownOptions}
+                minWidth={110}
+                ariaLabel="Filter status"
+              />
+
+              <PlainFilterDropdown
+                id="jobs-payment-filter"
+                value={filterPayment}
+                onChange={(val) => { setFilterPayment(val); setPage(1); }}
+                options={paymentDropdownOptions}
+                minWidth={115}
+                ariaLabel="Filter payment"
+              />
+
+              <PlainFilterDropdown
+                id="jobs-client-filter"
+                value={selectedClientBook}
+                onChange={(val) => { setSelectedClientBook(val); setPage(1); }}
+                options={clientDropdownOptions}
+                minWidth={110}
+                ariaLabel="Filter client"
+              />
+
+              {adminTab === 'assigned' && (
+                <PlainFilterDropdown
+                  id="jobs-staff-filter"
+                  value={assignedStaffFilter}
+                  onChange={(val) => { setAssignedStaffFilter(val); setPage(1); }}
+                  options={staffDropdownOptions}
+                  minWidth={95}
+                  ariaLabel="Filter staff"
+                />
+              )}
+
+              <PlainFilterDropdown
+                id="jobs-sort-filter"
+                value={`${sortField}:${sortDirection}`}
+                onChange={(val) => {
+                  const [sf, sd] = val.split(':')
+                  setSortField(sf)
+                  setSortDirection(sd)
+                  setPage(1)
+                }}
+                options={sortDropdownOptions}
+                minWidth={115}
+                align="right"
+                ariaLabel="Sort orders"
+              />
+            </div>
+          </div>
+
+          {/* Main Table (Cashbook table style, directly on page, no horizontal scroll) */}
+          <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
+            {loading ? (
+              <div style={{ padding: '1.5rem 0' }}>
+                <SkeletonLoader type="table" />
+              </div>
+            ) : (
+              <>
+                {jobs.length === 0 && !error && (
+                  <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+                    <Briefcase size={22} strokeWidth={1.6} style={{ color: 'var(--text-muted, #8C8C8C)', opacity: 0.6, marginBottom: '8px' }} />
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                      {searchQuery 
+                        ? `No job orders matching "${searchQuery}".`
+                        : adminTab === 'assigned'
+                        ? 'No assigned job orders yet.'
+                        : 'No job orders yet.'}
+                    </p>
+                  </div>
+                )}
+
+                {jobs.length > 0 && (
+                  <>
+                    <div className="desktop-only-table" style={{ width: '100%' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                        <colgroup>
+                          <col style={{ width: '10%' }} />
+                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '16%' }} />
+                          <col style={{ width: '13%' }} />
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '11%' }} />
+                          <col style={{ width: '11%' }} />
+                          {customColumns.map(col => (
+                            <col key={col.id} style={{ width: '100px' }} />
+                          ))}
+                          <col style={{ width: '120px' }} />
+                        </colgroup>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+                            <th 
+                              onClick={() => handleSort('order_id')}
+                              style={{ width: '10%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              title="Sort by Contract ID"
+                            >
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                Contract ID
+                                {sortField === 'order_id' && (
+                                  sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                                )}
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('title')}
+                              style={{ width: '20%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              title="Sort by Title"
+                            >
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                Engagement Title
+                                {sortField === 'title' && (
+                                  sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                                )}
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('customer')}
+                              style={{ width: '16%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              title="Sort by Client"
+                            >
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                Associated Client
+                                {sortField === 'customer' && (
+                                  sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                                )}
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('status')}
+                              style={{ width: '13%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              title="Sort by Status"
+                            >
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                Operational Status
+                                {sortField === 'status' && (
+                                  sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                                )}
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('total_amount')}
+                              style={{ width: '12%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              title="Sort by Total Value"
+                            >
+                              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', width: '100%' }}>
+                                Total Val.
+                                {sortField === 'total_amount' && (
+                                  sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                                )}
+                              </div>
+                            </th>
+                            <th style={{ width: '11%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Paid</th>
+                            <th style={{ width: '11%', padding: '10px 24px 10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Balance</th>
+                            {customColumns.map(col => (
+                              <th key={col.id} style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                                {col.label}
+                              </th>
+                            ))}
+                            <th style={{ width: '144px', minWidth: '144px', padding: '10px 8px 10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {jobs.map(job => (
+                            <tr 
+                              key={job.id}
+                              className="cred-table-row"
+                              style={{ borderBottom: '1px solid var(--border, #E4E4E4)', cursor: 'pointer', transition: 'background-color 0.15s ease' }}
+                              onClick={() => handleOpenModal(job)}
+                            >
+                              {/* Contract ID (Plain text, weight 500, tabular-nums) */}
+                              <td style={{ padding: '10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', fontVariantNumeric: 'tabular-nums' }}>
+                                  {job.order_id || `JOB${job.id.toString().padStart(4, '0')}`}
+                                </span>
+                              </td>
+
+                              {/* Engagement Title (Title only - no folder icon, no second line) */}
+                              <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                                <div style={{ fontWeight: 400, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {job.title}
+                                </div>
+                              </td>
+
+                              {/* Associated Client (Client name only) */}
+                              <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                                <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {job.customer_name}
+                                </div>
+                              </td>
+
+                              {/* Operational Status (Plain text, small colored dot) */}
+                              <td style={{ padding: '10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                {renderOperationalStatus(job.status)}
+                              </td>
+
+                              {/* Total Val. (Amount only, neutral Cashbook style) */}
+                              <td style={{ textAlign: 'right', padding: '10px 24px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                {renderCashbookAmount(job.total_amount)}
+                              </td>
+
+                              {/* Paid (Neutral Cashbook style) */}
+                              <td style={{ textAlign: 'right', padding: '10px 24px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                {renderCashbookAmount(job.paid_amount)}
+                              </td>
+
+                              {/* Balance (Neutral Cashbook style) */}
+                              <td style={{ textAlign: 'right', padding: '10px 24px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                {job.status === 'Cancelled' ? (
+                                  <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12.5px' }}>—</span>
+                                ) : (
+                                  renderCashbookAmount(job.balance)
+                                )}
+                              </td>
+
+                              {/* Custom columns */}
+                              {customColumns.map(col => (
+                                <td key={col.id} style={{ padding: '10px 10px', verticalAlign: 'middle', fontSize: '12.5px', color: 'var(--text, #111111)' }}>
+                                  {job.custom_fields?.[col.name] !== undefined && job.custom_fields?.[col.name] !== ''
+                                    ? String(job.custom_fields[col.name])
+                                    : '—'}
+                                </td>
+                              ))}
+
+                              {/* Actions */}
+                              <td style={{ width: '144px', minWidth: '144px', textAlign: 'right', padding: '10px 8px 10px 16px', verticalAlign: 'middle', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                {isAdmin && adminTab === 'assigned' ? (
+                                  <div style={{ display: 'inline-flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+                                    <button 
+                                      type="button"
+                                      className="cred-text-action-btn"
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--text, #0A0A0A)',
+                                        fontSize: '12px',
+                                        fontWeight: 500,
+                                        cursor: 'pointer',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        flexShrink: 0,
+                                        transition: 'background-color 0.15s ease'
+                                      }}
+                                      onClick={() => handleAcceptJob(job)}
+                                      title="Accept: verify and take ownership of this job order and its ledger"
+                                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)')}
+                                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                    >
+                                      Accept
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      className="cred-text-action-btn"
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--text-muted, #8C8C8C)',
+                                        fontSize: '12px',
+                                        fontWeight: 400,
+                                        cursor: 'pointer',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        flexShrink: 0,
+                                        transition: 'color 0.15s ease, background-color 0.15s ease'
+                                      }}
+                                      onClick={() => handleCancelJob(job)}
+                                      title="Cancel: cancel this job order"
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = 'var(--danger, #DC2626)'
+                                        e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                        e.currentTarget.style.backgroundColor = 'transparent'
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'inline-flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+                                    <button 
+                                      type="button"
+                                      className="cred-icon-action-btn" 
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        width: '32px',
+                                        height: '32px',
+                                        flexShrink: 0,
+                                        padding: 0,
+                                        color: 'var(--text-muted, #8C8C8C)',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px',
+                                        transition: 'color 0.15s ease, background-color 0.15s ease'
+                                      }}
+                                      onClick={() => handleOpenModal(job)}
+                                      title="Edit"
+                                      aria-label="Edit"
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = 'var(--text, #0A0A0A)'
+                                        e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                        e.currentTarget.style.backgroundColor = 'transparent'
+                                      }}
+                                    >
+                                      <Edit size={16} strokeWidth={1.8} />
+                                    </button>
+
+                                    {job.status !== 'Cancelled' ? (
+                                      <button 
+                                        type="button"
+                                        className="cred-icon-action-btn" 
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          width: '32px',
+                                          height: '32px',
+                                          flexShrink: 0,
+                                          padding: 0,
+                                          color: 'var(--text-muted, #8C8C8C)',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          borderRadius: '6px',
+                                          transition: 'color 0.15s ease, background-color 0.15s ease'
+                                        }}
+                                        onClick={() => handleCancelJob(job)}
+                                        title="Cancel job order"
+                                        aria-label="Cancel job order"
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = '#f59e0b'
+                                          e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                          e.currentTarget.style.backgroundColor = 'transparent'
+                                        }}
+                                      >
+                                        <XCircle size={16} strokeWidth={1.8} />
+                                      </button>
+                                    ) : (
+                                      <button 
+                                        type="button"
+                                        className="cred-icon-action-btn" 
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          width: '32px',
+                                          height: '32px',
+                                          flexShrink: 0,
+                                          padding: 0,
+                                          color: 'var(--text-muted, #8C8C8C)',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          borderRadius: '6px',
+                                          transition: 'color 0.15s ease, background-color 0.15s ease'
+                                        }}
+                                        onClick={() => handleRestoreJob(job)}
+                                        title="Restore job order"
+                                        aria-label="Restore job order"
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = 'var(--text, #0A0A0A)'
+                                          e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                          e.currentTarget.style.backgroundColor = 'transparent'
+                                        }}
+                                      >
+                                        <RotateCcw size={16} strokeWidth={1.8} />
+                                      </button>
+                                    )}
+
+                                    <button 
+                                      type="button"
+                                      className="cred-icon-action-btn" 
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        width: '32px',
+                                        height: '32px',
+                                        flexShrink: 0,
+                                        padding: 0,
+                                        color: 'var(--text-muted, #8C8C8C)',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px',
+                                        transition: 'color 0.15s ease, background-color 0.15s ease'
+                                      }}
+                                      onClick={() => handleDelete(job.id)}
+                                      title="Delete"
+                                      aria-label="Delete"
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = 'var(--danger, #DC2626)'
+                                        e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                        e.currentTarget.style.backgroundColor = 'transparent'
+                                      }}
+                                    >
+                                      <Trash2 size={16} strokeWidth={1.8} />
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Native Cards View (<= 768px) */}
+                    <div className="mobile-only-cards" style={{ padding: '0.75rem 0' }}>
+                      {jobs.map(job => {
+                        const total = parseFloat(job.total_amount) || 0
+                        const paid = parseFloat(job.paid_amount) || 0
+                        const balance = parseFloat(job.balance) || 0
+                        const orderId = job.order_id || `JOB${job.id.toString().padStart(4, '0')}`
+
+                        return (
+                          <div 
+                            key={job.id} 
+                            className="mobile-entity-card clickable-card"
+                            onClick={() => handleOpenModal(job)}
+                            style={{ marginBottom: '0.75rem', cursor: 'pointer' }}
+                          >
+                            <div className="mobile-card-header">
+                              <div className="mobile-card-title-group">
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap', marginBottom: '3px' }}>
+                                    <span style={{ fontWeight: 500, color: 'var(--text, #111111)', fontSize: '0.82rem', fontVariantNumeric: 'tabular-nums' }}>
+                                      {orderId}
+                                    </span>
+                                  </div>
+                                  <div className="mobile-card-title" style={{ fontSize: '0.95rem', fontWeight: 500 }}>
+                                    {job.title}
+                                  </div>
+                                  <div className="mobile-card-sub">
+                                    <span style={{ fontWeight: 500, color: 'var(--text, #111111)' }}>{job.customer_name}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                {renderOperationalStatus(job.status)}
+                              </div>
+                            </div>
+
+                            <div className="mobile-card-grid" style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', fontSize: '0.8rem' }}>
+                              <div>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block' }}>Total Val</span>
+                                <span>{renderCashbookAmount(total)}</span>
+                              </div>
+                              <div>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block' }}>Paid</span>
+                                <span>{renderCashbookAmount(paid)}</span>
+                              </div>
+                              <div>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block' }}>Balance</span>
+                                <span>{job.status === 'Cancelled' ? '—' : renderCashbookAmount(balance)}</span>
+                              </div>
+                            </div>
+
+                            <div className="mobile-card-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '0.5rem', borderTop: '1px solid var(--border, #E4E4E4)' }} onClick={(e) => e.stopPropagation()}>
+                              {isAdmin && adminTab === 'assigned' ? (
+                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                  <button 
+                                    type="button"
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: 'var(--text, #0A0A0A)',
+                                      fontSize: '12px',
+                                      fontWeight: 500,
+                                      cursor: 'pointer',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px'
+                                    }}
+                                    onClick={() => handleAcceptJob(job)}
+                                  >
+                                    Accept
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: 'var(--text-muted, #8C8C8C)',
+                                      fontSize: '12px',
+                                      cursor: 'pointer',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px'
+                                    }}
+                                    onClick={() => handleCancelJob(job)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                  <button 
+                                    type="button"
+                                    style={{ background: 'none', border: 'none', padding: '4px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer' }}
+                                    onClick={() => handleOpenModal(job)}
+                                    title="Edit"
+                                  >
+                                    <Edit size={14} />
+                                  </button>
+                                  {job.status !== 'Cancelled' ? (
+                                    <button 
+                                      type="button"
+                                      style={{ background: 'none', border: 'none', padding: '4px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer' }}
+                                      onClick={() => handleCancelJob(job)}
+                                      title="Cancel job order"
+                                      aria-label="Cancel job order"
+                                    >
+                                      <XCircle size={14} />
+                                    </button>
+                                  ) : (
+                                    <button 
+                                      type="button"
+                                      style={{ background: 'none', border: 'none', padding: '4px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer' }}
+                                      onClick={() => handleRestoreJob(job)}
+                                      title="Restore job order"
+                                      aria-label="Restore job order"
+                                    >
+                                      <RotateCcw size={14} />
+                                    </button>
+                                  )}
+                                  <button 
+                                    type="button"
+                                    style={{ background: 'none', border: 'none', padding: '4px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer' }}
+                                    onClick={() => handleDelete(job.id)}
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Integrated Table Footer (Plain text, no border/box - Part 2.5) */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 4px 4px',
+                      fontSize: '12px',
+                      color: 'var(--text-muted, #8C8C8C)',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}>
+                      <span>Showing {jobs.length} of {Math.max(jobs.length, totalJobsCount)} job orders</span>
+
+                      {totalPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                          <button 
+                            type="button"
+                            disabled={page === 1}
+                            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                            style={{
+                              padding: '4px 12px',
+                              fontSize: '12px',
+                              borderRadius: '9999px',
+                              border: '1px solid var(--border, #E4E4E4)',
+                              background: 'transparent',
+                              color: page === 1 ? 'var(--text-muted, #8C8C8C)' : 'var(--text, #111111)',
+                              cursor: page === 1 ? 'not-allowed' : 'pointer',
+                              opacity: page === 1 ? 0.45 : 1
+                            }}
+                          >
+                            Previous
+                          </button>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', fontVariantNumeric: 'tabular-nums' }}>
+                            Page {page} of {totalPages}
+                          </span>
+                          <button 
+                            type="button"
+                            disabled={page === totalPages}
+                            onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                            style={{
+                              padding: '4px 12px',
+                              fontSize: '12px',
+                              borderRadius: '9999px',
+                              border: '1px solid var(--border, #E4E4E4)',
+                              background: 'transparent',
+                              color: page === totalPages ? 'var(--text-muted, #8C8C8C)' : 'var(--text, #111111)',
+                              cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                              opacity: page === totalPages ? 0.45 : 1
+                            }}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </>
             )}
-          </>
-        )}
-          </>
-        )}
-      </div>
+          </div>
         </>
       )}
 
@@ -3276,7 +2956,7 @@ const JobOrders = ({ embedded = false }) => {
                 {descriptions.map((desc, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{
-                      minWidth: '28px', height: '28px', borderRadius: '50%',
+                      minWidth: '28px', height: '32px', borderRadius: '50%',
                       backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '0.75rem',
                       fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       border: '1px solid #e2e8f0', flexShrink: 0
@@ -4207,6 +3887,68 @@ const JobOrders = ({ embedded = false }) => {
           </div>
         </Modal>
       )}
+
+    
+      {/* ── Scoped CRED Styles for Job Orders Page ── */}
+      <style>{`
+        .cred-jobs-tabs .cred-atabs-count,
+        .cred-jobs-subtabs .cred-atabs-count {
+          background: transparent !important;
+          padding: 0 !important;
+          margin-left: 6px !important;
+          font-weight: 500 !important;
+          font-size: 12px !important;
+          opacity: 0.75 !important;
+          border-radius: 0 !important;
+        }
+        .cred-jobs-tabs .cred-atabs-tab.is-active .cred-atabs-count,
+        .cred-jobs-subtabs .cred-atabs-tab.is-active .cred-atabs-count {
+          background: transparent !important;
+          color: var(--tab-active-text, #FFFFFF) !important;
+          opacity: 0.95 !important;
+        }
+        .cred-table-row:hover {
+          background: var(--fill-ghost-hover, #F7F7F7) !important;
+        }
+        .jobs-page .cred-search {
+          height: 38px !important;
+          background: var(--card-bg, #FFFFFF) !important;
+          border: 1px solid var(--border, #E4E4E4) !important;
+          border-radius: 10px !important;
+          padding: 0 12px !important;
+          box-shadow: none !important;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+        }
+        .jobs-page .cred-search:hover {
+          border-color: var(--border-hover, #D4D4D4) !important;
+        }
+        .jobs-page .cred-search:focus-within {
+          border-color: var(--text, #0A0A0A) !important;
+          box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.08) !important;
+          background: var(--card-bg, #FFFFFF) !important;
+        }
+        [data-theme='dark'] .jobs-page .cred-search,
+        body.cb-dark-bw .jobs-page .cred-search {
+          background: #141517 !important;
+          border-color: #282B32 !important;
+        }
+        [data-theme='dark'] .jobs-page .cred-search:focus-within,
+        body.cb-dark-bw .jobs-page .cred-search:focus-within {
+          border-color: #FFFFFF !important;
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1) !important;
+          background: #141517 !important;
+        }
+        [data-theme='dark'] .cred-jobs-submit-btn,
+        body.cb-dark-bw .cred-jobs-submit-btn {
+          background: #FFFFFF !important;
+          color: #0A0A0A !important;
+          border: 1px solid #E4E4E4 !important;
+        }
+        [data-theme='dark'] .cred-jobs-submit-btn:hover,
+        body.cb-dark-bw .cred-jobs-submit-btn:hover {
+          background: #EAEAEA !important;
+        }
+      `}</style>
 
     </div>
   )

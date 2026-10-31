@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { GooeyMenu } from '../components/cashbook/cred/GooeyMenu'
+import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
+import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import { useNavigate } from 'react-router-dom'
 import { 
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
@@ -143,6 +146,44 @@ export default function Enquiries({ currentUser }) {
   })
 
   const fileInputRef = useRef(null)
+
+  // Options for GooeyMenu dropdowns
+  const customerOptions = useMemo(() => [
+    { value: '', label: 'Select existing customer' },
+    ...customers.map(c => ({
+      value: String(c.id),
+      label: c.name + (c.company_name ? ` (${c.company_name})` : '')
+    }))
+  ], [customers])
+
+  const channelOptions = useMemo(() => [
+    { value: 'whatsapp', label: 'WhatsApp' },
+    { value: 'phone_call', label: 'Phone Call' },
+    { value: 'email', label: 'Email' },
+    { value: 'walk_in', label: 'Walk-in' },
+    { value: 'website', label: 'Website / Online' },
+    { value: 'other', label: 'Other' },
+  ], [])
+
+  const salespersonOptions = useMemo(() => [
+    { value: '', label: 'Select salesperson' },
+    ...salespersons.map(s => ({
+      value: String(s.id),
+      label: s.name + (s.phone ? ` (${s.phone})` : '')
+    }))
+  ], [salespersons])
+
+  // Universal refresh event listener
+  useEffect(() => {
+    const handleAppRefresh = () => {
+      fetchEnquiries()
+      fetchMetrics()
+      fetchCustomers()
+      fetchSalespersons()
+    }
+    window.addEventListener('app:refresh', handleAppRefresh)
+    return () => window.removeEventListener('app:refresh', handleAppRefresh)
+  }, [activeSection, selectedChannel, salespersonFilter, outcomeFilter, searchQuery, dueTodayOnly])
 
   // Fetch initial data
   useEffect(() => {
@@ -560,282 +601,189 @@ export default function Enquiries({ currentUser }) {
   return (
     <div className="enquiries-page erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
       
-      {/* ── 1. PAGE HEADER (Matches Customers.jsx exactly) ── */}
-      <div className="page-header" style={{ marginBottom: '0.85rem' }}>
+      {/* ── 1. PAGE HEADER (CRED Style) ── */}
+      <div className="page-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontWeight: '700', letterSpacing: '-0.01em', fontSize: '1.35rem' }}>Enquiries</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>
+          <h2 style={{ fontWeight: 600, letterSpacing: '-0.02em', fontSize: '24px', margin: 0, color: 'var(--text, #0A0A0A)' }}>Enquiries</h2>
+          <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
             Capture client inquiries from WhatsApp, calls & emails. Follow up seamlessly and convert quality leads.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button 
-            className="btn btn-primary" 
+            type="button"
+            className="cred-enquiry-submit-btn" 
             onClick={() => handleOpenModal()} 
-            style={{ borderRadius: 'var(--radius-sm)' }}
+            style={{ padding: '8px 18px', fontSize: '13px' }}
           >
-            <Plus size={16} /> New Enquiry
+            <Plus size={15} /> New Enquiry
           </button>
         </div>
       </div>
 
-      {/* ── 2. SUMMARY CARDS GRID (Matches Customers.jsx glass-panel grid) ── */}
-      <div className="summary-cards-grid" style={{ marginBottom: '0.85rem' }}>
+      {/* ── 2. SUMMARY CARDS GRID (CRED KPI Style) ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '16px',
+        marginBottom: '20px'
+      }}>
         {/* Card 1: Follow-ups Due Today */}
         <div 
-          className="glass-panel" 
           onClick={() => { setDueTodayOnly(!dueTodayOnly); if (!dueTodayOnly) setActiveSection('active') }}
           style={{ 
-            textAlign: 'left', 
-            padding: '0.75rem 1rem', 
-            borderTop: '3px solid #d97706',
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: dueTodayOnly ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
             cursor: 'pointer',
-            background: dueTodayOnly ? 'rgba(217, 119, 6, 0.08)' : undefined
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
           }}
         >
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
             Follow-ups Due Today
-          </p>
-          <h2 style={{ color: '#d97706', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: metrics.due_today_count > 0 ? 'var(--due, #EE7A2E)' : 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
             {metrics.due_today_count}
-          </h2>
+          </div>
         </div>
 
         {/* Card 2: Active Pipeline */}
         <div 
-          className="glass-panel" 
           onClick={() => { setActiveSection('active'); setDueTodayOnly(false) }}
           style={{ 
-            textAlign: 'left', 
-            padding: '0.75rem 1rem', 
-            borderTop: '3px solid #1366d9',
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: (activeSection === 'active' && !dueTodayOnly) ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
             cursor: 'pointer',
-            background: activeSection === 'active' && !dueTodayOnly ? 'rgba(19, 102, 217, 0.05)' : undefined
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
           }}
         >
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
             Active Enquiries
-          </p>
-          <h2 style={{ color: 'var(--text-main)', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
             {metrics.active_count}
-          </h2>
+          </div>
         </div>
 
         {/* Card 3: Converted (Won) */}
         <div 
-          className="glass-panel" 
           onClick={() => { setActiveSection('converted'); setDueTodayOnly(false) }}
           style={{ 
-            textAlign: 'left', 
-            padding: '0.75rem 1rem', 
-            borderTop: '3px solid #0f7638',
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: (activeSection === 'converted') ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
             cursor: 'pointer',
-            background: activeSection === 'converted' ? 'rgba(15, 118, 56, 0.05)' : undefined
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
           }}
         >
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
             Lead Converted (Won)
-          </p>
-          <h2 style={{ color: '#0f7638', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--positive, #19B25B)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
             {metrics.converted_count}
-          </h2>
+          </div>
         </div>
 
         {/* Card 4: Cancelled / Lost */}
         <div 
-          className="glass-panel" 
           onClick={() => { setActiveSection('cancelled'); setDueTodayOnly(false) }}
           style={{ 
-            textAlign: 'left', 
-            padding: '0.75rem 1rem', 
-            borderTop: '3px solid #dc2626',
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: (activeSection === 'cancelled') ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
             cursor: 'pointer',
-            background: activeSection === 'cancelled' ? 'rgba(220, 38, 38, 0.05)' : undefined
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
           }}
         >
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
             Cancelled / Lost
-          </p>
-          <h2 style={{ color: '#dc2626', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: metrics.cancelled_count > 0 ? 'var(--danger, #E5482E)' : 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
             {metrics.cancelled_count}
-          </h2>
+          </div>
         </div>
       </div>
 
-      {/* ── 3. SECTION TABS BAR (Matches Customers.jsx pill tabs exactly) ── */}
+      {/* ── 3. STATUS TABS BAR (CRED Animated Tabs) ── */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '0.75rem',
-        marginBottom: '0.85rem',
+        gap: '12px',
+        marginBottom: '16px',
         flexWrap: 'wrap'
       }}>
-        <div style={{ 
-          display: 'inline-flex', 
-          gap: '0.4rem', 
-          background: 'rgba(0,0,0,0.04)', 
-          padding: '0.3rem', 
-          borderRadius: '10px' 
-        }}>
-          {/* Tab A: Active Enquiries */}
-          <button
-            type="button"
-            className="btn"
-            id="tab-active-enquiries"
-            onClick={() => { setActiveSection('active'); setDueTodayOnly(false) }}
-            style={{
-              padding: '0.55rem 1.1rem',
-              fontSize: '0.85rem',
-              fontWeight: activeSection === 'active' && !dueTodayOnly ? '700' : '600',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSection === 'active' && !dueTodayOnly ? '#ffffff' : 'transparent',
-              color: activeSection === 'active' && !dueTodayOnly ? 'var(--primary, #1366d9)' : 'var(--text-muted)',
-              boxShadow: activeSection === 'active' && !dueTodayOnly ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: activeSection === 'active' && !dueTodayOnly ? '#1366d9' : '#94a3b8',
-              display: 'inline-block'
-            }} />
-            Active Enquiries
-            <span style={{
-              background: activeSection === 'active' && !dueTodayOnly ? '#ebf3fc' : 'rgba(0,0,0,0.06)',
-              color: activeSection === 'active' && !dueTodayOnly ? '#1366d9' : 'inherit',
-              padding: '0.15rem 0.55rem',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: '800'
-            }}>
-              {metrics.active_count}
-            </span>
-          </button>
+        <CredAnimatedTabs
+          tabs={[
+            { id: 'active', label: 'Active Enquiries', count: metrics.active_count },
+            { id: 'converted', label: 'Converted Leads (Won)', count: metrics.converted_count },
+            { id: 'cancelled', label: 'Cancelled / Lost', count: metrics.cancelled_count },
+          ]}
+          value={activeSection}
+          onChange={(val) => {
+            setActiveSection(val)
+            setDueTodayOnly(false)
+          }}
+          className="case-preserve cred-enquiry-tabs"
+          layoutId="cred-enquiry-status-tabs"
+        />
 
-          {/* Tab B: Converted Leads */}
-          <button
-            type="button"
-            className="btn"
-            id="tab-converted-enquiries"
-            onClick={() => { setActiveSection('converted'); setDueTodayOnly(false) }}
-            style={{
-              padding: '0.55rem 1.1rem',
-              fontSize: '0.85rem',
-              fontWeight: activeSection === 'converted' ? '700' : '600',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSection === 'converted' ? '#ffffff' : 'transparent',
-              color: activeSection === 'converted' ? 'var(--success, #0f7638)' : 'var(--text-muted)',
-              boxShadow: activeSection === 'converted' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: activeSection === 'converted' ? '#0f7638' : '#94a3b8',
-              display: 'inline-block'
-            }} />
-            Converted Leads (Won)
-            <span style={{
-              background: activeSection === 'converted' ? '#dcfce7' : 'rgba(0,0,0,0.06)',
-              color: activeSection === 'converted' ? '#0f7638' : 'inherit',
-              padding: '0.15rem 0.55rem',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: '800'
-            }}>
-              {metrics.converted_count}
-            </span>
-          </button>
-
-          {/* Tab C: Cancelled / Lost */}
-          <button
-            type="button"
-            className="btn"
-            id="tab-cancelled-enquiries"
-            onClick={() => { setActiveSection('cancelled'); setDueTodayOnly(false) }}
-            style={{
-              padding: '0.55rem 1.1rem',
-              fontSize: '0.85rem',
-              fontWeight: activeSection === 'cancelled' ? '700' : '600',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSection === 'cancelled' ? '#ffffff' : 'transparent',
-              color: activeSection === 'cancelled' ? 'var(--danger, #dc2626)' : 'var(--text-muted)',
-              boxShadow: activeSection === 'cancelled' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: activeSection === 'cancelled' ? '#dc2626' : '#94a3b8',
-              display: 'inline-block'
-            }} />
-            Cancelled / Lost
-            <span style={{
-              background: activeSection === 'cancelled' ? '#fee2e2' : 'rgba(0,0,0,0.06)',
-              color: activeSection === 'cancelled' ? '#b91c1c' : 'inherit',
-              padding: '0.15rem 0.55rem',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: '800'
-            }}>
-              {metrics.cancelled_count}
-            </span>
-          </button>
-        </div>
-
-        {/* Highlight notification if follow-ups are due */}
+        {/* Highlight pill if follow-ups are due */}
         {metrics.due_today_count > 0 && (
-          <div 
-            onClick={() => { setDueTodayOnly(!dueTodayOnly); setActiveSection('active') }}
+          <button
+            type="button"
+            onClick={() => {
+              setDueTodayOnly(!dueTodayOnly)
+              setActiveSection('active')
+            }}
             style={{
-              fontSize: '0.8rem',
-              color: '#b45309',
-              background: '#fef3c7',
-              border: '1px solid #fde68a',
-              padding: '0.45rem 0.9rem',
-              borderRadius: '8px',
-              fontWeight: '600',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              cursor: 'pointer'
+              gap: '6px',
+              padding: '0 14px',
+              height: '32px',
+              borderRadius: '9999px',
+              fontSize: '12px',
+              fontWeight: 500,
+              background: dueTodayOnly ? 'var(--black, #0A0A0A)' : 'var(--card-bg, #FFFFFF)',
+              color: dueTodayOnly ? '#FFFFFF' : 'var(--due, #EE7A2E)',
+              border: dueTodayOnly ? '1px solid var(--black, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
             }}
           >
-            <AlertCircle size={15} />
-            <span>Follow-up Calls Due Today: <strong>{metrics.due_today_count}</strong></span>
-          </div>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--due, #EE7A2E)' }} />
+            <span>Follow-up Calls Due Today: <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{metrics.due_today_count}</strong></span>
+          </button>
         )}
       </div>
 
-      {/* ── 4. SEARCH & FILTER PANEL (Matches Customers.jsx exactly) ── */}
-      {/* ── 4. SEARCH & UNIFIED FILTER PANEL ── */}
-      <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: '260px', flexWrap: 'wrap' }}>
-          <SearchBar
+      {/* ── 4. SEARCH & UNIFIED FILTER ROW (Directly on page, no outer card) ── */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '20px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '260px', flexWrap: 'wrap' }}>
+          <CredSearchInput
             value={searchQuery}
-            onChange={(val) => setSearchQuery(val)}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
+            placeholder="search enquiries, customer or project..."
             style={{ flex: '1 1 240px', minWidth: '180px', maxWidth: '420px' }}
           />
 
@@ -845,32 +793,32 @@ export default function Enquiries({ currentUser }) {
               type="button"
               onClick={() => setIsFilterMenuOpen(prev => !prev)}
               style={{
-                background: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? 'rgba(19, 102, 217, 0.08)' : 'var(--card-bg, #ffffff)',
-                color: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? 'var(--primary, #1366d9)' : 'var(--text-main)',
-                border: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? '1px solid var(--primary, #1366d9)' : '1px solid var(--border-color, #e2e8f0)',
-                borderRadius: 'var(--radius-sm, 6px)',
-                height: '38px',
-                padding: '0 0.85rem',
-                fontSize: '0.82rem',
-                fontWeight: '600',
+                background: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? 'var(--fill-ghost-hover, #F4F4F4)' : 'transparent',
+                color: 'var(--text, #111111)',
+                border: (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? '1px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
+                borderRadius: '9999px',
+                height: '36px',
+                padding: '0 14px',
+                fontSize: '13px',
+                fontWeight: 500,
                 outline: 'none',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.45rem',
+                gap: '6px',
                 transition: 'all 0.15s ease'
               }}
               title="Filter by Channel, Salesperson, and Call Outcome"
             >
-              <Filter size={15} color={(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? 'var(--primary, #1366d9)' : 'currentColor'} />
+              <Filter size={14} />
               <span>Filters</span>
               {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
                 <span
                   style={{
-                    background: 'var(--primary, #1366d9)',
+                    background: 'var(--black, #0A0A0A)',
                     color: '#ffffff',
-                    fontSize: '0.7rem',
-                    fontWeight: '700',
+                    fontSize: '11px',
+                    fontWeight: 600,
                     borderRadius: '999px',
                     minWidth: '18px',
                     height: '18px',
@@ -885,7 +833,7 @@ export default function Enquiries({ currentUser }) {
                 </span>
               )}
               <ChevronDown
-                size={14}
+                size={13}
                 style={{
                   transform: isFilterMenuOpen ? 'rotate(180deg)' : 'none',
                   transition: 'transform 0.15s ease',
@@ -899,72 +847,27 @@ export default function Enquiries({ currentUser }) {
               <div
                 style={{
                   position: 'absolute',
-                  top: 'calc(100% + 6px)',
+                  top: 'calc(100% + 8px)',
                   left: 0,
-                  width: '320px',
+                  width: '280px',
                   background: 'var(--card-bg, #ffffff)',
-                  border: '1px solid var(--border-color, #e2e8f0)',
-                  borderRadius: '10px',
-                  boxShadow: '0 12px 30px -4px rgba(0, 0, 0, 0.15), 0 4px 12px -2px rgba(0, 0, 0, 0.08)',
-                  padding: '1rem',
-                  zIndex: 200,
-                  animation: 'fadeIn 0.15s ease'
+                  border: '1px solid var(--border, #e2e8f0)',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
+                  padding: '16px',
+                  zIndex: 100
                 }}
               >
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem', paddingBottom: '0.65rem', borderBottom: '1px solid var(--border-color, #f1f5f9)' }}>
-                  <div style={{ fontWeight: '700', fontSize: '0.88rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Filter size={14} color="var(--primary, #1366d9)" /> Filters
-                  </div>
-                  {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedChannel('all')
-                        setSalespersonFilter('all')
-                        setOutcomeFilter('all')
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--danger, #dc2626)',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem'
-                      }}
-                      title="Clear all active filters"
-                    >
-                      <RotateCcw size={12} /> Clear all
-                    </button>
-                  )}
-                </div>
-
                 {/* Filter 1: Channel */}
-                <div style={{ marginBottom: '0.85rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Channel
                   </label>
                   <select
                     value={selectedChannel}
                     onChange={(e) => setSelectedChannel(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'var(--card-bg, #ffffff)',
-                      color: 'var(--text-main)',
-                      border: '1px solid var(--border-color, #e2e8f0)',
-                      borderRadius: '6px',
-                      height: '36px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.82rem',
-                      fontWeight: '500',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
+                    className="cred-input"
+                    style={{ height: '36px', fontSize: '13px' }}
                   >
                     <option value="all">All Channels</option>
                     <option value="whatsapp">WhatsApp</option>
@@ -977,26 +880,15 @@ export default function Enquiries({ currentUser }) {
                 </div>
 
                 {/* Filter 2: Salesperson */}
-                <div style={{ marginBottom: '0.85rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Salesperson
                   </label>
                   <select
                     value={salespersonFilter}
                     onChange={(e) => setSalespersonFilter(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'var(--card-bg, #ffffff)',
-                      color: 'var(--text-main)',
-                      border: '1px solid var(--border-color, #e2e8f0)',
-                      borderRadius: '6px',
-                      height: '36px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.82rem',
-                      fontWeight: '500',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
+                    className="cred-input"
+                    style={{ height: '36px', fontSize: '13px' }}
                   >
                     <option value="all">All Salespersons</option>
                     {salespersons.map(s => (
@@ -1006,26 +898,15 @@ export default function Enquiries({ currentUser }) {
                 </div>
 
                 {/* Filter 3: Call Outcome */}
-                <div style={{ marginBottom: '0.85rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Call Outcome
                   </label>
                   <select
                     value={outcomeFilter}
                     onChange={(e) => setOutcomeFilter(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'var(--card-bg, #ffffff)',
-                      color: 'var(--text-main)',
-                      border: '1px solid var(--border-color, #e2e8f0)',
-                      borderRadius: '6px',
-                      height: '36px',
-                      padding: '0 0.75rem',
-                      fontSize: '0.82rem',
-                      fontWeight: '500',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
+                    className="cred-input"
+                    style={{ height: '36px', fontSize: '13px' }}
                   >
                     <option value="all">All Call Outcomes</option>
                     <option value="no_calls">No Calls Yet</option>
@@ -1041,18 +922,18 @@ export default function Enquiries({ currentUser }) {
                 </div>
 
                 {/* Footer action */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color, #f1f5f9)' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid var(--border, #f1f5f9)' }}>
                   <button
                     type="button"
                     onClick={() => setIsFilterMenuOpen(false)}
                     style={{
-                      background: 'var(--primary, #1366d9)',
+                      background: 'var(--black, #0A0A0A)',
                       color: '#ffffff',
                       border: 'none',
-                      borderRadius: '5px',
-                      padding: '0.4rem 0.9rem',
-                      fontSize: '0.78rem',
-                      fontWeight: '600',
+                      borderRadius: '9999px',
+                      padding: '6px 16px',
+                      fontSize: '12px',
+                      fontWeight: 500,
                       cursor: 'pointer'
                     }}
                   >
@@ -1065,23 +946,23 @@ export default function Enquiries({ currentUser }) {
 
           {/* Active Filter Chips */}
           {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               {selectedChannel !== 'all' && (
                 <span
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.3rem',
-                    background: 'var(--card-bg, #ffffff)',
-                    border: '1px solid var(--border-color, #cbd5e1)',
-                    padding: '0.2rem 0.55rem',
-                    borderRadius: '16px',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
-                    color: 'var(--text-main)'
+                    gap: '4px',
+                    background: 'var(--fill-ghost-hover, #F4F4F4)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    padding: '3px 10px',
+                    borderRadius: '9999px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: 'var(--text, #111111)'
                   }}
                 >
-                  <span style={{ color: 'var(--text-muted)' }}>Channel:</span> {CHANNEL_CONFIG[selectedChannel]?.label || selectedChannel}
+                  <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Channel:</span> {CHANNEL_CONFIG[selectedChannel]?.label || selectedChannel}
                   <button
                     type="button"
                     onClick={() => setSelectedChannel('all')}
@@ -1098,17 +979,17 @@ export default function Enquiries({ currentUser }) {
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.3rem',
-                    background: 'var(--card-bg, #ffffff)',
-                    border: '1px solid var(--border-color, #cbd5e1)',
-                    padding: '0.2rem 0.55rem',
-                    borderRadius: '16px',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
-                    color: 'var(--text-main)'
+                    gap: '4px',
+                    background: 'var(--fill-ghost-hover, #F4F4F4)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    padding: '3px 10px',
+                    borderRadius: '9999px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: 'var(--text, #111111)'
                   }}
                 >
-                  <span style={{ color: 'var(--text-muted)' }}>Salesperson:</span> {salespersons.find(s => String(s.id) === String(salespersonFilter))?.name || 'Selected'}
+                  <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Salesperson:</span> {salespersons.find(s => String(s.id) === String(salespersonFilter))?.name || 'Selected'}
                   <button
                     type="button"
                     onClick={() => setSalespersonFilter('all')}
@@ -1125,17 +1006,17 @@ export default function Enquiries({ currentUser }) {
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.3rem',
-                    background: 'var(--card-bg, #ffffff)',
-                    border: '1px solid var(--border-color, #cbd5e1)',
-                    padding: '0.2rem 0.55rem',
-                    borderRadius: '16px',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
-                    color: 'var(--text-main)'
+                    gap: '4px',
+                    background: 'var(--fill-ghost-hover, #F4F4F4)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    padding: '3px 10px',
+                    borderRadius: '9999px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: 'var(--text, #111111)'
                   }}
                 >
-                  <span style={{ color: 'var(--text-muted)' }}>Outcome:</span> {outcomeFilter === 'no_calls' ? 'No Calls Yet' : (OUTCOME_CONFIG[outcomeFilter]?.label || outcomeFilter)}
+                  <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Outcome:</span> {outcomeFilter === 'no_calls' ? 'No Calls Yet' : (OUTCOME_CONFIG[outcomeFilter]?.label || outcomeFilter)}
                   <button
                     type="button"
                     onClick={() => setOutcomeFilter('all')}
@@ -1157,9 +1038,9 @@ export default function Enquiries({ currentUser }) {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.72rem',
-                  fontWeight: '600',
+                  color: 'var(--text-muted, #8C8C8C)',
+                  fontSize: '12px',
+                  fontWeight: 500,
                   cursor: 'pointer',
                   textDecoration: 'underline',
                   padding: '2px 4px'
@@ -1171,15 +1052,6 @@ export default function Enquiries({ currentUser }) {
             </div>
           )}
         </div>
-
-        <button
-          className="btn btn-secondary"
-          onClick={() => { fetchEnquiries(); fetchMetrics() }}
-          title="Refresh table"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
-        >
-          <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
-        </button>
       </div>
 
       {error && (
@@ -1188,40 +1060,48 @@ export default function Enquiries({ currentUser }) {
         </div>
       )}
 
-      {/* ── 5. MAIN DATA TABLE (Matches Customers.jsx desktop-only-table and table-container) ── */}
-      <div className="glass-panel" style={{ overflowX: 'auto', minHeight: '200px', position: 'relative' }}>
+      {/* ── 5. MAIN DATA TABLE (Directly on page, Cashbook style, no horizontal scroll) ── */}
+      <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
         {loading ? (
-          <div style={{ padding: '1.5rem' }}>
+          <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>
         ) : (
           <>
             {enquiries.length === 0 && !error && (
-              <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <MessageSquare size={32} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
-                <div style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+              <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+                <MessageSquare size={22} strokeWidth={1.6} style={{ color: 'var(--text-muted, #8C8C8C)', opacity: 0.6, marginBottom: '8px' }} />
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
                   {searchQuery 
-                    ? `No enquiries matching "${searchQuery}"`
+                    ? `No enquiries matching "${searchQuery}".`
                     : (selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all')
                     ? 'No enquiries match the selected filters.'
                     : activeSection === 'active'
-                    ? 'No active enquiries in progress. Click "+ New Enquiry" to record an inquiry.'
+                    ? 'No active enquiries yet.'
                     : activeSection === 'converted'
-                    ? 'No converted leads yet. As enquiries confirm orders, they will appear here.'
-                    : 'No cancelled enquiries recorded.'}
-                </div>
+                    ? 'No converted leads yet.'
+                    : 'No cancelled enquiries.'}
+                </p>
                 {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
                   <button
                     type="button"
-                    className="btn btn-secondary"
                     onClick={() => {
                       setSelectedChannel('all')
                       setSalespersonFilter('all')
                       setOutcomeFilter('all')
                     }}
-                    style={{ marginTop: '0.85rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                    style={{
+                      marginTop: '12px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text, #111111)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      textDecoration: 'underline'
+                    }}
                   >
-                    <RotateCcw size={13} /> Reset Filters
+                    Reset Filters
                   </button>
                 )}
               </div>
@@ -1230,250 +1110,211 @@ export default function Enquiries({ currentUser }) {
             {enquiries.length > 0 && (
               <>
                 {/* Desktop Table View */}
-                <div className="desktop-only-table">
-                  <div className="table-container">
-                    <table className="enquiries-table" style={{ width: '100%', minWidth: '1020px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ width: '95px' }}>Enquiry #</th>
-                          <th style={{ width: '220px' }}>Customer / Prospect</th>
-                          <th>Specific Work Requested</th>
-                          <th style={{ width: '95px', textAlign: 'center' }}>Channel</th>
-                          <th style={{ width: '95px', textAlign: 'center' }}>Date</th>
-                          <th style={{ width: '110px', textAlign: 'right' }}>Est. Value</th>
-                          <th style={{ width: '55px', textAlign: 'center' }}>Photo</th>
-                          <th style={{ width: '155px' }}>Call Outcome</th>
-                          <th style={{ width: '65px', textAlign: 'center' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {enquiries.map((enq) => {
-                          const chCfg = CHANNEL_CONFIG[enq.channel] || CHANNEL_CONFIG.other
-                          const stCfg = STATUS_CONFIG[enq.status] || STATUS_CONFIG.enquiry
-                          const followStatus = getFollowUpStatus(enq.next_follow_up_date)
-                          const clientName = enq.customer_name || enq.customer_detail?.name || 'Walk-in Prospect'
-                          const phone = enq.phone || enq.customer_detail?.phone || ''
-                          
-                          // Determine latest call / follow-up outcome
-                          const sortedFollowUps = (enq.follow_ups && enq.follow_ups.length > 0)
-                            ? [...enq.follow_ups].sort((a, b) => (a.id || 0) - (b.id || 0))
-                            : []
-                          const latestFollowUp = sortedFollowUps.length > 0 ? sortedFollowUps[sortedFollowUps.length - 1] : null
-                          const outcomeCfg = latestFollowUp ? (OUTCOME_CONFIG[latestFollowUp.outcome] || OUTCOME_CONFIG.other) : null
+                <div className="desktop-only-table" style={{ width: '100%', overflow: 'hidden' }}>
+                  <table className="enquiries-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+                        <th style={{ width: '12%', padding: '10px 10px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none' }}>Enquiry</th>
+                        <th style={{ width: '22%', padding: '10px 10px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none' }}>Customer</th>
+                        <th style={{ width: '24%', padding: '10px 10px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none' }}>Specific Work Requested</th>
+                        <th style={{ width: '9%', padding: '10px 8px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'center', textTransform: 'none' }}>Channel</th>
+                        <th style={{ width: '9%', padding: '10px 8px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'center', textTransform: 'none' }}>Date</th>
+                        <th style={{ width: '10%', padding: '10px 10px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none' }}>Est. Value</th>
+                        <th style={{ width: '5%', padding: '10px 6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'center', textTransform: 'none' }}>Photo</th>
+                        <th style={{ width: '14%', padding: '10px 10px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none' }}>Call Outcome</th>
+                        <th style={{ width: '5%', padding: '10px 6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'center', textTransform: 'none' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {enquiries.map((enq) => {
+                        const chCfg = CHANNEL_CONFIG[enq.channel] || CHANNEL_CONFIG.other
+                        const clientName = enq.customer_name || enq.customer_detail?.name || 'Walk-in Prospect'
+                        const phone = enq.phone || enq.customer_detail?.phone || ''
+                        
+                        // Determine latest call / follow-up outcome
+                        const sortedFollowUps = (enq.follow_ups && enq.follow_ups.length > 0)
+                          ? [...enq.follow_ups].sort((a, b) => (a.id || 0) - (b.id || 0))
+                          : []
+                        const latestFollowUp = sortedFollowUps.length > 0 ? sortedFollowUps[sortedFollowUps.length - 1] : null
+                        const outcomeCfg = latestFollowUp ? (OUTCOME_CONFIG[latestFollowUp.outcome] || OUTCOME_CONFIG.other) : null
 
-                          return (
-                            <tr 
-                              key={enq.id} 
-                              className="hover-row clickable-row"
-                              onClick={() => {
-                                setSelectedEnquiry(enq)
-                                setIsDetailModalOpen(true)
-                              }}
-                              title="Click row to view full timeline & lead history"
-                            >
-                              {/* Enquiry Number */}
-                              <td style={{ whiteSpace: 'nowrap' }}>
-                                <div style={{ fontWeight: '700', color: 'var(--primary, #1366d9)' }}>
-                                  {enq.enquiry_number}
+                        return (
+                          <tr 
+                            key={enq.id} 
+                            className="cred-table-row"
+                            onClick={() => {
+                              setSelectedEnquiry(enq)
+                              setIsDetailModalOpen(true)
+                            }}
+                            title="Click row to view full timeline & lead history"
+                            style={{
+                              borderBottom: '1px solid var(--border, #E4E4E4)',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                          >
+                            {/* Enquiry Number */}
+                            <td style={{ padding: '10px 10px', verticalAlign: 'middle' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text, #111111)', fontVariantNumeric: 'tabular-nums' }}>
+                                {enq.enquiry_number}
+                              </span>
+                            </td>
+
+                            {/* Customer */}
+                            <td style={{ padding: '10px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                              <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {clientName}
+                              </div>
+                              {phone && (
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                                  {phone}
                                 </div>
-                              </td>
-
-                              {/* Customer / Prospect */}
-                              <td>
-                                <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>
-                                  {clientName}
+                              )}
+                              {(enq.salesperson_name || enq.salesperson_detail?.name) && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <UserCheck size={11} style={{ opacity: 0.7 }} /> {enq.salesperson_name || enq.salesperson_detail?.name}
                                 </div>
-                                {phone && (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                      {phone}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); openWhatsApp(phone, `Hello ${clientName}, regarding your enquiry ${enq.enquiry_number} with Arab Season:`) }}
-                                      title="Open WhatsApp Chat"
-                                      style={{
-                                        background: 'rgba(22, 163, 74, 0.1)',
-                                        border: 'none',
-                                        color: '#16a34a',
-                                        borderRadius: '4px',
-                                        padding: '1px 5px',
-                                        fontSize: '0.68rem',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '0.2rem'
-                                      }}
-                                    >
-                                      <MessageSquare size={10} /> WA
-                                    </button>
-                                  </div>
-                                )}
+                              )}
+                            </td>
 
-                                {(enq.salesperson_name || enq.salesperson_detail?.name) && (
-                                  <div style={{
-                                    fontSize: '0.72rem',
-                                    color: 'var(--primary, #1366d9)',
-                                    fontWeight: '600',
-                                    marginTop: '0.2rem',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem'
-                                  }}>
-                                    <UserCheck size={11} /> {enq.salesperson_name || enq.salesperson_detail?.name}
-                                  </div>
-                                )}
-                              </td>
-
-                              {/* Specific Work Requested */}
-                              <td style={{ overflow: 'hidden' }}>
-                                {enq.title && (
-                                  <div style={{ fontWeight: '700', fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {enq.title}
-                                  </div>
-                                )}
-                                <div style={{ 
-                                  fontSize: '0.78rem', 
-                                  color: 'var(--text-muted)', 
+                            {/* Specific Work Requested */}
+                            <td style={{ padding: '10px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                              {enq.title && (
+                                <div style={{ fontWeight: 400, fontSize: '12.5px', color: 'var(--text, #111111)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {enq.title}
+                                </div>
+                              )}
+                              <div 
+                                style={{ 
+                                  fontSize: '12px', 
+                                  color: 'var(--text-muted, #8C8C8C)', 
                                   overflow: 'hidden', 
                                   textOverflow: 'ellipsis', 
                                   whiteSpace: 'nowrap' 
                                 }}
                                 title={enq.description}
+                              >
+                                {enq.description || '—'}
+                              </div>
+                            </td>
+
+                            {/* Channel (Plain muted text, no green pill) */}
+                            <td style={{ textAlign: 'center', padding: '10px 8px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: '12.5px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                                {chCfg.label}
+                              </span>
+                            </td>
+
+                            {/* Enquiry Date */}
+                            <td style={{ textAlign: 'center', padding: '10px 8px', verticalAlign: 'middle', color: 'var(--text-muted, #8C8C8C)', fontSize: '12.5px', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                              {enq.date}
+                            </td>
+
+                            {/* Estimated Value (Cashbook amount style: tabular-nums, lighter decimals) */}
+                            <td style={{ textAlign: 'right', padding: '10px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                              {enq.estimated_value ? (
+                                (() => {
+                                  const num = parseFloat(enq.estimated_value)
+                                  if (isNaN(num)) return '—'
+                                  const parts = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
+                                  return (
+                                    <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: '13px', fontWeight: 400, color: 'var(--text, #111111)' }}>
+                                      {parts[0]}<span style={{ opacity: 0.55, fontSize: '11px' }}>.{parts[1]}</span>
+                                      <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '3px' }}>SAR</span>
+                                    </span>
+                                  )
+                                })()
+                              ) : (
+                                <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12.5px' }}>—</span>
+                              )}
+                            </td>
+
+                            {/* Reference Photo / Attachment (Smaller 32px, 1px border, no heavy shadow) */}
+                            <td style={{ textAlign: 'center', padding: '10px 6px', verticalAlign: 'middle' }}>
+                              {enq.attachment ? (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setPreviewMediaUrl(enq.attachment)
+                                  }}
+                                  title="Click to view reference attachment"
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border, #E4E4E4)',
+                                    overflow: 'hidden',
+                                    margin: '0 auto',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'var(--fill-ghost-hover, #F4F4F4)',
+                                    boxShadow: 'none'
+                                  }}
                                 >
-                                  {enq.description || '---'}
+                                  {enq.attachment_type?.includes('pdf') ? (
+                                    <FileText size={16} color="var(--danger, #DC2626)" />
+                                  ) : (
+                                    <img
+                                      src={enq.attachment}
+                                      alt="thumbnail"
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  )}
                                 </div>
-                              </td>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12px' }}>—</span>
+                              )}
+                            </td>
 
-                              {/* Channel */}
-                              <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                <span style={{
-                                  fontSize: '0.72rem',
-                                  fontWeight: '700',
-                                  padding: '0.2rem 0.55rem',
-                                  borderRadius: '6px',
-                                  background: chCfg.bg,
-                                  color: chCfg.color,
-                                  border: `1px solid ${chCfg.border}`,
-                                  display: 'inline-flex',
-                                  alignItems: 'center'
-                                }}>
-                                  {chCfg.label}
+                            {/* Call Outcome (Plain muted text, no grey pill for "No Calls Yet") */}
+                            <td style={{ padding: '10px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                              {latestFollowUp ? (
+                                <span style={{ fontSize: '12.5px', fontWeight: 400, color: 'var(--text, #111111)' }}>
+                                  {latestFollowUp.outcome_display || outcomeCfg.label}
                                 </span>
-                              </td>
+                              ) : (
+                                <span style={{ fontSize: '12.5px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                                  No Calls Yet
+                                </span>
+                              )}
+                            </td>
 
-                              {/* Enquiry Date */}
-                              <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                                {enq.date}
-                              </td>
-
-                              {/* Estimated Value */}
-                              <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
-                                {enq.estimated_value ? formatCurrency(enq.estimated_value) : '---'}
-                              </td>
-
-                              {/* Reference Photo / Attachment */}
-                              <td style={{ textAlign: 'center' }}>
-                                {enq.attachment ? (
-                                  <div
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setPreviewMediaUrl(enq.attachment)
-                                    }}
-                                    title="Click to view reference attachment"
-                                    style={{
-                                      width: '34px',
-                                      height: '34px',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--border-color, #e2e8f0)',
-                                      overflow: 'hidden',
-                                      margin: '0 auto',
-                                      cursor: 'pointer',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      background: '#f8fafc'
-                                    }}
-                                  >
-                                    {enq.attachment_type?.includes('pdf') ? (
-                                      <FileText size={18} color="#dc2626" />
-                                    ) : (
-                                      <img
-                                        src={enq.attachment}
-                                        alt="thumbnail"
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                      />
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>---</span>
-                                )}
-                              </td>
-
-                              {/* Call Outcome */}
-                              <td style={{ whiteSpace: 'nowrap' }}>
-                                {latestFollowUp ? (
-                                  <span style={{
-                                    fontSize: '0.72rem',
-                                    fontWeight: '700',
-                                    padding: '0.22rem 0.55rem',
-                                    borderRadius: '6px',
-                                    background: outcomeCfg.bg,
-                                    color: outcomeCfg.color,
-                                    display: 'inline-flex',
-                                    alignItems: 'center'
-                                  }}>
-                                    {latestFollowUp.outcome_display || outcomeCfg.label}
-                                  </span>
-                                ) : (
-                                  <span style={{
-                                    fontSize: '0.72rem',
-                                    fontWeight: '600',
-                                    padding: '0.2rem 0.5rem',
-                                    borderRadius: '6px',
-                                    background: 'rgba(0,0,0,0.04)',
-                                    color: 'var(--text-muted)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center'
-                                  }}>
-                                    No Calls Yet
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* Actions */}
-                              <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {/* Delete button */}
-                                  <button
-                                    type="button"
-                                    className="btn-icon"
-                                    style={{
-                                      width: '28px',
-                                      height: '28px',
-                                      borderRadius: '6px',
-                                      color: 'var(--danger, #dc2626)',
-                                      background: 'rgba(220, 38, 38, 0.05)',
-                                      border: '1px solid rgba(220, 38, 38, 0.2)'
-                                    }}
-                                    onClick={() => handleDeleteEnquiry(enq.id, enq.enquiry_number)}
-                                    title="Move to Recycle Bin"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                            {/* Delete Action (Minimal icon-only button: no bg, no border, grey trash turning red on hover) */}
+                            <td style={{ textAlign: 'center', padding: '10px 6px', verticalAlign: 'middle', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="cred-trash-icon-btn"
+                                onClick={() => handleDeleteEnquiry(enq.id, enq.enquiry_number)}
+                                title="Delete"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '4px',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '4px',
+                                  transition: 'color 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger, #DC2626)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                              >
+                                <Trash2 size={15} strokeWidth={1.8} />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Mobile Native Cards View (Matches Customers.jsx mobile-only-cards) */}
-                <div className="mobile-only-cards" style={{ padding: '0.75rem' }}>
+                {/* Mobile Native Cards View */}
+                <div className="mobile-only-cards" style={{ padding: '0.75rem 0' }}>
                   {enquiries.map((enq) => {
                     const clientName = enq.customer_name || enq.customer_detail?.name || 'Walk-in Prospect'
                     const phone = enq.phone || enq.customer_detail?.phone || ''
@@ -1501,49 +1342,53 @@ export default function Enquiries({ currentUser }) {
                             <div style={{ minWidth: 0, flex: 1 }}>
                               <div className="mobile-card-title">{clientName}</div>
                               <div className="mobile-card-sub">
-                                <span style={{ fontWeight: '700', color: '#1366d9' }}>{enq.enquiry_number}</span>
+                                <span style={{ fontWeight: '500', color: 'var(--text, #111111)' }}>{enq.enquiry_number}</span>
                                 {phone && <span> • {phone}</span>}
                                 {(enq.salesperson_name || enq.salesperson_detail?.name) && (
-                                  <span> • 👤 {enq.salesperson_name || enq.salesperson_detail?.name}</span>
+                                  <span> • {enq.salesperson_name || enq.salesperson_detail?.name}</span>
                                 )}
                               </div>
                             </div>
                           </div>
                           <span style={{
                             fontSize: '0.7rem',
-                            fontWeight: '700',
+                            fontWeight: '500',
                             padding: '0.15rem 0.45rem',
                             borderRadius: '4px',
-                            background: stCfg.bg,
-                            color: stCfg.color
+                            background: 'var(--fill-ghost-hover, #F4F4F4)',
+                            color: 'var(--text, #111111)'
                           }}>
                             {stCfg.label}
                           </span>
                         </div>
 
                         <div className="mobile-card-body" style={{ padding: '0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {enq.title && <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.2rem' }}>{enq.title}</div>}
+                          {enq.title && <div style={{ fontWeight: '500', color: 'var(--text-main)', marginBottom: '0.2rem' }}>{enq.title}</div>}
                           <div style={{ lineHeight: '1.4' }}>{enq.description}</div>
                         </div>
 
                         <div className="mobile-card-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                            {enq.estimated_value ? formatCurrency(enq.estimated_value) : `📞 ${enq.follow_up_count} Calls`}
+                          <span style={{ fontSize: '0.75rem', fontWeight: '500', color: 'var(--text-main)' }}>
+                            {enq.estimated_value ? formatCurrency(enq.estimated_value) : `${enq.follow_up_count} Calls`}
                           </span>
                           <div style={{ display: 'flex', gap: '0.4rem' }} onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              className="btn-icon"
+                              className="cred-trash-icon-btn"
                               style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '6px',
-                                color: 'var(--danger, #dc2626)',
-                                background: 'rgba(220, 38, 38, 0.05)',
-                                border: '1px solid rgba(220, 38, 38, 0.2)'
+                                background: 'none',
+                                border: 'none',
+                                padding: '4px',
+                                color: 'var(--text-muted, #8C8C8C)',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                transition: 'color 0.15s ease'
                               }}
                               onClick={() => handleDeleteEnquiry(enq.id, enq.enquiry_number)}
-                              title="Move to Recycle Bin"
+                              title="Delete"
                             >
                               <Trash2 size={13} />
                             </button>
@@ -1559,26 +1404,50 @@ export default function Enquiries({ currentUser }) {
         )}
       </div>
 
-      {/* ── 6. CREATE / EDIT ENQUIRY MODAL (Using ERP Modal component) ── */}
+      {/* ── 6. CREATE / EDIT ENQUIRY MODAL (CRED Style with Plain Selects & Pinned Footer) ── */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isEditing ? `Edit Enquiry: ${selectedEnquiry?.enquiry_number}` : 'New Customer Enquiry'}
         maxWidth="680px"
+        closeOnBackdrop={true}
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)'
+        }}
+        footer={
+          <>
+            <button
+              type="button"
+              className="cred-enquiry-cancel-btn"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="new-enquiry-form"
+              className="cred-enquiry-submit-btn"
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Enquiry')}
+            </button>
+          </>
+        }
       >
-        <form onSubmit={handleSaveEnquiry}>
+        <form id="new-enquiry-form" onSubmit={handleSaveEnquiry}>
           {formError && (
             <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
               <AlertCircle size={18} /> {formError}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-            {/* Existing Customer (Optional dropdown) */}
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Existing Customer (Optional)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            {/* Existing Customer (Optional plain select) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="cred-form-label">Existing Customer (Optional)</label>
               <select
-                className="input-field"
                 value={formData.customer_id}
                 onChange={(e) => {
                   const cId = e.target.value
@@ -1592,43 +1461,47 @@ export default function Enquiries({ currentUser }) {
                   }))
                 }}
               >
-                <option value="">-- Or type new prospect name below --</option>
+                <option value="">Select existing customer</option>
                 {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} {c.company_name ? `(${c.company_name})` : ''}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.company_name ? `(${c.company_name})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
 
-            {/* Customer / Prospect Name */}
-            <div className="form-group">
-              <label>Customer / Prospect Name *</label>
+            {/* Customer Name */}
+            <div>
+              <label className="cred-form-label">
+                Customer Name
+                <span className="cred-required-dot" title="Required" />
+              </label>
               <input
                 type="text"
                 required
-                className="input-field"
+                className="cred-input"
                 placeholder="e.g. Abdullah Al-Otaibi"
                 value={formData.customer_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, customer_name: e.target.value }))}
               />
             </div>
 
-            {/* Phone / WhatsApp */}
-            <div className="form-group">
-              <label>Phone / WhatsApp Number</label>
+            {/* Phone Number */}
+            <div>
+              <label className="cred-form-label">Phone Number</label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 placeholder="e.g. +966 50 123 4567"
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               />
             </div>
 
-            {/* Channel */}
-            <div className="form-group">
-              <label>Inquiry Channel</label>
+            {/* Inquiry Channel (Plain select) */}
+            <div>
+              <label className="cred-form-label">Inquiry Channel</label>
               <select
-                className="input-field"
                 value={formData.channel}
                 onChange={(e) => setFormData(prev => ({ ...prev, channel: e.target.value }))}
               >
@@ -1641,45 +1514,33 @@ export default function Enquiries({ currentUser }) {
               </select>
             </div>
 
-            {/* Date */}
-            <div className="form-group">
-              <label>Enquiry Date</label>
+            {/* Enquiry Date */}
+            <div>
+              <label className="cred-form-label">Enquiry Date</label>
               <input
                 type="date"
-                className="input-field"
+                className="cred-input"
                 value={formData.date}
                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
               />
             </div>
 
-            {/* Salesperson (Dropdown with in-dropdown create capability) */}
-            <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                <label style={{ margin: 0 }}>Salesperson (Lead Brought By)</label>
+            {/* Salesperson (Lead Brought By - Plain select) */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="cred-form-label" style={{ margin: 0 }}>Salesperson (Lead Brought By)</label>
                 <button
                   type="button"
                   onClick={() => {
                     setNewSalespersonForm({ name: '', phone: '', email: '' })
                     setIsSalespersonModalOpen(true)
                   }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--primary, #1366d9)',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.2rem',
-                    padding: '0 2px'
-                  }}
+                  className="cred-link-btn"
                 >
-                  <Plus size={13} /> Add New Salesman
+                  + Add New Salesman
                 </button>
               </div>
               <select
-                className="input-field"
                 value={formData.salesperson || ''}
                 onChange={(e) => {
                   const val = e.target.value
@@ -1691,7 +1552,7 @@ export default function Enquiries({ currentUser }) {
                   }))
                 }}
               >
-                <option value="">-- Select Salesperson / Lead Owner --</option>
+                <option value="">Select salesperson</option>
                 {salespersons.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.name} {s.phone ? `(${s.phone})` : ''}
@@ -1700,81 +1561,82 @@ export default function Enquiries({ currentUser }) {
               </select>
             </div>
 
-            {/* Subject / Title */}
-            <div className="form-group">
-              <label>Subject / Project Summary</label>
+            {/* Project Summary */}
+            <div>
+              <label className="cred-form-label">Project Summary</label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 placeholder="e.g. 3D Acrylic Glow Signboard for Riyadh Branch"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               />
             </div>
 
-            {/* Specific Work Requested / Description */}
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Specific Work Requested / Customer Requirements *</label>
+            {/* Customer Requirements */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="cred-form-label">
+                Customer Requirements
+                <span className="cred-required-dot" title="Required" />
+              </label>
               <textarea
                 rows={4}
                 required
-                className="input-field"
+                className="cred-textarea"
                 placeholder="Describe what the customer asked for (dimensions, materials, quantity, specifications)..."
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                style={{ minHeight: '90px', height: 'auto', resize: 'vertical' }}
               />
             </div>
 
-            {/* Estimated Budget / Value */}
-            <div className="form-group">
-              <label>Estimated Value (SAR)</label>
+            {/* Estimated Value (SAR) */}
+            <div>
+              <label className="cred-form-label">Estimated Value (SAR)</label>
               <input
                 type="number"
                 step="0.01"
-                className="input-field"
+                className="cred-input"
                 placeholder="e.g. 4500"
                 value={formData.estimated_value}
                 onChange={(e) => setFormData(prev => ({ ...prev, estimated_value: e.target.value }))}
               />
             </div>
 
-            {/* Next Follow-up Reminder Date */}
-            <div className="form-group">
-              <label>Next Follow-up Call Date</label>
+            {/* Next Follow-up Call Date */}
+            <div>
+              <label className="cred-form-label">Next Follow-up Call Date</label>
               <input
                 type="date"
-                className="input-field"
+                className="cred-input"
                 value={formData.next_follow_up_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
               />
             </div>
 
-            {/* Reference Photo / Attachment Upload */}
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Reference Photo / Site Attachment (Image or PDF)</label>
-              
+            {/* Reference Photo / Site Attachment */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="cred-form-label">Reference Photo / Site Attachment</label>
               {formData.attachment ? (
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: 'rgba(0,0,0,0.03)',
-                  border: '1px solid var(--border-color, #e2e8f0)',
-                  borderRadius: '8px',
-                  padding: '0.65rem 0.85rem'
+                  background: 'var(--fill-ghost-hover, #F4F4F4)',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '16px',
+                  padding: '10px 14px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
                     {formData.attachment_type?.includes('pdf') ? (
-                      <FileText size={20} color="#dc2626" />
+                      <FileText size={18} color="var(--danger, #DC2626)" />
                     ) : (
                       <img
                         src={formData.attachment}
                         alt="preview"
-                        style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }}
+                        style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }}
                       />
                     )}
-                    <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                       {formData.attachment_name || 'Uploaded Reference'}
                     </span>
                   </div>
@@ -1784,34 +1646,44 @@ export default function Enquiries({ currentUser }) {
                     style={{
                       background: 'transparent',
                       border: 'none',
-                      color: 'var(--danger, #dc2626)',
+                      color: 'var(--danger, #DC2626)',
                       cursor: 'pointer',
-                      padding: '4px'
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
                     }}
+                    title="Remove attachment"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               ) : (
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: '2px dashed var(--border-color, #e2e8f0)',
-                    borderRadius: '8px',
-                    padding: '1.25rem',
+                    border: '1px dashed var(--border, #E4E4E4)',
+                    borderRadius: '16px',
+                    padding: '18px 20px',
                     textAlign: 'center',
                     cursor: 'pointer',
-                    background: 'rgba(0,0,0,0.02)',
-                    transition: 'border-color 0.15s ease'
+                    background: 'var(--fill-ghost-hover, #F9F9F9)',
+                    transition: 'border-color 0.15s ease, background-color 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--text-muted, #8C8C8C)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
                   }}
                 >
-                  <UploadCloud size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }} />
-                  <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                    Click to upload sample photo or drawing
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    JPG, PNG, WebP, or PDF up to 10MB
-                  </div>
+                  <UploadCloud size={16} strokeWidth={1.8} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                    Click to upload reference photo or PDF document
+                  </span>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1822,26 +1694,6 @@ export default function Enquiries({ currentUser }) {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Modal Footer Actions */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ padding: '0.65rem 1.25rem' }}
-              onClick={() => setIsModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ padding: '0.65rem 1.75rem' }}
-              disabled={submitting}
-            >
-              {submitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Enquiry')}
-            </button>
           </div>
         </form>
       </Modal>
@@ -2617,6 +2469,181 @@ export default function Enquiries({ currentUser }) {
         </div>
       )}
 
+
+      {/* ── Scoped CRED Styles for Enquiries Page ── */}
+      <style>{`
+        .cred-table-row:hover {
+          background: var(--fill-ghost-hover, #F7F7F7) !important;
+        }
+        .cred-search {
+          border: 1px solid var(--border, #E4E4E4) !important;
+          border-radius: 9999px !important;
+        }
+        .cred-search:focus-within {
+          border-color: var(--text, #0A0A0A) !important;
+        }
+        .cred-form-label {
+          display: flex;
+          align-items: center;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--text-muted, #8C8C8C);
+          margin-bottom: 6px;
+          letter-spacing: -0.01em;
+        }
+        .cred-required-dot {
+          display: inline-block;
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: var(--danger, #DC2626);
+          margin-left: 5px;
+          vertical-align: middle;
+        }
+        .cred-input {
+          width: 100%;
+          height: 40px;
+          padding: 0 14px;
+          background: var(--bg, #FFFFFF);
+          border: 1px solid var(--border, #E4E4E4);
+          border-radius: var(--radius-btn, 12px);
+          font-size: 13.5px;
+          color: var(--text, #111111);
+          font-family: inherit;
+          outline: none;
+          box-sizing: border-box;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .cred-input:focus {
+          border-color: var(--text, #0A0A0A);
+          box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.08);
+        }
+        .cred-textarea {
+          width: 100%;
+          min-height: 84px;
+          padding: 10px 14px;
+          background: var(--bg, #FFFFFF);
+          border: 1px solid var(--border, #E4E4E4);
+          border-radius: var(--radius-btn, 12px);
+          font-size: 13.5px;
+          color: var(--text, #111111);
+          font-family: inherit;
+          outline: none;
+          box-sizing: border-box;
+          resize: vertical;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .cred-textarea:focus {
+          border-color: var(--text, #0A0A0A);
+          box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.08);
+        }
+        .cred-link-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-muted, #8C8C8C);
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          padding: 0 2px;
+          transition: color 0.15s ease;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+        }
+        .cred-link-btn:hover {
+          color: var(--text, #0A0A0A);
+        }
+        .cred-enquiry-cancel-btn {
+          background: transparent;
+          color: var(--text, #111111);
+          border: 1px solid var(--border, #E4E4E4);
+          border-radius: 9999px;
+          padding: 9px 20px;
+          font-size: 13.5px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .cred-enquiry-cancel-btn:hover {
+          background: var(--fill-ghost-hover, #F4F4F4);
+        }
+        .cred-enquiry-submit-btn {
+          background: var(--black, #0A0A0A);
+          color: #FFFFFF;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 9999px;
+          padding: 9px 24px;
+          font-size: 13.5px;
+          font-weight: 500;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.15s ease;
+        }
+        .cred-enquiry-submit-btn:hover:not(:disabled) {
+          background: #232323;
+        }
+        .cred-enquiry-tabs .cred-atabs-count {
+          background: transparent !important;
+          padding: 0 !important;
+          margin-left: 6px !important;
+          font-weight: 500 !important;
+          font-size: 12px !important;
+          opacity: 0.75 !important;
+          border-radius: 0 !important;
+        }
+        .cred-enquiry-tabs .cred-atabs-tab.is-active .cred-atabs-count {
+          background: transparent !important;
+          color: var(--tab-active-text, #FFFFFF) !important;
+          opacity: 0.95 !important;
+        }
+        .modal-body {
+          scrollbar-width: thin !important;
+          scrollbar-color: var(--border, #D9D9D9) transparent !important;
+        }
+        .modal-body::-webkit-scrollbar {
+          width: 5px !important;
+        }
+        .modal-body::-webkit-scrollbar-track {
+          background: transparent !important;
+        }
+        .modal-body::-webkit-scrollbar-thumb {
+          background: var(--border, #D9D9D9) !important;
+          border-radius: 999px !important;
+        }
+        [data-theme='dark'] .cred-input,
+        body.cb-dark-bw .cred-input,
+        [data-theme='dark'] .cred-textarea,
+        body.cb-dark-bw .cred-textarea {
+          background: #141517;
+          border-color: #282B32;
+          color: #FFFFFF;
+        }
+        [data-theme='dark'] .cred-input:focus,
+        body.cb-dark-bw .cred-input:focus,
+        [data-theme='dark'] .cred-textarea:focus,
+        body.cb-dark-bw .cred-textarea:focus {
+          border-color: #FFFFFF;
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+        }
+        [data-theme='dark'] .cred-link-btn:hover,
+        body.cb-dark-bw .cred-link-btn:hover {
+          color: #FFFFFF;
+        }
+        [data-theme='dark'] .cred-enquiry-submit-btn,
+        body.cb-dark-bw .cred-enquiry-submit-btn {
+          background: #FFFFFF;
+          color: #0A0A0A;
+          border: 1px solid #E4E4E4;
+        }
+        [data-theme='dark'] .cred-enquiry-submit-btn:hover:not(:disabled),
+        body.cb-dark-bw .cred-enquiry-submit-btn:hover:not(:disabled) {
+          background: #EAEAEA;
+        }
+      `}</style>
     </div>
+
   )
 }
