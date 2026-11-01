@@ -245,14 +245,14 @@ const Settings = ({ mode }) => {
               alignItems: 'center', 
               gap: '6px', 
               fontSize: '12.5px', 
-              color: '#15803D',
-              background: '#F0FDF4',
-              border: '1px solid #DCFCE7',
+              color: 'var(--text, #18181B)',
+              background: '#F4F4F5',
+              border: '1px solid #E4E4E7',
               padding: '6px 14px',
               borderRadius: '9999px',
               fontWeight: 500
             }}>
-              <CheckCircle2 size={14} strokeWidth={2.2} /> Instant Save Active
+              <CheckCircle2 size={14} strokeWidth={2} style={{ color: 'var(--text, #18181B)' }} /> Instant Save Active
             </span>
           ) : (
             <PageHeaderButton
@@ -274,7 +274,7 @@ const Settings = ({ mode }) => {
               borderRadius: '9999px',
               border: '1px solid var(--border, #E4E4E4)',
               background: 'var(--card-bg, #FFFFFF)',
-              color: 'var(--danger, #DC2626)',
+              color: 'var(--text, #18181B)',
               fontSize: '13px',
               fontWeight: 500,
               display: 'inline-flex',
@@ -284,8 +284,8 @@ const Settings = ({ mode }) => {
               transition: 'all 0.15s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#FEF2F2'
-              e.currentTarget.style.borderColor = '#FCA5A5'
+              e.currentTarget.style.background = '#F4F4F5'
+              e.currentTarget.style.borderColor = '#D4D4D8'
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'var(--card-bg, #FFFFFF)'
@@ -471,9 +471,9 @@ const Settings = ({ mode }) => {
                                 fontWeight: 600,
                                 padding: '2px 8px',
                                 borderRadius: '9999px',
-                                background: isEnabled ? '#F0FDF4' : '#F8FAFC',
-                                color: isEnabled ? '#15803D' : '#94A3B8',
-                                border: `1px solid ${isEnabled ? '#DCFCE7' : '#E2E8F0'}`,
+                                background: isEnabled ? '#F4F4F5' : 'transparent',
+                                color: isEnabled ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
+                                border: '1px solid #E4E4E7',
                                 letterSpacing: '0.04em'
                               }}>
                                 {isEnabled ? 'VISIBLE' : 'HIDDEN'}

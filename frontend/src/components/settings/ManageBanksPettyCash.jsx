@@ -698,9 +698,9 @@ const ManageBanksPettyCash = () => {
                             borderRadius: '9999px',
                             fontSize: '11px',
                             fontWeight: 600,
-                            background: bank.status === 'Active' ? '#F0FDF4' : '#F8FAFC',
-                            color: bank.status === 'Active' ? '#15803D' : '#64748B',
-                            border: `1px solid ${bank.status === 'Active' ? '#DCFCE7' : '#E2E8F0'}`,
+                            background: bank.status === 'Active' ? '#F4F4F5' : 'transparent',
+                            color: bank.status === 'Active' ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
+                            border: '1px solid #E4E4E7',
                             letterSpacing: '0.02em'
                           }}>
                             {bank.status || 'Active'}
@@ -741,7 +741,7 @@ const ManageBanksPettyCash = () => {
                                 borderRadius: '8px',
                                 border: '1px solid var(--border, #E4E4E4)',
                                 background: 'var(--card-bg, #FFFFFF)',
-                                color: 'var(--danger, #DC2626)',
+                                color: 'var(--text-muted, #71717A)',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -749,12 +749,12 @@ const ManageBanksPettyCash = () => {
                                 transition: 'all 0.15s ease'
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#FEF2F2'
-                                e.currentTarget.style.borderColor = '#FCA5A5'
+                                e.currentTarget.style.backgroundColor = '#F4F4F5'
+                                e.currentTarget.style.color = 'var(--text, #18181B)'
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'
-                                e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
+                                e.currentTarget.style.color = 'var(--text-muted, #71717A)'
                               }}
                             >
                               <Trash2 size={13} strokeWidth={2} />
@@ -920,9 +920,9 @@ const ManageBanksPettyCash = () => {
                             borderRadius: '9999px',
                             fontSize: '11px',
                             fontWeight: 600,
-                            background: account.status === 'Active' ? '#F0FDF4' : '#F8FAFC',
-                            color: account.status === 'Active' ? '#15803D' : '#64748B',
-                            border: `1px solid ${account.status === 'Active' ? '#DCFCE7' : '#E2E8F0'}`,
+                            background: account.status === 'Active' ? '#F4F4F5' : 'transparent',
+                            color: account.status === 'Active' ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
+                            border: '1px solid #E4E4E7',
                             letterSpacing: '0.02em'
                           }}>
                             {account.status || 'Active'}
@@ -963,7 +963,7 @@ const ManageBanksPettyCash = () => {
                                 borderRadius: '8px',
                                 border: '1px solid var(--border, #E4E4E4)',
                                 background: 'var(--card-bg, #FFFFFF)',
-                                color: 'var(--danger, #DC2626)',
+                                color: 'var(--text-muted, #71717A)',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -971,8 +971,8 @@ const ManageBanksPettyCash = () => {
                                 transition: 'all 0.15s ease'
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#FEF2F2'
-                                e.currentTarget.style.borderColor = '#FCA5A5'
+                                e.currentTarget.style.backgroundColor = '#F4F4F5'
+                                e.currentTarget.style.color = 'var(--text, #18181B)'
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'
