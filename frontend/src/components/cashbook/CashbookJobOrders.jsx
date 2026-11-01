@@ -936,9 +936,6 @@ export default function CashbookJobOrders({
                 Job Orders
               </h2>
             </div>
-            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: textMuted }}>
-              Manage client job orders, advance deposits, and receivables directly in Cashbook
-            </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
