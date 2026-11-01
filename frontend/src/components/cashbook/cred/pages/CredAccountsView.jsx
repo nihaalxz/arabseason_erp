@@ -19,6 +19,7 @@ import CredAnimatedTabs from '../CredAnimatedTabs';
 import GooeyMenu from '../GooeyMenu';
 import CredPagination from '../CredPagination';
 import CredCardCarousel from '../CredCardCarousel';
+import MoneyCard from '../MoneyCard';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst, formatJobRef } from '../usePagination';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
