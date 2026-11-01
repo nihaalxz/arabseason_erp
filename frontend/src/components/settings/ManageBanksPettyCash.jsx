@@ -7,7 +7,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  Search,
   RefreshCw,
   CheckCircle,
   AlertCircle,
@@ -17,6 +16,10 @@ import {
   User
 } from '../icons'
 import { showConfirm, showToast, showError, showSuccess } from '../../utils/swal'
+import PageHeaderButton from '../common/PageHeaderButton'
+import { CredAnimatedTabs } from '../cashbook/cred/CredAnimatedTabs'
+import CredSearchInput from '../cashbook/cred/CredSearchInput'
+import PlainFilterDropdown from '../common/PlainFilterDropdown'
 
 const ManageBanksPettyCash = () => {
   const [subTab, setSubTab] = useState('banks') // 'banks' | 'petty_cash'
@@ -356,440 +359,640 @@ const ManageBanksPettyCash = () => {
   const totalPettyBalance = safePetty.reduce((sum, p) => sum + (parseFloat(p.balance) || 0), 0)
 
   return (
-    <div style={{ maxWidth: '1200px', width: '100%' }}>
-      {/* Top Banner */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '1.5rem',
-          paddingBottom: '1.25rem',
-          borderBottom: '1px solid var(--border-color)'
-        }}
-      >
-        <div>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.35rem', color: 'var(--text-main)' }}>
-            Manage Banks & Petty Cash Accounts
-          </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, maxWidth: '650px', lineHeight: '1.45' }}>
-            Maintain corporate bank details, IBAN numbers, and employee petty cash custody accounts. Account balances and transactions will be reflected across Cashbook operations.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button
-            type="button"
-            className="btn glass-panel"
-            onClick={fetchData}
-            title="Refresh"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh
-          </button>
-
-          {subTab === 'banks' ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => handleOpenBankModal()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Plus size={16} /> Add Bank Account
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => handleOpenPettyModal()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Plus size={16} /> Add Petty Cash Account
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Summary KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div className="glass-panel" style={{ padding: '1.1rem 1.25rem', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+    <div style={{ width: '100%', minWidth: 0 }}>
+      {/* ── 1. Summary KPI Cards ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '16px',
+        marginBottom: '20px'
+      }}>
+        {/* Card 1: Bank Reserve */}
+        <div style={{
+          background: 'var(--card-bg, #FFFFFF)',
+          borderRadius: '20px',
+          padding: '20px 24px',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em' }}>
               Total Bank Reserve
             </span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(19, 102, 217, 0.12)', color: 'var(--primary, #1366d9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Landmark size={18} />
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              border: '1px solid var(--border, #E4E4E4)',
+              background: '#FBFBFB',
+              color: 'var(--text, #0A0A0A)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Landmark size={15} strokeWidth={1.8} />
             </div>
           </div>
-          <div style={{ fontSize: '1.45rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '0.5rem' }}>
-            {totalBankBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>SAR</span>
+          <div style={{
+            fontSize: '28px',
+            fontWeight: 600,
+            color: 'var(--text, #0A0A0A)',
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '6px'
+          }}>
+            <span>{totalBankBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
           </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            {safeBanks.filter(b => b.status === 'Active').length} of {safeBanks.length} banks active
+          <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px' }}>
+            {safeBanks.filter(b => b.status === 'Active').length} of {safeBanks.length} bank accounts active
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '1.1rem 1.25rem', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {/* Card 2: Petty Cash Float */}
+        <div style={{
+          background: 'var(--card-bg, #FFFFFF)',
+          borderRadius: '20px',
+          padding: '20px 24px',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em' }}>
               Total Petty Cash Float
             </span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Wallet size={18} />
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              border: '1px solid var(--border, #E4E4E4)',
+              background: '#FBFBFB',
+              color: 'var(--text, #0A0A0A)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Wallet size={15} strokeWidth={1.8} />
             </div>
           </div>
-          <div style={{ fontSize: '1.45rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '0.5rem' }}>
-            {totalPettyBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>SAR</span>
+          <div style={{
+            fontSize: '28px',
+            fontWeight: 600,
+            color: 'var(--text, #0A0A0A)',
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '6px'
+          }}>
+            <span>{totalPettyBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
           </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px' }}>
             {safePetty.filter(p => p.status === 'Active').length} of {safePetty.length} custody accounts active
           </div>
         </div>
       </div>
 
-      {/* Sub Tabs Selector & Filters */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '1.25rem'
-        }}
-      >
-        <div style={{ display: 'inline-flex', background: 'var(--card-bg, #f1f5f9)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-          <button
-            type="button"
-            onClick={() => setSubTab('banks')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontWeight: '700',
-              fontSize: '0.85rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              background: subTab === 'banks' ? 'var(--primary, #1366d9)' : 'transparent',
-              color: subTab === 'banks' ? '#ffffff' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Landmark size={16} />
-            Bank Accounts ({safeBanks.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setSubTab('petty_cash')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontWeight: '700',
-              fontSize: '0.85rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              background: subTab === 'petty_cash' ? 'var(--primary, #1366d9)' : 'transparent',
-              color: subTab === 'petty_cash' ? '#ffffff' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Wallet size={16} />
-            Petty Cash Accounts ({safePetty.length})
-          </button>
-        </div>
+      {/* ── 2. Controls & Actions Bar ── */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '12px',
+        marginBottom: '16px'
+      }}>
+        {/* Animated Subtabs */}
+        <CredAnimatedTabs
+          tabs={[
+            { id: 'banks', label: `Bank Accounts (${safeBanks.length})` },
+            { id: 'petty_cash', label: `Petty Cash Accounts (${safePetty.length})` }
+          ]}
+          value={subTab}
+          onChange={setSubTab}
+          layoutId="manage-banks-sub-tabs"
+          className="case-preserve"
+        />
 
-        {/* Search & Filter */}
-        <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
-          <div style={{ position: 'relative', width: '220px' }}>
-            <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
-              className="input-field"
-              placeholder={`Search ${subTab === 'banks' ? 'banks, iban...' : 'accounts, staff...'}`}
+        {/* Right Actions: Search, Filter, Refresh, Add Button */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ width: '230px' }}>
+            <CredSearchInput
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '32px', height: '38px', fontSize: '0.82rem' }}
+              placeholder={subTab === 'banks' ? 'Search banks, IBAN...' : 'Search accounts, staff...'}
+              style={{ width: '100%', height: '38px' }}
             />
           </div>
 
-          <select
-            className="input-field"
+          <PlainFilterDropdown
+            options={[
+              { value: 'All', label: 'All Status' },
+              { value: 'Active', label: 'Active' },
+              { value: 'Inactive', label: 'Inactive' }
+            ]}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ height: '38px', fontSize: '0.82rem', width: '120px' }}
+            onChange={setStatusFilter}
+            minWidth={115}
+          />
+
+          <button
+            type="button"
+            className="cred-topstrip-icon-btn"
+            onClick={fetchData}
+            title="Refresh Data"
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              border: '1px solid var(--border, #E4E4E4)',
+              background: 'var(--card-bg, #FFFFFF)',
+              color: 'var(--text, #0A0A0A)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: loading ? 'wait' : 'pointer',
+              transition: 'all 0.15s ease'
+            }}
           >
-            <option value="All">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+            <RefreshCw size={14} strokeWidth={1.8} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
+
+          <PageHeaderButton
+            onClick={subTab === 'banks' ? () => handleOpenBankModal() : () => handleOpenPettyModal()}
+          >
+            {subTab === 'banks' ? 'Add Bank Account' : 'Add Petty Cash Account'}
+          </PageHeaderButton>
         </div>
       </div>
 
-      {/* TAB 1: BANK ACCOUNTS */}
-      {subTab === 'banks' && (
-        <div className="glass-panel" style={{ borderRadius: '12px', overflow: 'hidden' }}>
-          {filteredBanks.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
-              <Landmark size={44} style={{ opacity: 0.35, marginBottom: '0.75rem' }} />
-              <h4 style={{ fontWeight: '700', marginBottom: '0.25rem', color: 'var(--text-main)' }}>No bank accounts found</h4>
-              <p style={{ fontSize: '0.85rem', margin: 0 }}>
-                {searchQuery || statusFilter !== 'All' ? 'Try adjusting your filters.' : 'Get started by adding your first corporate bank account.'}
-              </p>
-              {!searchQuery && statusFilter === 'All' && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => handleOpenBankModal()}
-                  style={{ marginTop: '1rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Plus size={16} /> Add Bank Account
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="table-responsive" style={{ overflowX: 'auto' }}>
-              <table className="erp-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'var(--card-bg, #f8fafc)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
-                    <th style={{ padding: '0.85rem 1rem' }}>Bank & Branch</th>
-                    <th style={{ padding: '0.85rem 1rem' }}>Account Details</th>
-                    <th style={{ padding: '0.85rem 1rem' }}>Account Holder</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Current Balance</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Status</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredBanks.map((bank) => (
-                    <tr key={bank.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
-                      <td style={{ padding: '0.9rem 1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--primary-light, #eff6ff)', color: 'var(--primary, #1366d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <BuildingLibrary size={18} />
+      {/* ── 3. Table Card ── */}
+      <div style={{
+        background: 'var(--card-bg, #FFFFFF)',
+        border: '1px solid var(--border, #E4E4E4)',
+        borderRadius: '20px',
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+      }}>
+        {/* TAB 1: BANK ACCOUNTS */}
+        {subTab === 'banks' && (
+          <div>
+            {filteredBanks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted, #8C8C8C)' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: '#FBFBFB',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px',
+                  color: 'var(--text-muted, #8C8C8C)'
+                }}>
+                  <Landmark size={22} strokeWidth={1.8} />
+                </div>
+                <h4 style={{ fontWeight: 600, fontSize: '15px', marginBottom: '4px', color: 'var(--text, #0A0A0A)' }}>No bank accounts found</h4>
+                <p style={{ fontSize: '13px', margin: 0 }}>
+                  {searchQuery || statusFilter !== 'All' ? 'Try adjusting your search or status filter.' : 'Get started by adding your first corporate bank account.'}
+                </p>
+                {!searchQuery && statusFilter === 'All' && (
+                  <div style={{ marginTop: '16px' }}>
+                    <PageHeaderButton onClick={() => handleOpenBankModal()}>
+                      Add Bank Account
+                    </PageHeaderButton>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="table-responsive" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{
+                      background: '#FBFBFB',
+                      borderBottom: '1px solid var(--border, #E4E4E4)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: 'var(--text-muted, #8C8C8C)',
+                      letterSpacing: '0.02em',
+                      textTransform: 'uppercase'
+                    }}>
+                      <th style={{ padding: '12px 18px' }}>Bank & Branch</th>
+                      <th style={{ padding: '12px 18px' }}>Account Details</th>
+                      <th style={{ padding: '12px 18px' }}>Account Holder</th>
+                      <th style={{ padding: '12px 18px', textAlign: 'right' }}>Current Balance</th>
+                      <th style={{ padding: '12px 18px', textAlign: 'center' }}>Status</th>
+                      <th style={{ padding: '12px 18px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBanks.map((bank) => (
+                      <tr
+                        key={bank.id}
+                        style={{
+                          borderBottom: '1px solid var(--border, #E4E4E4)',
+                          fontSize: '13px',
+                          transition: 'background-color 0.12s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <td style={{ padding: '14px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '10px',
+                              background: '#F8FAFC',
+                              border: '1px solid var(--border, #E4E4E4)',
+                              color: 'var(--text, #0A0A0A)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              <BuildingLibrary size={16} />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>{bank.bank_name}</div>
+                              {bank.branch_name && (
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>{bank.branch_name}</div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{bank.bank_name}</div>
-                            {bank.branch_name && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{bank.branch_name}</div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: '600', color: 'var(--text-main)' }}>
-                            {bank.account_number}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(bank.account_number, 'Account number')}
-                            title="Copy Account Number"
-                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)' }}
-                          >
-                            <Copy size={13} />
-                          </button>
-                        </div>
-                        {bank.iban && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            <span>IBAN: {bank.iban}</span>
+                        <td style={{ padding: '14px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontSize: '13px' }}>
+                              {bank.account_number}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => handleCopy(bank.iban, 'IBAN')}
-                              title="Copy IBAN"
-                              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)' }}
+                              onClick={() => handleCopy(bank.account_number, 'Account number')}
+                              title="Copy Account Number"
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: '2px 4px',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted, #8C8C8C)',
+                                borderRadius: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center'
+                              }}
                             >
-                              <Copy size={12} />
+                              <Copy size={13} />
                             </button>
                           </div>
-                        )}
-                      </td>
+                          {bank.iban && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '3px' }}>
+                              <span>IBAN: {bank.iban}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(bank.iban, 'IBAN')}
+                                title="Copy IBAN"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '2px 4px',
+                                  cursor: 'pointer',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <Copy size={12} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', color: 'var(--text-main)', fontWeight: '500' }}>
-                        {bank.account_holder_name || '—'}
-                      </td>
+                        <td style={{ padding: '14px 18px', color: 'var(--text, #0A0A0A)', fontWeight: 500 }}>
+                          {bank.account_holder_name || '—'}
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', textAlign: 'right' }}>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: parseFloat(bank.balance) < 0 ? '#ef4444' : '#10b981' }}>
-                          {(parseFloat(bank.balance) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px', fontWeight: '600' }}>
-                          {bank.currency || 'SAR'}
-                        </span>
-                      </td>
+                        <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                          <span style={{
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            fontVariantNumeric: 'tabular-nums',
+                            color: parseFloat(bank.balance) < 0 ? '#DC2626' : '#15803D'
+                          }}>
+                            {(parseFloat(bank.balance) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 500 }}>
+                            {bank.currency || 'SAR'}
+                          </span>
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', textAlign: 'center' }}>
-                        <span
-                          style={{
+                        <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                          <span style={{
                             display: 'inline-block',
-                            padding: '3px 8px',
-                            borderRadius: '999px',
-                            fontSize: '0.72rem',
-                            fontWeight: '700',
-                            background: bank.status === 'Active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(100, 116, 139, 0.12)',
-                            color: bank.status === 'Active' ? '#10b981' : '#64748b'
-                          }}
-                        >
-                          {bank.status || 'Active'}
-                        </span>
-                      </td>
+                            padding: '3px 9px',
+                            borderRadius: '9999px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            background: bank.status === 'Active' ? '#F0FDF4' : '#F8FAFC',
+                            color: bank.status === 'Active' ? '#15803D' : '#64748B',
+                            border: `1px solid ${bank.status === 'Active' ? '#DCFCE7' : '#E2E8F0'}`,
+                            letterSpacing: '0.02em'
+                          }}>
+                            {bank.status || 'Active'}
+                          </span>
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                          <button
-                            type="button"
-                            className="btn glass-panel"
-                            onClick={() => handleOpenBankModal(bank)}
-                            title="Edit Bank Account"
-                            style={{ padding: '6px 9px', borderRadius: '6px' }}
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn glass-panel"
-                            onClick={() => handleDeleteBank(bank)}
-                            title="Delete Bank Account"
-                            style={{ padding: '6px 9px', borderRadius: '6px', color: 'var(--danger)' }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
+                        <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenBankModal(bank)}
+                              title="Edit Bank Account"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border, #E4E4E4)',
+                                background: 'var(--card-bg, #FFFFFF)',
+                                color: 'var(--text, #0A0A0A)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'}
+                            >
+                              <Edit size={13} strokeWidth={2} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBank(bank)}
+                              title="Delete Bank Account"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border, #E4E4E4)',
+                                background: 'var(--card-bg, #FFFFFF)',
+                                color: 'var(--danger, #DC2626)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#FEF2F2'
+                                e.currentTarget.style.borderColor = '#FCA5A5'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'
+                                e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
+                              }}
+                            >
+                              <Trash2 size={13} strokeWidth={2} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: PETTY CASH ACCOUNTS */}
+        {subTab === 'petty_cash' && (
+          <div>
+            {filteredPetty.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted, #8C8C8C)' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: '#FBFBFB',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px',
+                  color: 'var(--text-muted, #8C8C8C)'
+                }}>
+                  <Wallet size={22} strokeWidth={1.8} />
+                </div>
+                <h4 style={{ fontWeight: 600, fontSize: '15px', marginBottom: '4px', color: 'var(--text, #0A0A0A)' }}>No petty cash accounts found</h4>
+                <p style={{ fontSize: '13px', margin: 0 }}>
+                  {searchQuery || statusFilter !== 'All' ? 'Try adjusting your search or status filter.' : 'Set up employee custody floats or office petty cash accounts.'}
+                </p>
+                {!searchQuery && statusFilter === 'All' && (
+                  <div style={{ marginTop: '16px' }}>
+                    <PageHeaderButton onClick={() => handleOpenPettyModal()}>
+                      Add Petty Cash Account
+                    </PageHeaderButton>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="table-responsive" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{
+                      background: '#FBFBFB',
+                      borderBottom: '1px solid var(--border, #E4E4E4)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: 'var(--text-muted, #8C8C8C)',
+                      letterSpacing: '0.02em',
+                      textTransform: 'uppercase'
+                    }}>
+                      <th style={{ padding: '12px 18px' }}>Account Name</th>
+                      <th style={{ padding: '12px 18px' }}>Custodian / In-Charge</th>
+                      <th style={{ padding: '12px 18px' }}>Notes / Purpose</th>
+                      <th style={{ padding: '12px 18px', textAlign: 'right' }}>Current Balance</th>
+                      <th style={{ padding: '12px 18px', textAlign: 'center' }}>Status</th>
+                      <th style={{ padding: '12px 18px', textAlign: 'right' }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 2: PETTY CASH ACCOUNTS */}
-      {subTab === 'petty_cash' && (
-        <div className="glass-panel" style={{ borderRadius: '12px', overflow: 'hidden' }}>
-          {filteredPetty.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
-              <Wallet size={44} style={{ opacity: 0.35, marginBottom: '0.75rem' }} />
-              <h4 style={{ fontWeight: '700', marginBottom: '0.25rem', color: 'var(--text-main)' }}>No petty cash accounts found</h4>
-              <p style={{ fontSize: '0.85rem', margin: 0 }}>
-                {searchQuery || statusFilter !== 'All' ? 'Try adjusting your filters.' : 'Set up employee custody floats or office petty cash accounts.'}
-              </p>
-              {!searchQuery && statusFilter === 'All' && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => handleOpenPettyModal()}
-                  style={{ marginTop: '1rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Plus size={16} /> Add Petty Cash Account
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="table-responsive" style={{ overflowX: 'auto' }}>
-              <table className="erp-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'var(--card-bg, #f8fafc)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
-                    <th style={{ padding: '0.85rem 1rem' }}>Account Name</th>
-                    <th style={{ padding: '0.85rem 1rem' }}>Custodian / In-Charge</th>
-                    <th style={{ padding: '0.85rem 1rem' }}>Notes / Purpose</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Current Balance</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Status</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPetty.map((account) => (
-                    <tr key={account.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
-                      <td style={{ padding: '0.9rem 1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <Wallet size={18} />
+                  </thead>
+                  <tbody>
+                    {filteredPetty.map((account) => (
+                      <tr
+                        key={account.id}
+                        style={{
+                          borderBottom: '1px solid var(--border, #E4E4E4)',
+                          fontSize: '13px',
+                          transition: 'background-color 0.12s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <td style={{ padding: '14px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '10px',
+                              background: '#F8FAFC',
+                              border: '1px solid var(--border, #E4E4E4)',
+                              color: 'var(--text, #0A0A0A)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              <Wallet size={16} />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>{account.name}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>ID: PCA-{account.id}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{account.name}</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ID: PCA-{account.id}</div>
+                        </td>
+
+                        <td style={{ padding: '14px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '50%',
+                              background: 'var(--black, #0A0A0A)',
+                              color: '#FFFFFF',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              {(account.holder_name || account.owner_name || account.linked_user_name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>
+                                {account.holder_name || account.owner_name || account.linked_user_name || 'Unassigned'}
+                              </div>
+                              {account.linked_user_name && account.holder_name && account.linked_user_name !== account.holder_name && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
+                                  User: @{account.linked_user_name}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', color: 'var(--text-main)', fontWeight: '600' }}>
-                        <div>{account.holder_name || account.owner_name || '—'}</div>
-                        {(account.owner_name || account.linked_user_name) && (
-                          <div style={{ fontSize: '0.73rem', color: 'var(--primary, #1366d9)', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '3px', background: 'rgba(19, 102, 217, 0.08)', padding: '2px 6px', borderRadius: '4px' }}>
-                            <User size={12} />
-                            <span>Linked: {account.owner_name || account.linked_user_name}</span>
-                          </div>
-                        )}
-                      </td>
+                        <td style={{ padding: '14px 18px', color: 'var(--text-muted, #8C8C8C)', fontSize: '12.5px', maxWidth: '280px' }}>
+                          <span style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            lineHeight: '1.4'
+                          }}>
+                            {account.notes || '—'}
+                          </span>
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '300px' }}>
-                        {account.notes || '—'}
-                      </td>
+                        <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                          <span style={{
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            fontVariantNumeric: 'tabular-nums',
+                            color: parseFloat(account.balance) < 0 ? '#DC2626' : '#15803D'
+                          }}>
+                            {(parseFloat(account.balance) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 500 }}>
+                            {account.currency || 'SAR'}
+                          </span>
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', textAlign: 'right' }}>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: parseFloat(account.balance) < 0 ? '#ef4444' : '#10b981' }}>
-                          {(parseFloat(account.balance) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px', fontWeight: '600' }}>
-                          {account.currency || 'SAR'}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '0.9rem 1rem', textAlign: 'center' }}>
-                        <span
-                          style={{
+                        <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                          <span style={{
                             display: 'inline-block',
-                            padding: '3px 8px',
-                            borderRadius: '999px',
-                            fontSize: '0.72rem',
-                            fontWeight: '700',
-                            background: account.status === 'Active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(100, 116, 139, 0.12)',
-                            color: account.status === 'Active' ? '#10b981' : '#64748b'
-                          }}
-                        >
-                          {account.status || 'Active'}
-                        </span>
-                      </td>
+                            padding: '3px 9px',
+                            borderRadius: '9999px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            background: account.status === 'Active' ? '#F0FDF4' : '#F8FAFC',
+                            color: account.status === 'Active' ? '#15803D' : '#64748B',
+                            border: `1px solid ${account.status === 'Active' ? '#DCFCE7' : '#E2E8F0'}`,
+                            letterSpacing: '0.02em'
+                          }}>
+                            {account.status || 'Active'}
+                          </span>
+                        </td>
 
-                      <td style={{ padding: '0.9rem 1rem', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                          <button
-                            type="button"
-                            className="btn glass-panel"
-                            onClick={() => handleOpenPettyModal(account)}
-                            title="Edit Account"
-                            style={{ padding: '6px 9px', borderRadius: '6px' }}
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn glass-panel"
-                            onClick={() => handleDeletePetty(account)}
-                            title="Delete Account"
-                            style={{ padding: '6px 9px', borderRadius: '6px', color: 'var(--danger)' }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                        <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPettyModal(account)}
+                              title="Edit Account"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border, #E4E4E4)',
+                                background: 'var(--card-bg, #FFFFFF)',
+                                color: 'var(--text, #0A0A0A)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'}
+                            >
+                              <Edit size={13} strokeWidth={2} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePetty(account)}
+                              title="Delete Account"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border, #E4E4E4)',
+                                background: 'var(--card-bg, #FFFFFF)',
+                                color: 'var(--danger, #DC2626)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#FEF2F2'
+                                e.currentTarget.style.borderColor = '#FCA5A5'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'
+                                e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
+                              }}
+                            >
+                              <Trash2 size={13} strokeWidth={2} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
 
       {/* BANK ACCOUNT MODAL */}
       <Modal
