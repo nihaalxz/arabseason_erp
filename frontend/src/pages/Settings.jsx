@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, useLocation } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { 
-  Settings as SettingsIcon, Shield, Globe, Save, LogOut, Info, 
+  Shield, Globe, Save, LogOut, 
   AlertCircle, CheckCircle, User, Sliders, Check, 
-  RotateCcw, Eye, EyeOff, Layers, Briefcase, CheckCircle2, Landmark
+  RotateCcw, CheckCircle2, Landmark, Lock
 } from '../components/icons'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm } from '../utils/swal'
 import ManageBanksPettyCash from '../components/settings/ManageBanksPettyCash'
+import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 
 const Settings = ({ mode }) => {
   const location = useLocation()
@@ -33,22 +35,17 @@ const Settings = ({ mode }) => {
   const [success, setSuccess] = useState('')
   const { refreshSettings } = useSettings()
   const {
-    workspaceMode,
     features,
-    setWorkspaceMode,
     toggleFeature,
     resetToDefault,
-    presets,
-    featureDefinitions,
     accountingFeatureDefinitions,
     operationsFeatureDefinitions,
-    isMinimalist
   } = useWorkspace()
 
   const activeFeatureDefs = isAccounting
     ? (accountingFeatureDefinitions || [])
     : (operationsFeatureDefinitions || [])
-  
+
   // Form States
   const [formData, setFormData] = useState({
     company_name: '',
@@ -66,9 +63,16 @@ const Settings = ({ mode }) => {
     confirm_password: ''
   })
 
-  const tabs = isAccounting
+  const [profileData, setProfileData] = useState({
+    username: '',
+    first_name: '',
+    last_name: '',
+    email: ''
+  })
+
+  const tabs = useMemo(() => isAccounting
     ? [
-        { id: 'manage-banks-cash', name: 'Manage Banks and Petty Cash', icon: Landmark },
+        { id: 'manage-banks-cash', name: 'Manage Banks & Petty Cash', icon: Landmark },
         { id: 'localization', name: 'Localization & Currency', icon: Globe },
         { id: 'workspace', name: 'Financial Modules', icon: Sliders },
         { id: 'profile', name: 'My Profile', icon: User },
@@ -79,13 +83,17 @@ const Settings = ({ mode }) => {
         { id: 'profile', name: 'My Profile', icon: User },
         { id: 'security', name: 'Security', icon: Shield },
         { id: 'localization', name: 'Localization', icon: Globe },
-      ]
+      ], [isAccounting])
 
-  const [profileData, setProfileData] = useState({
-    first_name: '',
-    last_name: '',
-    email: ''
-  })
+  const animatedTabList = useMemo(() => tabs.map(tab => ({
+    id: tab.id,
+    label: (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <tab.icon size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
+        <span>{tab.name}</span>
+      </span>
+    )
+  })), [tabs])
 
   useEffect(() => {
     const tabParam = searchParams.get('tab')
@@ -149,7 +157,7 @@ const Settings = ({ mode }) => {
         refreshSettings() // Refresh global context immediately
       }
       
-      setSuccess('Updated successfully!')
+      setSuccess('Settings updated successfully!')
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to save changes.')
@@ -200,320 +208,526 @@ const Settings = ({ mode }) => {
         window.location.href = '/login'
       } catch (err) {
         console.error('Logout failed', err)
-        // Fallback: Clear storage and redirect
         window.localStorage.clear()
         window.location.href = '/login'
       }
     }
   }
 
-  if (loading) return <div style={{ padding: '3rem', maxWidth: '800px', margin: '0 auto' }}><SkeletonLoader type="form" /></div>
+  if (loading) {
+    return (
+      <div className="erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
+        <SkeletonLoader type="form" />
+      </div>
+    )
+  }
 
   return (
-    <div className="settings-page erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <SettingsIcon size={24} className="text-primary" />
-          <h2>{isAccounting ? 'Accounting Settings & Configuration' : 'Site Settings & Configuration'}</h2>
+    <div className="erp-page-container erp-page-transition" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', paddingBottom: '3rem' }}>
+      
+      {/* ── 1. Page Header ── */}
+      <div className="page-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }}>
+            {isAccounting ? 'Accounting Settings' : 'Settings'}
+          </h1>
+          <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
+            {isAccounting
+              ? 'Configure company bank accounts, petty cash custody, localization, and module visibility'
+              : 'Configure system preferences, operations module visibility, and security settings'}
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           {['workspace', 'manage-banks-cash'].includes(activeTab) ? (
-            activeTab === 'workspace' ? (
-              <span style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                gap: '6px', 
-                fontSize: '0.8rem', 
-                color: 'var(--success, #10b981)',
-                background: '#ecfdf5',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontWeight: '600'
-              }}>
-                <CheckCircle2 size={16} /> Saved Instantly
-              </span>
-            ) : null
+            <span style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              fontSize: '12.5px', 
+              color: '#15803D',
+              background: '#F0FDF4',
+              border: '1px solid #DCFCE7',
+              padding: '6px 14px',
+              borderRadius: '9999px',
+              fontWeight: 500
+            }}>
+              <CheckCircle2 size={14} strokeWidth={2.2} /> Instant Save Active
+            </span>
           ) : (
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-              <Save size={18} /> {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            <PageHeaderButton
+              onClick={handleSave}
+              disabled={saving}
+              icon={Save}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </PageHeaderButton>
           )}
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Log Out of System"
+            style={{
+              height: '36px',
+              padding: '0 14px',
+              borderRadius: '9999px',
+              border: '1px solid var(--border, #E4E4E4)',
+              background: 'var(--card-bg, #FFFFFF)',
+              color: 'var(--danger, #DC2626)',
+              fontSize: '13px',
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#FEF2F2'
+              e.currentTarget.style.borderColor = '#FCA5A5'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--card-bg, #FFFFFF)'
+              e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
+            }}
+          >
+            <LogOut size={14} /> Exit / Log Out
+          </button>
         </div>
       </div>
 
+      {/* ── 2. Navigation Tabs (Horizontal Animated Tabs matching other pages) ── */}
+      <div style={{ marginBottom: '22px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px' }}>
+        <CredAnimatedTabs
+          tabs={animatedTabList}
+          value={activeTab}
+          onChange={handleTabChange}
+          layoutId="settings-main-tabs"
+          className="case-preserve"
+        />
+      </div>
+
+      {/* ── 3. Feedback Banner ── */}
       {(error || success) && (
-        <div className={error ? "error-message" : "success-message"} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {error ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
-          {error || success}
+        <div style={{
+          marginBottom: '20px',
+          padding: '12px 16px',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '13.5px',
+          fontWeight: 500,
+          background: error ? '#FEF2F2' : '#F0FDF4',
+          border: `1px solid ${error ? '#FCA5A5' : '#86EFAC'}`,
+          color: error ? '#991B1B' : '#166534'
+        }}>
+          {error ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+          <span>{error || success}</span>
         </div>
       )}
 
-      <div className="glass-panel settings-layout">
-        {/* Settings Sidebar */}
-        <div className="settings-sidebar">
-          <div className="settings-tabs-list">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`settings-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-              >
-                <tab.icon size={18} />
-                <span>{tab.name}</span>
-              </button>
-            ))}
+      {/* ── 4. Tab Content Area ── */}
+
+      {/* Manage Banks & Petty Cash (Full Width) */}
+      {activeTab === 'manage-banks-cash' && (
+        <ManageBanksPettyCash />
+      )}
+
+      {/* Operations / Financial Modules */}
+      {activeTab === 'workspace' && (
+        <div style={{
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          borderRadius: '20px',
+          padding: '24px 28px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '24px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid var(--border, #E4E4E4)'
+          }}>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>
+                {isAccounting ? 'Financial Modules & Navigation Visibility' : 'Operations Modules & Navigation Visibility'}
+              </h2>
+              <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0', maxWidth: '640px', lineHeight: '1.45' }}>
+                {isAccounting
+                  ? 'Toggle financial modules on/off to declutter your accounting sidebar without deleting any ledger or financial data.'
+                  : 'Toggle operations modules on/off to customize which workflows appear in your operations navigation.'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetToDefault}
+              style={{
+                height: '34px',
+                padding: '0 14px',
+                borderRadius: '9999px',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--card-bg, #FFFFFF)',
+                color: 'var(--text, #0A0A0A)',
+                fontSize: '13px',
+                fontWeight: 500,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--card-bg, #FFFFFF)'}
+              title={isAccounting ? "Reset all financial modules to enabled" : "Reset all operations modules to enabled"}
+            >
+              <RotateCcw size={13} strokeWidth={2} /> Reset to Default
+            </button>
           </div>
-          
-          <div className="settings-logout-wrap">
-             <button 
-               className="btn glass-panel" 
-               onClick={handleLogout}
-               style={{ width: '100%', color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}
-             >
-               <LogOut size={18} /> Exit / Log Out
-             </button>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {activeFeatureDefs.map((cat, catIdx) => {
+              const enabledCount = cat.items.filter(it => Boolean(features[it.key])).length
+              return (
+                <div key={catIdx}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>
+                        {cat.category}
+                      </span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', fontWeight: 400 }}>
+                        ({enabledCount} of {cat.items.length} enabled)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
+                    gap: '12px'
+                  }}>
+                    {cat.items.map((item) => {
+                      const isEnabled = Boolean(features[item.key])
+                      return (
+                        <div
+                          key={item.key}
+                          onClick={() => toggleFeature(item.key)}
+                          style={{
+                            background: '#FFFFFF',
+                            border: `1px solid ${isEnabled ? 'var(--text, #0A0A0A)' : 'var(--border, #E4E4E4)'}`,
+                            borderRadius: '16px',
+                            padding: '16px 18px',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '14px',
+                            cursor: 'pointer',
+                            transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                            boxShadow: isEnabled ? '0 1px 4px rgba(0,0,0,0.04)' : 'none'
+                          }}
+                        >
+                          {/* Toggle Switch */}
+                          <div style={{
+                            marginTop: '2px',
+                            width: '36px',
+                            height: '20px',
+                            borderRadius: '9999px',
+                            background: isEnabled ? 'var(--black, #0A0A0A)' : '#E2E8F0',
+                            position: 'relative',
+                            flexShrink: 0,
+                            transition: 'background-color 0.2s ease'
+                          }}>
+                            <div style={{
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '50%',
+                              background: '#FFFFFF',
+                              position: 'absolute',
+                              top: '3px',
+                              left: isEnabled ? '19px' : '3px',
+                              transition: 'left 0.2s ease',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                            }} />
+                          </div>
+
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
+                                {item.label}
+                              </span>
+                              <span style={{
+                                fontSize: '10.5px',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '9999px',
+                                background: isEnabled ? '#F0FDF4' : '#F8FAFC',
+                                color: isEnabled ? '#15803D' : '#94A3B8',
+                                border: `1px solid ${isEnabled ? '#DCFCE7' : '#E2E8F0'}`,
+                                letterSpacing: '0.04em'
+                              }}>
+                                {isEnabled ? 'VISIBLE' : 'HIDDEN'}
+                              </span>
+                            </div>
+                            <p style={{
+                              fontSize: '12px',
+                              color: 'var(--text-muted, #8C8C8C)',
+                              lineHeight: '1.45',
+                              margin: 0
+                            }}>
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
+      )}
 
-        {/* Settings Content */}
-        <div className="settings-content-area">
-          {activeTab === 'workspace' && (
-            <div style={{ maxWidth: '960px', width: '100%' }}>
-              {/* Header banner */}
+      {/* My Profile */}
+      {activeTab === 'profile' && (
+        <div style={{ maxWidth: '800px' }}>
+          <div style={{
+            background: 'var(--card-bg, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '20px',
+            padding: '28px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}>
+            {/* User Profile Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid var(--border, #E4E4E4)' }}>
               <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'var(--black, #0A0A0A)',
+                color: '#FFFFFF',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                flexWrap: 'wrap',
-                gap: '1rem',
-                marginBottom: '1.75rem',
-                paddingBottom: '1.25rem',
-                borderBottom: '1px solid var(--border-color)'
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                fontWeight: 600,
+                flexShrink: 0
               }}>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '0.35rem', color: 'var(--text-main)' }}>
-                    {isAccounting ? 'Financial Modules & Navigation Visibility' : 'Operations Modules & Navigation Visibility'}
-                  </h3>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0, maxWidth: '600px', lineHeight: '1.45' }}>
-                    {isAccounting
-                      ? 'Customize which financial modules and accounting tools appear in your navigation. Toggle individual sales, purchases, treasury, and reporting modules on or off.'
-                      : 'Customize which operations modules appear in your navigation. Toggle individual CRM, job orders, project planning, and delivery modules on or off.'}
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <button
-                    type="button"
-                    onClick={resetToDefault}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                    title={isAccounting ? "Reset all financial modules to enabled" : "Reset all operations modules to enabled"}
-                  >
-                    <RotateCcw size={14} /> Reset to Default
-                  </button>
+                {(profileData.first_name || profileData.username || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
+                  {profileData.first_name || profileData.username} {profileData.last_name}
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)' }}>
+                    @{profileData.username || 'user'}
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    background: '#F1F5F9',
+                    color: '#475569',
+                    border: '1px solid #E2E8F0'
+                  }}>
+                    Super Administrator
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {/* Section 2: Detailed Feature Visibility Toggles */}
+            {/* Profile Inputs */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '16px',
+              marginBottom: '24px'
+            }}>
               <div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  marginBottom: '1rem',
-                  paddingBottom: '0.5rem',
-                  borderBottom: '1px solid var(--border-color)' 
-                }}>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      {isAccounting ? 'FINANCIAL MODULE VISIBILITY' : 'OPERATIONS MODULE VISIBILITY'}
-                    </div>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                      {isAccounting 
-                        ? 'Toggle financial modules on/off. Turning a module off hides it from the accounting sidebar without deleting data.'
-                        : 'Toggle operations modules on/off. Turning a module off hides it from the operations sidebar without deleting data.'}
-                    </p>
-                  </div>
-                </div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={profileData.first_name || ''}
+                  onChange={(e) => setProfileData({ ...profileData, first_name: e.target.value })}
+                  placeholder="Enter first name"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                  {activeFeatureDefs.map((cat, catIdx) => (
-                    <div key={catIdx} style={{ background: '#f8fafc', border: '1px solid #edf0f5', borderRadius: '10px', padding: '1.25rem' }}>
-                      <div style={{ 
-                        fontSize: '0.8rem', 
-                        fontWeight: '700', 
-                        color: 'var(--text-main)', 
-                        marginBottom: '0.85rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                      }}>
-                        <span>{cat.category}</span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '500' }}>
-                          ({cat.items.filter(it => Boolean(features[it.key])).length} of {cat.items.length} enabled)
-                        </span>
-                      </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={profileData.last_name || ''}
+                  onChange={(e) => setProfileData({ ...profileData, last_name: e.target.value })}
+                  placeholder="Enter last name"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
 
-                      <div className="settings-toggles-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.85rem' }}>
-                        {cat.items.map((item) => {
-                          const isEnabled = Boolean(features[item.key])
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={profileData.email || ''}
+                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                  placeholder="name@company.com"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
 
-                          return (
-                            <div
-                              key={item.key}
-                              onClick={() => toggleFeature(item.key)}
-                              style={{
-                                background: '#ffffff',
-                                border: `1.5px solid ${isEnabled ? 'var(--primary, #1366d9)' : '#e2e8f0'}`,
-                                borderRadius: '8px',
-                                padding: '0.85rem 1rem',
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '0.85rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              {/* Custom Toggle Switch */}
-                              <div style={{
-                                marginTop: '2px',
-                                width: '36px',
-                                height: '20px',
-                                borderRadius: '999px',
-                                background: isEnabled ? 'var(--primary, #1366d9)' : '#cbd5e1',
-                                position: 'relative',
-                                flexShrink: 0,
-                                transition: 'background 0.2s ease'
-                              }}>
-                                <div style={{
-                                  width: '14px',
-                                  height: '14px',
-                                  borderRadius: '50%',
-                                  background: '#ffffff',
-                                  position: 'absolute',
-                                  top: '3px',
-                                  left: isEnabled ? '19px' : '3px',
-                                  transition: 'left 0.2s ease',
-                                  boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                                }} />
-                              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Username (Fixed)
+                </label>
+                <input
+                  type="text"
+                  value={profileData.username || ''}
+                  disabled
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: '#F8FAFC',
+                    color: '#64748B',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    cursor: 'not-allowed',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
 
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                                  <span style={{ fontSize: '0.85rem', fontWeight: '600', color: isEnabled ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                                    {item.label}
-                                  </span>
-                                  <span style={{
-                                    fontSize: '0.68rem',
-                                    fontWeight: '700',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    background: isEnabled ? 'var(--primary-light, #ebf3fc)' : '#f1f5f9',
-                                    color: isEnabled ? 'var(--primary, #1366d9)' : '#94a3b8'
-                                  }}>
-                                    {isEnabled ? 'VISIBLE' : 'HIDDEN'}
-                                  </span>
-                                </div>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.25rem 0 0', lineHeight: '1.35' }}>
-                                  {item.description}
-                                </p>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Account Role
+                </label>
+                <input
+                  type="text"
+                  value="Super Administrator"
+                  disabled
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: '#F8FAFC',
+                    color: '#64748B',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    cursor: 'not-allowed',
+                    boxSizing: 'border-box'
+                  }}
+                />
               </div>
             </div>
-          )}
 
-          {activeTab === 'profile' && (
-            <div style={{ maxWidth: '600px', width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', flexShrink: 0 }}>
-                  {profileData.username?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <h3 style={{ marginBottom: '0.25rem', fontSize: '1.2rem', wordBreak: 'break-word' }}>{profileData.first_name || profileData.username} {profileData.last_name}</h3>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>System User / Administrator</p>
-                </div>
-              </div>
-              <div className="form-grid">
-                 <div className="form-group">
-                   <label>Username</label>
-                   <input type="text" className="input-field" value={profileData.username || ''} disabled />
-                 </div>
-                 <div className="form-group">
-                   <label>Account Role</label>
-                   <input type="text" className="input-field" value="Super Administrator" disabled />
-                 </div>
-              </div>
-
-              {/* Quick access to Manage Banks & Petty Cash (Accounting only) */}
-              {isAccounting && (
-                <div style={{
-                  marginTop: '2rem',
-                  padding: '1.25rem',
-                  background: 'var(--card-bg, #f8fafc)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '1rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: 'var(--primary-light, #eff6ff)',
-                      color: 'var(--primary, #1366d9)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <Landmark size={20} />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                        Manage Banks & Petty Cash
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Configure company bank accounts, IBANs, and petty cash custody accounts.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => handleTabChange('manage-banks-cash')}
-                    style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
-                  >
-                    Manage Accounts &rarr;
-                  </button>
-                </div>
-              )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <PageHeaderButton
+                onClick={handleSave}
+                disabled={saving}
+                icon={Save}
+              >
+                {saving ? 'Saving...' : 'Save Profile Changes'}
+              </PageHeaderButton>
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {activeTab === 'manage-banks-cash' && (
-            <ManageBanksPettyCash />
-          )}
+      {/* Localization */}
+      {activeTab === 'localization' && (
+        <div style={{ maxWidth: '700px' }}>
+          <div style={{
+            background: 'var(--card-bg, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '20px',
+            padding: '28px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 6px 0', color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>
+              Localization & Business Preferences
+            </h2>
+            <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '0 0 24px 0', lineHeight: '1.45' }}>
+              Configure company operational currency, timezone alignment, and default document date formatting.
+            </p>
 
-
-          {activeTab === 'localization' && (
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Default Base Currency</label>
-                <select 
-                  className="input-field"
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Default Base Currency
+                </label>
+                <select
                   value={formData.currency}
-                  onChange={(e) => setFormData({...formData, currency: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box'
+                  }}
                 >
                   <option value="AED">UAE Dirham (AED)</option>
                   <option value="SAR">Saudi Riyal (SAR)</option>
@@ -521,82 +735,187 @@ const Settings = ({ mode }) => {
                   <option value="EUR">Euro (€)</option>
                   <option value="GBP">British Pound (£)</option>
                 </select>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', display: 'block' }}>
+                  Applied across invoices, quotations, cashbook ledgers, and accounts.
+                </span>
               </div>
-              <div className="form-group">
-                <label>Business Time Zone</label>
-                <select 
-                  className="input-field"
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Business Time Zone
+                </label>
+                <select
                   value={formData.timezone}
-                  onChange={(e) => setFormData({...formData, timezone: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box'
+                  }}
                 >
+                  <option value="AST">Riyadh (AST +3)</option>
                   <option value="GST">Dubai (GST +4)</option>
                   <option value="UTC">UTC / GMT</option>
-                  <option value="AST">Riyadh (AST +3)</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label>Preferred Date Format</label>
-                <select 
-                  className="input-field"
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Preferred Date Format
+                </label>
+                <select
                   value={formData.date_format}
-                  onChange={(e) => setFormData({...formData, date_format: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, date_format: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box'
+                  }}
                 >
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                  <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 01/11/2026)</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 11/01/2026)</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-11-01)</option>
                 </select>
               </div>
             </div>
-          )}
 
-          {activeTab === 'security' && (
-            <div style={{ maxWidth: '450px' }}>
-              <h3 style={{ marginBottom: '1.5rem' }}>Update Admin Password</h3>
-              <form onSubmit={handleChangePassword}>
-                <div className="form-group">
-                  <label>Current Secure Password</label>
-                  <input 
-                    type="password" 
-                    className="input-field" 
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <PageHeaderButton
+                onClick={handleSave}
+                disabled={saving}
+                icon={Save}
+              >
+                {saving ? 'Saving...' : 'Save Preferences'}
+              </PageHeaderButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security */}
+      {activeTab === 'security' && (
+        <div style={{ maxWidth: '520px' }}>
+          <div style={{
+            background: 'var(--card-bg, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '20px',
+            padding: '28px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 6px 0', color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>
+              Security & Authentication
+            </h2>
+            <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '0 0 24px 0', lineHeight: '1.45' }}>
+              Update your account password. Choose a strong password of at least 8 characters.
+            </p>
+
+            <form onSubmit={handleChangePassword}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                    Current Secure Password
+                  </label>
+                  <input
+                    type="password"
                     value={passwordData.current_password}
-                    onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+                    onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                    placeholder="••••••••"
                     required
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 14px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--card-bg, #FFFFFF)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '13.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
                   />
                 </div>
-                <div className="form-group">
-                  <label>New System Password</label>
-                  <input 
-                    type="password" 
-                    className="input-field" 
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                    New Password
+                  </label>
+                  <input
+                    type="password"
                     value={passwordData.new_password}
-                    onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+                    onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                    placeholder="At least 8 characters"
                     required
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 14px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--card-bg, #FFFFFF)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '13.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
                   />
                 </div>
-                <div className="form-group">
-                  <label>Verify New Password</label>
-                  <input 
-                    type="password" 
-                    className="input-field" 
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                    Verify New Password
+                  </label>
+                  <input
+                    type="password"
                     value={passwordData.confirm_password}
-                    onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                    placeholder="Repeat new password"
                     required
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 14px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      background: 'var(--card-bg, #FFFFFF)',
+                      color: 'var(--text, #0A0A0A)',
+                      fontSize: '13.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
                   />
                 </div>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  style={{ marginTop: '1rem', width: '100%' }}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <PageHeaderButton
+                  type="submit"
                   disabled={saving}
+                  icon={Lock}
                 >
                   {saving ? 'Processing...' : 'Change Password'}
-                </button>
-              </form>
-            </div>
-          )}
-
+                </PageHeaderButton>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
