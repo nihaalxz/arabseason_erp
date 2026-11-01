@@ -10,12 +10,16 @@ import {
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm } from '../utils/swal'
-import FormFieldsManager from '../components/settings/FormFieldsManager'
 import ManageBanksPettyCash from '../components/settings/ManageBanksPettyCash'
+
+const VALID_TABS = ['workspace', 'profile', 'manage-banks-cash', 'security', 'localization', 'system']
 
 const Settings = () => {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'workspace')
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab')
+    return VALID_TABS.includes(tabParam) ? tabParam : 'workspace'
+  })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -51,7 +55,6 @@ const Settings = () => {
 
   const tabs = [
     { id: 'workspace', name: 'Workspace & Modules', icon: Sliders },
-    { id: 'form-fields', name: 'Form Fields', icon: Layers },
     { id: 'profile', name: 'My Profile', icon: User },
     { id: 'manage-banks-cash', name: 'Manage Banks and Petty Cash', icon: Landmark },
     { id: 'security', name: 'Security', icon: Shield },
@@ -67,8 +70,16 @@ const Settings = () => {
 
   useEffect(() => {
     const tabParam = searchParams.get('tab')
-    if (tabParam && tabParam !== activeTab) {
-      setActiveTab(tabParam)
+    if (tabParam) {
+      if (VALID_TABS.includes(tabParam)) {
+        if (tabParam !== activeTab) {
+          setActiveTab(tabParam)
+        }
+      } else {
+        // Tab not found or removed (e.g. form-fields) -> redirect to workspace
+        setActiveTab('workspace')
+        setSearchParams({ tab: 'workspace' }, { replace: true })
+      }
     }
   }, [searchParams])
 
@@ -188,7 +199,7 @@ const Settings = () => {
           <h2>Site Settings & Configuration</h2>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {['workspace', 'manage-banks-cash', 'form-fields', 'system'].includes(activeTab) ? (
+          {['workspace', 'manage-banks-cash', 'system'].includes(activeTab) ? (
             activeTab === 'workspace' ? (
               <span style={{ 
                 display: 'inline-flex', 
@@ -475,10 +486,6 @@ const Settings = () => {
                 </div>
               </div>
             </div>
-          )}
-
-          {activeTab === 'form-fields' && (
-            <FormFieldsManager />
           )}
 
           {activeTab === 'profile' && (
