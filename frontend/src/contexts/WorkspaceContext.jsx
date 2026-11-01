@@ -74,21 +74,15 @@ export const WORKSPACE_PRESETS = [
   }
 ]
 
-export const FEATURE_DEFINITIONS = [
+export const ACCOUNTING_FEATURE_DEFINITIONS = [
   {
-    category: 'Sales & Operations',
+    category: 'Sales & Billing',
     items: [
       {
         key: 'customers',
         label: 'Customers & CRM',
         description: 'Client profiles, customer balances, and account statements.',
         path: '/accounting/customers'
-      },
-      {
-        key: 'vendors',
-        label: 'Vendors & Suppliers',
-        description: 'Supplier directory, vendor bills, and purchase records.',
-        path: '/accounting/vendors'
       },
       {
         key: 'estimations',
@@ -102,6 +96,83 @@ export const FEATURE_DEFINITIONS = [
         description: 'Customer quotes, proposals, and commercial pricing offers.',
         path: '/accounting/quotations'
       },
+      {
+        key: 'invoices',
+        label: 'Invoices & Billing',
+        description: 'Customer tax invoices, line items, 15% VAT calculation, and settlement tracking.',
+        path: '/invoices'
+      },
+      {
+        key: 'credit_notes',
+        label: 'Credit Notes & Adjustments',
+        description: 'Returns credit, invoice adjustments, and VAT credit memos.',
+        path: '/credit-notes'
+      },
+    ]
+  },
+  {
+    category: 'Purchases & Payroll',
+    items: [
+      {
+        key: 'vendors',
+        label: 'Vendors & Suppliers',
+        description: 'Supplier directory, vendor bills, and purchase records.',
+        path: '/accounting/vendors'
+      },
+      {
+        key: 'expenses',
+        label: 'Expenses & Overhead',
+        description: 'Operational expenses, categorized bills, and cost tracking.',
+        path: '/expenses'
+      },
+      {
+        key: 'salary',
+        label: 'Salary & Payroll Suite',
+        description: 'Staff payroll, attendance, timesheets, and wage slips.',
+        path: '/salary'
+      },
+    ]
+  },
+  {
+    category: 'Treasury & Reporting',
+    items: [
+      {
+        key: 'banks',
+        label: 'Bank Accounts & Ledgers',
+        description: 'Bank account management and electronic transfers.',
+        path: '/banks'
+      },
+      {
+        key: 'cashbook',
+        label: 'Petty Cash Book (Vault)',
+        description: 'Cash-in, cash-out, petty cash box, and running cash balances.',
+        path: '/cashbook'
+      },
+      {
+        key: 'reports',
+        label: 'Financial & Tax Reports',
+        description: 'P&L, balance summaries, VAT/tax, and operational reports.',
+        path: '/reports'
+      },
+    ]
+  }
+]
+
+export const OPERATIONS_FEATURE_DEFINITIONS = [
+  {
+    category: 'CRM & Enquiries',
+    items: [
+      {
+        key: 'enquiries',
+        label: 'Customer Enquiries & Leads',
+        description: 'Incoming customer enquiries, lead tracking, conversion, and follow-ups.',
+        path: '/enquiries'
+      },
+    ]
+  },
+  {
+    category: 'Operations & Production',
+    items: [
       {
         key: 'jobs',
         label: 'Job Orders & Contracts',
@@ -123,53 +194,6 @@ export const FEATURE_DEFINITIONS = [
     ]
   },
   {
-    category: 'Finance & Accounts',
-    items: [
-      {
-        key: 'invoices',
-        label: 'Invoices & Billing',
-        description: 'Customer tax invoices, line items, 15% VAT calculation, and settlement tracking.',
-        path: '/invoices'
-      },
-      {
-        key: 'credit_notes',
-        label: 'Credit Notes & Adjustments',
-        description: 'Returns credit, invoice adjustments, and VAT credit memos.',
-        path: '/credit-notes'
-      },
-      {
-        key: 'expenses',
-        label: 'Expenses & Overhead',
-        description: 'Operational expenses, categorized bills, and cost tracking.',
-        path: '/expenses'
-      },
-      {
-        key: 'banks',
-        label: 'Bank Accounts & Ledgers',
-        description: 'Bank account management and electronic transfers.',
-        path: '/banks'
-      },
-      {
-        key: 'cashbook',
-        label: 'Petty Cash Book (Vault)',
-        description: 'Cash-in, cash-out, petty cash box, and running cash balances.',
-        path: '/cashbook'
-      },
-      {
-        key: 'reports',
-        label: 'Financial & Tax Reports',
-        description: 'P&L, balance summaries, VAT/tax, and operational reports.',
-        path: '/reports'
-      },
-      {
-        key: 'salary',
-        label: 'Salary & Payroll Suite',
-        description: 'Staff payroll, attendance, timesheets, and wage slips.',
-        path: '/salary'
-      },
-    ]
-  },
-  {
     category: 'Dashboard & Interface',
     items: [
       {
@@ -180,6 +204,11 @@ export const FEATURE_DEFINITIONS = [
       }
     ]
   }
+]
+
+export const FEATURE_DEFINITIONS = [
+  ...ACCOUNTING_FEATURE_DEFINITIONS,
+  ...OPERATIONS_FEATURE_DEFINITIONS
 ]
 
 const WorkspaceContext = createContext(null)
@@ -288,7 +317,9 @@ export const WorkspaceProvider = ({ children }) => {
         isFeatureVisible,
         isMinimalist,
         presets: WORKSPACE_PRESETS,
-        featureDefinitions: FEATURE_DEFINITIONS
+        featureDefinitions: FEATURE_DEFINITIONS,
+        accountingFeatureDefinitions: ACCOUNTING_FEATURE_DEFINITIONS,
+        operationsFeatureDefinitions: OPERATIONS_FEATURE_DEFINITIONS
       }}
     >
       {children}
@@ -310,7 +341,9 @@ export const useWorkspace = () => {
       isFeatureVisible: () => true,
       isMinimalist: false,
       presets: WORKSPACE_PRESETS,
-      featureDefinitions: FEATURE_DEFINITIONS
+      featureDefinitions: FEATURE_DEFINITIONS,
+      accountingFeatureDefinitions: ACCOUNTING_FEATURE_DEFINITIONS,
+      operationsFeatureDefinitions: OPERATIONS_FEATURE_DEFINITIONS
     }
   }
   return context

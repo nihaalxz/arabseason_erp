@@ -40,8 +40,14 @@ const Settings = ({ mode }) => {
     resetToDefault,
     presets,
     featureDefinitions,
+    accountingFeatureDefinitions,
+    operationsFeatureDefinitions,
     isMinimalist
   } = useWorkspace()
+
+  const activeFeatureDefs = isAccounting
+    ? (accountingFeatureDefinitions || [])
+    : (operationsFeatureDefinitions || [])
   
   // Form States
   const [formData, setFormData] = useState({
@@ -286,10 +292,12 @@ const Settings = ({ mode }) => {
               }}>
                 <div>
                   <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '0.35rem', color: 'var(--text-main)' }}>
-                    Workspace & Module Customization
+                    {isAccounting ? 'Financial Modules & Navigation Visibility' : 'Workspace & Module Customization'}
                   </h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0, maxWidth: '600px', lineHeight: '1.45' }}>
-                    Tailor the interface to your preferred complexity level. Enable <strong>Minimalist Mode</strong> to declutter navigation and focus on essential daily operations, or customize individual modules.
+                    {isAccounting
+                      ? 'Customize which financial modules and accounting tools appear in your navigation. Toggle individual sales, purchases, treasury, and reporting modules on or off.'
+                      : 'Tailor the interface to your preferred complexity level. Enable Minimalist Mode to declutter navigation and focus on essential daily operations, or customize individual modules.'}
                   </p>
                 </div>
 
@@ -299,93 +307,95 @@ const Settings = ({ mode }) => {
                     onClick={resetToDefault}
                     className="btn btn-secondary"
                     style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                    title="Reset to Full Enterprise View"
+                    title={isAccounting ? "Reset all financial modules to enabled" : "Reset to Full Enterprise View"}
                   >
                     <RotateCcw size={14} /> Reset to Default
                   </button>
                 </div>
               </div>
 
-              {/* Section 1: Presets Selector */}
-              <div style={{ marginBottom: '2.25rem' }}>
-                <div style={{ 
-                  fontSize: '0.75rem', 
-                  fontWeight: '700', 
-                  color: '#64748b', 
-                  textTransform: 'uppercase', 
-                  letterSpacing: '0.06em', 
-                  marginBottom: '0.85rem' 
-                }}>
-                  WORKSPACE MODE PRESETS
-                </div>
+              {/* Section 1: Presets Selector (ERP Operations only) */}
+              {!isAccounting && (
+                <div style={{ marginBottom: '2.25rem' }}>
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    fontWeight: '700', 
+                    color: '#64748b', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.06em', 
+                    marginBottom: '0.85rem' 
+                  }}>
+                    WORKSPACE MODE PRESETS
+                  </div>
 
-                <div className="settings-presets-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                  {presets.map((preset) => {
-                    const isSelected = workspaceMode === preset.id
-                    const IconComp = preset.id === 'minimalist' ? CheckCircle2 : (preset.id === 'standard' ? Briefcase : (preset.id === 'enterprise' ? Layers : Sliders))
-                    const isMin = preset.id === 'minimalist'
+                  <div className="settings-presets-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                    {presets.map((preset) => {
+                      const isSelected = workspaceMode === preset.id
+                      const IconComp = preset.id === 'minimalist' ? CheckCircle2 : (preset.id === 'standard' ? Briefcase : (preset.id === 'enterprise' ? Layers : Sliders))
+                      const isMin = preset.id === 'minimalist'
 
-                    return (
-                      <div
-                        key={preset.id}
-                        onClick={() => setWorkspaceMode(preset.id)}
-                        style={{
-                          background: isSelected ? (isMin ? '#f0fdf4' : 'var(--primary-light, #ebf3fc)') : '#ffffff',
-                          border: `2px solid ${isSelected ? (isMin ? '#10b981' : 'var(--primary, #1366d9)') : 'var(--border-color, #e2e8f0)'}`,
-                          borderRadius: '10px',
-                          padding: '1.15rem',
-                          cursor: 'pointer',
-                          transition: 'all 0.18s ease',
-                          position: 'relative',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          boxShadow: isSelected ? '0 4px 14px rgba(0,0,0,0.06)' : 'none'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                          <div style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '8px',
-                            background: isSelected ? (isMin ? '#10b981' : 'var(--primary, #1366d9)') : '#f1f5f9',
-                            color: isSelected ? '#ffffff' : '#64748b',
+                      return (
+                        <div
+                          key={preset.id}
+                          onClick={() => setWorkspaceMode(preset.id)}
+                          style={{
+                            background: isSelected ? (isMin ? '#f0fdf4' : 'var(--primary-light, #ebf3fc)') : '#ffffff',
+                            border: `2px solid ${isSelected ? (isMin ? '#10b981' : 'var(--primary, #1366d9)') : 'var(--border-color, #e2e8f0)'}`,
+                            borderRadius: '10px',
+                            padding: '1.15rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.18s ease',
+                            position: 'relative',
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
-                            <IconComp size={18} />
-                          </div>
-                          {isSelected && (
-                            <span style={{
-                              display: 'inline-flex',
+                            flexDirection: 'column',
+                            boxShadow: isSelected ? '0 4px 14px rgba(0,0,0,0.06)' : 'none'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '8px',
+                              background: isSelected ? (isMin ? '#10b981' : 'var(--primary, #1366d9)') : '#f1f5f9',
+                              color: isSelected ? '#ffffff' : '#64748b',
+                              display: 'flex',
                               alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '0.7rem',
-                              fontWeight: '700',
-                              color: isMin ? '#059669' : 'var(--primary, #1366d9)',
-                              background: isMin ? '#d1fae5' : '#e0e7ff',
-                              padding: '2px 8px',
-                              borderRadius: '999px'
+                              justifyContent: 'center'
                             }}>
-                              <Check size={11} strokeWidth={3} /> ACTIVE
-                            </span>
-                          )}
-                        </div>
+                              <IconComp size={18} />
+                            </div>
+                            {isSelected && (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.7rem',
+                                fontWeight: '700',
+                                color: isMin ? '#059669' : 'var(--primary, #1366d9)',
+                                background: isMin ? '#d1fae5' : '#e0e7ff',
+                                padding: '2px 8px',
+                                borderRadius: '999px'
+                              }}>
+                                <Check size={11} strokeWidth={3} /> ACTIVE
+                              </span>
+                            )}
+                          </div>
 
-                        <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
-                          {preset.name}
+                          <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
+                            {preset.name}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: '600', color: isMin ? '#10b981' : 'var(--primary, #1366d9)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                            {preset.tag}
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4', flex: 1 }}>
+                            {preset.description}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.72rem', fontWeight: '600', color: isMin ? '#10b981' : 'var(--primary, #1366d9)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                          {preset.tag}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4', flex: 1 }}>
-                          {preset.description}
-                        </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Section 2: Detailed Feature Visibility Toggles */}
               <div>
@@ -399,16 +409,18 @@ const Settings = ({ mode }) => {
                 }}>
                   <div>
                     <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      FEATURE & MODULE VISIBILITY
+                      {isAccounting ? 'FINANCIAL MODULE VISIBILITY' : 'OPERATIONS MODULE VISIBILITY'}
                     </div>
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                      Toggle modules on/off. Turning a module off hides it from navigation without deleting data.
+                      {isAccounting 
+                        ? 'Toggle financial modules on/off. Turning a module off hides it from the accounting sidebar without deleting data.'
+                        : 'Toggle operations modules on/off. Turning a module off hides it from the operations sidebar without deleting data.'}
                     </p>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                  {featureDefinitions.map((cat, catIdx) => (
+                  {activeFeatureDefs.map((cat, catIdx) => (
                     <div key={catIdx} style={{ background: '#f8fafc', border: '1px solid #edf0f5', borderRadius: '10px', padding: '1.25rem' }}>
                       <div style={{ 
                         fontSize: '0.8rem', 
