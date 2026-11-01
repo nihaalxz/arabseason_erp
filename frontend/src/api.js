@@ -3,6 +3,9 @@ import axios from 'axios';
 const getBaseApiUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
+    if (hostname.includes('ngrok') || hostname.includes('localtunnel') || hostname.includes('trycloudflare.com')) {
+      return '/api/';
+    }
     if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('arabseason.info') && !hostname.includes('onrender.com')) {
       return `${window.location.protocol}//${hostname}:8000/api/`;
     }

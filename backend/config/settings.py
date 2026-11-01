@@ -154,7 +154,8 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOW_CREDENTIALS = True
 CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
-CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', "https://erp.arabseason.info,https://arabseason.info,https://api.arabseason.info,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://192.168.20.9:5174,http://192.168.20.9:8000,http://192.168.20.28:5174,http://192.168.20.28:8000").split(',')
+_raw_csrf = env('CSRF_TRUSTED_ORIGINS', "https://erp.arabseason.info,https://arabseason.info,https://api.arabseason.info,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://192.168.20.9:5174,http://192.168.20.9:8000,http://192.168.20.28:5174,http://192.168.20.28:8000").split(',')
+CSRF_TRUSTED_ORIGINS = list({o.strip() for o in _raw_csrf if o.strip()} | {'https://*.ngrok-free.app', 'https://*.ngrok.app', 'https://*.ngrok.io'})
 
 SESSION_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SAMESITE = 'None'
