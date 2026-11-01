@@ -211,33 +211,6 @@ const CredAccountsView = ({
       boxSizing: 'border-box',
       padding: isMobile ? '0.5rem 0.5rem 4rem' : '0.5rem 0 3rem'
     }}>
-      {/* ── 1. BREADCRUMB & HEADER ROW ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.45rem',
-        marginBottom: '0.65rem',
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        color: textMuted
-      }}>
-        <div style={{
-          width: '24px',
-          height: '24px',
-          borderRadius: '6px',
-          background: isDarkMode ? '#1c1e22' : '#f1f5f9',
-          color: textPrimary,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          {isBankType ? <Landmark size={13} /> : <Wallet size={13} />}
-        </div>
-        <span>Accounts</span>
-        <span>/</span>
-        <span style={{ color: textPrimary, fontWeight: '700' }}>{activeAccName}</span>
-      </div>
-
       {/* ── 2. COMMAND BAR (TITLE & TOP ACTION BUTTONS) ── */}
       <div style={{
         display: 'flex',
