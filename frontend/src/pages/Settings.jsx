@@ -17,8 +17,8 @@ const Settings = ({ mode }) => {
   const isAccounting = mode === 'accounting' || location.pathname.startsWith('/accounting')
 
   const validTabs = isAccounting
-    ? ['manage-banks-cash', 'localization', 'workspace', 'profile', 'security', 'system']
-    : ['workspace', 'profile', 'security', 'localization', 'system']
+    ? ['manage-banks-cash', 'localization', 'workspace', 'profile', 'security']
+    : ['workspace', 'profile', 'security', 'localization']
 
   const defaultTab = isAccounting ? 'manage-banks-cash' : 'workspace'
 
@@ -67,14 +67,12 @@ const Settings = ({ mode }) => {
         { id: 'workspace', name: 'Financial Modules', icon: Sliders },
         { id: 'profile', name: 'My Profile', icon: User },
         { id: 'security', name: 'Security', icon: Shield },
-        { id: 'system', name: 'System Info', icon: Info },
       ]
     : [
         { id: 'workspace', name: 'Workspace & Modules', icon: Sliders },
         { id: 'profile', name: 'My Profile', icon: User },
         { id: 'security', name: 'Security', icon: Shield },
         { id: 'localization', name: 'Localization', icon: Globe },
-        { id: 'system', name: 'System Info', icon: Info },
       ]
 
   const [profileData, setProfileData] = useState({
@@ -213,7 +211,7 @@ const Settings = ({ mode }) => {
           <h2>{isAccounting ? 'Accounting Settings & Configuration' : 'Site Settings & Configuration'}</h2>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {['workspace', 'manage-banks-cash', 'system'].includes(activeTab) ? (
+          {['workspace', 'manage-banks-cash'].includes(activeTab) ? (
             activeTab === 'workspace' ? (
               <span style={{ 
                 display: 'inline-flex', 
@@ -665,30 +663,6 @@ const Settings = ({ mode }) => {
                   {saving ? 'Processing...' : 'Change Password'}
                 </button>
               </form>
-            </div>
-          )}
-
-          {activeTab === 'system' && (
-            <div>
-              <h3 style={{ marginBottom: '1.5rem' }}>System Environment</h3>
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                <div className="glass-panel" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Software Version</span>
-                  <span style={{ fontWeight: '600' }}>v2.4.0 (Enterprise)</span>
-                </div>
-                <div className="glass-panel" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>License Status</span>
-                  <span style={{ fontWeight: '600', color: 'var(--success)' }}>Active / Lifetime</span>
-                </div>
-                <div className="glass-panel" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Last Patch Date</span>
-                  <span style={{ fontWeight: '600' }}>{new Date().toLocaleDateString()}</span>
-                </div>
-                <div className="glass-panel" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>System Performance</span>
-                  <span style={{ fontWeight: '600', color: 'var(--success)' }}>Optimal (99.9% Uptime)</span>
-                </div>
-              </div>
             </div>
           )}
 
