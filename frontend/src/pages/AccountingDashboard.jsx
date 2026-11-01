@@ -277,7 +277,7 @@ const AccountingDashboard = () => {
               <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 TOTAL PAYABLES
               </span>
-              <CredViewAll onClick={() => navigate('/expenses')} label="view bills" />
+              <CredViewAll onClick={() => navigate('/accounting/vendors')} label="view vendors" />
             </div>
 
             <div style={{ margin: '12px 0 20px' }}>

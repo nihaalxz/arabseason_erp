@@ -120,12 +120,6 @@ export const ACCOUNTING_FEATURE_DEFINITIONS = [
         path: '/accounting/vendors'
       },
       {
-        key: 'expenses',
-        label: 'Expenses',
-        description: 'Operational expenses, categorized bills, and cost tracking.',
-        path: '/expenses'
-      },
-      {
         key: 'salary',
         label: 'Salary & Payroll',
         description: 'Staff payroll, attendance, timesheets, and wage slips.',

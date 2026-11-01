@@ -366,7 +366,7 @@ const CustomerDetail = () => {
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '2.5rem' }}>
                    <button className="btn glass-panel" style={{ fontWeight: '800', fontSize: '0.8rem' }} onClick={() => navigate('/jobs')}><Plus size={16}/> New Job</button>
                    <button className="btn glass-panel" style={{ fontWeight: '800', fontSize: '0.8rem' }} onClick={() => navigate('/cashbook?tab=customers')}><Plus size={16}/> New Payment</button>
-                   <button className="btn glass-panel" style={{ fontWeight: '800', fontSize: '0.8rem' }} onClick={() => navigate('/expenses')}><Plus size={16}/> Add Linked Expense</button>
+                   <button className="btn glass-panel" style={{ fontWeight: '800', fontSize: '0.8rem' }} onClick={() => navigate('/cashbook?tab=expenses')}><Plus size={16}/> Add Linked Expense</button>
                 </div>
                
                <div className="transaction-section" style={{ marginBottom: '3rem' }}>

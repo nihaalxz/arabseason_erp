@@ -246,7 +246,7 @@ function App() {
               <Route path="estimations" element={<RedirectToAccounting />} />
               <Route path="estimations/new" element={<RedirectToAccounting />} />
               <Route path="estimations/:id/edit" element={<RedirectToAccounting />} />
-              <Route path="expenses" element={canAccess('expenses') ? <Expenses /> : <Navigate to="/" />} />
+              <Route path="expenses" element={<Navigate to="/accounting" replace />} />
               <Route path="banks" element={<Navigate to="/cashbook?tab=bank_accounts" replace />} />
               <Route path="cashbook" element={(isAdmin || canAccess('cashbook')) ? <Cashbook /> : <Navigate to="/" replace />} />
               <Route path="reports" element={canAccess('reports') ? <Reports /> : <Navigate to="/" />} />

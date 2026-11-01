@@ -132,7 +132,7 @@ const SearchResults = () => {
               </h3>
               <div style={{ display: 'grid', gap: '1rem' }}>
                 {results.expenses.map(e => (
-                  <Link key={e.id} to="/expenses" className="glass-panel" style={{ padding: '1.25rem', display: 'block', textDecoration: 'none', color: 'inherit' }}>
+                  <Link key={e.id} to="/cashbook?tab=expenses" className="glass-panel" style={{ padding: '1.25rem', display: 'block', textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontWeight: '600' }}>{e.title}</div>

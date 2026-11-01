@@ -90,7 +90,6 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
       location.pathname === '/credit-notes' ||
       location.pathname.startsWith('/credit-notes/') ||
       location.pathname === '/banks' ||
-      location.pathname === '/expenses' ||
       location.pathname === '/reports' ||
       location.pathname === '/salary'
     ) {
@@ -292,7 +291,6 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                     {isFeatureVisible('invoices') && <Link to="/invoices/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--primary)' }} /><span>New Invoice</span></Link>}
                     {isFeatureVisible('credit_notes') && <Link to="/credit-notes/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--warning)' }} /><span>New Credit Note</span></Link>}
                     {isFeatureVisible('vendors') && <Link to="/accounting/vendors" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Building2 size={14} style={{ color: 'var(--warning)' }} /><span>New Vendor</span></Link>}
-                    {isFeatureVisible('expenses') && <Link to="/expenses" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--danger)' }} /><span>Record Expense</span></Link>}
                   </>
                 )}
                 {isFeatureVisible('cashbook') && (

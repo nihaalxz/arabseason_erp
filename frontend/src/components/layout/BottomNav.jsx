@@ -94,7 +94,7 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     navItems = [
       { name: 'Dashboard', path: '/accounting', icon: LayoutDashboard },
       { name: 'Invoices', path: '/invoices', icon: Receipt },
-      { name: 'Expenses', path: '/expenses', icon: Receipt },
+      { name: 'Quotations', path: '/accounting/quotations', icon: FileText },
       { name: 'Reports', path: '/reports', icon: FileBarChart },
     ]
   } else {
@@ -121,7 +121,6 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     '/jobs?tab=planning': 'planning',
     '/invoices': 'invoices',
     '/banks': 'banks',
-    '/expenses': 'expenses',
     '/cashbook': 'cashbook',
     '/cashbook?view=books': 'cashbook',
     '/reports': 'reports',
