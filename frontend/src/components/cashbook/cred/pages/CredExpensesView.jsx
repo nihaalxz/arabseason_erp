@@ -26,7 +26,6 @@ import CredRowIconButton from '../CredRowIconButton';
 import { fadeFast } from '../motionTokens';
 import CredPagination from '../CredPagination';
 import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
-import VoucherModal from '../../common/VoucherModal';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst, formatJobRef, getAmountFontSize, formatCompactKpi } from '../usePagination';
 
@@ -211,7 +210,6 @@ const CredExpensesView = ({
   const [cardFilter, setCardFilter] = useState('all'); // 'all' | 'project' | 'salary_overhead' | 'this_month'
   const [categoryFilter, setCategoryFilter] = useState('All'); // 'All' | 'Project' | 'Salary' | 'Company' | 'Venture' | 'Other'
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeVoucherData, setActiveVoucherData] = useState(null);
 
   const handleExportPDF = () => {
     const cols = ['DATE', 'CATEGORY', 'DESCRIPTION / DETAILS', 'JOB / PROJECT', 'MODE', 'AMOUNT (SAR)'];
@@ -260,7 +258,7 @@ const CredExpensesView = ({
         }
       ]
     };
-    setActiveVoucherData(voucherPayload);
+    printPaymentVoucher(voucherPayload);
   };
 
 
@@ -1143,13 +1141,6 @@ const CredExpensesView = ({
         </motion.div>
       </AnimatePresence>
 
-      {/* Payment / Expense Voucher Modal Live Preview & Print */}
-      <VoucherModal
-        isOpen={Boolean(activeVoucherData)}
-        onClose={() => setActiveVoucherData(null)}
-        voucherData={activeVoucherData}
-        isDarkMode={isDarkMode}
-      />
     </div>
   );
 };

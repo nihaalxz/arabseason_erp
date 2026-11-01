@@ -27,8 +27,7 @@ import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const getAmountFontSize = (val) => {
   const abs = Math.abs(parseFloat(val) || 0);
@@ -49,7 +48,6 @@ const CredVendorsView = ({
 }) => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [voucherVendor, setVoucherVendor] = useState(null);
 
   const mapVendorToVoucher = (v) => {
     if (!v) return null;
@@ -799,7 +797,7 @@ const CredVendorsView = ({
                     title="Vendor Payment Voucher & Advice"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setVoucherVendor(v);
+                      printPaymentVoucher(mapVendorToVoucher(v));
                     }}
                   />
                   <button
@@ -1056,7 +1054,7 @@ const CredVendorsView = ({
                             title="Vendor Payment Voucher & Advice"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setVoucherVendor(v);
+                              printPaymentVoucher(mapVendorToVoucher(v));
                             }}
                           />
                           <CredRowIconButton
@@ -1101,14 +1099,6 @@ const CredVendorsView = ({
         total={totalVendorCount}
         onPageChange={setVendorPage}
         isMobile={isMobile}
-      />
-
-      {/* Vendor Payment Voucher / Balance Statement Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherVendor)}
-        onClose={() => setVoucherVendor(null)}
-        voucherData={mapVendorToVoucher(voucherVendor)}
-        isDarkMode={isDarkMode}
       />
     </div>
   );

@@ -19,8 +19,7 @@ import CredPagination from './cred/CredPagination'
 import { showConfirm, showError, showToast } from '../../utils/swal'
 import ExportTablePdfBtn from './common/ExportTablePdfBtn'
 import VoucherPrintBtn from './common/VoucherPrintBtn'
-import VoucherModal from './common/VoucherModal'
-import { exportTableToPdf, formatCurrency } from '../../utils/cashbookPdfGenerator'
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../utils/cashbookPdfGenerator'
 
 const MONTH_CODES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 const getCurrentMonthCode = () => MONTH_CODES[new Date().getMonth()]
@@ -159,7 +158,6 @@ export default function CashbookJobOrders({
   const [cashbooks, setCashbooks] = useState(initialBooks || [])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
-  const [voucherJob, setVoucherJob] = useState(null)
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -1538,7 +1536,7 @@ export default function CashbookJobOrders({
                   <VoucherPrintBtn
                     onClick={(e) => {
                       e.stopPropagation();
-                      setVoucherJob(job);
+                      printPaymentVoucher(mapJobToVoucher(job));
                     }}
                     title={`Print Job Voucher for ${job.title}`}
                     isDarkMode={isDarkMode}
@@ -1752,7 +1750,7 @@ export default function CashbookJobOrders({
                             </button>
                           )}
                           <VoucherPrintBtn
-                            onClick={() => setVoucherJob(job)}
+                            onClick={() => printPaymentVoucher(mapJobToVoucher(job))}
                             title={`Print Job Voucher for ${job.title}`}
                             isDarkMode={isDarkMode}
                           />
@@ -2868,13 +2866,6 @@ export default function CashbookJobOrders({
         </form>
       </Modal>
 
-      {/* Voucher Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherJob)}
-        onClose={() => setVoucherJob(null)}
-        voucherData={voucherJob ? mapJobToVoucher(voucherJob) : null}
-        isDarkMode={isDarkMode}
-      />
     </div>
   )
 }

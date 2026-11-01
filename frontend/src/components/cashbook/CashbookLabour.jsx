@@ -20,8 +20,7 @@ import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef, forma
 import { showConfirm, showError, showToast, showSuccess } from '../../utils/swal'
 import ExportTablePdfBtn from './common/ExportTablePdfBtn'
 import VoucherPrintBtn from './common/VoucherPrintBtn'
-import VoucherModal from './common/VoucherModal'
-import { exportTableToPdf, formatCurrency } from '../../utils/cashbookPdfGenerator'
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../utils/cashbookPdfGenerator'
 
 const MobileCardCarousel = ({ 
   children, 
@@ -187,7 +186,6 @@ export default function CashbookLabour({
 
   // Labourer Statement Modal State (Customer-style ledger)
   const [statementLabourer, setStatementLabourer] = useState(null)
-  const [voucherLabour, setVoucherLabour] = useState(null)
 
   // Styling tokens matching Cashbook tab=vendors
   const cardBg = isDarkMode ? '#121417' : '#ffffff'
@@ -1404,7 +1402,7 @@ export default function CashbookLabour({
                         <VoucherPrintBtn
                           onClick={(e) => {
                             e.stopPropagation();
-                            setVoucherLabour(l);
+                            printPaymentVoucher(mapLabourToVoucher(l));
                           }}
                           title={`Print Wage Voucher for ${l.name}`}
                           isDarkMode={isDarkMode}
@@ -1568,7 +1566,7 @@ export default function CashbookLabour({
                           <VoucherPrintBtn
                             onClick={(e) => {
                               e.stopPropagation()
-                              setVoucherLabour(l)
+                              printPaymentVoucher(mapLabourToVoucher(l))
                             }}
                             title={`Print Wage Voucher for ${l.name}`}
                             isDarkMode={isDarkMode}
@@ -1855,7 +1853,7 @@ export default function CashbookLabour({
                         <VoucherPrintBtn
                           onClick={(ev) => {
                             ev.stopPropagation();
-                            setVoucherLabour(e);
+                            printPaymentVoucher(mapLabourToVoucher(e));
                           }}
                           title={`Print Wage Voucher for ${e.name}`}
                           isDarkMode={isDarkMode}
@@ -2026,7 +2024,7 @@ export default function CashbookLabour({
                             </button>
                           )}
                           <VoucherPrintBtn
-                            onClick={() => setVoucherLabour(e)}
+                            onClick={() => printPaymentVoucher(mapLabourToVoucher(e))}
                             title={`Print Wage Voucher for ${e.name}`}
                             isDarkMode={isDarkMode}
                           />
@@ -2586,14 +2584,6 @@ export default function CashbookLabour({
           </div>
         </Modal>
       )}
-
-      {/* Voucher Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherLabour)}
-        onClose={() => setVoucherLabour(null)}
-        voucherData={voucherLabour ? mapLabourToVoucher(voucherLabour) : null}
-        isDarkMode={isDarkMode}
-      />
 
     </div>
   )

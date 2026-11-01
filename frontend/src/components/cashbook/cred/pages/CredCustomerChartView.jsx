@@ -32,8 +32,7 @@ import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } 
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const DURATION_OPTIONS = [
   { value: 'all', id: 'all', label: 'all time', icon: Calendar },
@@ -74,7 +73,6 @@ const CredCustomerChartView = ({
   const [selectedCustomerFilter, setSelectedCustomerFilter] = useState('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [duration, setDuration] = useState('all');
-  const [voucherRecord, setVoucherRecord] = useState(null);
 
   const mapRecordToVoucher = (r) => {
     if (!r) return null;
@@ -951,7 +949,7 @@ const CredCustomerChartView = ({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <VoucherPrintBtn
                       title="Customer Work Quote / Agreement Slip"
-                      onClick={() => setVoucherRecord(r)}
+                      onClick={() => printPaymentVoucher(mapRecordToVoucher(r))}
                     />
                     <button
                       type="button"
@@ -1175,7 +1173,7 @@ const CredCustomerChartView = ({
                           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             <VoucherPrintBtn
                               title="Customer Work Quote / Agreement Slip"
-                              onClick={() => setVoucherRecord(r)}
+                              onClick={() => printPaymentVoucher(mapRecordToVoucher(r))}
                             />
                             <button
                               type="button"
@@ -1530,13 +1528,6 @@ const CredCustomerChartView = ({
         document.body
       )}
 
-      {/* Customer Work Order / Rate Card Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherRecord)}
-        onClose={() => setVoucherRecord(null)}
-        voucherData={mapRecordToVoucher(voucherRecord)}
-        isDarkMode={isDarkMode}
-      />
     </div>
   );
 };

@@ -30,8 +30,7 @@ import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } 
 import CredDropdownSelect from '../CredDropdownSelect';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const getAmountFontSize = (val) => {
   const abs = Math.abs(parseFloat(val) || 0);
@@ -53,7 +52,6 @@ const CredCustomersView = ({
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState('all');
-  const [voucherCustomer, setVoucherCustomer] = useState(null);
 
   const mapCustomerToVoucher = (c) => {
     if (!c) return null;
@@ -915,7 +913,7 @@ const CredCustomersView = ({
                     title="Customer Balance Statement & Voucher"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setVoucherCustomer(c);
+                      printPaymentVoucher(mapCustomerToVoucher(c));
                     }}
                   />
                   <button
@@ -1180,7 +1178,7 @@ const CredCustomersView = ({
                             title="Customer Account Statement & Balance Slip"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setVoucherCustomer(c);
+                              printPaymentVoucher(mapCustomerToVoucher(c));
                             }}
                           />
                           <CredRowIconButton
@@ -1225,14 +1223,6 @@ const CredCustomersView = ({
         total={totalCustomerCount}
         onPageChange={setCustomerPage}
         isMobile={isMobile}
-      />
-
-      {/* Customer Account Statement / Balance Confirmation Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherCustomer)}
-        onClose={() => setVoucherCustomer(null)}
-        voucherData={mapCustomerToVoucher(voucherCustomer)}
-        isDarkMode={isDarkMode}
       />
     </div>
   );

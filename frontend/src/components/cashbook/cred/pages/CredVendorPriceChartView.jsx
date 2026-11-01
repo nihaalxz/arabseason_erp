@@ -33,8 +33,7 @@ import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } 
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const DURATION_OPTIONS = [
   { value: 'all', id: 'all', label: 'all time', icon: Calendar },
@@ -79,7 +78,6 @@ const CredVendorPriceChartView = ({
   const [selectedVendorFilter, setSelectedVendorFilter] = useState('all');
   const [selectedMaterialFilter, setSelectedMaterialFilter] = useState('all');
   const [duration, setDuration] = useState('all');
-  const [voucherQuote, setVoucherQuote] = useState(null);
 
   const mapQuoteToVoucher = (q) => {
     if (!q) return null;
@@ -1037,7 +1035,7 @@ const CredVendorPriceChartView = ({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <VoucherPrintBtn
                       title="Vendor Approved Quote Slip"
-                      onClick={() => setVoucherQuote(q)}
+                      onClick={() => printPaymentVoucher(mapQuoteToVoucher(q))}
                     />
                     <button
                       type="button"
@@ -1228,7 +1226,7 @@ const CredVendorPriceChartView = ({
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                           <VoucherPrintBtn
                             title="Vendor Approved Quote Agreement"
-                            onClick={() => setVoucherQuote(q)}
+                            onClick={() => printPaymentVoucher(mapQuoteToVoucher(q))}
                           />
                           <button
                             type="button"
@@ -1623,13 +1621,6 @@ const CredVendorPriceChartView = ({
         document.body
       )}
 
-      {/* Approved Vendor Price Quote / Agreement Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherQuote)}
-        onClose={() => setVoucherQuote(null)}
-        voucherData={mapQuoteToVoucher(voucherQuote)}
-        isDarkMode={isDarkMode}
-      />
     </div>
   );
 };

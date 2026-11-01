@@ -35,8 +35,7 @@ import CredPagination from '../CredPagination';
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const DURATION_OPTIONS = [
   { value: 'all', id: 'all', label: 'all time', icon: Calendar },
@@ -103,7 +102,6 @@ const CredLabourChartView = ({
   const [selectedSectorFilter, setSelectedSectorFilter] = useState('all');
   const [selectedWorkerFilter, setSelectedWorkerFilter] = useState('all');
   const [duration, setDuration] = useState('all');
-  const [voucherQuote, setVoucherQuote] = useState(null);
 
   // Modal State for Recording Labour Price Quote
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -971,7 +969,7 @@ const CredLabourChartView = ({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <VoucherPrintBtn
-                    onClick={() => setVoucherQuote(q)}
+                    onClick={() => printPaymentVoucher(mapQuoteToVoucher(q))}
                     title={`Print Labour Agreement for ${q.name}`}
                     isDarkMode={isDarkMode}
                   />
@@ -1169,7 +1167,7 @@ const CredLabourChartView = ({
                       <td style={{ ...bodyCellStyle, textAlign: 'center' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                           <VoucherPrintBtn
-                            onClick={() => setVoucherQuote(q)}
+                            onClick={() => printPaymentVoucher(mapQuoteToVoucher(q))}
                             title={`Print Labour Agreement for ${q.name}`}
                             isDarkMode={isDarkMode}
                           />
@@ -1545,13 +1543,6 @@ const CredLabourChartView = ({
         document.body
       )}
 
-      {/* Voucher Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherQuote)}
-        onClose={() => setVoucherQuote(null)}
-        voucherData={voucherQuote ? mapQuoteToVoucher(voucherQuote) : null}
-        isDarkMode={isDarkMode}
-      />
     </div>
   );
 };

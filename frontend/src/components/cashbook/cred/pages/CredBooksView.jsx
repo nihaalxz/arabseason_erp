@@ -24,8 +24,7 @@ import {
 } from 'lucide-react';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 // Helper to determine if an entry is a bank outflow
 const isBankEntry = (entry) => {
@@ -85,7 +84,6 @@ const CredBooksView = ({
   // Mobile state
   const [mobileFilterType, setMobileFilterType] = useState('all');
   const [toggleTab, setToggleTab] = useState('books');
-  const [voucherBookEntry, setVoucherBookEntry] = useState(null);
 
   // Resolve active book from URL parameter or selectedBook prop
   const activeBook = useMemo(() => {
@@ -644,7 +642,7 @@ const CredBooksView = ({
             isClickable={false}
             showBalance={true}
             isLoading={isLoading}
-            onPrintVoucher={(entry) => setVoucherBookEntry(entry)}
+            onPrintVoucher={(entry) => printPaymentVoucher(mapBookEntryToVoucher(entry))}
             emptyMessage={
               activeBookEntries.length === 0
                 ? "no entries in this book yet"
@@ -661,13 +659,6 @@ const CredBooksView = ({
             total={totalBookEntries}
             onPageChange={setBookPage}
             isMobile={true}
-          />
-
-          <VoucherModal
-            isOpen={Boolean(voucherBookEntry)}
-            onClose={() => setVoucherBookEntry(null)}
-            voucherData={voucherBookEntry ? mapBookEntryToVoucher(voucherBookEntry) : null}
-            isDarkMode={isDarkMode}
           />
         </div>
       );
@@ -1250,7 +1241,7 @@ const CredBooksView = ({
           isClickable={true}
           onOpenEntry={onOpenEntry}
           isLoading={isLoading}
-          onPrintVoucher={(entry) => setVoucherBookEntry(entry)}
+          onPrintVoucher={(entry) => printPaymentVoucher(mapBookEntryToVoucher(entry))}
           emptyMessage={
             activeBookEntries.length === 0
               ? "no entries in this book yet"
@@ -1271,13 +1262,6 @@ const CredBooksView = ({
           total={totalBookEntries}
           onPageChange={setBookPage}
           isMobile={isMobile}
-        />
-
-        <VoucherModal
-          isOpen={Boolean(voucherBookEntry)}
-          onClose={() => setVoucherBookEntry(null)}
-          voucherData={voucherBookEntry ? mapBookEntryToVoucher(voucherBookEntry) : null}
-          isDarkMode={isDarkMode}
         />
       </div>
     );
@@ -1537,13 +1521,6 @@ const CredBooksView = ({
           })}
         </div>
       )}
-
-      <VoucherModal
-        isOpen={Boolean(voucherBookEntry)}
-        onClose={() => setVoucherBookEntry(null)}
-        voucherData={voucherBookEntry ? mapBookEntryToVoucher(voucherBookEntry) : null}
-        isDarkMode={isDarkMode}
-      />
     </div>
   );
 };

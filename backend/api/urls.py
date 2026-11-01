@@ -12,7 +12,8 @@ from .views import (
     PettyCashAccountViewSet,
     QuotationViewSet, CreditNoteViewSet, DeliveryNoteViewSet,
     NotificationViewSet, RecycleBinViewSet, EnquiryViewSet, SalespersonViewSet,
-    LabourPriceQuoteViewSet, VendorPriceQuoteViewSet, CustomerWorkRecordViewSet
+    LabourPriceQuoteViewSet, VendorPriceQuoteViewSet, CustomerWorkRecordViewSet,
+    CashbookExportTablePdfView, CashbookVoucherPdfView
 )
 
 router = DefaultRouter()
@@ -58,5 +59,7 @@ urlpatterns = [
     path('reports/', ReportAPIView.as_view(), name='reports'),
     path('settings/', SettingsAPIView.as_view(), name='settings'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
+    path('cashbook/export-table-pdf/', CashbookExportTablePdfView.as_view(), name='cashbook-export-table-pdf'),
+    path('cashbook/voucher-pdf/', CashbookVoucherPdfView.as_view(), name='cashbook-voucher-pdf'),
     path('', include(router.urls)),
 ]

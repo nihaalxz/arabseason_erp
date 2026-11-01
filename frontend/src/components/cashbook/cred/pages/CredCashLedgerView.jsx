@@ -7,8 +7,7 @@ import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst } f
 import { EmptyState } from '../CredStates';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 import { 
   ArrowLeft, 
   Check, 
@@ -39,7 +38,6 @@ const CredCashLedgerView = ({
 }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [voucherEntry, setVoucherEntry] = useState(null);
 
   const mapLedgerEntryToVoucher = (entry) => {
     if (!entry) return null;
@@ -357,7 +355,7 @@ const CredCashLedgerView = ({
                         </div>
                       </div>
                       <div onClick={(ev) => ev.stopPropagation()}>
-                        <VoucherPrintBtn onClick={() => setVoucherEntry(e)} />
+                        <VoucherPrintBtn onClick={() => printPaymentVoucher(mapLedgerEntryToVoucher(e))} />
                       </div>
                     </div>
                   </div>
@@ -424,7 +422,7 @@ const CredCashLedgerView = ({
                         {isPositive ? '+' : ''}<Money value={e.amount || '0.00'} />
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }} onClick={(ev) => ev.stopPropagation()}>
-                        <VoucherPrintBtn onClick={() => setVoucherEntry(e)} />
+                        <VoucherPrintBtn onClick={() => printPaymentVoucher(mapLedgerEntryToVoucher(e))} />
                       </td>
                     </tr>
                   );
@@ -489,7 +487,7 @@ const CredCashLedgerView = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                 <button
                   type="button"
-                  onClick={() => setVoucherEntry(selectedEntry)}
+                  onClick={() => printPaymentVoucher(mapLedgerEntryToVoucher(selectedEntry))}
                   className="cred-btn-pill-outlined"
                   style={{ width: '100%', justifyContent: 'center', gap: '8px', padding: '9px 16px', fontSize: '13px' }}
                 >
@@ -519,13 +517,6 @@ const CredCashLedgerView = ({
         total={total}
         onPageChange={setPage}
         isMobile={isMobile}
-      />
-
-      {/* Transaction / Journal Voucher Modal Preview & Print */}
-      <VoucherModal
-        isOpen={Boolean(voucherEntry)}
-        onClose={() => setVoucherEntry(null)}
-        voucherData={mapLedgerEntryToVoucher(voucherEntry)}
       />
     </div>
   );

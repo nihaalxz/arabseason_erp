@@ -22,8 +22,7 @@ import CredCardCarousel from '../CredCardCarousel';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst, formatJobRef } from '../usePagination';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
-import VoucherModal from '../../common/VoucherModal';
-import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const PERIOD_OPTIONS = [
   { id: 'all', value: 'all', label: 'All Time' },
@@ -131,8 +130,6 @@ const CredAccountsView = ({
     rangeEnd: statementRangeEnd,
     total: totalStatementTransactions
   } = usePagination(sortedTransactions, isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, statementResetKey);
-
-  const [voucherTx, setVoucherTx] = useState(null);
 
   const mapTxToVoucher = (tx) => {
     if (!tx) return null;
@@ -624,7 +621,7 @@ const CredAccountsView = ({
                       </td>
                       <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                         <VoucherPrintBtn
-                          onClick={() => setVoucherTx(tx)}
+                          onClick={() => printPaymentVoucher(mapTxToVoucher(tx))}
                           title={`Print Voucher for ${tx.remark || tx.reference_number || 'Transaction'}`}
                           isDarkMode={isDarkMode}
                         />
@@ -672,14 +669,6 @@ const CredAccountsView = ({
         total={totalStatementTransactions}
         onPageChange={setStatementPage}
         isMobile={isMobile}
-      />
-
-      {/* Voucher Modal */}
-      <VoucherModal
-        isOpen={Boolean(voucherTx)}
-        onClose={() => setVoucherTx(null)}
-        voucherData={voucherTx ? mapTxToVoucher(voucherTx) : null}
-        isDarkMode={isDarkMode}
       />
     </div>
   );
