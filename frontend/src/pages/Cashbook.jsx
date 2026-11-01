@@ -4700,9 +4700,6 @@ const Cashbook = ({ currentUser = null }) => {
               <div style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: isDarkMode ? '#0c0d0e' : '#ffffff', margin: '0.35rem 0 0.15rem 0' }}>
                 SAR {safeFormatAmount(totalCombinedBalance)}
               </div>
-              <div className="figma-card-sub" style={{ fontSize: '11px', color: isDarkMode ? '#6a6e75' : '#cbd5e1' }}>
-                Available cash & bank reserves
-              </div>
             </div>
           )}
 
@@ -4746,9 +4743,6 @@ const Cashbook = ({ currentUser = null }) => {
                 <div style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: isDarkMode ? '#0c0d0e' : '#ffffff', margin: '0.45rem 0 0.2rem 0' }}>
                   SAR {safeFormatAmount(totalCombinedBalance)}
                 </div>
-                <div className="figma-card-sub" style={{ fontSize: '11px', color: isDarkMode ? '#6a6e75' : '#cbd5e1' }}>
-                  Available cash & bank reserves
-                </div>
               </div>
             )}
 
@@ -4782,11 +4776,6 @@ const Cashbook = ({ currentUser = null }) => {
               <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: isDarkMode ? '#ffffff' : '#0f172a', margin: isMobileScreen ? '0.25rem 0 0' : '0.45rem 0 0.2rem 0' }}>
                 SAR {safeFormatAmount(totalReceivedAmount)}
               </div>
-              {!isMobileScreen && (
-                <div style={{ fontSize: '11px', color: isDarkMode ? '#60646c' : '#94a3b8' }}>
-                  All channels: Banks, Books & Cash
-                </div>
-              )}
             </div>
 
             {/* Card 2: CREDIT DUE */}
@@ -4819,11 +4808,6 @@ const Cashbook = ({ currentUser = null }) => {
               <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: isDarkMode ? '#ffffff' : '#0f172a', margin: isMobileScreen ? '0.25rem 0 0' : '0.45rem 0 0.2rem 0' }}>
                 SAR {safeFormatAmount(totalCustomerOutstanding)}
               </div>
-              {!isMobileScreen && (
-                <div style={{ fontSize: '11px', color: isDarkMode ? '#60646c' : '#94a3b8' }}>
-                  Remaining balances
-                </div>
-              )}
             </div>
 
             {/* Card 3: EXPENSES */}
@@ -4856,11 +4840,6 @@ const Cashbook = ({ currentUser = null }) => {
               <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: isDarkMode ? '#ffffff' : '#0f172a', margin: isMobileScreen ? '0.25rem 0 0' : '0.45rem 0 0.2rem 0' }}>
                 SAR {safeFormatAmount(totalCompanyExpense)}
               </div>
-              {!isMobileScreen && (
-                <div style={{ fontSize: '11px', color: isDarkMode ? '#60646c' : '#94a3b8' }}>
-                  All business costs & expenses
-                </div>
-              )}
             </div>
 
             {/* Card 5: CUSTOMERS */}
@@ -4893,11 +4872,6 @@ const Cashbook = ({ currentUser = null }) => {
               <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: isDarkMode ? '#ffffff' : '#0f172a', margin: isMobileScreen ? '0.25rem 0 0' : '0.45rem 0 0.2rem 0' }}>
                 {(customers || []).length}
               </div>
-              {!isMobileScreen && (
-                <div style={{ fontSize: '11px', color: isDarkMode ? '#60646c' : '#94a3b8' }}>
-                  Saved accounts
-                </div>
-              )}
             </div>
           </MobileCardCarousel>
 
@@ -9405,11 +9379,6 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', color: isDarkMode ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em' }}>
               {safeFormatAmount(summary.opening_balance)} <span style={{ fontSize: isMobileScreen ? '0.68rem' : '0.75rem', fontWeight: '600', color: isDarkMode ? '#94a3b8' : '#64748b' }}>SAR</span>
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: isDarkMode ? '#71767b' : '#94a3b8' }}>
-                Starting balance
-              </div>
-            )}
           </div>
 
           {/* Card 2: Cash In / Credits */}
@@ -9462,11 +9431,6 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', color: '#16a34a', letterSpacing: '-0.02em' }}>
               +{safeFormatAmount(summary.total_credits)} <span style={{ fontSize: isMobileScreen ? '0.68rem' : '0.75rem', fontWeight: '600', color: isDarkMode ? '#94a3b8' : '#64748b' }}>SAR</span>
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: isDarkMode ? '#71767b' : '#94a3b8' }}>
-                Total received
-              </div>
-            )}
           </div>
 
           {/* Card 3: Cash Out / Debits */}
@@ -9519,11 +9483,6 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', color: '#dc2626', letterSpacing: '-0.02em' }}>
               -{safeFormatAmount(summary.total_debits)} <span style={{ fontSize: isMobileScreen ? '0.68rem' : '0.75rem', fontWeight: '600', color: isDarkMode ? '#94a3b8' : '#64748b' }}>SAR</span>
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: isDarkMode ? '#71767b' : '#94a3b8' }}>
-                Total spent
-              </div>
-            )}
           </div>
 
           {/* Card 4: Closing / Net Balance */}
@@ -9567,11 +9526,6 @@ const Cashbook = ({ currentUser = null }) => {
             }}>
               {safeFormatAmount(summary.closing_balance)} <span style={{ fontSize: isMobileScreen ? '0.68rem' : '0.75rem', fontWeight: '600', color: isDarkMode ? '#94a3b8' : '#64748b' }}>SAR</span>
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: isDarkMode ? '#71767b' : '#94a3b8' }}>
-                {summary.transactions_count || transactionsList.length} entries
-              </div>
-            )}
           </div>
         </MobileCardCarousel>
 
@@ -11043,11 +10997,6 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#f87171' : '#dc2626', letterSpacing: '-0.02em' }}>
               SAR {safeFormatAmount(totalExpensesAmount)}
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                {deduplicatedExpenses.length} entries
-              </div>
-            )}
           </div>
 
           {/* Card 2: Project Costs */}
@@ -11084,11 +11033,6 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
               SAR {safeFormatAmount(projectExpensesAmount)}
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                {projectExpenses.length} projects
-              </div>
-            )}
           </div>
 
           {/* Card 3: Salary & Overheads */}
@@ -11125,11 +11069,6 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
               SAR {safeFormatAmount(salaryCompanyExpensesAmount)}
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                {salaryCompanyExpenses.length} operations
-              </div>
-            )}
           </div>
 
           {/* Card 4: This Month */}
@@ -11166,11 +11105,6 @@ const Cashbook = ({ currentUser = null }) => {
             <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em' }}>
               SAR {safeFormatAmount(thisMonthExpensesAmount)}
             </div>
-            {!isMobileScreen && (
-              <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-                {thisMonthExpenses.length} entries
-              </div>
-            )}
           </div>
         </MobileCardCarousel>
 
@@ -14922,11 +14856,6 @@ const Cashbook = ({ currentUser = null }) => {
                 <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.5rem', fontWeight: '800', color: isDarkMode ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em' }}>
                   {safeFormatAmount(bookSummary.totalIn)} <span style={{ fontSize: isMobileScreen ? '0.68rem' : '0.75rem', fontWeight: '600', color: isDarkMode ? '#94a3b8' : '#64748b' }}>SAR</span>
                 </div>
-                {!isMobileScreen && (
-                  <div style={{ fontSize: '0.72rem', color: isDarkMode ? '#71767b' : '#94a3b8' }}>
-                    Total received
-                  </div>
-                )}
               </div>
 
               {/* Card 2: Cash Out */}
@@ -15102,11 +15031,6 @@ const Cashbook = ({ currentUser = null }) => {
                 }}>
                   {safeFormatAmount(bookSummary.netBal)} <span style={{ fontSize: isMobileScreen ? '0.68rem' : '0.75rem', fontWeight: '600', color: isDarkMode ? '#94a3b8' : '#64748b' }}>SAR</span>
                 </div>
-                {!isMobileScreen && (
-                  <div style={{ fontSize: '0.72rem', color: isDarkMode ? '#71767b' : '#94a3b8' }}>
-                    Net balance
-                  </div>
-                )}
               </div>
             </MobileCardCarousel>
 

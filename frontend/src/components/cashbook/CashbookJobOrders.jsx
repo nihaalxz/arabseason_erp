@@ -1022,14 +1022,6 @@ export default function CashbookJobOrders({
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
             {displayOrdersCount}
           </div>
-          {!isMobileScreen && (
-            <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {isCancelledView
-                ? `${cancelledOrders.length} orders cancelled`
-                : `${inProgressOrders.length} in progress · ${completedOrders.length} completed${pendingOrders.length > 0 ? ` · ${pendingOrders.length} pending` : ''}${cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}`
-              }
-            </div>
-          )}
         </div>
 
         {/* Card 2: Total Contract Value */}
@@ -1076,11 +1068,6 @@ export default function CashbookJobOrders({
               `SAR ${safeFormatAmount(displayContractValue)}`
             )}
           </div>
-          {!isMobileScreen && (
-            <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {isCancelledView ? 'Total cancelled order value' : 'Total order book value'}
-            </div>
-          )}
         </div>
 
         {/* Card 3: Payments Received */}
@@ -1127,11 +1114,6 @@ export default function CashbookJobOrders({
               `SAR ${safeFormatAmount(displayPaid)}`
             )}
           </div>
-          {!isMobileScreen && (
-            <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {isCancelledView ? 'Paid towards cancelled orders' : 'Collected from customers'}
-            </div>
-          )}
         </div>
 
         {/* Card 4: Outstanding Balance Due */}
@@ -1178,11 +1160,6 @@ export default function CashbookJobOrders({
               `SAR ${safeFormatAmount(displayDue)}`
             )}
           </div>
-          {!isMobileScreen && (
-            <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {isCancelledView ? 'No balance due on cancelled' : `${dueOrders.length} orders with pending balance`}
-            </div>
-          )}
         </div>
       </MobileCardCarousel>
 
