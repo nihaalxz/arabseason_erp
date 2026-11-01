@@ -186,17 +186,6 @@ export const OPERATIONS_FEATURE_DEFINITIONS = [
         path: '/delivery-notes'
       },
     ]
-  },
-  {
-    category: 'Dashboard',
-    items: [
-      {
-        key: 'minimalist_dashboard',
-        label: 'Minimalist Dashboard',
-        description: 'Shows high-clarity essential KPI cards and recent orders; removes complex multi-tier charts and heavy graphs.',
-        isToggleOnly: true
-      }
-    ]
   }
 ]
 
