@@ -211,7 +211,7 @@ function App() {
               <Route path="accounting/quotations/new" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
               <Route path="accounting/quotations/:id/edit" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
               <Route path="accounting/banks" element={<Navigate to="/cashbook?tab=bank_accounts" replace />} />
-              <Route path="accounting/settings" element={canAccess('settings') ? <Settings /> : <Navigate to="/accounting" />} />
+              <Route path="accounting/settings" element={canAccess('settings') ? <Settings mode="accounting" /> : <Navigate to="/accounting" />} />
               <Route path="enquiries" element={<Enquiries currentUser={currentUser} />} />
               {/* Legacy ERP Route Redirects to Accounting */}
               <Route path="customers" element={<RedirectToAccounting />} />
@@ -251,7 +251,7 @@ function App() {
               <Route path="cashbook" element={(isAdmin || canAccess('cashbook')) ? <Cashbook /> : <Navigate to="/" replace />} />
               <Route path="reports" element={canAccess('reports') ? <Reports /> : <Navigate to="/" />} />
               <Route path="salary" element={canAccess('salary') ? <Salary /> : <Navigate to="/" />} />
-              <Route path="settings" element={canAccess('settings') ? <Settings /> : <Navigate to="/" />} />
+              <Route path="settings" element={canAccess('settings') ? <Settings mode="erp" /> : <Navigate to="/" />} />
               <Route path="recycle-bin" element={(isAdmin || canAccess('cashbook')) ? <Navigate to="/cashbook?tab=recycle_bin" replace /> : <RecycleBin />} />
               <Route path="users" element={isAdmin ? <UserManagement /> : <Navigate to="/" />} />
               <Route path="search" element={<SearchResults />} />

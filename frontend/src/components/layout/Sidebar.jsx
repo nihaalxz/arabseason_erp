@@ -147,7 +147,7 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
       { name: 'Salary & Payroll', path: '/salary', icon: Banknote },
       { type: 'divider', label: 'REPORTS' },
       { name: 'Financial Reports', path: '/reports', icon: FileBarChart },
-      { name: 'Settings', path: '/settings', icon: Settings },
+      { name: 'Settings', path: '/accounting/settings', icon: Settings },
       ...(isAdmin ? [{ name: 'User Management', path: '/users', icon: UserCog }] : []),
     ]
   } else {
@@ -167,7 +167,7 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
 
   const rawNavItems = allNavItems.filter(item => {
     if (!item.path) return true // dividers
-    if (item.path === '/' || item.path === '/accounting' || item.path === '/settings' || item.path === '/recycle-bin' || item.path.startsWith('/cashbook')) return true
+    if (item.path === '/' || item.path === '/accounting' || item.path === '/settings' || item.path === '/accounting/settings' || item.path === '/recycle-bin' || item.path.startsWith('/cashbook')) return true
 
     // Check workspace feature visibility
     const moduleKey = MODULE_KEY_MAP[item.path]

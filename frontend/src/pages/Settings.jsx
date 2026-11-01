@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { 
@@ -12,13 +12,20 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm } from '../utils/swal'
 import ManageBanksPettyCash from '../components/settings/ManageBanksPettyCash'
 
-const VALID_TABS = ['workspace', 'profile', 'manage-banks-cash', 'security', 'localization', 'system']
+const Settings = ({ mode }) => {
+  const location = useLocation()
+  const isAccounting = mode === 'accounting' || location.pathname.startsWith('/accounting')
 
-const Settings = () => {
+  const validTabs = isAccounting
+    ? ['manage-banks-cash', 'localization', 'workspace', 'profile', 'security', 'system']
+    : ['workspace', 'profile', 'security', 'localization', 'system']
+
+  const defaultTab = isAccounting ? 'manage-banks-cash' : 'workspace'
+
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab')
-    return VALID_TABS.includes(tabParam) ? tabParam : 'workspace'
+    return validTabs.includes(tabParam) ? tabParam : defaultTab
   })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -53,14 +60,22 @@ const Settings = () => {
     confirm_password: ''
   })
 
-  const tabs = [
-    { id: 'workspace', name: 'Workspace & Modules', icon: Sliders },
-    { id: 'profile', name: 'My Profile', icon: User },
-    { id: 'manage-banks-cash', name: 'Manage Banks and Petty Cash', icon: Landmark },
-    { id: 'security', name: 'Security', icon: Shield },
-    { id: 'localization', name: 'Localization', icon: Globe },
-    { id: 'system', name: 'System Info', icon: Info },
-  ]
+  const tabs = isAccounting
+    ? [
+        { id: 'manage-banks-cash', name: 'Manage Banks and Petty Cash', icon: Landmark },
+        { id: 'localization', name: 'Localization & Currency', icon: Globe },
+        { id: 'workspace', name: 'Financial Modules', icon: Sliders },
+        { id: 'profile', name: 'My Profile', icon: User },
+        { id: 'security', name: 'Security', icon: Shield },
+        { id: 'system', name: 'System Info', icon: Info },
+      ]
+    : [
+        { id: 'workspace', name: 'Workspace & Modules', icon: Sliders },
+        { id: 'profile', name: 'My Profile', icon: User },
+        { id: 'security', name: 'Security', icon: Shield },
+        { id: 'localization', name: 'Localization', icon: Globe },
+        { id: 'system', name: 'System Info', icon: Info },
+      ]
 
   const [profileData, setProfileData] = useState({
     first_name: '',
@@ -71,17 +86,16 @@ const Settings = () => {
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam) {
-      if (VALID_TABS.includes(tabParam)) {
+      if (validTabs.includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam)
         }
       } else {
-        // Tab not found or removed (e.g. form-fields) -> redirect to workspace
-        setActiveTab('workspace')
-        setSearchParams({ tab: 'workspace' }, { replace: true })
+        setActiveTab(defaultTab)
+        setSearchParams({ tab: defaultTab }, { replace: true })
       }
     }
-  }, [searchParams])
+  }, [searchParams, isAccounting])
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId)
@@ -196,7 +210,7 @@ const Settings = () => {
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <SettingsIcon size={24} className="text-primary" />
-          <h2>Site Settings & Configuration</h2>
+          <h2>{isAccounting ? 'Accounting Settings & Configuration' : 'Site Settings & Configuration'}</h2>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {['workspace', 'manage-banks-cash', 'system'].includes(activeTab) ? (
@@ -510,51 +524,53 @@ const Settings = () => {
                  </div>
               </div>
 
-              {/* Quick access to Manage Banks & Petty Cash */}
-              <div style={{
-                marginTop: '2rem',
-                padding: '1.25rem',
-                background: 'var(--card-bg, #f8fafc)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '1rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '10px',
-                    background: 'var(--primary-light, #eff6ff)',
-                    color: 'var(--primary, #1366d9)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <Landmark size={20} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                      Manage Banks & Petty Cash
+              {/* Quick access to Manage Banks & Petty Cash (Accounting only) */}
+              {isAccounting && (
+                <div style={{
+                  marginTop: '2rem',
+                  padding: '1.25rem',
+                  background: 'var(--card-bg, #f8fafc)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '1rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      background: 'var(--primary-light, #eff6ff)',
+                      color: 'var(--primary, #1366d9)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <Landmark size={20} />
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      Configure company bank accounts, IBANs, and petty cash custody accounts.
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                        Manage Banks & Petty Cash
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Configure company bank accounts, IBANs, and petty cash custody accounts.
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => handleTabChange('manage-banks-cash')}
+                    style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
+                  >
+                    Manage Accounts &rarr;
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => handleTabChange('manage-banks-cash')}
-                  style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
-                >
-                  Manage Accounts &rarr;
-                </button>
-              </div>
+              )}
             </div>
           )}
 

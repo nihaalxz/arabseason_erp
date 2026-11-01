@@ -102,7 +102,9 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
       location.pathname === '/enquiries' ||
       location.pathname.startsWith('/enquiries/') ||
       location.pathname === '/delivery-notes' ||
-      location.pathname.startsWith('/delivery-notes/')
+      location.pathname.startsWith('/delivery-notes/') ||
+      location.pathname === '/settings' ||
+      location.pathname.startsWith('/settings/')
     ) {
       if (activeModule !== 'erp') setActiveModule('erp')
     }
