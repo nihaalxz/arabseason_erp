@@ -32,8 +32,10 @@ import MoneyCard from '../MoneyCard';
 import CredCardCarousel from '../CredCardCarousel';
 import GooeyMenu from '../GooeyMenu';
 import CredPagination from '../CredPagination';
-import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const DURATION_OPTIONS = [
   { value: 'all', id: 'all', label: 'all time', icon: Calendar },
@@ -321,6 +323,59 @@ const CredLabourChartView = ({
     total: totalQuoteCount
   } = usePagination(filteredQuotes, isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, quoteResetKey);
 
+  const mapQuoteToVoucher = (q) => {
+    if (!q) return null;
+    return {
+      voucherType: 'LABOUR WORK ORDER & RATE AGREEMENT',
+      voucherNo: `LWR-${q.id || 'QUO'}`,
+      date: q.date || new Date().toISOString().split('T')[0],
+      amount: q.charge || 0,
+      payeeName: q.name || 'Labourer',
+      payeeRole: `${q.sector || 'Labour'} Tradesperson`,
+      payeePhone: q.phone || '-',
+      paymentMode: 'Direct Contractor / Cash Disbursement',
+      jobOrder: q.jobOrder || 'General Site Operations',
+      category: `Labour Rates - ${q.sector || 'General'}`,
+      description: `Agreed labour wage rate: SAR ${parseFloat(q.charge || 0).toFixed(2)} ${q.unit} for ${q.sector} works.`,
+      particulars: [
+        { item: `${q.sector} Services (${q.unit})`, qty: '1', rate: formatCurrency(q.charge), amount: formatCurrency(q.charge) }
+      ],
+      notes: `Terms & Notes: ${q.notes || 'Work completed to company quality standard'}. Rate valid as agreed.`
+    };
+  };
+
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'LABOURER / TRADE', dataKey: 'name' },
+      { header: 'SECTOR', dataKey: 'sector' },
+      { header: 'PHONE', dataKey: 'phone' },
+      { header: 'RATE (SAR)', dataKey: 'charge' },
+      { header: 'UNIT', dataKey: 'unit' },
+      { header: 'DATE', dataKey: 'date' },
+      { header: 'JOB ORDER', dataKey: 'job' },
+      { header: 'BENCHMARK', dataKey: 'benchmark' }
+    ];
+    const rows = filteredQuotes.map(q => ({
+      name: q.name,
+      sector: q.sector,
+      phone: q.phone || '-',
+      charge: formatCurrency(q.charge),
+      unit: q.unit,
+      date: q.date,
+      job: q.jobOrder || '-',
+      benchmark: q.isLowest ? 'LOWEST BENCHMARK' : 'STANDARD'
+    }));
+    exportTableToPdf({
+      title: 'Labour Rates & Benchmark Price Chart',
+      subtitle: `Sector: ${selectedSectorFilter} | Duration: ${duration} | Total Quotes: ${filteredQuotes.length}`,
+      columns,
+      rows,
+      totals: {
+        charge: `Avg: ${formatCurrency(kpis.avgPrice)}`
+      },
+      fileName: `labour_rates_chart_${new Date().toISOString().split('T')[0]}.pdf`
+    });
+  };
 
   // Open Modal with fresh state
   const handleOpenModal = () => {
@@ -460,27 +515,30 @@ const CredLabourChartView = ({
             <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, letterSpacing: '-0.02em', color: 'var(--text, #0A0A0A)' }}>
               labour chart
             </h1>
-            <button
-              type="button"
-              onClick={handleOpenModal}
-              style={{
-                borderRadius: '999px',
-                background: 'var(--text, #0A0A0A)',
-                color: 'var(--bg, #FFFFFF)',
-                border: 'none',
-                fontWeight: 600,
-                fontSize: '12px',
-                padding: '6px 14px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                boxShadow: isDarkMode ? '0 2px 10px rgba(255,255,255,0.08)' : '0 2px 8px rgba(0,0,0,0.12)'
-              }}
-            >
-              <Plus size={14} />
-              <span>Record</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                onClick={handleOpenModal}
+                style={{
+                  borderRadius: '999px',
+                  background: 'var(--text, #0A0A0A)',
+                  color: 'var(--bg, #FFFFFF)',
+                  border: 'none',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  boxShadow: isDarkMode ? '0 2px 10px rgba(255,255,255,0.08)' : '0 2px 8px rgba(0,0,0,0.12)'
+                }}
+              >
+                <Plus size={14} />
+                <span>Record</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -498,6 +556,7 @@ const CredLabourChartView = ({
           </h1>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
             <button
               type="button"
               onClick={handleOpenModal}
@@ -647,7 +706,7 @@ const CredLabourChartView = ({
             onSelect={(opt) => setDuration(opt.value || opt.id || opt)}
             onChange={(val) => setDuration(val)}
             options={DURATION_OPTIONS}
-            width={isMobile ? '100%' : 145}
+            width={isMobile ? '100%' : 190}
             pillHeight={36}
             ariaLabel="Filter date range"
           />
@@ -908,25 +967,32 @@ const CredLabourChartView = ({
                   {q.notes && <span>{q.notes}</span>}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleDeleteQuote(q)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#ef4444',
-                    cursor: 'pointer',
-                    padding: '2px 4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    fontSize: '11px'
-                  }}
-                  title="Delete quote"
-                >
-                  <Trash2 size={12} />
-                  <span>Delete</span>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <VoucherPrintBtn
+                    onClick={() => printPaymentVoucher(mapQuoteToVoucher(q))}
+                    title={`Print Labour Agreement for ${q.name}`}
+                    isDarkMode={isDarkMode}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteQuote(q)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ef4444',
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '11px'
+                    }}
+                    title="Delete quote"
+                  >
+                    <Trash2 size={12} />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
 
               {/* Inset dashed hairline divider */}
@@ -1099,25 +1165,32 @@ const CredLabourChartView = ({
 
                       {/* Action */}
                       <td style={{ ...bodyCellStyle, textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteQuote(q)}
-                          title="Delete Quote Record"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-muted, #8C8C8C)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <VoucherPrintBtn
+                            onClick={() => printPaymentVoucher(mapQuoteToVoucher(q))}
+                            title={`Print Labour Agreement for ${q.name}`}
+                            isDarkMode={isDarkMode}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuote(q)}
+                            title="Delete Quote Record"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted, #8C8C8C)',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1469,6 +1542,7 @@ const CredLabourChartView = ({
         </div>,
         document.body
       )}
+
     </div>
   );
 };

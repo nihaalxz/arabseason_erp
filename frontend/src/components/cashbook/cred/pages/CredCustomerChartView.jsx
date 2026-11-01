@@ -30,6 +30,9 @@ import CredCardCarousel from '../CredCardCarousel';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const DURATION_OPTIONS = [
   { value: 'all', id: 'all', label: 'all time', icon: Calendar },
@@ -70,6 +73,74 @@ const CredCustomerChartView = ({
   const [selectedCustomerFilter, setSelectedCustomerFilter] = useState('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [duration, setDuration] = useState('all');
+
+  const mapRecordToVoucher = (r) => {
+    if (!r) return null;
+    return {
+      voucherType: 'CUSTOMER WORK ORDER & QUOTE',
+      voucherNo: `CWO-${r.id || Date.now().toString().slice(-6)}`,
+      date: r.date || new Date().toISOString().split('T')[0],
+      amount: r.amount,
+      payeeName: r.customerName || 'Valued Customer',
+      payeeRole: 'Customer / Client',
+      payeePhone: r.customerPhone || '',
+      paymentMode: 'QUOTED RATE / AGREEMENT',
+      referenceNo: `WO-REF-${r.id}`,
+      category: r.workCategory || 'Contracting Work',
+      description: `Official rate quote & work specification for ${r.customerName || 'Customer'} - ${r.work || ''}.`,
+      particulars: [
+        {
+          item: `${r.workCategory} - ${r.work}`,
+          qty: '1',
+          rate: r.amount,
+          amount: r.amount
+        }
+      ],
+      notes: r.notes || 'Agreed work specifications and quotation. Valid for 30 days from issuance.',
+      preparedBy: 'Estimator / Project Coordinator',
+      approvedBy: 'Operations Director'
+    };
+  };
+
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'CUSTOMER', dataKey: 'customer' },
+      { header: 'WORK CATEGORY', dataKey: 'category' },
+      { header: 'WORK DESCRIPTION', dataKey: 'work' },
+      { header: 'AMOUNT (SAR)', dataKey: 'amount', align: 'right' },
+      { header: 'DATE', dataKey: 'date' },
+      { header: 'NOTES', dataKey: 'notes' }
+    ];
+
+    let totalAmount = 0;
+    const rows = filteredRecords.map(r => {
+      totalAmount += (r.amount || 0);
+      return {
+        customer: r.customerName || '—',
+        category: r.workCategory || '—',
+        work: r.work || '—',
+        amount: formatCurrency(r.amount || 0),
+        date: r.date || '—',
+        notes: r.notes || '—'
+      };
+    });
+
+    exportTableToPdf({
+      title: 'CUSTOMER WORK & PRICING CHART',
+      subtitle: `Arab Season Contracting • Total Work Records: ${rows.length} • Total Quoted: ${formatCurrency(totalAmount)}`,
+      filename: `customer_price_chart_${new Date().toISOString().split('T')[0]}.pdf`,
+      columns,
+      rows,
+      totals: {
+        customer: 'TOTALS',
+        category: `${rows.length} Work Items`,
+        work: '',
+        amount: formatCurrency(totalAmount),
+        date: '',
+        notes: ''
+      }
+    });
+  };
 
   // Modal State for Recording Customer Work
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -412,27 +483,30 @@ const CredCustomerChartView = ({
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
               customer chart
             </h1>
-            <button
-              type="button"
-              id="btn-record-work-mobile"
-              onClick={handleOpenModal}
-              style={{
-                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              <span>Record</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-record-work-mobile"
+                onClick={handleOpenModal}
+                style={{
+                  background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                  color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Record</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -457,31 +531,34 @@ const CredCustomerChartView = ({
             Customer Chart
           </h1>
 
-          <button
-            type="button"
-            id="btn-record-work"
-            onClick={handleOpenModal}
-            style={{
-              background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-              color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '8px 18px',
-              fontSize: '13px',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)',
-              transition: 'transform 0.15s ease, opacity 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Record Customer Work</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+            <button
+              type="button"
+              id="btn-record-work"
+              onClick={handleOpenModal}
+              style={{
+                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '8px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)',
+                transition: 'transform 0.15s ease, opacity 0.15s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Record Customer Work</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -609,7 +686,7 @@ const CredCustomerChartView = ({
             onSelect={(opt) => setDuration(opt.value || opt.id || opt)}
             onChange={(val) => setDuration(val)}
             options={DURATION_OPTIONS}
-            width={isMobile ? '100%' : 145}
+            width={isMobile ? '100%' : 190}
             pillHeight={36}
             ariaLabel="Filter date range"
           />
@@ -869,25 +946,31 @@ const CredCustomerChartView = ({
                   <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                     {r.notes ? <span>{r.notes}</span> : <span style={{ opacity: 0.5 }}>—</span>}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteWorkRecord(r)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      padding: '2px 4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                      fontSize: '11px'
-                    }}
-                    title="Delete work record"
-                  >
-                    <Trash2 size={12} />
-                    <span>Delete</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <VoucherPrintBtn
+                      title="Customer Work Quote / Agreement Slip"
+                      onClick={() => printPaymentVoucher(mapRecordToVoucher(r))}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteWorkRecord(r)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontSize: '11px'
+                      }}
+                      title="Delete work record"
+                    >
+                      <Trash2 size={12} />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Inset dashed hairline divider */}
@@ -1087,25 +1170,31 @@ const CredCustomerChartView = ({
 
                         {/* Action */}
                         <td style={{ ...bodyCellStyle, textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteWorkRecord(r)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--text-muted, #8C8C8C)',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
-                            title="Delete work record"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <VoucherPrintBtn
+                              title="Customer Work Quote / Agreement Slip"
+                              onClick={() => printPaymentVoucher(mapRecordToVoucher(r))}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteWorkRecord(r)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted, #8C8C8C)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
+                              title="Delete work record"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1438,6 +1527,7 @@ const CredCustomerChartView = ({
         </div>,
         document.body
       )}
+
     </div>
   );
 };

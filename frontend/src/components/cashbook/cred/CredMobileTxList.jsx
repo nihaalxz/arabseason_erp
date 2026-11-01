@@ -19,6 +19,7 @@ import {
   Receipt,
   Coins
 } from 'lucide-react';
+import VoucherPrintBtn from '../common/VoucherPrintBtn';
 
 /**
  * Single mobile transaction card (shared across Home & Dashboard)
@@ -35,7 +36,8 @@ export const CredMobileTxCard = ({
   onEdit = null,
   onClick = null,
   showBalance = false,
-  onOpenImage = null
+  onOpenImage = null,
+  onPrintVoucher = null
 }) => {
   if (!item) return null;
 
@@ -132,6 +134,15 @@ export const CredMobileTxCard = ({
                 bal: <Money value={item.display_running_balance} />
               </span>
             )}
+            {onPrintVoucher && (
+              <VoucherPrintBtn
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPrintVoucher(item);
+                }}
+                title={`Print Voucher for ${item.remark || 'Transaction'}`}
+              />
+            )}
           </div>
         </div>
 
@@ -201,6 +212,7 @@ const CredMobileTxList = ({
   onClearFilters = null,
   isAnyFilterActive = false,
   onOpenImage = null,
+  onPrintVoucher = null,
   className = '',
   style = {}
 }) => {
@@ -271,6 +283,7 @@ const CredMobileTxList = ({
           onClick={onClick}
           showBalance={showBalance}
           onOpenImage={onOpenImage}
+          onPrintVoucher={onPrintVoucher}
         />
       ))}
     </div>

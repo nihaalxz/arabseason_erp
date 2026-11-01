@@ -61,7 +61,6 @@ const CredTopStrip = ({
         height: '56px',
         background: 'var(--bg, #FFFFFF)',
         borderBottom: '1px solid var(--border, #E4E4E4)',
-        zIndex: 30,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -69,7 +68,8 @@ const CredTopStrip = ({
         boxSizing: 'border-box',
         width: '100%',
         userSelect: 'none',
-        ...style
+        ...style,
+        zIndex: isGearOpen ? 800 : 200
       }}
     >
       {/* Left side: breadcrumb (e.g. back button + books / <book name>) or empty */}
@@ -152,7 +152,7 @@ const CredTopStrip = ({
         </button>
 
         {/* 3. Settings Gear Button */}
-        <div style={{ position: 'relative' }} ref={gearRef}>
+        <div style={{ position: 'relative', zIndex: isGearOpen ? 1000 : 'auto' }} ref={gearRef}>
           <button
             type="button"
             id="cred-topstrip-gear-btn"

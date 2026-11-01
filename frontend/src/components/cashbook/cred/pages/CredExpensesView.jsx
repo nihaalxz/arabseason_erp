@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, 
+import {
+  Plus,
+  Printer,
+  FileText, 
   Receipt, 
   Briefcase, 
   Users, 
@@ -23,6 +25,8 @@ import CredChannelCell from '../CredChannelCell';
 import CredRowIconButton from '../CredRowIconButton';
 import { fadeFast } from '../motionTokens';
 import CredPagination from '../CredPagination';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst, formatJobRef, getAmountFontSize, formatCompactKpi } from '../usePagination';
 
 const getMonthYearLabel = (dateStr) => {
@@ -206,6 +210,57 @@ const CredExpensesView = ({
   const [cardFilter, setCardFilter] = useState('all'); // 'all' | 'project' | 'salary_overhead' | 'this_month'
   const [categoryFilter, setCategoryFilter] = useState('All'); // 'All' | 'Project' | 'Salary' | 'Company' | 'Venture' | 'Other'
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleExportPDF = () => {
+    const cols = ['DATE', 'CATEGORY', 'DESCRIPTION / DETAILS', 'JOB / PROJECT', 'MODE', 'AMOUNT (SAR)'];
+    const rowsData = (filteredExpenses || expenses || []).map(exp => [
+      exp.date ? new Date(exp.date).toLocaleDateString('en-US') : '---',
+      exp.category || 'General',
+      exp.description || exp.remarks || '---',
+      exp.job_order_title || exp.job_order || '---',
+      exp.payment_mode || 'Cash',
+      Number(exp.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ]);
+    const totalAmount = (filteredExpenses || expenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    const totals = ['TOTAL EXPENSES', '', '', '', `${(filteredExpenses || expenses || []).length} items`, formatCurrency(totalAmount)];
+
+    exportTableToPdf({
+      title: 'Company Expenses Statement',
+      subtitle: `Arab Season Contracting • ${categoryFilter !== 'All' ? categoryFilter : 'All Expenses'} • Total: ${formatCurrency(totalAmount)}`,
+      columns: cols,
+      rows: rowsData,
+      totals,
+      filename: `expenses-statement-${Date.now()}.pdf`,
+      orientation: 'landscape'
+    });
+  };
+
+  const handlePrintRowVoucher = (exp) => {
+    const voucherPayload = {
+      voucherType: 'EXPENSE PAYMENT VOUCHER',
+      voucherNo: exp.voucher_no || `EXP-${exp.id}`,
+      date: exp.date || exp.created_at,
+      payeeName: exp.vendor_name || exp.party_name || exp.paid_to || exp.category || 'Vendor / Payee',
+      payeeRole: exp.vendor_name ? 'Vendor' : 'Payee / Contractor',
+      payeePhone: exp.payee_phone || exp.vendor_phone || '',
+      amount: exp.amount,
+      paymentMode: exp.payment_mode || 'Cash',
+      referenceNo: exp.reference_no || exp.ref_no || '',
+      jobOrder: exp.job_order_title || exp.job_order || '',
+      category: exp.category,
+      description: exp.description || exp.remarks || `Expense disbursement for ${exp.category}`,
+      particulars: [
+        {
+          item: exp.category + (exp.remarks || exp.description ? ` (${exp.remarks || exp.description})` : ''),
+          qty: '1',
+          rate: exp.amount,
+          amount: exp.amount
+        }
+      ]
+    };
+    printPaymentVoucher(voucherPayload);
+  };
+
 
   // 1. Deduplicate expenses by ID, excluding inter-account transfers
   const deduplicatedExpenses = useMemo(() => {
@@ -422,27 +477,30 @@ const CredExpensesView = ({
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
               expenses
             </h1>
-            <button
-              type="button"
-              id="btn-open-expense-modal"
-              onClick={onAddExpense}
-              style={{
-                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              <span>Add</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-open-expense-modal"
+                onClick={onAddExpense}
+                style={{
+                  background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                  color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Add</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -450,10 +508,12 @@ const CredExpensesView = ({
           title="expenses"
           caption={null}
           actions={
-            <button
-              type="button"
-              id="btn-open-expense-modal"
-              onClick={onAddExpense}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-open-expense-modal"
+                onClick={onAddExpense}
               className="cred-header-btn-primary"
               style={{
                 display: 'inline-flex',
@@ -476,7 +536,8 @@ const CredExpensesView = ({
             >
               <Plus size={15} strokeWidth={2.5} />
               <span>Add Expense</span>
-            </button>
+              </button>
+            </div>
           }
         />
       )}
@@ -800,6 +861,17 @@ const CredExpensesView = ({
                                 -<Money value={item.amount} style={{ color: 'var(--danger, #dc2626)' }} />
                               </div>
                               <CredRowIconButton
+                                title="Print Payment Voucher (with Signatures)"
+                                ariaLabel="Print Payment Voucher"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePrintRowVoucher(item);
+                                }}
+                                style={{ width: '28px', height: '28px' }}
+                              >
+                                <Printer size={13} />
+                              </CredRowIconButton>
+                              <CredRowIconButton
                                 tone="danger"
                                 title="Delete expense"
                                 ariaLabel="Delete expense"
@@ -1026,14 +1098,26 @@ const CredExpensesView = ({
 
                           {/* Action (Delete uses CredRowIconButton) */}
                           <td style={{ padding: '0.75rem 0.75rem', textAlign: 'center' }}>
-                            <CredRowIconButton
-                              tone="danger"
-                              title="Delete expense"
-                              ariaLabel="Delete expense"
-                              onClick={() => onDeleteExpense(item.id)}
-                            >
-                              <Trash2 size={15} />
-                            </CredRowIconButton>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              <CredRowIconButton
+                                title="Print Payment Voucher (with Signatures)"
+                                ariaLabel="Print Payment Voucher"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePrintRowVoucher(item);
+                                }}
+                              >
+                                <Printer size={14} />
+                              </CredRowIconButton>
+                              <CredRowIconButton
+                                tone="danger"
+                                title="Delete expense"
+                                ariaLabel="Delete expense"
+                                onClick={() => onDeleteExpense(item.id)}
+                              >
+                                <Trash2 size={14} />
+                              </CredRowIconButton>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1056,6 +1140,7 @@ const CredExpensesView = ({
           />
         </motion.div>
       </AnimatePresence>
+
     </div>
   );
 };

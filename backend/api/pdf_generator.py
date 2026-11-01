@@ -169,7 +169,7 @@ class NumberedCanvas(canvas.Canvas):
         self.setFont(UNICODE_FONT, 7.5)
         self.setFillColor(colors.HexColor("#64748b"))
 
-        page_w, page_h = A4
+        page_w, page_h = getattr(self, '_pagesize', A4)
         margin = 12 * mm
 
         # Footer divider line
@@ -3516,6 +3516,395 @@ class UniversalPDFGenerator:
         buffer.close()
         return pdf_bytes
 
+    def number_to_words(self, amount):
+        """Converts currency amount to legal English words with SAR and Halalas."""
+        try:
+            val = float(str(amount or 0).replace(',', '').replace('SAR', '').strip())
+        except (ValueError, TypeError):
+            return "Zero Saudi Riyals Only"
+
+        ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+                "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+                "Seventeen", "Eighteen", "Nineteen"]
+        tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+        def _convert_below_thousand(n):
+            if n == 0:
+                return ""
+            if n < 20:
+                return ones[n]
+            if n < 100:
+                return tens[n // 10] + (" " + ones[n % 10] if n % 10 != 0 else "")
+            return ones[n // 100] + " Hundred" + (" and " + _convert_below_thousand(n % 100) if n % 100 != 0 else "")
+
+        whole = int(val)
+        halalas = int(round((val - whole) * 100))
+
+        if whole == 0 and halalas == 0:
+            return "Zero Saudi Riyals Only"
+
+        chunks = []
+        scales = ["", "Thousand", "Million", "Billion"]
+        chunk_idx = 0
+        rem = whole
+        while rem > 0 and chunk_idx < len(scales):
+            c = rem % 1000
+            if c != 0:
+                words = _convert_below_thousand(c)
+                if scales[chunk_idx]:
+                    words += " " + scales[chunk_idx]
+                chunks.insert(0, words)
+            rem //= 1000
+            chunk_idx += 1
+
+        whole_words = " ".join(chunks) if chunks else "Zero"
+        currency = self.settings.get('currency', 'SAR')
+        curr_name = "Saudi Riyals" if currency == 'SAR' else currency
+        result = f"{whole_words} {curr_name}"
+        if halalas > 0:
+            result += f" and {_convert_below_thousand(halalas)} Halalas"
+        return f"{result} Only"
+
+    def generate_universal_table_pdf(self, title, columns, rows, kpis=None, ref_number=None, period_text=None, totals=None, filename_prefix='report', orientation='portrait'):
+        """
+        Universal corporate table report PDF matching the exact publication layout of timesheet_report_pdf.
+        """
+        from reportlab.lib.pagesizes import A4, landscape
+        buffer = io.BytesIO()
+        margin = 10 * mm if orientation == 'landscape' else 12 * mm
+        psize = landscape(A4) if orientation == 'landscape' else A4
+        doc_title = format_dynamic_filename(filename_prefix or 'report', title or 'report', ext='')
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=psize,
+            leftMargin=margin,
+            rightMargin=margin,
+            topMargin=margin,
+            bottomMargin=margin + 8 * mm,
+            title=doc_title,
+            author=self.settings.get('company_name', 'Arab Season')
+        )
+
+        doc_width = psize[0] - (2 * margin)
+        elements = []
+
+        # 1. Standard Branded Corporate Header
+        elements.extend(self.build_header_flowable(doc_width))
+
+        # 2. Document Title Banner
+        ref = ref_number or f"REP-{datetime.now().strftime('%Y%m%d')}"
+        period = period_text or f"Generated: {datetime.now().strftime('%d/%m/%Y')} • {len(rows)} Records"
+        banner = self.build_doc_title_banner(doc_width, title=title, ref_number=ref, period_text=period)
+        elements.append(banner)
+        elements.append(Spacer(1, 4 * mm))
+
+        # 3. Optional KPI Summary Cards
+        if kpis and isinstance(kpis, list) and len(kpis) > 0:
+            elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
+            elements.append(Spacer(1, 5 * mm))
+
+        # 4. Standardized Table
+        normalized_cols = []
+        for col in columns:
+            if isinstance(col, dict):
+                normalized_cols.append({
+                    'header': str(col.get('header') or col.get('title') or '').upper(),
+                    'key': str(col.get('key') or col.get('dataKey') or ''),
+                    'align': col.get('align', 'left'),
+                    'width': float(col.get('width') or 0)
+                })
+            else:
+                normalized_cols.append({
+                    'header': str(col).upper(),
+                    'key': str(col),
+                    'align': 'left',
+                    'width': 0
+                })
+
+        num_cols = len(normalized_cols) or 1
+        total_given_w = sum(c['width'] for c in normalized_cols)
+        if total_given_w > 0:
+            col_widths = [doc_width * (c['width'] / total_given_w) for c in normalized_cols]
+        else:
+            col_widths = [doc_width / num_cols] * num_cols
+
+        # Header Row
+        header_cells = []
+        for c in normalized_cols:
+            style = self.styles['TableHeaderCenter'] if c['align'] == 'center' else (self.styles['TableHeaderRight'] if c['align'] == 'right' else self.styles['TableHeader'])
+            header_cells.append(Paragraph(f"<b>{c['header']}</b>", style))
+
+        table_rows = [header_cells]
+
+        # Data Rows
+        for r in rows:
+            row_cells = []
+            for c in normalized_cols:
+                key = c['key']
+                val = r.get(key, '') if isinstance(r, dict) else (r[normalized_cols.index(c)] if isinstance(r, (list, tuple)) and normalized_cols.index(c) < len(r) else '')
+                val_str = str(val) if val is not None else ''
+
+                align = c['align']
+                if align == 'right' or (val_str.startswith(('SAR', '+', '-')) and any(ch.isdigit() for ch in val_str)):
+                    if val_str.startswith('+'):
+                        st = self.styles['TableCellCredit']
+                    elif val_str.startswith('-'):
+                        st = self.styles['TableCellDebit']
+                    else:
+                        st = self.styles['TableCellNumber']
+                elif align == 'center':
+                    st = self.styles['TableCellCenter']
+                else:
+                    st = self.styles['TableCell']
+
+                row_cells.append(Paragraph(val_str, st))
+            table_rows.append(row_cells)
+
+        # Totals Row (optional)
+        if totals and isinstance(totals, dict):
+            tot_cells = []
+            for idx, c in enumerate(normalized_cols):
+                tot_val = totals.get(c['key']) or totals.get(c['header'])
+                if tot_val is not None:
+                    tot_cells.append(Paragraph(f"<b>{tot_val}</b>", self.styles['TableCellNumber']))
+                elif idx == 0:
+                    tot_cells.append(Paragraph("<b>TOTALS</b>", self.styles['TableCellBold']))
+                else:
+                    tot_cells.append(Paragraph("", self.styles['TableCell']))
+            table_rows.append(tot_cells)
+
+        main_table = Table(table_rows, colWidths=col_widths, repeatRows=1)
+        t_styles = [
+            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 3.5),
+        ]
+        has_totals = bool(totals)
+        end_idx = len(table_rows) - 1 if has_totals else len(table_rows)
+        for i in range(1, end_idx):
+            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
+            t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
+            t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
+
+        if has_totals:
+            t_styles.append(('BACKGROUND', (0, -1), (-1, -1), self.COLOR_ROW_ALT))
+            t_styles.append(('LINEABOVE', (0, -1), (-1, -1), 1.2, self.COLOR_PRIMARY))
+            t_styles.append(('PADDING', (0, -1), (-1, -1), 4.5))
+
+        main_table.setStyle(TableStyle(t_styles))
+        elements.append(main_table)
+
+        # 5. Standard 3-Column Verification Signatures
+        elements.append(Spacer(1, 8 * mm))
+        elements.append(self.build_signatures_flowable(doc_width))
+
+        def canvas_maker(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.company_name = self.settings['company_name']
+            c.draw_outer_border = True
+            c.outer_border_margin = 6 * mm
+            return c
+
+        doc.build(elements, canvasmaker=canvas_maker)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
+    def generate_payment_voucher_pdf(self, voucher_data):
+        """
+        Generates an official corporate Payment / Receipt / Agreement Voucher PDF.
+        Includes 2-column beneficiary & parameter details, large SAR amount highlight box,
+        words representation, itemized breakdown table, notes, and 3-column signature block.
+        """
+        buffer = io.BytesIO()
+        margin = 12 * mm
+        v_type = voucher_data.get('voucherType') or 'PAYMENT VOUCHER'
+        v_no = voucher_data.get('voucherNo') or f"VCH-{datetime.now().strftime('%Y%m%d%H%M')}"
+        v_date = voucher_data.get('date') or datetime.now().strftime('%Y-%m-%d')
+        doc_title = format_dynamic_filename('voucher', v_type, v_no, ext='')
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=margin,
+            rightMargin=margin,
+            topMargin=margin,
+            bottomMargin=margin + 8 * mm,
+            title=doc_title,
+            author=self.settings.get('company_name', 'Arab Season')
+        )
+
+        doc_width = A4[0] - (2 * margin)
+        elements = []
+
+        # 1. Standard Header
+        elements.extend(self.build_header_flowable(doc_width))
+
+        # 2. Document Title Banner
+        banner = self.build_doc_title_banner(
+            doc_width,
+            title=v_type,
+            ref_number=v_no,
+            period_text=f"Date: {v_date}"
+        )
+        elements.append(banner)
+        elements.append(Spacer(1, 4 * mm))
+
+        # 3. Beneficiary & Parameters 2-Column Box
+        payee_name = voucher_data.get('payeeName') or 'N/A'
+        payee_role = voucher_data.get('payeeRole') or 'Beneficiary / Recipient'
+        payee_phone = voucher_data.get('payeePhone') or '-'
+        account_name = voucher_data.get('accountName') or 'Main Cash Ledger'
+
+        pay_mode = voucher_data.get('paymentMode') or 'Cash'
+        category = voucher_data.get('category') or 'General'
+        currency = self.settings.get('currency', 'SAR')
+
+        left_info = [
+            Paragraph("<b>BENEFICIARY / PAYEE DETAILS</b>", self.styles['MetaLabel']),
+            Spacer(1, 1 * mm),
+            Paragraph(f"<b>Name / Entity:</b> {payee_name}", self.styles['MetaValue']),
+            Paragraph(f"<b>Role / Type:</b> {payee_role}", self.styles['MetaValue']),
+            Paragraph(f"<b>Contact:</b> {payee_phone}", self.styles['MetaValue']),
+            Paragraph(f"<b>Account:</b> {account_name}", self.styles['MetaValue']),
+        ]
+
+        right_info = [
+            Paragraph("<b>DISBURSEMENT PARAMETERS</b>", self.styles['MetaLabel']),
+            Spacer(1, 1 * mm),
+            Paragraph(f"<b>Voucher No:</b> {v_no}", self.styles['MetaValue']),
+            Paragraph(f"<b>Transaction Date:</b> {v_date}", self.styles['MetaValue']),
+            Paragraph(f"<b>Payment Mode:</b> {pay_mode}", self.styles['MetaValue']),
+            Paragraph(f"<b>Category:</b> {category}", self.styles['MetaValue']),
+            Paragraph(f"<b>Currency:</b> {currency}", self.styles['MetaValue']),
+        ]
+
+        info_table = Table([[left_info, right_info]], colWidths=[doc_width * 0.50, doc_width * 0.50])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), self.COLOR_ROW_ALT),
+            ('BOX', (0, 0), (-1, -1), 1, self.COLOR_BORDER),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, self.COLOR_BORDER),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(info_table)
+        elements.append(Spacer(1, 4 * mm))
+
+        # 4. Total Amount Highlight Banner
+        raw_amt = voucher_data.get('amount', 0)
+        try:
+            amt = float(str(raw_amt).replace(',', '').replace('SAR', '').strip())
+        except (ValueError, TypeError):
+            amt = 0.0
+
+        amt_str = f"{amt:,.2f} {currency}"
+        words = voucher_data.get('amountWords') or self.number_to_words(amt)
+
+        amt_left = [
+            Paragraph("<font size='7.5' color='#64748b'><b>TOTAL DISBURSED / VOUCHER AMOUNT</b></font>", self.styles['MetaLabel']),
+            Spacer(1, 1 * mm),
+            Paragraph(f"<font size='8' color='#0f172a'><b>*** {words} ***</b></font>", self.styles['MetaValue']),
+        ]
+        amt_right = [
+            Paragraph(f"<para align='right'><font size='14' color='#0f172a'><b>{amt_str}</b></font></para>", self.styles['MetaValue'])
+        ]
+        amt_table = Table([[amt_left, amt_right]], colWidths=[doc_width * 0.68, doc_width * 0.32])
+        amt_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('BOX', (0, 0), (-1, -1), 1.2, self.COLOR_PRIMARY),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(amt_table)
+        elements.append(Spacer(1, 4 * mm))
+
+        # 5. Particulars / Breakdown Table
+        particulars = voucher_data.get('particulars') or []
+        if not particulars:
+            desc = voucher_data.get('description') or 'Voucher Transaction Settlement'
+            particulars = [{'item': desc, 'qty': '1', 'rate': amt_str, 'amount': amt_str}]
+
+        items_table_data = [
+            [
+                Paragraph("<b>DESCRIPTION / ITEM PARTICULARS</b>", self.styles['TableHeader']),
+                Paragraph("<para align='center'><b>QTY</b></para>", self.styles['TableHeaderCenter']),
+                Paragraph("<para align='right'><b>RATE (SAR)</b></para>", self.styles['TableHeaderRight']),
+                Paragraph("<para align='right'><b>AMOUNT (SAR)</b></para>", self.styles['TableHeaderRight'])
+            ]
+        ]
+        for p in particulars:
+            item_desc = p.get('item') or p.get('description') or '-'
+            qty = str(p.get('qty', '1'))
+            rate = str(p.get('rate', amt_str))
+            line_amt = str(p.get('amount', amt_str))
+            items_table_data.append([
+                Paragraph(item_desc, self.styles['TableCellBold']),
+                Paragraph(qty, self.styles['TableCellCenter']),
+                Paragraph(rate, self.styles['TableCellRight']),
+                Paragraph(line_amt, self.styles['TableCellNumber'])
+            ])
+
+        # Net Disbursed Highlight Row
+        items_table_data.append([
+            Paragraph("<b>TOTAL SETTLED AMOUNT</b>", ParagraphStyle('NetLbl', parent=self.styles['DocTitle'], textColor=self.COLOR_WHITE, fontSize=8.5)),
+            Paragraph("", self.styles['TableCell']),
+            Paragraph("", self.styles['TableCell']),
+            Paragraph(f"<b>{amt_str}</b>", ParagraphStyle('NetAmt', parent=self.styles['DocTitle'], alignment=2, textColor=self.COLOR_WHITE, fontSize=9.5))
+        ])
+
+        col_w = [doc_width * 0.52, doc_width * 0.12, doc_width * 0.18, doc_width * 0.18]
+        breakdown_table = Table(items_table_data, colWidths=col_w)
+        breakdown_styles = [
+            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('BOX', (0, 0), (-1, -2), 1, self.COLOR_BORDER),
+            ('INNERGRID', (0, 0), (-1, -2), 0.5, self.COLOR_BORDER),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#065f46")), # Emerald highlight
+            ('TOPPADDING', (0, -1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, -1), (-1, -1), 6),
+        ]
+        for i in range(1, len(items_table_data) - 1):
+            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
+            breakdown_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
+        breakdown_table.setStyle(TableStyle(breakdown_styles))
+        elements.append(breakdown_table)
+
+        # 6. Description / Notes
+        notes = voucher_data.get('notes') or voucher_data.get('description')
+        if notes:
+            elements.append(Spacer(1, 3 * mm))
+            notes_p = Paragraph(f"<b>REMARKS / AUDIT NOTES:</b> {notes}", ParagraphStyle('VNotes', parent=self.styles['TableCell'], fontSize=7.5, textColor=self.COLOR_MUTED))
+            elements.append(notes_p)
+
+        # 7. Official 3-Column Verification Signatures
+        elements.append(Spacer(1, 8 * mm))
+        sig_labels = [
+            'Prepared By (Accountant)',
+            'Approved By (Project Manager)',
+            "Receiver's Signature & Stamp / Fingerprint"
+        ]
+        elements.append(self.build_signatures_flowable(doc_width, labels=sig_labels))
+
+        def canvas_maker(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.company_name = self.settings['company_name']
+            c.draw_outer_border = True
+            c.outer_border_margin = 6 * mm
+            return c
+
+        doc.build(elements, canvasmaker=canvas_maker)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
 
 
 # Singleton instance for simple importing

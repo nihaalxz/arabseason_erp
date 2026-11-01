@@ -16,8 +16,10 @@ import GooeyMenu from './cred/GooeyMenu'
 import CredStatus from './cred/CredStatus'
 import CredRowIconButton from './cred/CredRowIconButton'
 import CredPagination from './cred/CredPagination'
-import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef, formatCompactKpi, getAmountFontSize } from './cred/usePagination'
 import { showConfirm, showError, showToast } from '../../utils/swal'
+import ExportTablePdfBtn from './common/ExportTablePdfBtn'
+import VoucherPrintBtn from './common/VoucherPrintBtn'
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../utils/cashbookPdfGenerator'
 
 const MONTH_CODES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 const getCurrentMonthCode = () => MONTH_CODES[new Date().getMonth()]
@@ -286,6 +288,17 @@ export default function CashbookJobOrders({
     }
   }, [])
 
+  const [jobSummary, setJobSummary] = useState(null)
+
+  const fetchJobSummary = useCallback(async () => {
+    try {
+      const res = await api.get('job-orders/summary/')
+      if (res.data) setJobSummary(res.data)
+    } catch (err) {
+      console.error('Failed to load job summary for cashbook:', err)
+    }
+  }, [])
+
   const customersFetchedRef = useRef(false)
 
   // Fetch customers if not passed
@@ -301,13 +314,14 @@ export default function CashbookJobOrders({
 
   useEffect(() => {
     fetchJobOrders()
+    fetchJobSummary()
     if (!customersFetchedRef.current) {
       customersFetchedRef.current = true
       if (!initialCustomers || initialCustomers.length === 0) {
         fetchCustomers()
       }
     }
-  }, [fetchJobOrders, fetchCustomers, initialCustomers])
+  }, [fetchJobOrders, fetchJobSummary, fetchCustomers, initialCustomers])
 
   // Sync passed customers if updated
   useEffect(() => {
@@ -317,26 +331,52 @@ export default function CashbookJobOrders({
   }, [initialCustomers])
 
   // Computed Metrics
-  const totalOrdersCount = jobOrders.length
-  const totalContractValue = useMemo(() => {
-    return jobOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
+  const isCancelledView = statusFilter === 'Cancelled'
+
+  const activeJobOrders = useMemo(() => {
+    return jobOrders.filter(j => (j.status || '').toLowerCase() !== 'cancelled')
   }, [jobOrders])
+
+  const cancelledOrders = useMemo(() => {
+    return jobOrders.filter(j => (j.status || '').toLowerCase() === 'cancelled')
+  }, [jobOrders])
+
+  const totalContractValue = useMemo(() => {
+    return activeJobOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
+  }, [activeJobOrders])
+
+  const cancelledContractValue = useMemo(() => {
+    return cancelledOrders.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
+  }, [cancelledOrders])
+
+  const displayContractValue = isCancelledView 
+    ? (jobSummary?.cancelled_summary?.total_value ?? cancelledContractValue)
+    : (jobSummary?.total_value ?? totalContractValue)
 
   const totalPaid = useMemo(() => {
-    return jobOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
-  }, [jobOrders])
+    return activeJobOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
+  }, [activeJobOrders])
 
+  const cancelledPaid = useMemo(() => {
+    return cancelledOrders.reduce((sum, j) => sum + (parseFloat(j.paid_amount) || 0), 0)
+  }, [cancelledOrders])
+
+  const displayPaid = isCancelledView 
+    ? (jobSummary?.cancelled_summary?.total_paid ?? cancelledPaid)
+    : (jobSummary?.total_paid ?? totalPaid)
+
+  // Net balance due matches /jobs and backend summary: max(0, total_val - total_paid)
   const totalDue = useMemo(() => {
-    return jobOrders
-      .filter(j => (j.status || '').toLowerCase() !== 'cancelled')
-      .reduce((sum, j) => {
-        const bal = parseFloat(j.balance)
-        if (!isNaN(bal) && bal > 0) return sum + bal
-        const total = parseFloat(j.total_amount) || 0
-        const paid = parseFloat(j.paid_amount) || 0
-        return sum + Math.max(0, total - paid)
-      }, 0)
-  }, [jobOrders])
+    return Math.max(0, totalContractValue - totalPaid)
+  }, [totalContractValue, totalPaid])
+
+  const displayDue = isCancelledView 
+    ? 0 
+    : (jobSummary?.total_balance !== undefined ? jobSummary.total_balance : totalDue)
+
+  const displayOrdersCount = isCancelledView 
+    ? (jobSummary?.cancelled_summary?.count ?? cancelledOrders.length)
+    : (jobSummary?.count ?? activeJobOrders.length)
 
   const inProgressOrders = useMemo(() => {
     return jobOrders.filter(j => (j.status || '').toLowerCase() === 'in progress')
@@ -348,10 +388,6 @@ export default function CashbookJobOrders({
 
   const pendingOrders = useMemo(() => {
     return jobOrders.filter(j => (j.status || '').toLowerCase() === 'pending')
-  }, [jobOrders])
-
-  const cancelledOrders = useMemo(() => {
-    return jobOrders.filter(j => (j.status || '').toLowerCase() === 'cancelled')
   }, [jobOrders])
 
   const dueOrders = useMemo(() => {
@@ -426,13 +462,78 @@ export default function CashbookJobOrders({
   } = usePagination(filteredJobOrders, effectiveIsMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, jobOrdersResetKey);
 
   const filterPills = [
-    { id: 'All', label: 'All', count: totalOrdersCount },
+    { id: 'All', label: 'All', count: jobOrders.length },
     { id: 'In Progress', label: 'In Progress', count: inProgressOrders.length },
     { id: 'Payment Due', label: 'Payment Due', count: dueOrders.length },
     { id: 'Completed', label: 'Completed', count: completedOrders.length },
     { id: 'Pending', label: 'Pending', count: pendingOrders.length },
     { id: 'Cancelled', label: 'Cancelled', count: cancelledOrders.length }
   ]
+
+  const mapJobToVoucher = (j) => {
+    if (!j) return null
+    const total = parseFloat(j.total_amount) || 0
+    const paid = parseFloat(j.paid_amount) || 0
+    const bal = parseFloat(j.due_amount != null ? j.due_amount : j.balance)
+    const due = !isNaN(bal) ? bal : Math.max(0, total - paid)
+    return {
+      voucherType: 'JOB ORDER COST & DISBURSEMENT VOUCHER',
+      voucherNo: `${j.order_id || `JOB-${j.id}`}`,
+      date: j.created_at ? j.created_at.substring(0, 10) : (j.date || new Date().toISOString().split('T')[0]),
+      amount: paid > 0 ? paid : total,
+      payeeName: j.customer_name || 'Project Client',
+      payeeRole: 'Contract Client / Job Owner',
+      payeePhone: j.customer_phone || '-',
+      paymentMode: 'Contract Milestone / Bank Transfer',
+      jobOrder: `${j.order_id || ''} - ${j.title || ''}`,
+      category: 'Job Order Execution & Direct Site Costs',
+      description: `${j.title || 'Job Order Works'} - ${j.project_name ? 'Project: ' + j.project_name : 'Direct Project Execution'}`,
+      particulars: [
+        { item: `Contract Scope: ${j.title || 'Works'}`, qty: '1', rate: formatCurrency(total), amount: formatCurrency(total) },
+        ...(paid > 0 ? [{ item: 'Contract Disbursements / Progress Received', qty: '1', rate: formatCurrency(paid), amount: formatCurrency(paid) }] : [])
+      ],
+      notes: `Status: ${j.status || 'Active'}. Total: SAR ${total.toFixed(2)} | Paid: SAR ${paid.toFixed(2)} | Balance Due: SAR ${due.toFixed(2)}. Formal project cost sign-off.`
+    }
+  }
+
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'JOB #', dataKey: 'order_id' },
+      { header: 'TITLE / SCOPE', dataKey: 'title' },
+      { header: 'CUSTOMER', dataKey: 'customer' },
+      { header: 'CONTRACT VAL', dataKey: 'total' },
+      { header: 'RECEIVED', dataKey: 'paid' },
+      { header: 'BALANCE DUE', dataKey: 'due' },
+      { header: 'STATUS', dataKey: 'status' }
+    ]
+    const rows = filteredJobOrders.map(j => {
+      const tot = parseFloat(j.total_amount) || 0
+      const pd = parseFloat(j.paid_amount) || 0
+      const bal = parseFloat(j.due_amount != null ? j.due_amount : j.balance)
+      const due = !isNaN(bal) ? bal : Math.max(0, tot - pd)
+      return {
+        order_id: j.order_id || `#${j.id}`,
+        title: j.title || j.project_name || '-',
+        customer: j.customer_name || '-',
+        total: formatCurrency(tot),
+        paid: formatCurrency(pd),
+        due: formatCurrency(due),
+        status: (j.status || '').toUpperCase()
+      }
+    })
+    exportTableToPdf({
+      title: 'Job Orders Financial & Cost Summary',
+      subtitle: `Status: ${statusFilter} | Total Jobs: ${filteredJobOrders.length}`,
+      columns,
+      rows,
+      totals: {
+        total: formatCurrency(displayContractValue),
+        paid: formatCurrency(displayPaid),
+        due: formatCurrency(displayDue)
+      },
+      fileName: `job_orders_${new Date().toISOString().split('T')[0]}.pdf`
+    })
+  }
 
   // Modal open / edit
   const handleOpenAddModal = () => {
@@ -589,6 +690,7 @@ export default function CashbookJobOrders({
       }
       setIsModalOpen(false)
       fetchJobOrders()
+      fetchJobSummary()
     } catch (err) {
       console.error('Failed to save job order:', err)
       const msg = err.response?.data?.order_id?.[0] || 
@@ -660,6 +762,7 @@ export default function CashbookJobOrders({
       setIsPaymentModalOpen(false)
       setSelectedJobForPayment(null)
       fetchJobOrders()
+      fetchJobSummary()
     } catch (err) {
       console.error('Failed to record customer payment:', err)
       const msg = err.response?.data?.detail || 'Failed to record customer payment.'
@@ -679,6 +782,7 @@ export default function CashbookJobOrders({
     try {
       await api.delete(`job-orders/${job.id}/`)
       setJobOrders(prev => prev.filter(j => j.id !== job.id))
+      fetchJobSummary()
       showToast('Job order deleted', 'info')
     } catch (err) {
       console.error('Failed to delete job order:', err)
@@ -785,27 +889,30 @@ export default function CashbookJobOrders({
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
               job orders
             </h1>
-            <button
-              type="button"
-              id="btn-create-job-order-mobile"
-              onClick={handleOpenAddModal}
-              style={{
-                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              <span>Create</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-create-job-order-mobile"
+                onClick={handleOpenAddModal}
+                style={{
+                  background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                  color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Create</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -834,6 +941,7 @@ export default function CashbookJobOrders({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
             <button
               type="button"
               id="btn-create-job-order"
@@ -895,7 +1003,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Total Orders
+              {isCancelledView ? 'Cancelled Orders' : 'Total Contracts'}
             </span>
             <div style={{
               width: '30px',
@@ -911,21 +1019,26 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {totalOrdersCount}
+            {displayOrdersCount}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {inProgressOrders.length} in progress · {completedOrders.length} completed{cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}
+              {isCancelledView
+                ? `${cancelledOrders.length} orders cancelled`
+                : `${inProgressOrders.length} in progress · ${completedOrders.length} completed${pendingOrders.length > 0 ? ` · ${pendingOrders.length} pending` : ''}${cancelledOrders.length > 0 ? ` · ${cancelledOrders.length} cancelled` : ''}`
+              }
             </div>
           )}
         </div>
 
         {/* Card 2: Total Contract Value */}
         <div 
-          onClick={() => setStatusFilter('All')}
+          onClick={() => setStatusFilter(isCancelledView ? 'All' : 'Cancelled')}
           style={{
             background: cardBg,
-            border: `1px solid ${borderColor}`,
+            border: isCancelledView
+              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
+              : `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: isMobileScreen ? '84px' : 'auto',
@@ -940,7 +1053,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Contract Value
+              {isCancelledView ? 'Cancelled Value' : 'Contract Value'}
             </span>
             <div style={{
               width: '30px',
@@ -956,15 +1069,15 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {effectiveIsMobile && formatCompactKpi(totalContractValue) ? (
-              <span className="cred-tnum">{formatCompactKpi(totalContractValue)}</span>
+            {effectiveIsMobile && formatCompactKpi(displayContractValue) ? (
+              <span className="cred-tnum">{formatCompactKpi(displayContractValue)}</span>
             ) : (
-              `SAR ${safeFormatAmount(totalContractValue)}`
+              `SAR ${safeFormatAmount(displayContractValue)}`
             )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              Total order book value
+              {isCancelledView ? 'Total cancelled order value' : 'Total order book value'}
             </div>
           )}
         </div>
@@ -991,7 +1104,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Cash In Paid
+              {isCancelledView ? 'Cancelled Paid' : 'Cash In Paid'}
             </span>
             <div style={{
               width: '30px',
@@ -1007,15 +1120,15 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#60a5fa' : '#2563eb', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {effectiveIsMobile && formatCompactKpi(totalPaid) ? (
-              <span className="cred-tnum">{formatCompactKpi(totalPaid)}</span>
+            {effectiveIsMobile && formatCompactKpi(displayPaid) ? (
+              <span className="cred-tnum">{formatCompactKpi(displayPaid)}</span>
             ) : (
-              `SAR ${safeFormatAmount(totalPaid)}`
+              `SAR ${safeFormatAmount(displayPaid)}`
             )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              Collected from customers
+              {isCancelledView ? 'Paid towards cancelled orders' : 'Collected from customers'}
             </div>
           )}
         </div>
@@ -1058,15 +1171,15 @@ export default function CashbookJobOrders({
             </div>
           </div>
           <div style={{ fontSize: isMobileScreen ? '1.2rem' : '1.45rem', fontWeight: '800', color: isDarkMode ? '#f87171' : '#dc2626', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {effectiveIsMobile && formatCompactKpi(totalDue) ? (
-              <span className="cred-tnum">{formatCompactKpi(totalDue)}</span>
+            {effectiveIsMobile && formatCompactKpi(displayDue) ? (
+              <span className="cred-tnum">{formatCompactKpi(displayDue)}</span>
             ) : (
-              `SAR ${safeFormatAmount(totalDue)}`
+              `SAR ${safeFormatAmount(displayDue)}`
             )}
           </div>
           {!isMobileScreen && (
             <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px' }}>
-              {dueOrders.length} orders with pending balance
+              {isCancelledView ? 'No balance due on cancelled' : `${dueOrders.length} orders with pending balance`}
             </div>
           )}
         </div>
@@ -1420,6 +1533,14 @@ export default function CashbookJobOrders({
                       <Paperclip size={12} /> File
                     </button>
                   )}
+                  <VoucherPrintBtn
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      printPaymentVoucher(mapJobToVoucher(job));
+                    }}
+                    title={`Print Job Voucher for ${job.title}`}
+                    isDarkMode={isDarkMode}
+                  />
                   <button
                     type="button"
                     title="Edit Job Order"
@@ -1628,6 +1749,11 @@ export default function CashbookJobOrders({
                               receive payment
                             </button>
                           )}
+                          <VoucherPrintBtn
+                            onClick={() => printPaymentVoucher(mapJobToVoucher(job))}
+                            title={`Print Job Voucher for ${job.title}`}
+                            isDarkMode={isDarkMode}
+                          />
                           {job.attachment && (
                             <CredRowIconButton
                               title={job.attachment_name || 'View Attachment'}
@@ -2739,6 +2865,7 @@ export default function CashbookJobOrders({
           </div>
         </form>
       </Modal>
+
     </div>
   )
 }

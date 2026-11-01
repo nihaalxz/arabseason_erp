@@ -25,6 +25,9 @@ import CredRowIconButton from '../CredRowIconButton';
 import { fadeFast } from '../motionTokens';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const getAmountFontSize = (val) => {
   const abs = Math.abs(parseFloat(val) || 0);
@@ -45,6 +48,36 @@ const CredVendorsView = ({
 }) => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const mapVendorToVoucher = (v) => {
+    if (!v) return null;
+    const billed = parseFloat(v.total_billed) || 0;
+    const paid = parseFloat(v.paid_amount) || 0;
+    const due = Math.max(0, billed - paid);
+    return {
+      voucherType: 'VENDOR PAYMENT VOUCHER & ADVICE',
+      voucherNo: `VND-PV-${v.id || Date.now().toString().slice(-6)}`,
+      date: new Date().toISOString().split('T')[0],
+      amount: due > 0 ? due : paid,
+      payeeName: v.name || v.company_name || 'Vendor / Supplier',
+      payeeRole: 'Vendor / Subcontractor',
+      payeePhone: v.phone || v.mobile || '',
+      payeeId: v.tax_number || v.cr_number || '',
+      paymentMode: 'BANK TRANSFER / CHEQUE',
+      referenceNo: `VND-ID-${v.id}`,
+      accountName: 'Accounts Payable',
+      category: 'Vendor Disbursement',
+      description: `Disbursement advice & account settlement for vendor: ${v.name || 'Vendor'}. Outstanding payables: SAR ${due.toFixed(2)}.`,
+      particulars: [
+        { item: 'Total Purchases / Services Invoiced', qty: '1', rate: billed, amount: billed },
+        { item: 'Disbursements / Payments Paid to Date', qty: '1', rate: -paid, amount: -paid },
+        { item: 'Outstanding Balance Payable', qty: '1', rate: due, amount: due }
+      ],
+      preparedBy: 'Accounts Payable Officer',
+      approvedBy: 'General Manager',
+      notes: 'Certified vendor payment advice. Signature confirms receipt of settlement amount.'
+    };
+  };
 
   // Strictly deduplicate vendors by ID
   const deduplicatedVendors = useMemo(() => {
@@ -131,6 +164,54 @@ const CredVendorsView = ({
     total: totalVendorCount
   } = usePagination(filteredVendors, isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, vendorResetKey);
 
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'VENDOR NAME', dataKey: 'name' },
+      { header: 'CONTACT / PHONE', dataKey: 'contact' },
+      { header: 'TOTAL BILLED (SAR)', dataKey: 'billed', align: 'right' },
+      { header: 'DISBURSED (SAR)', dataKey: 'paid', align: 'right' },
+      { header: 'PAYABLES DUE (SAR)', dataKey: 'due', align: 'right' },
+      { header: 'STATUS', dataKey: 'status' }
+    ];
+
+    let sumBilled = 0;
+    let sumPaid = 0;
+    let sumDue = 0;
+
+    const rows = filteredVendors.map(v => {
+      const b = parseFloat(v.total_billed) || 0;
+      const p = parseFloat(v.paid_amount) || 0;
+      const d = Math.max(0, b - p);
+      sumBilled += b;
+      sumPaid += p;
+      sumDue += d;
+      return {
+        name: v.name || v.company || 'Unnamed Vendor',
+        contact: v.phone || v.email || '—',
+        billed: formatCurrency(b),
+        paid: formatCurrency(p),
+        due: formatCurrency(d),
+        status: d > 0.01 ? 'Payables Due' : 'Settled'
+      };
+    });
+
+    exportTableToPdf({
+      title: 'VENDORS & SUPPLIERS DIRECTORY / PAYABLES STATEMENT',
+      subtitle: `Arab Season Contracting • Filter: ${activeFilter} • Total Vendors: ${rows.length}`,
+      filename: `vendors_statement_${new Date().toISOString().split('T')[0]}.pdf`,
+      columns,
+      rows,
+      totals: {
+        name: 'TOTALS',
+        contact: `${rows.length} Vendors`,
+        billed: formatCurrency(sumBilled),
+        paid: formatCurrency(sumPaid),
+        due: formatCurrency(sumDue),
+        status: ''
+      }
+    });
+  };
+
   // 3 Filter tabs with live count badges
   const filterTabs = [
     { id: 'All', label: 'All', count: metrics.totalVendorsCount },
@@ -176,27 +257,30 @@ const CredVendorsView = ({
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
               vendors
             </h1>
-            <button
-              type="button"
-              id="btn-add-vendor-mobile"
-              onClick={() => onAddVendor && onAddVendor()}
-              style={{
-                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              <span>Add</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-add-vendor-mobile"
+                onClick={() => onAddVendor && onAddVendor()}
+                style={{
+                  background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                  color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Add</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -221,31 +305,34 @@ const CredVendorsView = ({
             Vendors
           </h1>
 
-          <button
-            type="button"
-            id="btn-add-vendor"
-            onClick={() => onAddVendor && onAddVendor()}
-            style={{
-              background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-              color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '8px 18px',
-              fontSize: '13px',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)',
-              transition: 'transform 0.15s ease, opacity 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Add Vendor</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+            <button
+              type="button"
+              id="btn-add-vendor"
+              onClick={() => onAddVendor && onAddVendor()}
+              style={{
+                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '8px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)',
+                transition: 'transform 0.15s ease, opacity 0.15s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Add Vendor</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -706,6 +793,13 @@ const CredVendorsView = ({
                       Pay vendor
                     </button>
                   )}
+                  <VoucherPrintBtn
+                    title="Vendor Payment Voucher & Advice"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      printPaymentVoucher(mapVendorToVoucher(v));
+                    }}
+                  />
                   <button
                     type="button"
                     title="Edit Vendor"
@@ -956,6 +1050,13 @@ const CredVendorsView = ({
                       {/* ACTIONS (CredRowIconButton) */}
                       <td style={{ ...bodyCellStyle, textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                          <VoucherPrintBtn
+                            title="Vendor Payment Voucher & Advice"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              printPaymentVoucher(mapVendorToVoucher(v));
+                            }}
+                          />
                           <CredRowIconButton
                             title="Edit Vendor"
                             ariaLabel="Edit Vendor"

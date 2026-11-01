@@ -5074,6 +5074,55 @@ class CustomerWorkRecordViewSet(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
 
+class CashbookExportTablePdfView(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.http import HttpResponse
+        from .pdf_generator import universal_pdf_generator, format_dynamic_filename
+
+        data = request.data or {}
+        title = data.get('title') or 'Cashbook Report'
+        columns = data.get('columns') or []
+        rows = data.get('rows') or []
+        kpis = data.get('kpis')
+        ref_number = data.get('ref_number')
+        period_text = data.get('period_text')
+        totals = data.get('totals')
+        prefix = data.get('filename_prefix') or 'cashbook_report'
+        orientation = data.get('orientation') or 'portrait'
+
+        pdf_bytes = universal_pdf_generator.generate_universal_table_pdf(
+            title=title,
+            columns=columns,
+            rows=rows,
+            kpis=kpis,
+            ref_number=ref_number,
+            period_text=period_text,
+            totals=totals,
+            filename_prefix=prefix,
+            orientation=orientation
+        )
+
+        filename = format_dynamic_filename(prefix, title, datetime.datetime.now().strftime('%Y%m%d'))
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
 
 
+class CashbookVoucherPdfView(views.APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request):
+        from django.http import HttpResponse
+        from .pdf_generator import universal_pdf_generator, format_dynamic_filename
+
+        voucher_data = request.data or {}
+        v_type = voucher_data.get('voucherType') or 'Payment Voucher'
+        v_no = voucher_data.get('voucherNo') or 'VCH'
+
+        pdf_bytes = universal_pdf_generator.generate_payment_voucher_pdf(voucher_data)
+        filename = format_dynamic_filename('voucher', v_type, v_no, datetime.datetime.now().strftime('%Y%m%d'))
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response

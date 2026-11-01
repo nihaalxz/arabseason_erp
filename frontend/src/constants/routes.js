@@ -31,8 +31,6 @@ export const ROUTES = {
   CREDIT_NOTES: '/credit-notes',
   CREDIT_NOTES_NEW: '/credit-notes/new',
   CREDIT_NOTE_EDIT: (id) => `/credit-notes/${id}/edit`,
-  PAYMENTS: '/payments',
-  PAYMENT_REQUESTS: '/payment-requests',
   EXPENSES: '/expenses',
   BANKS: '/banks',
   REPORTS: '/reports',

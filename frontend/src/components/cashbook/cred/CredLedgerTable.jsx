@@ -15,6 +15,7 @@ import {
   Receipt,
   Coins
 } from 'lucide-react';
+import VoucherPrintBtn from '../common/VoucherPrintBtn';
 
 /**
  * Wraps any #ID or reference in Geist Mono with preserved case
@@ -123,7 +124,8 @@ const CredLedgerTable = ({
   variant = 'default', // 'default' | 'book'
   emptyActionLabel = null,
   onEmptyAction = null,
-  onOpenImage = null
+  onOpenImage = null,
+  onPrintVoucher = null
 }) => {
   const isBookVariant = variant === 'book';
   const showChannel = columns.includes('channel');
@@ -132,7 +134,9 @@ const CredLedgerTable = ({
 
   // Compute grid template columns dynamically
   const gridTemplateColumns = isBookVariant
-    ? '130px minmax(200px, 2.2fr) minmax(120px, 1.2fr) minmax(150px, 1.5fr) 60px 130px 130px'
+    ? (onPrintVoucher
+        ? '130px minmax(180px, 2fr) minmax(110px, 1.1fr) minmax(130px, 1.3fr) 50px 120px 120px 38px'
+        : '130px minmax(200px, 2.2fr) minmax(120px, 1.2fr) minmax(150px, 1.5fr) 60px 130px 130px')
     : (columns.length === 5
         ? '130px minmax(200px, 2.5fr) minmax(160px, 1.8fr) 100px 140px'
         : '130px minmax(170px, 2fr) minmax(140px, 1.4fr) minmax(150px, 1.4fr) minmax(110px, 1.1fr) 90px 130px 140px');
@@ -153,6 +157,7 @@ const CredLedgerTable = ({
             <div>IMAGE</div>
             <div style={{ textAlign: 'right' }}>AMOUNT (SAR)</div>
             <div style={{ textAlign: 'right' }}>BALANCE</div>
+            {onPrintVoucher && <div style={{ textAlign: 'center' }}>VOUCHER</div>}
           </>
         ) : (
           <>
@@ -365,6 +370,16 @@ const CredLedgerTable = ({
                       <span>—</span>
                     )}
                   </div>
+
+                  {/* 8. VOUCHER ACTION */}
+                  {onPrintVoucher && (
+                    <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <VoucherPrintBtn
+                        onClick={() => onPrintVoucher(item)}
+                        title={`Print Voucher for ${item.remark || 'Transaction'}`}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* MOBILE CARD VIEW (visible only on mobile <= 768px via CSS) */}
@@ -389,6 +404,15 @@ const CredLedgerTable = ({
                         <span className="cred-mobile-card-balance">
                           bal: <Money value={item.display_running_balance} />
                         </span>
+                      )}
+                      {onPrintVoucher && (
+                        <VoucherPrintBtn
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPrintVoucher(item);
+                          }}
+                          title={`Print Voucher for ${item.remark || 'Transaction'}`}
+                        />
                       )}
                     </div>
                   </div>
