@@ -14,6 +14,7 @@ const AccountingDashboard = () => {
   const [data, setData] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [payments, setPayments] = useState([])
+  const [quotations, setQuotations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { formatCurrency } = useSettings()
@@ -54,15 +55,17 @@ const AccountingDashboard = () => {
   const fetchFinancialData = useCallback(async () => {
     try {
       setLoading(true)
-      const [dashRes, invRes, payRes] = await Promise.all([
+      const [dashRes, invRes, payRes, quoteRes] = await Promise.all([
         api.get(`dashboard/?start_date=${dateRange.start}&end_date=${dateRange.end}`),
         api.get('invoices/?page_size=5').catch(() => ({ data: { results: [] } })),
-        api.get('customer-payments/?page_size=5').catch(() => ({ data: { results: [] } }))
+        api.get('customer-payments/?page_size=5').catch(() => ({ data: { results: [] } })),
+        api.get('quotations/?page_size=5').catch(() => ({ data: { results: [] } }))
       ])
 
       setData(dashRes.data)
       setInvoices(invRes.data?.results || invRes.data || [])
       setPayments(payRes.data?.results || payRes.data || [])
+      setQuotations(quoteRes.data?.results || quoteRes.data || [])
       setError('')
     } catch (err) {
       console.error('Error fetching accounting dashboard data:', err)
@@ -118,6 +121,11 @@ const AccountingDashboard = () => {
   const totalPayables = Number(data?.total_payables || 0)
   const overduePayables = Number(data?.overdue_payables || 0)
   const currentPayables = Math.max(0, totalPayables - overduePayables)
+
+  // ── Quotations & Sales Proposals Calculations ──
+  const totalQuotesValuation = quotations.reduce((sum, q) => sum + (parseFloat(q.total_amount) || 0), 0)
+  const acceptedQuotes = quotations.filter(q => q.status === 'Accepted' || q.status === 'Converted to Invoice')
+  const pendingQuotes = quotations.filter(q => q.status !== 'Accepted' && q.status !== 'Converted to Invoice')
 
   // ── Cash Flow Breakdown ──
   const endingCashBalance = Number(data?.cash_balance || 0)
@@ -309,7 +317,131 @@ const AccountingDashboard = () => {
         </div>
       </div>
 
-      {/* ── ROW 2: CASH FLOW (4 SIMPLE MINIMAL KPI CARDS) ── */}
+      {/* ── ROW 2: QUOTATIONS & PROPOSALS + CUSTOMERS & VENDORS (RELOCATED TO ACCOUNTING) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px', marginBottom: '24px' }}>
+        
+        {/* Card 1: Quotations & Proposals */}
+        <div style={{
+          background: 'var(--bg-card, #FFFFFF)',
+          borderRadius: '20px',
+          padding: '24px',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                QUOTATIONS & PROPOSALS
+              </span>
+              <CredViewAll onClick={() => navigate('/accounting/quotations')} label="view quotations" />
+            </div>
+
+            <div style={{ margin: '12px 0 20px' }}>
+              <Money 
+                value={totalQuotesValuation} 
+                currency="SAR" 
+                style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }} 
+              />
+            </div>
+          </div>
+
+          {/* Breakdown Rows */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            paddingTop: '16px', 
+            borderTop: '1px dotted var(--divider-dotted, #D9D9D9)' 
+          }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Accepted</div>
+              <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--success, #16A34A)' }}>
+                <span className="cred-tnum">{acceptedQuotes.length}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sent to Client</div>
+              <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>
+                <span className="cred-tnum">{pendingQuotes.length}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Customers & Vendors Directory */}
+        <div style={{
+          background: 'var(--bg-card, #FFFFFF)',
+          borderRadius: '20px',
+          padding: '24px',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                CUSTOMERS & VENDORS
+              </span>
+              <CredViewAll onClick={() => navigate('/accounting/customers')} label="view all" />
+            </div>
+
+            <div style={{ margin: '12px 0 20px' }}>
+              <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }}>
+                <span className="cred-tnum">{data?.total_customers || 0}</span>
+                <span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginLeft: '8px' }}>Registered Clients</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '16px', borderTop: '1px dotted var(--divider-dotted, #D9D9D9)' }}>
+            <div 
+              onClick={() => navigate('/accounting/customers')}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 14px',
+                background: 'var(--bg-subtle, #F5F5F5)',
+                borderRadius: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>Customers</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>Client records</div>
+              </div>
+              <CredViewAll onClick={() => navigate('/accounting/customers')} label="open" />
+            </div>
+
+            <div 
+              onClick={() => navigate('/accounting/vendors')}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 14px',
+                background: 'var(--bg-subtle, #F5F5F5)',
+                borderRadius: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>Vendors</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>Suppliers list</div>
+              </div>
+              <CredViewAll onClick={() => navigate('/accounting/vendors')} label="open" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── ROW 3: CASH FLOW (4 SIMPLE MINIMAL KPI CARDS) ── */}
       <div style={{
         background: 'var(--bg-card, #FFFFFF)',
         borderRadius: '20px',
@@ -531,6 +663,86 @@ const AccountingDashboard = () => {
                   <tr>
                     <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted, #8C8C8C)' }}>
                       No payments received yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recent Quotations */}
+        <div style={{
+          background: 'var(--bg-card, #FFFFFF)',
+          borderRadius: '20px',
+          padding: '24px',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
+              Recent Quotations
+            </span>
+            <CredViewAll onClick={() => navigate('/accounting/quotations')} label="view all" />
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)', textAlign: 'left', background: 'var(--bg-subtle, #F7F7F7)' }}>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Quote #</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Customer</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Status</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)', textAlign: 'right' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotations.slice(0, 5).map((q) => (
+                  <tr key={q.id} style={{ borderBottom: '1px dotted var(--divider-dotted, #D9D9D9)' }}>
+                    <td style={{ padding: '12px' }}>
+                      <Link 
+                        to={`/accounting/quotations/${q.id}/edit`} 
+                        style={{
+                          fontWeight: 500,
+                          fontSize: '12px',
+                          color: 'var(--text, #0A0A0A)',
+                          textDecoration: 'none',
+                          fontFamily: 'var(--font-mono, "Geist Mono", monospace)'
+                        }}
+                      >
+                        {q.quotation_number || `#QT-${q.id.toString().padStart(4, '0')}`}
+                      </Link>
+                    </td>
+                    <td style={{ padding: '12px', fontWeight: 400, color: 'var(--text, #0A0A0A)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {q.customer_name || 'Customer'}
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '13px',
+                        fontWeight: 400,
+                        color: q.status === 'Accepted' ? 'var(--success, #16A34A)' : q.status === 'Sent' ? '#2563eb' : 'var(--text-muted, #8C8C8C)'
+                      }}>
+                        <span style={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          background: q.status === 'Accepted' ? 'var(--success, #16A34A)' : q.status === 'Sent' ? '#2563eb' : 'var(--text-muted, #8C8C8C)'
+                        }} />
+                        {q.status || 'Draft'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                      <Money value={q.total_amount || 0} currency="SAR" style={{ fontWeight: 500 }} />
+                    </td>
+                  </tr>
+                ))}
+                {quotations.length === 0 && (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted, #8C8C8C)' }}>
+                      No quotations created yet.
                     </td>
                   </tr>
                 )}
