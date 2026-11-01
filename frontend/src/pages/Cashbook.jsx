@@ -17677,21 +17677,54 @@ const Cashbook = ({ currentUser = null }) => {
         isOpen={isEntryModalOpen} 
         onClose={() => { setIsEntryModalOpen(false); setIsAddingLabourer(false); }} 
         title={editingEntry ? `Edit Entry` : `Add Transaction`}
+        maxWidth="680px"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
+        footer={(
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+            <button
+              type="button"
+              className="cred-modal-cancel-btn"
+              onClick={() => {
+                setIsEntryModalOpen(false)
+                setIsAddingLabourer(false)
+              }}
+              disabled={submittingEntry}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="cashbook-entry-form"
+              className="cred-modal-submit-btn"
+              disabled={submittingEntry}
+            >
+              {submittingEntry ? 'Saving...' : (editingEntry ? 'Update Entry' : (entryType === 'in' ? '+ Save Credit (Customer)' : '— Save Debit (Expense)'))}
+            </button>
+          </div>
+        )}
       >
-        <form onSubmit={handleSubmitEntry} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', overflowX: 'hidden' }}>
-          {entryError && <div className="error-message" style={{ marginBottom: '1rem' }}>{entryError}</div>}
+        <form id="cashbook-entry-form" onSubmit={handleSubmitEntry} style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', overflowX: 'hidden' }}>
+          {entryError && <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}><AlertCircle size={18} /> {entryError}</div>}
 
           {/* Toggle Type / Credit-Debit Designation */}
-          <div style={{ marginBottom: '0.65rem', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
-            <label style={{ fontSize: '0.74rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.25rem' }}>
-              Designation (Credit / Debit) *
-            </label>
+          <div style={{ marginBottom: '16px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="cred-form-label" style={{ margin: 0, textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: '#475569' }}>
+                <span>Designation (Credit / Debit)</span>
+              </label>
+              <span className="cred-required-dot" />
+            </div>
             <div 
               className="cb-designation-pill-track"
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                gap: '8px',
+                gap: '12px',
                 background: 'transparent',
                 backgroundColor: 'transparent',
                 border: 'none',
@@ -17706,17 +17739,18 @@ const Cashbook = ({ currentUser = null }) => {
                 className={`cb-designation-btn ${entryType === 'in' ? 'active-credit' : ''}`}
                 onClick={() => setEntryType('in')}
                 style={{
-                  padding: '0.42rem 0.75rem',
-                  minHeight: '36px',
-                  borderRadius: '999px',
+                  padding: '0 1rem',
+                  height: '42px',
+                  minHeight: '42px',
+                  borderRadius: '9999px',
                   border: entryType === 'in' ? 'none' : (isDarkMode ? '1.5px solid rgba(74, 222, 128, 0.35)' : '1.5px solid #86efac'),
                   cursor: 'pointer',
-                  fontWeight: '800',
-                  fontSize: '0.82rem',
+                  fontWeight: '600',
+                  fontSize: '13.5px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.4rem',
+                  gap: '6px',
                   background: entryType === 'in' 
                     ? '#16a34a' 
                     : (isDarkMode ? '#141619' : '#ffffff'),
@@ -17728,24 +17762,25 @@ const Cashbook = ({ currentUser = null }) => {
                   transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               >
-                <Plus size={15} strokeWidth={3} /> Credit (Customer)
+                <Plus size={16} strokeWidth={2.5} /> Credit (Customer)
               </button>
               <button
                 type="button"
                 className={`cb-designation-btn ${entryType === 'out' ? 'active-debit' : ''}`}
                 onClick={() => setEntryType('out')}
                 style={{
-                  padding: '0.42rem 0.75rem',
-                  minHeight: '36px',
-                  borderRadius: '999px',
+                  padding: '0 1rem',
+                  height: '42px',
+                  minHeight: '42px',
+                  borderRadius: '9999px',
                   border: entryType === 'out' ? 'none' : (isDarkMode ? '1.5px solid rgba(248, 113, 113, 0.35)' : '1.5px solid #fca5a5'),
                   cursor: 'pointer',
-                  fontWeight: '800',
-                  fontSize: '0.82rem',
+                  fontWeight: '600',
+                  fontSize: '13.5px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.4rem',
+                  gap: '6px',
                   background: entryType === 'out' 
                     ? '#dc2626' 
                     : (isDarkMode ? '#141619' : '#ffffff'),
@@ -17757,17 +17792,20 @@ const Cashbook = ({ currentUser = null }) => {
                   transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               >
-                <Minus size={15} strokeWidth={3} /> Debit (Expense)
+                <Minus size={16} strokeWidth={2.5} /> Debit (Expense)
               </button>
             </div>
           </div>
 
           {/* When Debit (Expense) is selected: Render Type selector */}
           {entryType === 'out' && (
-            <div style={{ marginBottom: '0.65rem' }}>
-              <label style={{ fontSize: '0.74rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569', display: 'block', minHeight: '20px', lineHeight: '20px', marginBottom: '4px' }}>
-                Type *
-              </label>
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="cred-form-label" style={{ margin: 0, textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: '#475569' }}>
+                  <span>Type</span>
+                </label>
+                <span className="cred-required-dot" />
+              </div>
               <CashbookSelect
                 value={entryFormData.debit_type || 'Company Expense'}
                 onChange={(val) => {

@@ -691,18 +691,35 @@ body[data-cashbook-active="true"] .modal-container select,
 [data-theme-scope="cashbook-pill"] .form-grid select,
 [data-cashbook-active="true"] .form-grid select,
 body[data-cashbook-active="true"] .form-grid select {
-  height: 42px !important;
-  min-height: 42px !important;
-  border-radius: 10px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 12px !important;
   font-size: 13.5px !important;
-  background: #F6F8FD !important;
-  border: 1px solid #E3E8F4 !important;
-  color: #0F1B3D !important;
+  background: var(--card-bg, #ffffff) !important;
+  border: 1px solid var(--border, #E4E4E4) !important;
+  color: var(--text, #111111) !important;
   padding: 0 14px !important;
   width: 100% !important;
   outline: none !important;
   transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease !important;
   box-sizing: border-box !important;
+}
+
+[data-theme-scope="cashbook-pill"] .modal-container input:focus,
+[data-cashbook-active="true"] .modal-container input:focus,
+body[data-cashbook-active="true"] .modal-container input:focus,
+[data-theme-scope="cashbook-pill"] .form-grid input:focus,
+[data-cashbook-active="true"] .form-grid input:focus,
+body[data-cashbook-active="true"] .form-grid input:focus,
+[data-theme-scope="cashbook-pill"] .modal-container select:focus,
+[data-cashbook-active="true"] .modal-container select:focus,
+body[data-cashbook-active="true"] .modal-container select:focus,
+[data-theme-scope="cashbook-pill"] .form-grid select:focus,
+[data-cashbook-active="true"] .form-grid select:focus,
+body[data-cashbook-active="true"] .form-grid select:focus {
+  border-color: var(--text, #0A0A0A) !important;
+  box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.08) !important;
+  background: var(--card-bg, #ffffff) !important;
 }
 
 [data-theme-scope="cashbook-pill"] select.cb-filter-select-pill,
@@ -1216,10 +1233,10 @@ body[data-cashbook-active="true"] .btn-icon,
 body[data-cashbook-active="true"] .modal-header .btn-icon {
   width: 32px !important;
   height: 32px !important;
-  border-radius: 50% !important;
-  border: 1px solid #E3E8F4 !important;
-  background: #ffffff !important;
-  color: #64708A !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--border, #E4E4E4) !important;
+  background: var(--card-bg, #ffffff) !important;
+  color: var(--text-muted, #71717A) !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -1233,10 +1250,10 @@ body[data-cashbook-active="true"] .modal-header .btn-icon {
 .theme-cashbook-pill .btn-icon:hover,
 [data-cashbook-active="true"] .btn-icon:hover,
 body[data-cashbook-active="true"] .btn-icon:hover {
-  background: #E8EFFF !important;
-  border-color: #1366D9 !important;
-  color: #1366D9 !important;
-  transform: scale(1.05) !important;
+  background: var(--fill-ghost-hover, #F4F4F4) !important;
+  border-color: var(--border, #D4D4D8) !important;
+  color: var(--text, #0A0A0A) !important;
+  transform: none !important;
 }
 
 /* ── 10. MODALS, BOTTOM SHEETS & BACKDROPS ── */
@@ -1471,21 +1488,21 @@ body[data-cashbook-active="true"] .modal-container::-webkit-scrollbar-thumb:hove
 .theme-cashbook-pill .modal-header,
 [data-cashbook-active="true"] .modal-header,
 body[data-cashbook-active="true"] .modal-header {
-  padding: 14px 20px !important;
-  border-bottom: 1px solid #E8ECF5 !important;
+  padding: 18px 24px 16px !important;
+  border-bottom: 1px solid var(--border, #E4E4E4) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  background: #ffffff !important;
+  background: var(--card-bg, #ffffff) !important;
 }
 
 [data-theme-scope="cashbook-pill"] .modal-header h3,
 .theme-cashbook-pill .modal-header h3,
 [data-cashbook-active="true"] .modal-header h3,
 body[data-cashbook-active="true"] .modal-header h3 {
-  font-size: 1.05rem !important;
-  font-weight: 700 !important;
-  color: #0F1B3D !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  color: var(--text, #0A0A0A) !important;
   letter-spacing: -0.01em !important;
   margin: 0 !important;
 }
@@ -1494,8 +1511,8 @@ body[data-cashbook-active="true"] .modal-header h3 {
 .theme-cashbook-pill .modal-body,
 [data-cashbook-active="true"] .modal-body,
 body[data-cashbook-active="true"] .modal-body {
-  padding: 16px 20px 18px 20px !important;
-  background: #ffffff !important;
+  padding: 20px 24px 24px 24px !important;
+  background: var(--card-bg, #ffffff) !important;
   overflow-y: auto !important;
 }
 
@@ -1803,7 +1820,7 @@ body[data-cashbook-active="true"] .modal-header h3 {
 [data-theme-scope="cashbook-pill"] .modal-body,
 [data-cashbook-active="true"] .modal-body,
 body[data-cashbook-active="true"] .modal-body {
-  padding: 16px 20px 18px 20px !important;
+  padding: 20px 24px 24px 24px !important;
 }
 
 /* Form Grid spacing */
@@ -1811,8 +1828,8 @@ body[data-cashbook-active="true"] .modal-body {
 [data-cashbook-active="true"] .form-grid,
 body[data-cashbook-active="true"] .form-grid {
   display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 12px 14px !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 16px 20px !important;
 }
 
 [data-theme-scope="cashbook-pill"] .form-group,
@@ -1820,7 +1837,7 @@ body[data-cashbook-active="true"] .form-grid {
 body[data-cashbook-active="true"] .form-group {
   display: flex !important;
   flex-direction: column !important;
-  gap: 4px !important;
+  gap: 6px !important;
   margin-bottom: 0 !important;
 }
 
@@ -2937,12 +2954,12 @@ body:not(.cb-dark-bw) .cashbook-real-container .cb-hover-invert:hover .cb-sideba
 /* Compact Add Transaction / Cashbook Modal */
 body[data-cashbook-active="true"] .modal-header,
 .cb-dark-bw .modal-header {
-  padding: 10px 18px !important;
+  padding: 18px 24px 16px !important;
 }
 
 body[data-cashbook-active="true"] .modal-body,
 .cb-dark-bw .modal-body {
-  padding: 12px 18px 14px 18px !important;
+  padding: 20px 24px 24px 24px !important;
 }
 
 /* iOS Safari WebKit Date Input & Mobile Form Collision Fix */

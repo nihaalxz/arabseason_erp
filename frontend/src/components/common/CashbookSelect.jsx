@@ -139,31 +139,31 @@ const CashbookSelect = ({
   }, [isOpen])
 
   // Dynamic styling variables based on variant and dark mode
-  const triggerHeight = isDesktopToolbar ? '38px' : isSidebarDark ? '42px' : isModalField ? '42px' : isForm ? '56px' : '52px'
-  const triggerRadius = isDesktopToolbar ? '10px' : isSidebarDark ? '12px' : isModalField ? '10px' : '999px'
+  const triggerHeight = isDesktopToolbar ? '38px' : isSidebarDark ? '42px' : isModalField ? '40px' : isForm ? '56px' : '52px'
+  const triggerRadius = isDesktopToolbar ? '10px' : isSidebarDark ? '12px' : isModalField ? '12px' : '999px'
   const triggerBg = isSidebarDark 
     ? '#1A2234' 
     : darkActive
       ? '#17191d'
-      : isForm ? '#F6F8FD' : '#ffffff'
+      : isModalField ? 'var(--card-bg, #ffffff)' : isForm ? '#F6F8FD' : '#ffffff'
   const triggerBorder = isSidebarDark
     ? (isOpen ? '1.5px solid #1366D9' : '1.5px solid #232E42')
     : darkActive
       ? (isOpen ? '1.5px solid #ffffff' : '1px solid #282b32')
       : isModalField
-        ? (isOpen ? '1.5px solid #000000' : '1px solid #e2e8f0')
+        ? (isOpen ? '1.5px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)')
         : isDesktopToolbar
           ? (isOpen ? '1.5px solid #1366D9' : '1px solid #E2E8F0')
           : (isOpen ? '2px solid #1366D9' : '1px solid #E3E8F4')
-  const triggerColor = isSidebarDark ? '#ffffff' : darkActive ? '#ffffff' : '#0F1B3D'
-  const triggerFontSize = isDesktopToolbar ? '13px' : isSidebarDark ? '13.5px' : isModalField ? '0.85rem' : '15px'
-  const triggerFontWeight = isSidebarDark ? '700' : isModalField ? '500' : '600'
+  const triggerColor = isSidebarDark ? '#ffffff' : darkActive ? '#ffffff' : isModalField ? 'var(--text, #111111)' : '#0F1B3D'
+  const triggerFontSize = isDesktopToolbar ? '13px' : isSidebarDark ? '13.5px' : isModalField ? '13.5px' : '15px'
+  const triggerFontWeight = isSidebarDark ? '700' : isModalField ? '400' : '600'
   const triggerPadding = isDesktopToolbar
     ? (leadingIcon ? '0 10px 0 8px' : '0 12px')
     : isSidebarDark
       ? (leadingIcon ? '0 12px 0 10px' : '0 14px')
       : isModalField
-        ? (leadingIcon ? '0 10px 0 8px' : '0 10px')
+        ? (leadingIcon ? '0 10px 0 8px' : '0 14px')
         : (leadingIcon ? '0 18px 0 10px' : '0 18px 0 20px')
 
   const iconBoxSize = isDesktopToolbar ? '22px' : isSidebarDark ? '24px' : '32px'
@@ -179,8 +179,8 @@ const CashbookSelect = ({
     ? '1px solid #28354E' 
     : darkActive 
       ? '1px solid #33363f' 
-      : '1px solid #E2E8F0'
-  const menuRadius = (isDesktopToolbar || isSidebarDark) ? '14px' : isModalField ? '10px' : '20px'
+      : isModalField ? '1px solid var(--border, #E4E4E4)' : '1px solid #E2E8F0'
+  const menuRadius = (isDesktopToolbar || isSidebarDark) ? '14px' : isModalField ? '12px' : '20px'
   const menuShadow = isSidebarDark
     ? '0 16px 36px rgba(0, 0, 0, 0.5)'
     : darkActive
