@@ -5,6 +5,10 @@ import Money from '../Money';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst } from '../usePagination';
 import { EmptyState } from '../CredStates';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import VoucherModal from '../../common/VoucherModal';
+import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 import { 
   ArrowLeft, 
   Check, 
@@ -18,6 +22,7 @@ import {
   ArrowUpRight,
   ArrowLeftRight,
   Download,
+  Printer,
   X
 } from 'lucide-react';
 
@@ -34,6 +39,83 @@ const CredCashLedgerView = ({
 }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [voucherEntry, setVoucherEntry] = useState(null);
+
+  const mapLedgerEntryToVoucher = (entry) => {
+    if (!entry) return null;
+    const isPositive = entry.entry_type === 'in' || entry.type === 'in';
+    const partyName = entry.party_name || entry.party || entry.customer_name || entry.vendor_name || 'General Entry';
+    return {
+      voucherType: isPositive ? 'RECEIPT VOUCHER' : 'JOURNAL / PAYMENT VOUCHER',
+      voucherNo: entry.voucher_no || `JV-${entry.id || Date.now().toString().slice(-6)}`,
+      date: entry.date || new Date().toISOString().split('T')[0],
+      amount: entry.amount || '0.00',
+      payeeName: partyName,
+      payeeRole: isPositive ? 'Payer / Customer' : 'Payee / Vendor / Party',
+      payeePhone: entry.phone || entry.mobile || '',
+      payeeId: entry.id_number || entry.tax_number || '',
+      paymentMode: (entry.payment_mode || 'Cash').toUpperCase(),
+      referenceNo: entry.reference_no || entry.ref_no || `REF-${entry.id || ''}`,
+      jobOrder: entry.job_order || entry.job_no || '',
+      accountName: entry.account_name || 'General Cash Account',
+      category: entry.category || 'General',
+      description: entry.remark || entry.description || 'Ledger transaction entry',
+      particulars: [
+        {
+          item: `${entry.category || 'General'} - ${entry.remark || 'Transaction entry'}`,
+          qty: '1',
+          rate: entry.amount || 0,
+          amount: entry.amount || 0
+        }
+      ],
+      preparedBy: 'Accountant',
+      approvedBy: 'Finance Manager'
+    };
+  };
+
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'DATE', dataKey: 'date' },
+      { header: 'PARTY / DETAILS', dataKey: 'party' },
+      { header: 'CATEGORY', dataKey: 'category' },
+      { header: 'PAYMENT MODE', dataKey: 'mode' },
+      { header: 'TYPE', dataKey: 'type' },
+      { header: 'AMOUNT (SAR)', dataKey: 'amount', align: 'right' }
+    ];
+
+    let totalIn = 0;
+    let totalOut = 0;
+    const rows = filteredEntries.map(e => {
+      const isPositive = e.entry_type === 'in' || e.type === 'in';
+      const num = parseFloat(e.amount) || 0;
+      if (isPositive) totalIn += num;
+      else totalOut += num;
+      return {
+        date: e.date || '',
+        party: e.party_name || e.party || e.customer_name || e.vendor_name || 'General Entry',
+        category: e.category || 'General',
+        mode: e.payment_mode || 'Petty Cash',
+        type: isPositive ? 'IN (Debit)' : 'OUT (Credit)',
+        amount: `${isPositive ? '+' : '-'}${Number(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      };
+    });
+
+    exportTableToPdf({
+      title: 'GENERAL CASHBOOK LEDGER STATEMENT',
+      subtitle: `Total Filtered Records: ${rows.length} | Category: ${activeCategory} | Mode: ${activeMode}`,
+      filename: `cashbook_ledger_${new Date().toISOString().split('T')[0]}.pdf`,
+      columns,
+      rows,
+      totals: {
+        date: 'TOTALS',
+        party: `Total In: +SAR ${formatCurrency(totalIn)}`,
+        category: `Total Out: -SAR ${formatCurrency(totalOut)}`,
+        mode: '',
+        type: 'NET BALANCE',
+        amount: `SAR ${formatCurrency(totalIn - totalOut)}`
+      }
+    });
+  };
 
   // 1. Sort newest first: entry date & time descending, tie-break by id descending
   const sortedEntries = React.useMemo(() => {
@@ -110,17 +192,20 @@ const CredCashLedgerView = ({
           </h2>
         </div>
 
-        {onExportCSV && (
-          <button
-            type="button"
-            onClick={onExportCSV}
-            className="cred-btn-pill-outlined"
-            style={{ fontSize: '11px', padding: '5px 12px' }}
-          >
-            <Download size={13} strokeWidth={1.5} />
-            <span>export</span>
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ExportTablePdfBtn onClick={handleExportPDF} />
+          {onExportCSV && (
+            <button
+              type="button"
+              onClick={onExportCSV}
+              className="cred-btn-pill-outlined"
+              style={{ fontSize: '11px', padding: '5px 12px' }}
+            >
+              <Download size={13} strokeWidth={1.5} />
+              <span>export</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 2. HORIZONTALLY SCROLLABLE FILTER PILLS */}
@@ -261,13 +346,18 @@ const CredCashLedgerView = ({
                       </div>
                     </div>
 
-                    {/* Right-aligned amount with lighter decimals */}
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: isPositive ? 'var(--positive)' : 'var(--text)' }}>
-                        {isPositive ? '+' : ''}<Money value={e.amount || '0.00'} />
+                    {/* Right-aligned amount with lighter decimals + Voucher print button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: isPositive ? 'var(--positive)' : 'var(--text)' }}>
+                          {isPositive ? '+' : ''}<Money value={e.amount || '0.00'} />
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'lowercase', marginTop: '2px' }}>
+                          {e.payment_mode || 'petty cash'}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'lowercase', marginTop: '2px' }}>
-                        {e.payment_mode || 'petty cash'}
+                      <div onClick={(ev) => ev.stopPropagation()}>
+                        <VoucherPrintBtn onClick={() => setVoucherEntry(e)} />
                       </div>
                     </div>
                   </div>
@@ -296,6 +386,7 @@ const CredCashLedgerView = ({
                   <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-muted)' }}>DATE</th>
                   <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-muted)' }}>MODE</th>
                   <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-muted)', textAlign: 'right' }}>AMOUNT</th>
+                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-muted)', textAlign: 'center' }}>VOUCHER</th>
                 </tr>
               </thead>
               <tbody>
@@ -331,6 +422,9 @@ const CredCashLedgerView = ({
                       <td style={{ padding: '12px 16px', fontSize: '12.5px', color: 'var(--text-muted)' }}>{e.payment_mode || 'Petty Cash'}</td>
                       <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', fontWeight: 700, color: isPositive ? 'var(--positive)' : 'var(--text)' }}>
                         {isPositive ? '+' : ''}<Money value={e.amount || '0.00'} />
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }} onClick={(ev) => ev.stopPropagation()}>
+                        <VoucherPrintBtn onClick={() => setVoucherEntry(e)} />
                       </td>
                     </tr>
                   );
@@ -392,14 +486,25 @@ const CredCashLedgerView = ({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => onOpenEntry && onOpenEntry(selectedEntry)}
-                className="cred-btn-primary"
-                style={{ width: '100%' }}
-              >
-                edit transaction
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                <button
+                  type="button"
+                  onClick={() => setVoucherEntry(selectedEntry)}
+                  className="cred-btn-pill-outlined"
+                  style={{ width: '100%', justifyContent: 'center', gap: '8px', padding: '9px 16px', fontSize: '13px' }}
+                >
+                  <Printer size={15} />
+                  <span>print voucher</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenEntry && onOpenEntry(selectedEntry)}
+                  className="cred-btn-primary"
+                  style={{ width: '100%' }}
+                >
+                  edit transaction
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -414,6 +519,13 @@ const CredCashLedgerView = ({
         total={total}
         onPageChange={setPage}
         isMobile={isMobile}
+      />
+
+      {/* Transaction / Journal Voucher Modal Preview & Print */}
+      <VoucherModal
+        isOpen={Boolean(voucherEntry)}
+        onClose={() => setVoucherEntry(null)}
+        voucherData={mapLedgerEntryToVoucher(voucherEntry)}
       />
     </div>
   );

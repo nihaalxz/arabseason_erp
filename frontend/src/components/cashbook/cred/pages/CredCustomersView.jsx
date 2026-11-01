@@ -28,6 +28,10 @@ import { fadeFast } from '../motionTokens';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
 import CredDropdownSelect from '../CredDropdownSelect';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import VoucherModal from '../../common/VoucherModal';
+import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const getAmountFontSize = (val) => {
   const abs = Math.abs(parseFloat(val) || 0);
@@ -49,6 +53,37 @@ const CredCustomersView = ({
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState('all');
+  const [voucherCustomer, setVoucherCustomer] = useState(null);
+
+  const mapCustomerToVoucher = (c) => {
+    if (!c) return null;
+    const billed = parseFloat(c.total_billed) || 0;
+    const paid = parseFloat(c.paid_amount) || 0;
+    const due = Math.max(0, billed - paid);
+    return {
+      voucherType: 'CUSTOMER ACCOUNT STATEMENT',
+      voucherNo: `CUST-STMT-${c.id || Date.now().toString().slice(-6)}`,
+      date: new Date().toISOString().split('T')[0],
+      amount: due,
+      payeeName: c.name || c.company_name || 'Valued Customer',
+      payeeRole: 'Customer / Client',
+      payeePhone: c.phone || c.mobile || '',
+      payeeId: c.tax_number || c.cr_number || '',
+      paymentMode: 'ACCOUNT BALANCE',
+      referenceNo: `CUST-ID-${c.id || ''}`,
+      accountName: 'Accounts Receivable',
+      category: 'Customer Statement',
+      description: `Official balance confirmation statement for ${c.name || 'Customer'}. Outstanding balance: SAR ${due.toFixed(2)}.`,
+      particulars: [
+        { item: 'Total Invoiced / Work Billed', qty: '1', rate: billed, amount: billed },
+        { item: 'Total Payments Received & Credited', qty: '1', rate: -paid, amount: -paid },
+        { item: 'Current Net Receivable / Balance Due', qty: '1', rate: due, amount: due }
+      ],
+      preparedBy: 'Billing Department',
+      approvedBy: 'Financial Controller',
+      notes: 'Please verify the outstanding balance. Kindly report any discrepancies within 7 working days.'
+    };
+  };
 
   // Strictly deduplicate customers by ID
   const deduplicatedCustomers = useMemo(() => {
@@ -196,6 +231,63 @@ const CredCustomersView = ({
     total: totalCustomerCount
   } = usePagination(filteredCustomers, isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, customerResetKey);
 
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'CUSTOMER NAME', dataKey: 'name' },
+      { header: 'CONTACT / PHONE', dataKey: 'contact' },
+      { header: 'TOTAL BILLED (SAR)', dataKey: 'billed', align: 'right' },
+      { header: 'COLLECTED (SAR)', dataKey: 'paid', align: 'right' },
+      { header: 'CREDIT DUE (SAR)', dataKey: 'due', align: 'right' },
+      { header: 'PAYABLES (SAR)', dataKey: 'payable', align: 'right' },
+      { header: 'STATUS', dataKey: 'status' }
+    ];
+
+    let sumBilled = 0;
+    let sumPaid = 0;
+    let sumDue = 0;
+    let sumPayable = 0;
+
+    const rows = filteredCustomers.map(c => {
+      const b = parseFloat(c.total_billed) || 0;
+      const p = parseFloat(c.paid_amount) || 0;
+      const d = Math.max(0, b - p);
+      const py = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
+      sumBilled += b;
+      sumPaid += p;
+      sumDue += d;
+      sumPayable += py;
+
+      const status = d > 0.01 ? 'Credit Due' : py > 0.01 ? 'Payables Owed' : 'Settled';
+
+      return {
+        name: c.name || 'Unnamed',
+        contact: c.phone || c.email || '—',
+        billed: formatCurrency(b),
+        paid: formatCurrency(p),
+        due: formatCurrency(d),
+        payable: formatCurrency(py),
+        status
+      };
+    });
+
+    exportTableToPdf({
+      title: 'CUSTOMERS DIRECTORY & RECEIVABLES STATEMENT',
+      subtitle: `Arab Season Contracting • Filter: ${activeFilter} • Total Customers: ${rows.length}`,
+      filename: `customers_report_${new Date().toISOString().split('T')[0]}.pdf`,
+      columns,
+      rows,
+      totals: {
+        name: 'TOTALS',
+        contact: `${rows.length} Customers`,
+        billed: formatCurrency(sumBilled),
+        paid: formatCurrency(sumPaid),
+        due: formatCurrency(sumDue),
+        payable: formatCurrency(sumPayable),
+        status: ''
+      }
+    });
+  };
+
   // Filter tabs with live counts
   const filterTabs = [
     { id: 'All', label: 'All', count: metrics.totalCustomersCount },
@@ -242,27 +334,30 @@ const CredCustomersView = ({
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
               customers
             </h1>
-            <button
-              type="button"
-              id="btn-add-customer"
-              onClick={() => onAddCustomer && onAddCustomer()}
-              style={{
-                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              <span>Add</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-add-customer"
+                onClick={() => onAddCustomer && onAddCustomer()}
+                style={{
+                  background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                  color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Add</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -287,31 +382,34 @@ const CredCustomersView = ({
             Customers
           </h1>
 
-          <button
-            type="button"
-            id="btn-add-customer"
-            onClick={() => onAddCustomer && onAddCustomer()}
-            style={{
-              background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-              color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '8px 18px',
-              fontSize: '13px',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)',
-              transition: 'transform 0.15s ease, opacity 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Add Customer</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+            <button
+              type="button"
+              id="btn-add-customer"
+              onClick={() => onAddCustomer && onAddCustomer()}
+              style={{
+                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '8px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: isDarkMode ? '0 2px 12px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.14)',
+                transition: 'transform 0.15s ease, opacity 0.15s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Add Customer</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -813,6 +911,13 @@ const CredCustomersView = ({
                       Receive payment
                     </button>
                   )}
+                  <VoucherPrintBtn
+                    title="Customer Balance Statement & Voucher"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVoucherCustomer(c);
+                    }}
+                  />
                   <button
                     type="button"
                     title="Edit Customer"
@@ -1071,6 +1176,13 @@ const CredCustomersView = ({
                       {/* ACTIONS (CredRowIconButton) */}
                       <td style={{ ...bodyCellStyle, textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                          <VoucherPrintBtn
+                            title="Customer Account Statement & Balance Slip"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setVoucherCustomer(c);
+                            }}
+                          />
                           <CredRowIconButton
                             title="Edit Customer"
                             ariaLabel="Edit Customer"
@@ -1113,6 +1225,14 @@ const CredCustomersView = ({
         total={totalCustomerCount}
         onPageChange={setCustomerPage}
         isMobile={isMobile}
+      />
+
+      {/* Customer Account Statement / Balance Confirmation Modal */}
+      <VoucherModal
+        isOpen={Boolean(voucherCustomer)}
+        onClose={() => setVoucherCustomer(null)}
+        voucherData={mapCustomerToVoucher(voucherCustomer)}
+        isDarkMode={isDarkMode}
       />
     </div>
   );

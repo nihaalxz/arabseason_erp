@@ -18,6 +18,10 @@ import CredRowIconButton from './cred/CredRowIconButton'
 import CredPagination from './cred/CredPagination'
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef, formatCompactKpi, getAmountFontSize } from './cred/usePagination'
 import { showConfirm, showError, showToast, showSuccess } from '../../utils/swal'
+import ExportTablePdfBtn from './common/ExportTablePdfBtn'
+import VoucherPrintBtn from './common/VoucherPrintBtn'
+import VoucherModal from './common/VoucherModal'
+import { exportTableToPdf, formatCurrency } from '../../utils/cashbookPdfGenerator'
 
 const MobileCardCarousel = ({ 
   children, 
@@ -183,6 +187,7 @@ export default function CashbookLabour({
 
   // Labourer Statement Modal State (Customer-style ledger)
   const [statementLabourer, setStatementLabourer] = useState(null)
+  const [voucherLabour, setVoucherLabour] = useState(null)
 
   // Styling tokens matching Cashbook tab=vendors
   const cardBg = isDarkMode ? '#121417' : '#ffffff'
@@ -415,6 +420,126 @@ export default function CashbookLabour({
     }
   }, [viewMode, labourerLedgers, labourEntries])
 
+  // Map labour entry or ledger to voucher data
+  const mapLabourToVoucher = (l) => {
+    if (!l) return null
+    const isSingleEntry = !l.entries && (l.payment_amount !== undefined || l.work_done !== undefined || l.work_description !== undefined)
+    if (isSingleEntry) {
+      const tot = parseFloat(l.payment_amount) || 0
+      const pd = parseFloat(l.paid_amount) || 0
+      const bal = Math.max(0, tot - pd)
+      return {
+        voucherType: 'PAYMENT VOUCHER - LABOUR WAGE',
+        voucherNo: `LAB-${l.id || 'PAY'}`,
+        date: l.date || new Date().toISOString().split('T')[0],
+        amount: pd > 0 ? pd : tot,
+        payeeName: l.name || 'Labourer',
+        payeeRole: 'Site Labour / Tradesperson',
+        payeePhone: l.phone || '-',
+        paymentMode: 'Cash / Bank Transfer',
+        jobOrder: l.job_order_number || l.job_order_title || (l.job_order ? `#${l.job_order}` : '-'),
+        category: 'Labour & Site Wages',
+        description: l.work_done || l.work_description || `Labour services by ${l.name}`,
+        particulars: [
+          { item: l.work_done || l.work_description || 'Labour Services', qty: '1', rate: formatCurrency(tot), amount: formatCurrency(tot) },
+          ...(pd > 0 ? [{ item: 'Amount Disbursed / Paid', qty: '1', rate: formatCurrency(pd), amount: formatCurrency(pd) }] : [])
+        ],
+        notes: `Total Wage: SAR ${tot.toFixed(2)} | Paid: SAR ${pd.toFixed(2)} | Balance Due: SAR ${bal.toFixed(2)}. Worker acknowledges receipt and work completion.`
+      }
+    }
+    // Ledger summary voucher
+    return {
+      voucherType: 'LABOUR STATEMENT & WAGE DISBURSEMENT',
+      voucherNo: `LAB-STMT-${(l.name || 'REC').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}`,
+      date: l.lastDate || new Date().toISOString().split('T')[0],
+      amount: l.paidAmount || l.totalAmount || 0,
+      payeeName: l.name || 'Labourer',
+      payeeRole: 'Contract Labourer',
+      payeePhone: l.phone || '-',
+      jobOrder: l.jobsList?.join(', ') || '-',
+      category: 'Labour Wages Summary',
+      description: `Wages & disbursements statement for ${l.name} (${l.entries?.length || 0} work entries)`,
+      particulars: (l.entries || []).slice(0, 10).map(e => ({
+        item: `${e.date || ''} - ${e.work_done || e.work_description || 'Site Work'} (${e.job_order_number || 'Site'})`,
+        qty: '1',
+        rate: formatCurrency(e.payment_amount || 0),
+        amount: formatCurrency(e.paid_amount || e.payment_amount || 0)
+      })),
+      notes: `Total Work: SAR ${(l.totalAmount || 0).toFixed(2)} | Paid: SAR ${(l.paidAmount || 0).toFixed(2)} | Due: SAR ${(l.dueAmount || 0).toFixed(2)}. Wage payout sign-off.`
+    }
+  }
+
+  const handleExportPDF = () => {
+    if (viewMode === 'ledger') {
+      const columns = [
+        { header: 'LABOURER NAME', dataKey: 'name' },
+        { header: 'PHONE', dataKey: 'phone' },
+        { header: 'ASSIGNED JOBS', dataKey: 'jobs' },
+        { header: 'TOTAL WAGES', dataKey: 'total' },
+        { header: 'PAID AMOUNT', dataKey: 'paid' },
+        { header: 'DUE AMOUNT', dataKey: 'due' },
+        { header: 'STATUS', dataKey: 'status' }
+      ]
+      const rows = filteredLedgers.map(l => ({
+        name: l.name,
+        phone: l.phone || '-',
+        jobs: l.jobsList?.join(', ') || 'General',
+        total: formatCurrency(l.totalAmount),
+        paid: formatCurrency(l.paidAmount),
+        due: formatCurrency(l.dueAmount),
+        status: (l.status || '').toUpperCase()
+      }))
+      exportTableToPdf({
+        title: 'Labour Ledger & Wages Summary',
+        subtitle: `Filter: ${statusFilter} | Total Labourers: ${filteredLedgers.length}`,
+        columns,
+        rows,
+        totals: {
+          total: formatCurrency(metrics.totalWork),
+          paid: formatCurrency(metrics.totalPaid),
+          due: formatCurrency(metrics.totalDue)
+        },
+        fileName: `labour_ledger_${new Date().toISOString().split('T')[0]}.pdf`
+      })
+    } else {
+      const columns = [
+        { header: 'DATE', dataKey: 'date' },
+        { header: 'LABOURER', dataKey: 'name' },
+        { header: 'JOB ORDER', dataKey: 'job' },
+        { header: 'WORK DESCRIPTION', dataKey: 'work' },
+        { header: 'TOTAL WAGES', dataKey: 'total' },
+        { header: 'PAID', dataKey: 'paid' },
+        { header: 'BALANCE', dataKey: 'due' }
+      ]
+      const rows = filteredEntries.map(e => {
+        const tot = parseFloat(e.payment_amount) || 0
+        const pd = parseFloat(e.paid_amount) || 0
+        const due = Math.max(0, tot - pd)
+        return {
+          date: e.date || '-',
+          name: e.name,
+          job: e.job_order_number || e.job_order_title || (e.job_order ? `#${e.job_order}` : '-'),
+          work: e.work_done || e.work_description || '-',
+          total: formatCurrency(tot),
+          paid: formatCurrency(pd),
+          due: formatCurrency(due)
+        }
+      })
+      exportTableToPdf({
+        title: 'Labour Work Orders & Payment Entries',
+        subtitle: `Filter: ${statusFilter} | Total Entries: ${filteredEntries.length}`,
+        columns,
+        rows,
+        totals: {
+          total: formatCurrency(metrics.totalWork),
+          paid: formatCurrency(metrics.totalPaid),
+          due: formatCurrency(metrics.totalDue)
+        },
+        fileName: `labour_entries_${new Date().toISOString().split('T')[0]}.pdf`
+      })
+    }
+  }
+
   // Open Create / Edit Modal
   const handleOpenModal = (entry = null) => {
     setEditingEntry(entry)
@@ -621,27 +746,30 @@ export default function CashbookLabour({
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
               labour
             </h1>
-            <button
-              type="button"
-              id="btn-add-labour-mobile"
-              onClick={() => handleOpenModal()}
-              style={{
-                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              <span>Add</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-add-labour-mobile"
+                onClick={() => handleOpenModal()}
+                style={{
+                  background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                  color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Add</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -667,6 +795,7 @@ export default function CashbookLabour({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
             <button
               type="button"
               id="btn-add-labour"
@@ -1272,6 +1401,14 @@ export default function CashbookLabour({
                         >
                           Statement
                         </button>
+                        <VoucherPrintBtn
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setVoucherLabour(l);
+                          }}
+                          title={`Print Wage Voucher for ${l.name}`}
+                          isDarkMode={isDarkMode}
+                        />
                       </div>
 
                       {/* Inset dashed separator */}
@@ -1428,6 +1565,14 @@ export default function CashbookLabour({
                           >
                             statement
                           </button>
+                          <VoucherPrintBtn
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setVoucherLabour(l)
+                            }}
+                            title={`Print Wage Voucher for ${l.name}`}
+                            isDarkMode={isDarkMode}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -1690,8 +1835,8 @@ export default function CashbookLabour({
                         {hasDue && (
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={(ev) => {
+                              ev.stopPropagation();
                               handleOpenPayModal(e);
                             }}
                             style={{
@@ -1707,12 +1852,20 @@ export default function CashbookLabour({
                             Pay
                           </button>
                         )}
+                        <VoucherPrintBtn
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setVoucherLabour(e);
+                          }}
+                          title={`Print Wage Voucher for ${e.name}`}
+                          isDarkMode={isDarkMode}
+                        />
                         <button
                           type="button"
                           title="Edit Entry"
                           aria-label="Edit Entry"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={(ev) => {
+                            ev.stopPropagation();
                             handleOpenModal(e);
                           }}
                           style={{
@@ -1731,8 +1884,8 @@ export default function CashbookLabour({
                           type="button"
                           title="Delete Entry"
                           aria-label="Delete Entry"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={(ev) => {
+                            ev.stopPropagation();
                             handleDeleteEntry(e.id, e.name);
                           }}
                           style={{
@@ -1872,6 +2025,11 @@ export default function CashbookLabour({
                               pay
                             </button>
                           )}
+                          <VoucherPrintBtn
+                            onClick={() => setVoucherLabour(e)}
+                            title={`Print Wage Voucher for ${e.name}`}
+                            isDarkMode={isDarkMode}
+                          />
                           <CredRowIconButton
                             title="Edit entry"
                             ariaLabel="Edit entry"
@@ -2428,6 +2586,14 @@ export default function CashbookLabour({
           </div>
         </Modal>
       )}
+
+      {/* Voucher Modal */}
+      <VoucherModal
+        isOpen={Boolean(voucherLabour)}
+        onClose={() => setVoucherLabour(null)}
+        voucherData={voucherLabour ? mapLabourToVoucher(voucherLabour) : null}
+        isDarkMode={isDarkMode}
+      />
 
     </div>
   )

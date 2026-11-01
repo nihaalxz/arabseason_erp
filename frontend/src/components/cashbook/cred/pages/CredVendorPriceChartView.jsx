@@ -31,6 +31,10 @@ import CredCardCarousel from '../CredCardCarousel';
 import CredPagination from '../CredPagination';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatCompactKpi } from '../usePagination';
 import { showToast, showError, showSuccess, showConfirm } from '../../../../utils/swal';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import VoucherModal from '../../common/VoucherModal';
+import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const DURATION_OPTIONS = [
   { value: 'all', id: 'all', label: 'all time', icon: Calendar },
@@ -75,6 +79,79 @@ const CredVendorPriceChartView = ({
   const [selectedVendorFilter, setSelectedVendorFilter] = useState('all');
   const [selectedMaterialFilter, setSelectedMaterialFilter] = useState('all');
   const [duration, setDuration] = useState('all');
+  const [voucherQuote, setVoucherQuote] = useState(null);
+
+  const mapQuoteToVoucher = (q) => {
+    if (!q) return null;
+    return {
+      voucherType: 'APPROVED VENDOR PRICE QUOTE / AGREEMENT',
+      voucherNo: `VPA-${q.id || Date.now().toString().slice(-6)}`,
+      date: q.date || new Date().toISOString().split('T')[0],
+      amount: q.price,
+      payeeName: q.vendorName || 'Approved Vendor',
+      payeeRole: 'Material Supplier / Subcontractor',
+      payeePhone: q.vendorPhone || '',
+      paymentMode: 'APPROVED QUOTE RATE',
+      referenceNo: `VPQ-${q.id || ''}`,
+      jobOrder: q.jobOrder || '',
+      category: q.categoryName || 'Material Rate',
+      description: `Official approved material quote & price agreement for "${q.materialName || 'Material'}" from ${q.vendorName || 'Vendor'}.`,
+      particulars: [
+        {
+          item: `${q.materialName} (${q.categoryName || 'Material'})`,
+          qty: `1 ${q.unit || 'pcs'}`,
+          rate: q.price,
+          amount: q.price
+        }
+      ],
+      notes: q.notes || 'Approved supplier pricing benchmark for estimation & procurement.',
+      preparedBy: 'Procurement Engineer',
+      approvedBy: 'Commercial Director'
+    };
+  };
+
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'MATERIAL / ITEM', dataKey: 'material' },
+      { header: 'CATEGORY', dataKey: 'category' },
+      { header: 'SUPPLIER / VENDOR', dataKey: 'vendor' },
+      { header: 'RATE / PRICE (SAR)', dataKey: 'price', align: 'right' },
+      { header: 'UNIT', dataKey: 'unit' },
+      { header: 'DATE', dataKey: 'date' },
+      { header: 'BENCHMARK', dataKey: 'benchmark' }
+    ];
+
+    let totalPrice = 0;
+    const rows = filteredQuotes.map(q => {
+      totalPrice += (q.price || 0);
+      return {
+        material: q.materialName || '—',
+        category: q.categoryName || '—',
+        vendor: q.vendorName || '—',
+        price: formatCurrency(q.price || 0),
+        unit: q.unit || 'pcs',
+        date: q.date || '—',
+        benchmark: q.isLowest ? '★ Lowest Rate' : 'Standard Rate'
+      };
+    });
+
+    exportTableToPdf({
+      title: 'VENDOR MATERIAL PRICE CHART & RATE COMPARISON',
+      subtitle: `Arab Season Contracting • Filtered Quotes: ${rows.length} • Materials: ${kpis.totalMaterials} • Vendors: ${kpis.activeVendors}`,
+      filename: `vendor_price_chart_${new Date().toISOString().split('T')[0]}.pdf`,
+      columns,
+      rows,
+      totals: {
+        material: 'TOTAL QUOTES',
+        category: `${rows.length} Items`,
+        vendor: `Avg Rate: ${formatCurrency(kpis.avgPrice)}`,
+        price: `Min: ${formatCurrency(kpis.lowestPrice)}`,
+        unit: '',
+        date: '',
+        benchmark: ''
+      }
+    });
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -420,6 +497,7 @@ const CredVendorPriceChartView = ({
               vendor price chart
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDarkMode} />
               <button
                 type="button"
                 id="btn-record-price-mobile"
@@ -460,6 +538,7 @@ const CredVendorPriceChartView = ({
 
           {/* Desktop Action Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
             <button
               type="button"
               id="btn-record-price"
@@ -955,24 +1034,30 @@ const CredVendorPriceChartView = ({
                     )}
                     {q.notes && <span>{q.notes}</span>}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeletePriceQuote(q)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      padding: '2px 4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                      fontSize: '11px'
-                    }}
-                  >
-                    <Trash2 size={12} />
-                    <span>Delete</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <VoucherPrintBtn
+                      title="Vendor Approved Quote Slip"
+                      onClick={() => setVoucherQuote(q)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePriceQuote(q)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontSize: '11px'
+                      }}
+                    >
+                      <Trash2 size={12} />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Inset dashed separator */}
@@ -1140,25 +1225,31 @@ const CredVendorPriceChartView = ({
 
                       {/* Action */}
                       <td style={{ ...bodyCellStyle, textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePriceQuote(q)}
-                          title="Delete Quote Record"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-muted, #8C8C8C)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <VoucherPrintBtn
+                            title="Vendor Approved Quote Agreement"
+                            onClick={() => setVoucherQuote(q)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePriceQuote(q)}
+                            title="Delete Quote Record"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted, #8C8C8C)',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'; }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1531,6 +1622,14 @@ const CredVendorPriceChartView = ({
         </div>,
         document.body
       )}
+
+      {/* Approved Vendor Price Quote / Agreement Modal */}
+      <VoucherModal
+        isOpen={Boolean(voucherQuote)}
+        onClose={() => setVoucherQuote(null)}
+        voucherData={mapQuoteToVoucher(voucherQuote)}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 };

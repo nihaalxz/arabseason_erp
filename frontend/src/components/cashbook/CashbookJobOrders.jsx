@@ -16,8 +16,11 @@ import GooeyMenu from './cred/GooeyMenu'
 import CredStatus from './cred/CredStatus'
 import CredRowIconButton from './cred/CredRowIconButton'
 import CredPagination from './cred/CredPagination'
-import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef, formatCompactKpi, getAmountFontSize } from './cred/usePagination'
 import { showConfirm, showError, showToast } from '../../utils/swal'
+import ExportTablePdfBtn from './common/ExportTablePdfBtn'
+import VoucherPrintBtn from './common/VoucherPrintBtn'
+import VoucherModal from './common/VoucherModal'
+import { exportTableToPdf, formatCurrency } from '../../utils/cashbookPdfGenerator'
 
 const MONTH_CODES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 const getCurrentMonthCode = () => MONTH_CODES[new Date().getMonth()]
@@ -156,6 +159,7 @@ export default function CashbookJobOrders({
   const [cashbooks, setCashbooks] = useState(initialBooks || [])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
+  const [voucherJob, setVoucherJob] = useState(null)
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -467,6 +471,71 @@ export default function CashbookJobOrders({
     { id: 'Pending', label: 'Pending', count: pendingOrders.length },
     { id: 'Cancelled', label: 'Cancelled', count: cancelledOrders.length }
   ]
+
+  const mapJobToVoucher = (j) => {
+    if (!j) return null
+    const total = parseFloat(j.total_amount) || 0
+    const paid = parseFloat(j.paid_amount) || 0
+    const bal = parseFloat(j.due_amount != null ? j.due_amount : j.balance)
+    const due = !isNaN(bal) ? bal : Math.max(0, total - paid)
+    return {
+      voucherType: 'JOB ORDER COST & DISBURSEMENT VOUCHER',
+      voucherNo: `${j.order_id || `JOB-${j.id}`}`,
+      date: j.created_at ? j.created_at.substring(0, 10) : (j.date || new Date().toISOString().split('T')[0]),
+      amount: paid > 0 ? paid : total,
+      payeeName: j.customer_name || 'Project Client',
+      payeeRole: 'Contract Client / Job Owner',
+      payeePhone: j.customer_phone || '-',
+      paymentMode: 'Contract Milestone / Bank Transfer',
+      jobOrder: `${j.order_id || ''} - ${j.title || ''}`,
+      category: 'Job Order Execution & Direct Site Costs',
+      description: `${j.title || 'Job Order Works'} - ${j.project_name ? 'Project: ' + j.project_name : 'Direct Project Execution'}`,
+      particulars: [
+        { item: `Contract Scope: ${j.title || 'Works'}`, qty: '1', rate: formatCurrency(total), amount: formatCurrency(total) },
+        ...(paid > 0 ? [{ item: 'Contract Disbursements / Progress Received', qty: '1', rate: formatCurrency(paid), amount: formatCurrency(paid) }] : [])
+      ],
+      notes: `Status: ${j.status || 'Active'}. Total: SAR ${total.toFixed(2)} | Paid: SAR ${paid.toFixed(2)} | Balance Due: SAR ${due.toFixed(2)}. Formal project cost sign-off.`
+    }
+  }
+
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'JOB #', dataKey: 'order_id' },
+      { header: 'TITLE / SCOPE', dataKey: 'title' },
+      { header: 'CUSTOMER', dataKey: 'customer' },
+      { header: 'CONTRACT VAL', dataKey: 'total' },
+      { header: 'RECEIVED', dataKey: 'paid' },
+      { header: 'BALANCE DUE', dataKey: 'due' },
+      { header: 'STATUS', dataKey: 'status' }
+    ]
+    const rows = filteredJobOrders.map(j => {
+      const tot = parseFloat(j.total_amount) || 0
+      const pd = parseFloat(j.paid_amount) || 0
+      const bal = parseFloat(j.due_amount != null ? j.due_amount : j.balance)
+      const due = !isNaN(bal) ? bal : Math.max(0, tot - pd)
+      return {
+        order_id: j.order_id || `#${j.id}`,
+        title: j.title || j.project_name || '-',
+        customer: j.customer_name || '-',
+        total: formatCurrency(tot),
+        paid: formatCurrency(pd),
+        due: formatCurrency(due),
+        status: (j.status || '').toUpperCase()
+      }
+    })
+    exportTableToPdf({
+      title: 'Job Orders Financial & Cost Summary',
+      subtitle: `Status: ${statusFilter} | Total Jobs: ${filteredJobOrders.length}`,
+      columns,
+      rows,
+      totals: {
+        total: formatCurrency(displayContractValue),
+        paid: formatCurrency(displayPaid),
+        due: formatCurrency(displayDue)
+      },
+      fileName: `job_orders_${new Date().toISOString().split('T')[0]}.pdf`
+    })
+  }
 
   // Modal open / edit
   const handleOpenAddModal = () => {
@@ -822,27 +891,30 @@ export default function CashbookJobOrders({
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
               job orders
             </h1>
-            <button
-              type="button"
-              id="btn-create-job-order-mobile"
-              onClick={handleOpenAddModal}
-              style={{
-                background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
-                color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              <span>Create</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                id="btn-create-job-order-mobile"
+                onClick={handleOpenAddModal}
+                style={{
+                  background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+                  color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Create</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -871,6 +943,7 @@ export default function CashbookJobOrders({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
             <button
               type="button"
               id="btn-create-job-order"
@@ -1462,6 +1535,14 @@ export default function CashbookJobOrders({
                       <Paperclip size={12} /> File
                     </button>
                   )}
+                  <VoucherPrintBtn
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVoucherJob(job);
+                    }}
+                    title={`Print Job Voucher for ${job.title}`}
+                    isDarkMode={isDarkMode}
+                  />
                   <button
                     type="button"
                     title="Edit Job Order"
@@ -1670,6 +1751,11 @@ export default function CashbookJobOrders({
                               receive payment
                             </button>
                           )}
+                          <VoucherPrintBtn
+                            onClick={() => setVoucherJob(job)}
+                            title={`Print Job Voucher for ${job.title}`}
+                            isDarkMode={isDarkMode}
+                          />
                           {job.attachment && (
                             <CredRowIconButton
                               title={job.attachment_name || 'View Attachment'}
@@ -2781,6 +2867,14 @@ export default function CashbookJobOrders({
           </div>
         </form>
       </Modal>
+
+      {/* Voucher Modal */}
+      <VoucherModal
+        isOpen={Boolean(voucherJob)}
+        onClose={() => setVoucherJob(null)}
+        voucherData={voucherJob ? mapJobToVoucher(voucherJob) : null}
+        isDarkMode={isDarkMode}
+      />
     </div>
   )
 }

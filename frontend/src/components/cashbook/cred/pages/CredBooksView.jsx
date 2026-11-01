@@ -22,6 +22,10 @@ import {
   Pencil,
   Users
 } from 'lucide-react';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import VoucherModal from '../../common/VoucherModal';
+import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 // Helper to determine if an entry is a bank outflow
 const isBankEntry = (entry) => {
@@ -81,6 +85,7 @@ const CredBooksView = ({
   // Mobile state
   const [mobileFilterType, setMobileFilterType] = useState('all');
   const [toggleTab, setToggleTab] = useState('books');
+  const [voucherBookEntry, setVoucherBookEntry] = useState(null);
 
   // Resolve active book from URL parameter or selectedBook prop
   const activeBook = useMemo(() => {
@@ -304,6 +309,92 @@ const CredBooksView = ({
       ? `CASH OUT TRANSACTIONS (${filteredTableEntries.length})`
       : `ALL TRANSACTIONS (${filteredTableEntries.length})`;
 
+  const mapBookEntryToVoucher = (e) => {
+    if (!e) return null;
+    const isCredit = e.entry_type === 'in' || e.type === 'in';
+    const amt = parseFloat(e.amount || 0);
+    const partyName = e.party_name || e.party || e.customer_name || e.vendor_name || e.staff_name || 'Petty Cash Disbursed';
+    return {
+      voucherType: isCredit ? 'PETTY CASH RECEIPT VOUCHER' : 'PETTY CASH DISBURSEMENT VOUCHER',
+      voucherNo: `PCV-${e.id || 'NEW'}`,
+      date: e.date || new Date().toISOString().split('T')[0],
+      amount: amt,
+      payeeName: partyName,
+      payeeRole: isCredit ? 'Payer / Remitter' : 'Payee / Recipient',
+      payeePhone: '-',
+      paymentMode: 'Petty Cash',
+      accountName: activeBook?.name || 'Petty Cash Book',
+      category: e.category || 'Petty Cash',
+      description: e.remark || `Petty cash ${isCredit ? 'receipt' : 'disbursement'} - ${activeBook?.name || 'Cash Book'}`,
+      particulars: [
+        { item: e.remark || 'Petty Cash Expense', qty: '1', rate: formatCurrency(amt), amount: formatCurrency(amt) }
+      ],
+      notes: `Book: ${activeBook?.name || 'Cash Book'}. Running Balance after TX: SAR ${parseFloat(e.display_running_balance || 0).toFixed(2)}. Verified by accountant.`
+    };
+  };
+
+  const handleExportPDF = () => {
+    if (activeBook) {
+      const columns = [
+        { header: 'DATE', dataKey: 'date' },
+        { header: 'PARTICULARS', dataKey: 'title' },
+        { header: 'PARTY / BENEFICIARY', dataKey: 'party' },
+        { header: 'CATEGORY', dataKey: 'cat' },
+        { header: 'TYPE', dataKey: 'type' },
+        { header: 'AMOUNT (SAR)', dataKey: 'amount' },
+        { header: 'RUNNING BALANCE', dataKey: 'bal' }
+      ];
+      const rows = sortedBookEntries.map(e => {
+        const isCredit = e.entry_type === 'in' || e.type === 'in';
+        return {
+          date: e.date || '-',
+          title: e.remark || e.title || 'Entry',
+          party: e.party_name || e.party || e.customer_name || e.vendor_name || e.staff_name || '-',
+          cat: e.category || 'Petty Cash',
+          type: isCredit ? 'CASH IN' : 'CASH OUT',
+          amount: `${isCredit ? '+' : '-'}${formatCurrency(e.amount)}`,
+          bal: formatCurrency(e.display_running_balance || 0)
+        };
+      });
+      exportTableToPdf({
+        title: `${activeBook.name} Petty Cash Book Statement`,
+        subtitle: `Period: ${duration} | Flow: ${flowFilter} | Total Entries: ${sortedBookEntries.length}`,
+        columns,
+        rows,
+        totals: {
+          amount: `In: ${formatCurrency(periodStats.totalIn)} | Out: ${formatCurrency(periodStats.totalOut)}`,
+          bal: `Net: ${formatCurrency(periodStats.net)}`
+        },
+        fileName: `${activeBook.name.replace(/[^a-zA-Z0-9]/g, '_')}_statement_${new Date().toISOString().split('T')[0]}.pdf`
+      });
+    } else {
+      const columns = [
+        { header: 'CASH BOOK NAME', dataKey: 'name' },
+        { header: 'DESCRIPTION', dataKey: 'desc' },
+        { header: 'TOTAL RECEIVED', dataKey: 'in' },
+        { header: 'TOTAL DISBURSED', dataKey: 'out' },
+        { header: 'CURRENT BALANCE', dataKey: 'bal' }
+      ];
+      const rows = filteredBooks.map(b => {
+        const s = computeBookStats(b);
+        return {
+          name: b.name,
+          desc: b.description || '-',
+          in: formatCurrency(s.totalIn),
+          out: formatCurrency(s.totalOut),
+          bal: formatCurrency(s.net)
+        };
+      });
+      exportTableToPdf({
+        title: 'Petty Cash Books Summary',
+        subtitle: `Total Cash Books: ${filteredBooks.length}`,
+        columns,
+        rows,
+        fileName: `cash_books_summary_${new Date().toISOString().split('T')[0]}.pdf`
+      });
+    }
+  };
+
   // =========================================================================
   // MOBILE LAYOUT
   // =========================================================================
@@ -392,6 +483,11 @@ const CredBooksView = ({
               >
                 <Users size={15} strokeWidth={1.8} />
               </button>
+
+              <ExportTablePdfBtn
+                onClick={handleExportPDF}
+                isDarkMode={isDarkMode}
+              />
 
               <button
                 type="button"
@@ -548,6 +644,7 @@ const CredBooksView = ({
             isClickable={false}
             showBalance={true}
             isLoading={isLoading}
+            onPrintVoucher={(entry) => setVoucherBookEntry(entry)}
             emptyMessage={
               activeBookEntries.length === 0
                 ? "no entries in this book yet"
@@ -564,6 +661,13 @@ const CredBooksView = ({
             total={totalBookEntries}
             onPageChange={setBookPage}
             isMobile={true}
+          />
+
+          <VoucherModal
+            isOpen={Boolean(voucherBookEntry)}
+            onClose={() => setVoucherBookEntry(null)}
+            voucherData={voucherBookEntry ? mapBookEntryToVoucher(voucherBookEntry) : null}
+            isDarkMode={isDarkMode}
           />
         </div>
       );
@@ -643,6 +747,11 @@ const CredBooksView = ({
               <Plus size={16} strokeWidth={2.4} />
               <span>new book</span>
             </button>
+
+            <ExportTablePdfBtn
+              onClick={handleExportPDF}
+              isDarkMode={isDarkMode}
+            />
           </div>
 
           <div style={{ width: '100%' }}>
@@ -962,6 +1071,11 @@ const CredBooksView = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ExportTablePdfBtn
+              onClick={handleExportPDF}
+              isDarkMode={isDarkMode}
+            />
+
             <button
               type="button"
               id="cred-book-export-statement-btn"
@@ -1136,6 +1250,7 @@ const CredBooksView = ({
           isClickable={true}
           onOpenEntry={onOpenEntry}
           isLoading={isLoading}
+          onPrintVoucher={(entry) => setVoucherBookEntry(entry)}
           emptyMessage={
             activeBookEntries.length === 0
               ? "no entries in this book yet"
@@ -1156,6 +1271,13 @@ const CredBooksView = ({
           total={totalBookEntries}
           onPageChange={setBookPage}
           isMobile={isMobile}
+        />
+
+        <VoucherModal
+          isOpen={Boolean(voucherBookEntry)}
+          onClose={() => setVoucherBookEntry(null)}
+          voucherData={voucherBookEntry ? mapBookEntryToVoucher(voucherBookEntry) : null}
+          isDarkMode={isDarkMode}
         />
       </div>
     );
@@ -1185,34 +1307,41 @@ const CredBooksView = ({
           gap: '16px'
         }}
       >
-        {/* Left: "+ new book" primary pill button */}
-        <button
-          type="button"
-          id="cred-books-new-book-btn"
-          onClick={onCreateBook}
-          style={{
-            height: '40px',
-            padding: '0 20px',
-            borderRadius: '999px',
-            fontSize: '13px',
-            fontWeight: 700,
-            background: 'var(--text, #0A0A0A)',
-            color: 'var(--bg, #FFFFFF)',
-            border: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            transition: 'transform 0.1s ease, opacity 0.15s ease',
-            whiteSpace: 'nowrap',
-            flexShrink: 0
-          }}
-          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.98)'; }}
-          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-        >
-          <Plus size={16} strokeWidth={2.4} />
-          <span>new book</span>
-        </button>
+        {/* Left: "+ new book" primary pill button & Export button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            id="cred-books-new-book-btn"
+            onClick={onCreateBook}
+            style={{
+              height: '40px',
+              padding: '0 20px',
+              borderRadius: '999px',
+              fontSize: '13px',
+              fontWeight: 700,
+              background: 'var(--text, #0A0A0A)',
+              color: 'var(--bg, #FFFFFF)',
+              border: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'transform 0.1s ease, opacity 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            <Plus size={16} strokeWidth={2.4} />
+            <span>new book</span>
+          </button>
+
+          <ExportTablePdfBtn
+            onClick={handleExportPDF}
+            isDarkMode={isDarkMode}
+          />
+        </div>
 
         {/* Right: search field (CredSearchInput, ~320px) */}
         <div style={{ width: '320px', maxWidth: '100%' }}>
@@ -1408,6 +1537,13 @@ const CredBooksView = ({
           })}
         </div>
       )}
+
+      <VoucherModal
+        isOpen={Boolean(voucherBookEntry)}
+        onClose={() => setVoucherBookEntry(null)}
+        voucherData={voucherBookEntry ? mapBookEntryToVoucher(voucherBookEntry) : null}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 };

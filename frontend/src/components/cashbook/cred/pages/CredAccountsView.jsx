@@ -19,8 +19,11 @@ import CredAnimatedTabs from '../CredAnimatedTabs';
 import GooeyMenu from '../GooeyMenu';
 import CredPagination from '../CredPagination';
 import CredCardCarousel from '../CredCardCarousel';
-import MoneyCard from '../MoneyCard';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst, formatJobRef } from '../usePagination';
+import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
+import VoucherPrintBtn from '../../common/VoucherPrintBtn';
+import VoucherModal from '../../common/VoucherModal';
+import { exportTableToPdf, formatCurrency } from '../../../../utils/cashbookPdfGenerator';
 
 const PERIOD_OPTIONS = [
   { id: 'all', value: 'all', label: 'All Time' },
@@ -128,6 +131,66 @@ const CredAccountsView = ({
     rangeEnd: statementRangeEnd,
     total: totalStatementTransactions
   } = usePagination(sortedTransactions, isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, statementResetKey);
+
+  const [voucherTx, setVoucherTx] = useState(null);
+
+  const mapTxToVoucher = (tx) => {
+    if (!tx) return null;
+    const isCredit = (parseFloat(tx.credit) || 0) > 0;
+    const amt = isCredit ? parseFloat(tx.credit) : parseFloat(tx.debit || 0);
+    return {
+      voucherType: isCredit ? 'RECEIPT VOUCHER - BANK / CASH DEPOSIT' : 'PAYMENT VOUCHER - BANK / CASH DISBURSEMENT',
+      voucherNo: tx.reference_number || `ACC-${tx.id || 'TX'}`,
+      date: tx.date || new Date().toISOString().split('T')[0],
+      amount: amt,
+      payeeName: tx.party_name || (isCredit ? 'Depositor / Client' : 'Beneficiary / Payee'),
+      payeeRole: isCredit ? 'Payer / Depositor' : 'Beneficiary / Payee',
+      payeePhone: '-',
+      paymentMode: isBankType ? `Bank Transfer (${activeAccName})` : `Petty Cash (${activeAccName})`,
+      accountName: activeAccName,
+      category: tx.category || 'Bank / Cash Operations',
+      description: tx.remark || `${isCredit ? 'Deposit into' : 'Disbursement from'} ${activeAccName}`,
+      particulars: [
+        { item: tx.remark || 'Account Transaction', qty: '1', rate: formatCurrency(amt), amount: formatCurrency(amt) }
+      ],
+      notes: `Account: ${activeAccName} | Running Balance after TX: SAR ${parseFloat(tx.running_balance || 0).toFixed(2)}. Formal bank & cash ledger transaction record.`
+    };
+  };
+
+  const handleExportPDF = () => {
+    const columns = [
+      { header: 'DATE', dataKey: 'date' },
+      { header: 'REF #', dataKey: 'ref' },
+      { header: 'DESCRIPTION', dataKey: 'desc' },
+      { header: 'PARTY / BENEFICIARY', dataKey: 'party' },
+      { header: 'CATEGORY', dataKey: 'cat' },
+      { header: 'MONEY OUT (DEBIT)', dataKey: 'debit' },
+      { header: 'MONEY IN (CREDIT)', dataKey: 'credit' },
+      { header: 'RUNNING BALANCE', dataKey: 'bal' }
+    ];
+    const rows = sortedTransactions.map(tx => ({
+      date: `${formatDateDisplay(tx.date)} ${formatTimeDisplay(tx.time)}`.trim(),
+      ref: tx.reference_number || `TX-${tx.id}`,
+      desc: tx.remark || 'Transaction',
+      party: tx.party_name || '-',
+      cat: tx.category || 'General',
+      debit: tx.debit > 0 ? formatCurrency(tx.debit) : '-',
+      credit: tx.credit > 0 ? formatCurrency(tx.credit) : '-',
+      bal: formatCurrency(tx.running_balance)
+    }));
+    exportTableToPdf({
+      title: `${activeAccName} Statement & Transaction Ledger`,
+      subtitle: `Period: ${statementDateRangePreset} | Flow: ${statementFlowFilter} | Total Transactions: ${sortedTransactions.length}`,
+      columns,
+      rows,
+      totals: {
+        debit: formatCurrency(summary.total_debits),
+        credit: formatCurrency(summary.total_credits),
+        bal: `Close: ${formatCurrency(summary.closing_balance)}`
+      },
+      fileName: `${activeAccName.replace(/[^a-zA-Z0-9]/g, '_')}_statement_${new Date().toISOString().split('T')[0]}.pdf`
+    });
+  };
 
   // Local card active indicator
   const isOpeningActive = statementFlowFilter === 'all';
@@ -460,7 +523,8 @@ const CredAccountsView = ({
             {activeAccName} STATEMENT TRANSACTIONS
           </span>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '20px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
             <button
               type="button"
               className="cred-quiet-btn"
@@ -482,19 +546,20 @@ const CredAccountsView = ({
                 background: isDarkMode ? '#141517' : '#f8fafc'
               }}>
                 <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '13%' }}>DATE & TIME</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '13%' }}>REF # / VOUCHER</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '22%' }}>DESCRIPTION</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '15%' }}>PARTY / BENEFICIARY</th>
+                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '12%' }}>REF # / VOUCHER</th>
+                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '21%' }}>DESCRIPTION</th>
+                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '14%' }}>PARTY / BENEFICIARY</th>
                 <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '10%' }}>CATEGORY</th>
                 <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>MONEY OUT</th>
                 <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>MONEY IN</th>
                 <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textPrimary, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>RUNNING BALANCE</th>
+                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', whiteSpace: 'nowrap', width: '3%' }}>SLIP</th>
               </tr>
             </thead>
             <tbody>
               {statementLoading ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: '3rem', textAlign: 'center' }}>
+                  <td colSpan={9} style={{ padding: '3rem', textAlign: 'center' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: textMuted, fontSize: '0.85rem' }}>
                       <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
                       <span>Loading statement ledger...</span>
@@ -557,12 +622,19 @@ const CredAccountsView = ({
                       <td style={{ padding: '8px 8px', fontSize: '0.84rem', fontWeight: '800', textAlign: 'right', color: textPrimary, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                         {safeFormatAmount(tx.running_balance)} <span style={{ fontSize: '0.7rem', fontWeight: '600', color: textMuted }}>SAR</span>
                       </td>
+                      <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <VoucherPrintBtn
+                          onClick={() => setVoucherTx(tx)}
+                          title={`Print Voucher for ${tx.remark || tx.reference_number || 'Transaction'}`}
+                          isDarkMode={isDarkMode}
+                        />
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+                  <td colSpan={9} style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
                     <div style={{
                       width: '40px',
                       height: '40px',
@@ -600,6 +672,14 @@ const CredAccountsView = ({
         total={totalStatementTransactions}
         onPageChange={setStatementPage}
         isMobile={isMobile}
+      />
+
+      {/* Voucher Modal */}
+      <VoucherModal
+        isOpen={Boolean(voucherTx)}
+        onClose={() => setVoucherTx(null)}
+        voucherData={voucherTx ? mapTxToVoucher(voucherTx) : null}
+        isDarkMode={isDarkMode}
       />
     </div>
   );
