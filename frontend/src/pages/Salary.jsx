@@ -1,10 +1,24 @@
 import React from 'react'
-import SalaryReports from '../components/reports/SalaryReports'
 
 const Salary = () => {
   return (
-    <div className="salary-page academy-style erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
-      <SalaryReports />
+    <div style={{
+      width: '100%',
+      minHeight: 'calc(100vh - 120px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem'
+    }}>
+      <div style={{
+        textAlign: 'center',
+        color: 'var(--text-muted, #8C8C8C)',
+        fontSize: '18px',
+        fontWeight: 500,
+        letterSpacing: '-0.01em'
+      }}>
+        Coming Soon after Punching machine app
+      </div>
     </div>
   )
 }

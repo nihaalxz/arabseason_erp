@@ -13,7 +13,6 @@ import GooeyMenu from '../components/cashbook/cred/GooeyMenu'
 const AccountingDashboard = () => {
   const [data, setData] = useState(null)
   const [invoices, setInvoices] = useState([])
-  const [payments, setPayments] = useState([])
   const [quotations, setQuotations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -55,16 +54,14 @@ const AccountingDashboard = () => {
   const fetchFinancialData = useCallback(async () => {
     try {
       setLoading(true)
-      const [dashRes, invRes, payRes, quoteRes] = await Promise.all([
+      const [dashRes, invRes, quoteRes] = await Promise.all([
         api.get(`dashboard/?start_date=${dateRange.start}&end_date=${dateRange.end}`),
         api.get('invoices/?page_size=5').catch(() => ({ data: { results: [] } })),
-        api.get('customer-payments/?page_size=5').catch(() => ({ data: { results: [] } })),
         api.get('quotations/?page_size=5').catch(() => ({ data: { results: [] } }))
       ])
 
       setData(dashRes.data)
       setInvoices(invRes.data?.results || invRes.data || [])
-      setPayments(payRes.data?.results || payRes.data || [])
       setQuotations(quoteRes.data?.results || quoteRes.data || [])
       setError('')
     } catch (err) {
@@ -617,59 +614,6 @@ const AccountingDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Payments Received */}
-        <div style={{
-          background: 'var(--bg-card, #FFFFFF)',
-          borderRadius: '20px',
-          padding: '24px',
-          border: '1px solid var(--border, #E4E4E4)',
-          boxSizing: 'border-box'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
-              Recent Payments Received
-            </span>
-            <CredViewAll onClick={() => navigate('/cashbook?tab=customers')} label="view all" />
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)', textAlign: 'left', background: 'var(--bg-subtle, #F7F7F7)' }}>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Date</th>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Customer</th>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Method</th>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)', textAlign: 'right' }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.slice(0, 5).map((p, idx) => (
-                  <tr key={p.id || idx} style={{ borderBottom: '1px dotted var(--divider-dotted, #D9D9D9)' }}>
-                    <td style={{ padding: '12px', color: 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap' }}>
-                      {p.payment_date || p.date ? new Date(p.payment_date || p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
-                    </td>
-                    <td style={{ padding: '12px', fontWeight: 400, color: 'var(--text, #0A0A0A)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.customer_name || p.customer?.name || 'Customer'}
-                    </td>
-                    <td style={{ padding: '12px', color: 'var(--text-muted, #8C8C8C)' }}>
-                      {p.payment_method || p.payment_mode || 'Cash'}
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                      <Money value={p.amount || 0} currency="SAR" style={{ fontWeight: 500, color: 'var(--success, #16A34A)' }} />
-                    </td>
-                  </tr>
-                ))}
-                {payments.length === 0 && (
-                  <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted, #8C8C8C)' }}>
-                      No payments received yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
         {/* Recent Quotations */}
         <div style={{

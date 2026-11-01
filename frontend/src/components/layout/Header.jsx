@@ -11,13 +11,11 @@ import api from '../../api'
 
 const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSheet, isCashbook: isCashbookProp }) => {
   const [showDropdown, setShowDropdown] = useState(false)
-  const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [notifLoading, setNotifLoading] = useState(false)
   const [approvingId, setApprovingId] = useState(null)
   const dropdownRef = useRef(null)
-  const quickAddRef = useRef(null)
   const notifRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -65,7 +63,6 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setShowDropdown(false)
-      if (quickAddRef.current && !quickAddRef.current.contains(event.target)) setShowQuickAdd(false)
       if (notifRef.current && !notifRef.current.contains(event.target)) setShowNotifications(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -248,62 +245,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
       {/* Right: Quick Add + Bell + Settings + Avatar */}
       <div className="header-actions" style={{ display: 'flex', gap: isMobile ? '0.45rem' : '0.65rem', alignItems: 'center', flexShrink: 0 }}>
 
-        {/* Quick Add "+" (Desktop only — removed in mobile responsive view) */}
-        {!isMobile && (
-          <div ref={quickAddRef} style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setShowQuickAdd(!showQuickAdd)}
-              className="header-quick-add-btn"
-              style={{
-                width: '32px', height: '32px',
-                background: '#ffffff', color: '#0A0A0A', border: 'none',
-                borderRadius: '50%', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', cursor: 'pointer', fontWeight: '700',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)', transition: 'all 0.15s ease'
-              }}
-              title="Create New"
-            >
-              <Plus size={18} strokeWidth={2.6} />
-            </button>
 
-            {showQuickAdd && (
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '260px',
-                padding: '0.5rem', zIndex: 1050, background: '#ffffff',
-                border: '1px solid #e2e8f0', boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                borderRadius: '8px', animation: 'slideDown 0.15s ease-out'
-              }}>
-                {(isFeatureVisible('customers') || isFeatureVisible('jobs') || isFeatureVisible('estimations') || isFeatureVisible('quotations') || isFeatureVisible('delivery_notes')) && (
-                  <>
-                    <div style={{ padding: '0.35rem 0.6rem', fontSize: '0.675rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sales & Operations</div>
-                    {isFeatureVisible('quotations') && <Link to="/accounting/quotations/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileText size={14} style={{ color: 'var(--primary)' }} /><span>New Quotation</span></Link>}
-                    {isFeatureVisible('customers') && <Link to="/accounting/customers" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Users size={14} style={{ color: 'var(--primary)' }} /><span>New Customer</span></Link>}
-                    {isFeatureVisible('jobs') && <Link to="/jobs" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Briefcase size={14} style={{ color: 'var(--primary)' }} /><span>New Job Order</span></Link>}
-                    {isFeatureVisible('estimations') && <Link to="/accounting/estimations/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileSpreadsheet size={14} style={{ color: 'var(--primary)' }} /><span>New Estimation</span></Link>}
-                    {isFeatureVisible('delivery_notes') && <Link to="/delivery-notes/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileText size={14} style={{ color: 'var(--primary)' }} /><span>New Delivery Note</span></Link>}
-                  </>
-                )}
-                {(isFeatureVisible('invoices') || isFeatureVisible('credit_notes') || isFeatureVisible('vendors') || isFeatureVisible('expenses') || isFeatureVisible('banks')) && (
-                  <>
-                    <div style={{ height: '1px', background: 'var(--border-light)', margin: '0.35rem 0' }} />
-                    <div style={{ padding: '0.35rem 0.6rem', fontSize: '0.675rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Billing & Financials</div>
-                    {isFeatureVisible('invoices') && <Link to="/invoices/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--primary)' }} /><span>New Invoice</span></Link>}
-                    {isFeatureVisible('credit_notes') && <Link to="/credit-notes/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--warning)' }} /><span>New Credit Note</span></Link>}
-                    {isFeatureVisible('vendors') && <Link to="/accounting/vendors" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Building2 size={14} style={{ color: 'var(--warning)' }} /><span>New Vendor</span></Link>}
-                  </>
-                )}
-                {isFeatureVisible('cashbook') && (
-                  <>
-                    <div style={{ height: '1px', background: 'var(--border-light)', margin: '0.35rem 0' }} />
-                    <div style={{ padding: '0.35rem 0.6rem', fontSize: '0.675rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cashbook & Vault</div>
-                    <Link to="/cashbook" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><BookOpen size={14} style={{ color: '#f59e0b' }} /><span>Open Cashbook</span></Link>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Notification Bell */}
         <div ref={notifRef} style={{ position: 'relative' }}>
