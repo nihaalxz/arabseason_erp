@@ -718,7 +718,7 @@ const QuotationBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Customer Name<span className="cred-required-dot" style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+              Customer Name<span className="cred-required-dot" />
             </label>
 
             <div ref={customerDropdownRef} style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
@@ -921,7 +921,7 @@ const QuotationBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Quote#<span className="cred-required-dot" style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+              Quote#<span className="cred-required-dot" />
             </label>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '480px' }}>
@@ -1008,7 +1008,7 @@ const QuotationBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Quote Date<span className="cred-required-dot" style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+              Quote Date<span className="cred-required-dot" />
             </label>
 
             <div style={{

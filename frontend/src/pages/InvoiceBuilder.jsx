@@ -809,7 +809,7 @@ const InvoiceBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Customer Name<span className="cred-required-dot" style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+              Customer Name<span className="cred-required-dot" />
             </label>
 
             <div ref={customerDropdownRef} style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
@@ -1012,7 +1012,7 @@ const InvoiceBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Invoice#<span className="cred-required-dot" style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+              Invoice#<span className="cred-required-dot" />
             </label>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '480px' }}>
@@ -1105,7 +1105,7 @@ const InvoiceBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Invoice Date<span className="cred-required-dot" style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+              Invoice Date<span className="cred-required-dot" />
             </label>
 
             <div style={{
@@ -2383,7 +2383,7 @@ const InvoiceBuilder = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' }}>
-                Customer Name<span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
+                Customer Name<span className="cred-required-dot" />
               </label>
               <input
                 type="text"
