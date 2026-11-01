@@ -4044,6 +4044,17 @@ textarea::placeholder {
   -webkit-text-fill-color: transparent !important;
 }
 
+/* Explicitly re-enable visible muted placeholders on forms that require them */
+.estimate-items-table input::placeholder,
+.estimate-items-table textarea::placeholder,
+.estimate-cards-mobile input::placeholder,
+.estimate-cards-mobile textarea::placeholder,
+.est-row-input::placeholder {
+  color: var(--text-muted, #8C8C8C) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--text-muted, #8C8C8C) !important;
+}
+
 /* Hide number input spinners/arrows */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {

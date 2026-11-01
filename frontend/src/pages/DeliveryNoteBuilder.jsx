@@ -772,7 +772,7 @@ const DeliveryNoteBuilder = () => {
                     }}
                   >
                     <Plus size={14} />
-                    <span>+ New Customer</span>
+                    <span>New Customer</span>
                   </button>
 
                   <div style={{ display: 'flex', flexDirection: 'column' }}>

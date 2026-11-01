@@ -1270,6 +1270,15 @@ const EstimateBuilder = () => {
             .estimate-table-desktop { display: block !important; }
             .estimate-cards-mobile { display: none !important; }
           }
+          .estimate-items-table input::placeholder,
+          .estimate-items-table textarea::placeholder,
+          .estimate-cards-mobile input::placeholder,
+          .estimate-cards-mobile textarea::placeholder,
+          .est-row-input::placeholder {
+            color: var(--text-muted, #8C8C8C) !important;
+            opacity: 1 !important;
+            -webkit-text-fill-color: var(--text-muted, #8C8C8C) !important;
+          }
         `}</style>
 
         {/* ── DESKTOP ITEM TABLE (100% width, table-layout: fixed, stacked Item Details, no cut off) ── */}
@@ -1281,11 +1290,11 @@ const EstimateBuilder = () => {
           backgroundColor: 'var(--card-bg, #ffffff)',
           overflow: 'hidden'
         }}>
-          <table style={{
+          <table className="estimate-items-table" style={{
             width: '100%',
             tableLayout: 'fixed',
             borderCollapse: 'collapse',
-            fontSize: '12.5px',
+            fontSize: '13px',
             textAlign: 'left'
           }}>
             <colgroup>
@@ -1337,14 +1346,14 @@ const EstimateBuilder = () => {
                       padding: '24px 4px 16px',
                       textAlign: 'center',
                       color: 'var(--text-muted, #8C8C8C)',
-                      fontSize: '12.5px',
+                      fontSize: '13px',
                       verticalAlign: 'top',
                       fontVariantNumeric: 'tabular-nums'
                     }}>
                       {idx + 1}
                     </td>
 
-                    {/* Area / Room (11%) - 34px height */}
+                    {/* Area / Room (11%) - 36px height */}
                     <td style={{ padding: '16px 4px', verticalAlign: 'top' }}>
                       <select
                         className="cred-select"
@@ -1352,13 +1361,15 @@ const EstimateBuilder = () => {
                         onChange={(e) => handleUpdateItemField(item.temp_id, 'section_name', e.target.value)}
                         style={{
                           width: '100%',
-                          height: '34px',
-                          fontSize: '12.5px',
+                          height: '36px',
+                          lineHeight: 'normal',
+                          fontSize: '14px',
                           fontWeight: 500,
-                          padding: '0 24px 0 8px',
+                          padding: '0 32px 0 12px',
                           borderRadius: '4px',
-                          backgroundPosition: 'right 8px center',
-                          backgroundSize: '12px 12px'
+                          backgroundPosition: 'right 10px center',
+                          backgroundSize: '12px 12px',
+                          boxSizing: 'border-box'
                         }}
                       >
                         {formData.sections_list.map(s => (
@@ -1377,15 +1388,16 @@ const EstimateBuilder = () => {
                         <input
                           type="text"
                           placeholder="Item description"
+                          className="est-row-input"
                           value={item.item_name}
                           onChange={(e) => handleUpdateItemField(item.temp_id, 'item_name', e.target.value)}
                           required
                           style={{
-                            height: '34px',
+                            height: '36px',
                             width: '100%',
-                            padding: '0 10px',
-                            fontSize: '13px',
-                            lineHeight: '34px',
+                            padding: '0 12px',
+                            fontSize: '14px',
+                            lineHeight: 'normal',
                             borderRadius: '4px',
                             border: '1px solid var(--border, #E4E4E4)',
                             backgroundColor: 'var(--card-bg, #ffffff)',
@@ -1396,7 +1408,7 @@ const EstimateBuilder = () => {
                           }}
                         />
 
-                        {/* Line 2: "Pick from Price Chart…" select with same 34px height, padding, line-height */}
+                        {/* Line 2: "Pick from Price Chart…" select with 36px height, padding, line-height normal */}
                         {materials.length > 0 && (
                           <select
                             className="cred-select"
@@ -1404,18 +1416,18 @@ const EstimateBuilder = () => {
                             onChange={(e) => handleSelectMaterialForItem(item.temp_id, e.target.value)}
                             style={{
                               width: '100%',
-                              height: '34px',
-                              lineHeight: '34px',
-                              padding: '0 28px 0 10px',
-                              fontSize: '12.5px',
+                              height: '36px',
+                              lineHeight: 'normal',
+                              padding: '0 32px 0 12px',
+                              fontSize: '14px',
                               flexShrink: 0,
                               borderRadius: '4px',
                               border: '1px solid var(--border, #E4E4E4)',
                               backgroundColor: 'var(--bg-subtle, #F7F7F7)',
-                              color: 'var(--text-muted, #737373)',
+                              color: item.material ? 'var(--text, #111111)' : 'var(--text-muted, #737373)',
                               outline: 'none',
                               cursor: 'pointer',
-                              backgroundPosition: 'right 10px center',
+                              backgroundPosition: 'right 12px center',
                               backgroundSize: '12px 12px',
                               boxSizing: 'border-box'
                             }}
@@ -1429,18 +1441,19 @@ const EstimateBuilder = () => {
                           </select>
                         )}
 
-                        {/* Line 3: Specs input beneath it (height 34px, placeholder "Specs (optional)") */}
+                        {/* Line 3: Specs input beneath it (height 36px, placeholder "Specs (optional)") */}
                         <input
                           type="text"
                           placeholder="Specs (optional)"
+                          className="est-row-input"
                           value={item.measurements}
                           onChange={(e) => handleUpdateItemField(item.temp_id, 'measurements', e.target.value)}
                           style={{
                             width: '100%',
-                            height: '34px',
-                            lineHeight: '34px',
-                            padding: '0 10px',
-                            fontSize: '13px',
+                            height: '36px',
+                            lineHeight: 'normal',
+                            padding: '0 12px',
+                            fontSize: '14px',
                             borderRadius: '4px',
                             border: '1px solid var(--border, #E4E4E4)',
                             backgroundColor: 'var(--card-bg, #ffffff)',
@@ -1463,9 +1476,10 @@ const EstimateBuilder = () => {
                         required
                         style={{
                           width: '100%',
-                          height: '34px',
+                          height: '36px',
+                          lineHeight: 'normal',
                           textAlign: 'center',
-                          fontSize: '13px',
+                          fontSize: '14px',
                           fontVariantNumeric: 'tabular-nums',
                           borderRadius: '4px',
                           border: '1px solid var(--border, #E4E4E4)',
@@ -1473,7 +1487,7 @@ const EstimateBuilder = () => {
                           color: 'var(--text, #111111)',
                           outline: 'none',
                           boxSizing: 'border-box',
-                          padding: '0 4px'
+                          padding: '0 8px'
                         }}
                       />
                     </td>
@@ -1486,13 +1500,14 @@ const EstimateBuilder = () => {
                         onChange={(e) => handleUpdateItemField(item.temp_id, 'unit', e.target.value)}
                         style={{
                           width: '100%',
-                          height: '34px',
-                          fontSize: '12.5px',
+                          height: '36px',
+                          lineHeight: 'normal',
+                          fontSize: '14px',
                           borderRadius: '4px',
                           textAlign: 'left',
-                          padding: '0 18px 0 6px',
+                          padding: '0 28px 0 10px',
                           outline: 'none',
-                          backgroundPosition: 'right 6px center',
+                          backgroundPosition: 'right 8px center',
                           backgroundSize: '10px 10px',
                           boxSizing: 'border-box'
                         }}
@@ -1520,12 +1535,13 @@ const EstimateBuilder = () => {
                           }}
                           style={{
                             width: '100%',
-                            height: '34px',
-                            fontSize: '12.5px',
+                            height: '36px',
+                            lineHeight: 'normal',
+                            fontSize: '14px',
                             borderRadius: '4px',
-                            padding: '0 20px 0 6px',
+                            padding: '0 28px 0 10px',
                             outline: 'none',
-                            backgroundPosition: 'right 6px center',
+                            backgroundPosition: 'right 8px center',
                             backgroundSize: '10px 10px',
                             boxSizing: 'border-box'
                           }}
@@ -1541,17 +1557,19 @@ const EstimateBuilder = () => {
                         <input
                           type="text"
                           placeholder="Shop"
+                          className="est-row-input"
                           value={item.selected_shop_name}
                           onChange={(e) => handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)}
                           style={{
                             width: '100%',
-                            height: '34px',
-                            fontSize: '12.5px',
+                            height: '36px',
+                            lineHeight: 'normal',
+                            fontSize: '14px',
                             borderRadius: '4px',
                             border: '1px solid var(--border, #E4E4E4)',
                             backgroundColor: 'var(--card-bg, #ffffff)',
                             color: 'var(--text, #111111)',
-                            padding: '0 8px',
+                            padding: '0 12px',
                             outline: 'none',
                             boxSizing: 'border-box'
                           }}
@@ -1568,15 +1586,16 @@ const EstimateBuilder = () => {
                         onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_cost', e.target.value)}
                         style={{
                           width: '100%',
-                          height: '34px',
+                          height: '36px',
+                          lineHeight: 'normal',
                           textAlign: 'right',
-                          fontSize: '13px',
+                          fontSize: '14px',
                           fontVariantNumeric: 'tabular-nums',
                           color: 'var(--text-muted, #8C8C8C)',
                           borderRadius: '4px',
                           border: '1px solid var(--border, #E4E4E4)',
                           backgroundColor: 'var(--card-bg, #ffffff)',
-                          padding: '0 8px',
+                          padding: '0 12px',
                           outline: 'none',
                           boxSizing: 'border-box'
                         }}
@@ -1593,15 +1612,16 @@ const EstimateBuilder = () => {
                         required
                         style={{
                           width: '100%',
-                          height: '34px',
+                          height: '36px',
+                          lineHeight: 'normal',
                           textAlign: 'right',
-                          fontSize: '13px',
+                          fontSize: '14px',
                           fontVariantNumeric: 'tabular-nums',
                           color: 'var(--text, #111111)',
                           borderRadius: '4px',
                           border: '1px solid var(--border, #E4E4E4)',
                           backgroundColor: 'var(--card-bg, #ffffff)',
-                          padding: '0 8px',
+                          padding: '0 12px',
                           outline: 'none',
                           boxSizing: 'border-box'
                         }}
@@ -1613,7 +1633,7 @@ const EstimateBuilder = () => {
                       padding: '24px 6px 16px',
                       textAlign: 'right',
                       verticalAlign: 'top',
-                      fontSize: '13px',
+                      fontSize: '14px',
                       fontVariantNumeric: 'tabular-nums',
                       color: 'var(--text, #111111)',
                       whiteSpace: 'nowrap'
@@ -1626,7 +1646,7 @@ const EstimateBuilder = () => {
                       padding: '24px 6px 16px',
                       textAlign: 'right',
                       verticalAlign: 'top',
-                      fontSize: '13px',
+                      fontSize: '14px',
                       fontVariantNumeric: 'tabular-nums',
                       color: 'var(--success, #16A34A)',
                       whiteSpace: 'nowrap'
@@ -1635,7 +1655,7 @@ const EstimateBuilder = () => {
                     </td>
 
                     {/* Delete Icon (4%) - 32px plain icon button */}
-                    <td style={{ padding: '17px 12px 16px 4px', textAlign: 'center', verticalAlign: 'top' }}>
+                    <td style={{ padding: '18px 12px 16px 4px', textAlign: 'center', verticalAlign: 'top' }}>
                       <button
                         type="button"
                         onClick={() => handleRemoveItemRow(item.temp_id)}
@@ -1728,14 +1748,16 @@ const EstimateBuilder = () => {
                   <input
                     type="text"
                     placeholder="Item description"
+                    className="est-row-input"
                     value={item.item_name}
                     onChange={(e) => handleUpdateItemField(item.temp_id, 'item_name', e.target.value)}
                     required
                     style={{
-                      height: '32px',
+                      height: '36px',
                       width: '100%',
-                      padding: '0 8px',
-                      fontSize: '12.5px',
+                      padding: '0 12px',
+                      fontSize: '14px',
+                      lineHeight: 'normal',
                       borderRadius: '4px',
                       border: '1px solid var(--border, #E4E4E4)',
                       backgroundColor: 'var(--card-bg, #ffffff)',
@@ -1755,9 +1777,19 @@ const EstimateBuilder = () => {
                       onChange={(e) => handleSelectMaterialForItem(item.temp_id, e.target.value)}
                       style={{
                         width: '100%',
-                        height: '28px',
-                        fontSize: '11.5px',
-                        borderRadius: '4px'
+                        height: '36px',
+                        lineHeight: 'normal',
+                        padding: '0 32px 0 12px',
+                        fontSize: '14px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        backgroundColor: 'var(--bg-subtle, #F7F7F7)',
+                        color: item.material ? 'var(--text, #111111)' : 'var(--text-muted, #737373)',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        backgroundPosition: 'right 12px center',
+                        backgroundSize: '12px 12px',
+                        boxSizing: 'border-box'
                       }}
                     >
                       <option value="">Pick from Price Chart…</option>
@@ -1778,7 +1810,17 @@ const EstimateBuilder = () => {
                       className="cred-select"
                       value={item.section_name}
                       onChange={(e) => handleUpdateItemField(item.temp_id, 'section_name', e.target.value)}
-                      style={{ width: '100%', height: '30px', fontSize: '11.5px', borderRadius: '4px' }}
+                      style={{
+                        width: '100%',
+                        height: '36px',
+                        lineHeight: 'normal',
+                        padding: '0 32px 0 12px',
+                        fontSize: '14px',
+                        borderRadius: '4px',
+                        backgroundPosition: 'right 10px center',
+                        backgroundSize: '12px 12px',
+                        boxSizing: 'border-box'
+                      }}
                     >
                       {formData.sections_list.map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -1790,13 +1832,15 @@ const EstimateBuilder = () => {
                     <input
                       type="text"
                       placeholder="Specs (optional)"
+                      className="est-row-input"
                       value={item.measurements}
                       onChange={(e) => handleUpdateItemField(item.temp_id, 'measurements', e.target.value)}
                       style={{
                         width: '100%',
-                        height: '30px',
-                        padding: '0 6px',
-                        fontSize: '12px',
+                        height: '36px',
+                        lineHeight: 'normal',
+                        padding: '0 12px',
+                        fontSize: '14px',
                         borderRadius: '4px',
                         border: '1px solid var(--border, #E4E4E4)',
                         backgroundColor: 'var(--card-bg, #ffffff)',
@@ -1820,9 +1864,10 @@ const EstimateBuilder = () => {
                       onChange={(e) => handleUpdateItemField(item.temp_id, 'quantity', e.target.value)}
                       style={{
                         width: '100%',
-                        height: '30px',
+                        height: '36px',
+                        lineHeight: 'normal',
                         textAlign: 'center',
-                        fontSize: '12px',
+                        fontSize: '14px',
                         fontVariantNumeric: 'tabular-nums',
                         borderRadius: '4px',
                         border: '1px solid var(--border, #E4E4E4)',
@@ -1839,7 +1884,17 @@ const EstimateBuilder = () => {
                       className="cred-select"
                       value={item.unit}
                       onChange={(e) => handleUpdateItemField(item.temp_id, 'unit', e.target.value)}
-                      style={{ width: '100%', height: '30px', fontSize: '11.5px', borderRadius: '4px' }}
+                      style={{
+                        width: '100%',
+                        height: '36px',
+                        lineHeight: 'normal',
+                        padding: '0 28px 0 10px',
+                        fontSize: '14px',
+                        borderRadius: '4px',
+                        backgroundPosition: 'right 8px center',
+                        backgroundSize: '10px 10px',
+                        boxSizing: 'border-box'
+                      }}
                     >
                       {POPULAR_UNITS.map(u => (
                         <option key={u} value={u}>{u}</option>
@@ -1861,7 +1916,17 @@ const EstimateBuilder = () => {
                             handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)
                           }
                         }}
-                        style={{ width: '100%', height: '30px', fontSize: '11.5px', borderRadius: '4px' }}
+                        style={{
+                          width: '100%',
+                          height: '36px',
+                          lineHeight: 'normal',
+                          padding: '0 28px 0 10px',
+                          fontSize: '14px',
+                          borderRadius: '4px',
+                          backgroundPosition: 'right 8px center',
+                          backgroundSize: '10px 10px',
+                          boxSizing: 'border-box'
+                        }}
                       >
                         <option value="">Select Shop...</option>
                         {shopOptions.map(s => (
@@ -1874,17 +1939,19 @@ const EstimateBuilder = () => {
                       <input
                         type="text"
                         placeholder="Shop"
+                        className="est-row-input"
                         value={item.selected_shop_name}
                         onChange={(e) => handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)}
                         style={{
                           width: '100%',
-                          height: '30px',
-                          fontSize: '11.5px',
+                          height: '36px',
+                          lineHeight: 'normal',
+                          fontSize: '14px',
                           borderRadius: '4px',
                           border: '1px solid var(--border, #E4E4E4)',
                           backgroundColor: 'var(--card-bg, #ffffff)',
                           color: 'var(--text, #111111)',
-                          padding: '0 6px',
+                          padding: '0 12px',
                           outline: 'none',
                           boxSizing: 'border-box'
                         }}
@@ -1904,15 +1971,16 @@ const EstimateBuilder = () => {
                       onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_cost', e.target.value)}
                       style={{
                         width: '100%',
-                        height: '30px',
+                        height: '36px',
+                        lineHeight: 'normal',
                         textAlign: 'right',
-                        fontSize: '12px',
+                        fontSize: '14px',
                         fontVariantNumeric: 'tabular-nums',
                         color: 'var(--text-muted, #8C8C8C)',
                         borderRadius: '4px',
                         border: '1px solid var(--border, #E4E4E4)',
                         backgroundColor: 'var(--card-bg, #ffffff)',
-                        padding: '0 6px',
+                        padding: '0 12px',
                         outline: 'none',
                         boxSizing: 'border-box'
                       }}
@@ -1927,15 +1995,16 @@ const EstimateBuilder = () => {
                       onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_price', e.target.value)}
                       style={{
                         width: '100%',
-                        height: '30px',
+                        height: '36px',
+                        lineHeight: 'normal',
                         textAlign: 'right',
-                        fontSize: '12px',
+                        fontSize: '14px',
                         fontVariantNumeric: 'tabular-nums',
                         color: 'var(--text, #111111)',
                         borderRadius: '4px',
                         border: '1px solid var(--border, #E4E4E4)',
                         backgroundColor: 'var(--card-bg, #ffffff)',
-                        padding: '0 6px',
+                        padding: '0 12px',
                         outline: 'none',
                         boxSizing: 'border-box'
                       }}
