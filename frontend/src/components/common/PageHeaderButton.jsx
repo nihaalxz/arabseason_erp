@@ -35,10 +35,20 @@ export default function PageHeaderButton({
     IconComponent = Plus
   }
 
+  // Prevent double "+" by stripping leading typed plus when an icon is rendered
+  let sanitizedContent = content
+  if (isTextOnly && IconComponent && typeof content === 'string') {
+    if (content.startsWith('+ ')) {
+      sanitizedContent = content.slice(2)
+    } else if (content.startsWith('+')) {
+      sanitizedContent = content.slice(1).trim()
+    }
+  }
+
   const innerContent = (
     <>
       {IconComponent && <IconComponent size={15} strokeWidth={2} style={{ flexShrink: 0 }} />}
-      {isTextOnly ? <span>{content}</span> : content}
+      {isTextOnly ? <span>{sanitizedContent}</span> : sanitizedContent}
     </>
   )
 

@@ -315,7 +315,7 @@ const CredListPageView = ({
               style={{ height: '36px', padding: '0 18px', fontSize: '12px' }}
             >
               <Plus size={16} strokeWidth={2.4} />
-              <span>+ add {titleText.slice(0, -1) || 'item'}</span>
+              <span>add {titleText.slice(0, -1) || 'item'}</span>
             </button>
           )}
         </div>
