@@ -74,43 +74,114 @@ export const WORKSPACE_PRESETS = [
   }
 ]
 
-export const FEATURE_DEFINITIONS = [
+export const ACCOUNTING_FEATURE_DEFINITIONS = [
   {
-    category: 'Sales & Operations',
+    category: 'Sales',
     items: [
       {
         key: 'customers',
-        label: 'Customers & CRM',
+        label: 'Customers',
         description: 'Client profiles, customer balances, and account statements.',
         path: '/accounting/customers'
       },
       {
-        key: 'vendors',
-        label: 'Vendors & Suppliers',
-        description: 'Supplier directory, vendor bills, and purchase records.',
-        path: '/accounting/vendors'
-      },
-      {
         key: 'estimations',
-        label: 'Cost Estimations',
+        label: 'Estimations',
         description: 'Pre-sale quotations, pricing breakdowns, and cost estimates.',
         path: '/accounting/estimations'
       },
       {
         key: 'quotations',
-        label: 'Commercial Quotations',
+        label: 'Quotations',
         description: 'Customer quotes, proposals, and commercial pricing offers.',
         path: '/accounting/quotations'
       },
       {
+        key: 'invoices',
+        label: 'Invoices',
+        description: 'Customer tax invoices, line items, 15% VAT calculation, and settlement tracking.',
+        path: '/invoices'
+      },
+      {
+        key: 'credit_notes',
+        label: 'Credit Notes',
+        description: 'Returns credit, invoice adjustments, and VAT credit memos.',
+        path: '/credit-notes'
+      },
+    ]
+  },
+  {
+    category: 'Purchases',
+    items: [
+      {
+        key: 'vendors',
+        label: 'Vendors',
+        description: 'Supplier directory, vendor bills, and purchase records.',
+        path: '/accounting/vendors'
+      },
+      {
+        key: 'expenses',
+        label: 'Expenses',
+        description: 'Operational expenses, categorized bills, and cost tracking.',
+        path: '/expenses'
+      },
+      {
+        key: 'salary',
+        label: 'Salary & Payroll',
+        description: 'Staff payroll, attendance, timesheets, and wage slips.',
+        path: '/salary'
+      },
+    ]
+  },
+  {
+    category: 'Reports & Banking',
+    items: [
+      {
+        key: 'reports',
+        label: 'Financial Reports',
+        description: 'P&L, balance summaries, VAT/tax, and operational reports.',
+        path: '/reports'
+      },
+      {
+        key: 'banks',
+        label: 'Bank & Petty Cash',
+        description: 'Bank account management, petty cash accounts, and custody balances.',
+        path: '/banks'
+      },
+      {
+        key: 'cashbook',
+        label: 'Cashbook',
+        description: 'Cash-in, cash-out, petty cash box, and running cash balances.',
+        path: '/cashbook'
+      },
+    ]
+  }
+]
+
+export const OPERATIONS_FEATURE_DEFINITIONS = [
+  {
+    category: 'CRM',
+    items: [
+      {
+        key: 'enquiries',
+        label: 'Enquiries',
+        description: 'Incoming customer enquiries, lead tracking, conversion, and follow-ups.',
+        path: '/enquiries'
+      },
+    ]
+  },
+  {
+    category: 'Operations',
+    items: [
+      {
         key: 'jobs',
-        label: 'Job Orders & Contracts',
+        label: 'Job Orders',
         description: 'Job orders, engagement tracking, status, and contract values.',
         path: '/jobs'
       },
       {
         key: 'planning',
-        label: 'Project Planning & Tools',
+        label: 'Project Planning',
         description: 'Work schedules, worker assignments, and project planning.',
         path: '/jobs?tab=planning'
       },
@@ -123,63 +194,21 @@ export const FEATURE_DEFINITIONS = [
     ]
   },
   {
-    category: 'Finance & Accounts',
-    items: [
-      {
-        key: 'invoices',
-        label: 'Invoices & Billing',
-        description: 'Customer tax invoices, line items, 15% VAT calculation, and settlement tracking.',
-        path: '/invoices'
-      },
-      {
-        key: 'credit_notes',
-        label: 'Credit Notes & Adjustments',
-        description: 'Returns credit, invoice adjustments, and VAT credit memos.',
-        path: '/credit-notes'
-      },
-      {
-        key: 'expenses',
-        label: 'Expenses & Overhead',
-        description: 'Operational expenses, categorized bills, and cost tracking.',
-        path: '/expenses'
-      },
-      {
-        key: 'banks',
-        label: 'Bank Accounts & Ledgers',
-        description: 'Bank account management and electronic transfers.',
-        path: '/banks'
-      },
-      {
-        key: 'cashbook',
-        label: 'Petty Cash Book (Vault)',
-        description: 'Cash-in, cash-out, petty cash box, and running cash balances.',
-        path: '/cashbook'
-      },
-      {
-        key: 'reports',
-        label: 'Financial & Tax Reports',
-        description: 'P&L, balance summaries, VAT/tax, and operational reports.',
-        path: '/reports'
-      },
-      {
-        key: 'salary',
-        label: 'Salary & Payroll Suite',
-        description: 'Staff payroll, attendance, timesheets, and wage slips.',
-        path: '/salary'
-      },
-    ]
-  },
-  {
-    category: 'Dashboard & Interface',
+    category: 'Dashboard',
     items: [
       {
         key: 'minimalist_dashboard',
-        label: 'Minimalist Clean Dashboard',
+        label: 'Minimalist Dashboard',
         description: 'Shows high-clarity essential KPI cards and recent orders; removes complex multi-tier charts and heavy graphs.',
         isToggleOnly: true
       }
     ]
   }
+]
+
+export const FEATURE_DEFINITIONS = [
+  ...ACCOUNTING_FEATURE_DEFINITIONS,
+  ...OPERATIONS_FEATURE_DEFINITIONS
 ]
 
 const WorkspaceContext = createContext(null)
@@ -288,7 +317,9 @@ export const WorkspaceProvider = ({ children }) => {
         isFeatureVisible,
         isMinimalist,
         presets: WORKSPACE_PRESETS,
-        featureDefinitions: FEATURE_DEFINITIONS
+        featureDefinitions: FEATURE_DEFINITIONS,
+        accountingFeatureDefinitions: ACCOUNTING_FEATURE_DEFINITIONS,
+        operationsFeatureDefinitions: OPERATIONS_FEATURE_DEFINITIONS
       }}
     >
       {children}
@@ -310,7 +341,9 @@ export const useWorkspace = () => {
       isFeatureVisible: () => true,
       isMinimalist: false,
       presets: WORKSPACE_PRESETS,
-      featureDefinitions: FEATURE_DEFINITIONS
+      featureDefinitions: FEATURE_DEFINITIONS,
+      accountingFeatureDefinitions: ACCOUNTING_FEATURE_DEFINITIONS,
+      operationsFeatureDefinitions: OPERATIONS_FEATURE_DEFINITIONS
     }
   }
   return context

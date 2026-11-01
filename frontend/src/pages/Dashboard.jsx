@@ -12,7 +12,9 @@ import GooeyMenu from '../components/cashbook/cred/GooeyMenu'
 
 const Dashboard = () => {
   const [data, setData] = useState(null)
-  const [quotations, setQuotations] = useState([])
+  const [enquiryMetrics, setEnquiryMetrics] = useState({ active_count: 0, due_today_count: 0, conversion_rate: 0 })
+  const [enquiries, setEnquiries] = useState([])
+  const [deliveryNotes, setDeliveryNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { formatCurrency } = useSettings()
@@ -53,13 +55,17 @@ const Dashboard = () => {
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true)
-      const [dashRes, quoteRes] = await Promise.all([
+      const [dashRes, enqMetricsRes, enqRes, dnRes] = await Promise.all([
         api.get(`dashboard/?start_date=${dateRange.start}&end_date=${dateRange.end}`),
-        api.get('quotations/?page_size=5').catch(() => ({ data: { results: [] } }))
+        api.get('enquiries/metrics/').catch(() => ({ data: {} })),
+        api.get('enquiries/?page_size=5').catch(() => ({ data: { results: [] } })),
+        api.get('delivery-notes/?page_size=5').catch(() => ({ data: { results: [] } }))
       ])
 
       setData(dashRes.data)
-      setQuotations(quoteRes.data?.results || quoteRes.data || [])
+      setEnquiryMetrics(enqMetricsRes.data || {})
+      setEnquiries(enqRes.data?.results || enqRes.data || [])
+      setDeliveryNotes(dnRes.data?.results || dnRes.data || [])
       setError('')
     } catch (err) {
       console.error('Error fetching ERP dashboard data:', err)
@@ -123,10 +129,6 @@ const Dashboard = () => {
   const recentJobsList = data?.recent_jobs || []
   const activeJobsValuation = recentJobsList.reduce((sum, j) => sum + (parseFloat(j.total_amount) || 0), 0)
 
-  // Quotations calculations
-  const totalQuotesValuation = quotations.reduce((sum, q) => sum + (parseFloat(q.total_amount) || 0), 0)
-  const acceptedQuotes = quotations.filter(q => q.status === 'Accepted' || q.status === 'Converted to Invoice')
-  const pendingQuotes = quotations.filter(q => q.status !== 'Accepted' && q.status !== 'Converted to Invoice')
 
   return (
     <div className="dashboard-page erp-page-container erp-page-transition" style={{ maxWidth: '1600px', margin: '0 auto', width: '100%', minWidth: 0, paddingBottom: '3rem' }}>
@@ -241,7 +243,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Card 2: Quotations & Proposals */}
+        {/* Card 2: Enquiries & CRM Pipeline */}
         <div style={{
           background: 'var(--bg-card, #FFFFFF)',
           borderRadius: '20px',
@@ -255,21 +257,22 @@ const Dashboard = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                QUOTATIONS & PROPOSALS
+                ENQUIRIES & LEADS
               </span>
-              <CredViewAll onClick={() => navigate('/accounting/quotations')} label="view quotations" />
+              <CredViewAll onClick={() => navigate('/enquiries')} label="view enquiries" />
             </div>
 
-            <div style={{ margin: '12px 0 20px' }}>
-              <Money 
-                value={totalQuotesValuation} 
-                currency="SAR" 
-                style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }} 
-              />
+            <div style={{ margin: '12px 0 20px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              <span style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }}>
+                <span className="cred-tnum">{enquiryMetrics.active_count || 0}</span>
+              </span>
+              <span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                Active enquiries
+              </span>
             </div>
           </div>
 
-          {/* Breakdown Rows (no progress bars, no tinted boxes) */}
+          {/* Breakdown Rows */}
           <div style={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
@@ -278,15 +281,15 @@ const Dashboard = () => {
             borderTop: '1px dotted var(--divider-dotted, #D9D9D9)' 
           }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Accepted</div>
-              <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--success, #16A34A)' }}>
-                <span className="cred-tnum">{acceptedQuotes.length}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
+              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Due Today</div>
+              <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: (enquiryMetrics.due_today_count || 0) > 0 ? '#2563eb' : 'var(--text, #0A0A0A)' }}>
+                <span className="cred-tnum">{enquiryMetrics.due_today_count || 0}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>follow-ups</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sent to Client</div>
-              <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>
-                <span className="cred-tnum">{pendingQuotes.length}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
+              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Conversion Rate</div>
+              <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--success, #16A34A)' }}>
+                <span className="cred-tnum">{enquiryMetrics.conversion_rate || 0}%</span>
               </div>
             </div>
           </div>
@@ -391,7 +394,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── ROW 3: CUSTOMERS & VENDORS ── */}
+      {/* ── ROW 3: DELIVERY NOTES & DISPATCH (OPERATIONS) ── */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{
           background: 'var(--bg-card, #FFFFFF)',
@@ -402,9 +405,9 @@ const Dashboard = () => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
-              Customers & Vendors
+              Delivery Notes & Dispatch
             </span>
-            <CredViewAll onClick={() => navigate('/accounting/customers')} label="view all" />
+            <CredViewAll onClick={() => navigate('/delivery-notes')} label="view all" />
           </div>
 
           <div style={{ 
@@ -418,45 +421,53 @@ const Dashboard = () => {
             alignItems: 'center' 
           }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Customers</div>
+              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Delivery Documentation</div>
               <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text, #0A0A0A)', marginTop: '4px' }}>
-                <span className="cred-tnum">{data?.total_customers || 0}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>Registered Clients</span>
+                <span className="cred-tnum">{deliveryNotes.length}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>Recent Dispatch Notes</span>
               </div>
             </div>
           </div>
 
           {/* Simple Link Rows */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              padding: '14px 18px', 
-              background: 'var(--bg-card, #FFFFFF)', 
-              border: '1px solid var(--border, #E4E4E4)', 
-              borderRadius: '14px' 
-            }}>
+            <div 
+              onClick={() => navigate('/delivery-notes')}
+              style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '14px 18px', 
+                background: 'var(--bg-card, #FFFFFF)', 
+                border: '1px solid var(--border, #E4E4E4)', 
+                borderRadius: '14px',
+                cursor: 'pointer'
+              }}
+            >
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>Customer Accounts</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>Client details, phone numbers, and past orders</div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>Delivery Notes</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>Client delivery proofs, item dispatch slips, and sign-offs</div>
               </div>
-              <CredViewAll onClick={() => navigate('/accounting/customers')} label="open" />
+              <CredViewAll onClick={() => navigate('/delivery-notes')} label="open" />
             </div>
 
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              padding: '14px 18px', 
-              background: 'var(--bg-card, #FFFFFF)', 
-              border: '1px solid var(--border, #E4E4E4)', 
-              borderRadius: '14px' 
-            }}>
+            <div 
+              onClick={() => navigate('/jobs?tab=planning')}
+              style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '14px 18px', 
+                background: 'var(--bg-card, #FFFFFF)', 
+                border: '1px solid var(--border, #E4E4E4)', 
+                borderRadius: '14px',
+                cursor: 'pointer'
+              }}
+            >
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>Vendors & Suppliers</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>Material suppliers and service contractors</div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>Project Planning</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>Job schedules, timelines, and operational status</div>
               </div>
-              <CredViewAll onClick={() => navigate('/accounting/vendors')} label="open" />
+              <CredViewAll onClick={() => navigate('/jobs?tab=planning')} label="open" />
             </div>
           </div>
         </div>
@@ -530,7 +541,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Table 2: Recent Quotations */}
+        {/* Table 2: Recent Enquiries */}
         <div style={{
           background: 'var(--bg-card, #FFFFFF)',
           borderRadius: '20px',
@@ -540,27 +551,27 @@ const Dashboard = () => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
-              Recent Quotations
+              Recent Enquiries
             </span>
-            <CredViewAll onClick={() => navigate('/accounting/quotations')} label="view all" />
+            <CredViewAll onClick={() => navigate('/enquiries')} label="view all" />
           </div>
 
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)', textAlign: 'left', background: 'var(--bg-subtle, #F7F7F7)' }}>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Quote #</th>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Customer</th>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Status</th>
-                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)', textAlign: 'right' }}>Amount</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Enquiry #</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Client</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>Channel</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)', textAlign: 'right' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {quotations.slice(0, 5).map((q) => (
-                  <tr key={q.id} style={{ borderBottom: '1px dotted var(--divider-dotted, #D9D9D9)' }}>
+                {enquiries.slice(0, 5).map((enq) => (
+                  <tr key={enq.id} style={{ borderBottom: '1px dotted var(--divider-dotted, #D9D9D9)' }}>
                     <td style={{ padding: '12px' }}>
                       <Link 
-                        to={`/accounting/quotations/${q.id}/edit`} 
+                        to="/enquiries" 
                         style={{
                           fontWeight: 500,
                           fontSize: '12px',
@@ -569,39 +580,40 @@ const Dashboard = () => {
                           fontFamily: 'var(--font-mono, "Geist Mono", monospace)'
                         }}
                       >
-                        {q.quotation_number || `#QT-${q.id.toString().padStart(4, '0')}`}
+                        {enq.enquiry_number || `#ENQ-${enq.id.toString().padStart(4, '0')}`}
                       </Link>
                     </td>
                     <td style={{ padding: '12px', fontWeight: 400, color: 'var(--text, #0A0A0A)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {q.customer_name || 'Customer'}
+                      {enq.client_name || enq.customer_detail?.name || 'Client'}
                     </td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{ padding: '12px', color: 'var(--text-muted, #8C8C8C)' }}>
+                      {enq.channel_display || enq.channel || 'Direct'}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>
                       <span style={{
                         display: 'inline-flex',
                         alignItems: 'center',
+                        justifyContent: 'flex-end',
                         gap: '6px',
                         fontSize: '13px',
                         fontWeight: 400,
-                        color: q.status === 'Accepted' ? 'var(--success, #16A34A)' : q.status === 'Sent' ? '#2563eb' : 'var(--text-muted, #8C8C8C)'
+                        color: enq.status === 'converted' ? 'var(--success, #16A34A)' : enq.status === 'cancelled' ? 'var(--danger, #DC2626)' : '#2563eb'
                       }}>
                         <span style={{
                           width: '6px',
                           height: '6px',
                           borderRadius: '50%',
-                          background: q.status === 'Accepted' ? 'var(--success, #16A34A)' : q.status === 'Sent' ? '#2563eb' : 'var(--text-muted, #8C8C8C)'
+                          background: enq.status === 'converted' ? 'var(--success, #16A34A)' : enq.status === 'cancelled' ? 'var(--danger, #DC2626)' : '#2563eb'
                         }} />
-                        {q.status || 'Draft'}
+                        {enq.status_display || enq.status || 'Active'}
                       </span>
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                      <Money value={q.total_amount || 0} currency="SAR" style={{ fontWeight: 500 }} />
                     </td>
                   </tr>
                 ))}
-                {quotations.length === 0 && (
+                {enquiries.length === 0 && (
                   <tr>
                     <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted, #8C8C8C)' }}>
-                      No quotations created yet.
+                      No enquiries recorded yet.
                     </td>
                   </tr>
                 )}

@@ -49,6 +49,8 @@ const MoneyCard = ({
         userSelect: 'none',
         WebkitUserSelect: 'none',
         transition: 'border-color 0.15s ease, transform 0.1s ease',
+        justifyContent: actionText ? 'space-between' : 'center',
+        minHeight: actionText ? '104px' : '84px',
         ...style
       }}
     >
@@ -94,20 +96,17 @@ const MoneyCard = ({
           )}
         </div>
       </div>
-      {(caption || actionText) && (
+      {actionText && (
         <div className="cred-money-card-caption">
-          {caption && <span>{caption}</span>}
-          {actionText && (
-            <span style={{ 
-              fontWeight: 600, 
-              color: variant === 'positive' ? 'var(--positive)' : 'var(--text)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 2
-            }}>
-              {actionText.replace(/&gt;|>+$/g, '').trim()} {onClick && <ChevronRight size={13} strokeWidth={1.5} />}
-            </span>
-          )}
+          <span style={{ 
+            fontWeight: 600, 
+            color: variant === 'positive' ? 'var(--positive)' : 'var(--text)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            {actionText.replace(/&gt;|>+$/g, '').trim()} {onClick && <ChevronRight size={13} strokeWidth={1.5} />}
+          </span>
         </div>
       )}
     </div>

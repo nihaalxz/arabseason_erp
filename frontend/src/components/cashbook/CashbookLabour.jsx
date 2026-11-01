@@ -865,9 +865,6 @@ export default function CashbookLabour({
           <div style={{ fontSize: effectiveIsMobile ? '1.25rem' : '1.45rem', fontWeight: '800', color: textPrimary, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
             {metrics.totalLabourers}
           </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {labourEntries.length} total work records
-          </div>
         </div>
 
         {/* Card 2: Total Work Value */}
@@ -911,9 +908,6 @@ export default function CashbookLabour({
             ) : (
               `SAR ${safeFormatAmount(metrics.totalWork)}`
             )}
-          </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Agreed job wages
           </div>
         </div>
 
@@ -961,9 +955,6 @@ export default function CashbookLabour({
               `SAR ${safeFormatAmount(metrics.totalPaid)}`
             )}
           </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Disbursed wages
-          </div>
         </div>
 
         {/* Card 4: Total Due (Pending) */}
@@ -1009,9 +1000,6 @@ export default function CashbookLabour({
             ) : (
               `SAR ${safeFormatAmount(metrics.totalDue)}`
             )}
-          </div>
-          <div style={{ fontSize: '0.72rem', color: textMuted, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {metrics.pendingCount} unpaid entries
           </div>
         </div>
       </MobileCardCarousel>

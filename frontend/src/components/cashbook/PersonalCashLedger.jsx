@@ -685,14 +685,6 @@ export default function PersonalCashLedger({
           }}>
             SAR {fmt(activeAccount?.balance != null ? activeAccount.balance : (totalIn - totalOut))}
           </div>
-          {!isMobileScreen && (
-            <div style={{
-              fontSize: '11px',
-              color: typeFilter === 'all' ? (isDarkMode ? '#6a6e75' : '#cbd5e1') : (isDarkMode ? '#60646c' : '#94a3b8')
-            }}>
-              {baseFilteredEntries.length} entries recorded
-            </div>
-          )}
         </div>
 
         {/* Card 2: Total Cash In (+credit received) */}
@@ -755,11 +747,6 @@ export default function PersonalCashLedger({
           }}>
             + SAR {fmt(totalIn)}
           </div>
-          {!isMobileScreen && (
-            <div style={{ fontSize: '11px', color: isDarkMode ? '#60646c' : '#94a3b8' }}>
-              {inCount} received ledger transactions
-            </div>
-          )}
         </div>
 
         {/* Card 3: Total Cash Out (-debit payouts) */}
@@ -822,11 +809,6 @@ export default function PersonalCashLedger({
           }}>
             - SAR {fmt(totalOut)}
           </div>
-          {!isMobileScreen && (
-            <div style={{ fontSize: '11px', color: isDarkMode ? '#60646c' : '#94a3b8' }}>
-              {outCount} paid ledger transactions
-            </div>
-          )}
         </div>
 
         {/* Card 4: Net Flow */}
@@ -875,11 +857,6 @@ export default function PersonalCashLedger({
           }}>
             {netMovement >= 0 ? '+' : '-'} SAR {fmt(Math.abs(netMovement))}
           </div>
-          {!isMobileScreen && (
-            <div style={{ fontSize: '11px', color: isDarkMode ? '#60646c' : '#94a3b8' }}>
-              Net balance
-            </div>
-          )}
         </div>
       </MobileCardCarousel>
 

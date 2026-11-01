@@ -112,7 +112,7 @@
 .cred-shell-desktop {
   display: flex;
   min-height: calc(100vh - 50px);
-  background: var(--black);
+  background: var(--bg);
   width: 100%;
   position: relative;
   overflow: hidden;
@@ -629,10 +629,15 @@
   padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 120px;
+  justify-content: center;
+  min-height: 84px;
   transition: transform var(--transition-fast), border-color var(--transition-fast);
   cursor: pointer;
+}
+
+.cred-money-card:has(.cred-money-card-caption) {
+  justify-content: space-between;
+  min-height: 104px;
 }
 
 .cred-money-card:hover {
@@ -644,7 +649,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .cred-money-card-icon {
@@ -663,14 +668,15 @@
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .cred-money-card-value {
   font-size: 18px;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  line-height: 1.25;
 }
 
 .cred-money-card-value.positive {
