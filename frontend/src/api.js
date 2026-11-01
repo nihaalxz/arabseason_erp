@@ -93,8 +93,17 @@ api.interceptors.response.use(
           }
           return Promise.reject(refreshError);
         } finally {
-
           isRefreshing = false;
+        }
+      } else {
+        isRefreshing = false;
+        processQueue(error, null);
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        if (typeof window !== 'undefined') {
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login?expired=1';
+          }
         }
       }
     }

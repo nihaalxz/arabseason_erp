@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import PageHeaderButton from '../common/PageHeaderButton'
 import { createPortal } from 'react-dom'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../../api'
@@ -1601,23 +1602,9 @@ const SalaryReports = ({ onBackToReports }) => {
                 <CalendarDays size={18} /> <span>Generate Month (30 Days)</span>
               </button>
 
-              <button
-                className="btn"
-                onClick={() => handleOpenTimesheetModal()}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  whiteSpace: 'nowrap',
-                  background: '#047857',
-                  color: '#ffffff',
-                  fontWeight: '700',
-                  padding: '0.55rem 1.1rem',
-                  borderRadius: '8px'
-                }}
-              >
-                <Plus size={18} /> <span>Add Timesheet Entry</span>
-              </button>
+              <PageHeaderButton onClick={() => handleOpenTimesheetModal()}>
+                Add Timesheet Entry
+              </PageHeaderButton>
             </div>
           </div>
 
@@ -1956,20 +1943,9 @@ const SalaryReports = ({ onBackToReports }) => {
                 <RefreshCw size={16} className={loading ? 'spin' : ''} />
               </button>
               
-              <button
-                className="btn btn-primary"
-                onClick={handleOpenSalaryCreateModal}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  whiteSpace: 'nowrap',
-                  padding: '0.55rem 1.1rem',
-                  borderRadius: '8px'
-                }}
-              >
-                <Plus size={18} /> <span>Record Salary Payment</span>
-              </button>
+              <PageHeaderButton onClick={handleOpenSalaryCreateModal}>
+                Record Salary Payment
+              </PageHeaderButton>
             </div>
           </div>
 

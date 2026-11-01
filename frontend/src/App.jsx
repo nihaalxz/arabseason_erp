@@ -37,6 +37,7 @@ import { SettingsProvider } from './contexts/SettingsContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ModuleProvider } from './contexts/ModuleContext'
 import { WorkspaceProvider } from './contexts/WorkspaceContext'
+import ErrorBoundary from './components/common/ErrorBoundary'
 
 // Legacy ERP route redirector: preserves full path and query string with replace
 const RedirectToAccounting = () => {
@@ -62,11 +63,13 @@ function App() {
     }
 
     try {
-      const response = await api.get('accounts/check-auth/')
+      const response = await api.get('accounts/check-auth/', { timeout: 8000 })
       if (response.data.is_authenticated) {
         setIsAuthenticated(true)
         setCurrentUser(response.data.user)
         try { localStorage.setItem('user', JSON.stringify(response.data.user)) } catch(e) {}
+      } else {
+        setIsAuthenticated(false)
       }
     } catch (error) {
       setIsAuthenticated(false)
@@ -127,14 +130,7 @@ function App() {
     setCurrentUser(null)
   }
 
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="loader"></div>
-        <p>Initializing Secure Session...</p>
-      </div>
-    )
-  }
+  
 
   // Helper: check if current user can access a module
   const canAccess = (moduleKey) => {
@@ -179,15 +175,15 @@ function App() {
   }
 
   return (
-
-    <ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
       <WorkspaceProvider>
         <ModuleProvider>
           <Router>
           <Routes>
             <Route 
               path="/login" 
-              element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/" />} 
+              element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/" replace />} 
             />
             
             <Route 
@@ -198,7 +194,7 @@ function App() {
                     <DashboardLayout onLogout={handleLogout} currentUser={currentUser} />
                   </SettingsProvider>
                 ) : (
-                  <Navigate to="/login" />
+                  <Navigate to="/login" replace />
                 )
               }
             >
@@ -217,6 +213,7 @@ function App() {
               <Route path="accounting/quotations/new" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
               <Route path="accounting/quotations/:id/edit" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
               <Route path="accounting/banks" element={<Navigate to="/cashbook?tab=bank_accounts" replace />} />
+              <Route path="accounting/settings" element={canAccess('settings') ? <Settings /> : <Navigate to="/accounting" />} />
               <Route path="enquiries" element={<Enquiries currentUser={currentUser} />} />
               {/* Legacy ERP Route Redirects to Accounting */}
               <Route path="customers" element={<RedirectToAccounting />} />
@@ -267,6 +264,7 @@ function App() {
       </ModuleProvider>
     </WorkspaceProvider>
   </ThemeProvider>
+    </ErrorBoundary>
 )
 }
 

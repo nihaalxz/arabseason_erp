@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import {
   Plus, Edit, Trash2, AlertCircle, Check, Users
 } from 'lucide-react'
@@ -340,30 +341,9 @@ const UserManagement = () => {
           User Management
         </h1>
 
-        <button
-          type="button"
-          onClick={() => handleOpenModal()}
-          style={{
-            height: '38px',
-            padding: '0 20px',
-            backgroundColor: 'var(--black, #0A0A0A)',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: '9999px',
-            fontSize: '13px',
-            fontWeight: 500,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'opacity 0.15s ease'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-        >
-          <Plus size={15} />
-          <span>Add User</span>
-        </button>
+        <PageHeaderButton onClick={() => handleOpenModal()}>
+          Add User
+        </PageHeaderButton>
       </div>
 
       {/* 2. Full-Width Search Input (Single border, no card wrapper) */}
@@ -561,7 +541,7 @@ const UserManagement = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingUser ? 'Edit User' : 'Add New User'}
+        title={editingUser ? 'Edit User' : 'Add User'}
         footer={modalFooter}
         maxWidth="640px"
       >

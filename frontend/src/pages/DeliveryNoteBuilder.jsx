@@ -6,7 +6,12 @@ import {
 } from 'lucide-react'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import Modal from '../components/common/Modal'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  Textarea
+} from '../components/common/FormPrimitives'
 import { showError, showToast, showSuccess } from '../utils/swal'
 
 const CHALLAN_TYPES = [
@@ -676,7 +681,7 @@ const DeliveryNoteBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Customer Name<span style={{ color: '#EF4444', marginLeft: '2px' }}>*</span>
+              Customer Name<span className="cred-required-dot" />
             </label>
 
             <div ref={customerDropdownRef} style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
@@ -812,7 +817,7 @@ const DeliveryNoteBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Delivery Challan#<span style={{ color: '#EF4444', marginLeft: '2px' }}>*</span>
+              Delivery Challan#<span className="cred-required-dot" />
             </label>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '480px' }}>
@@ -900,7 +905,7 @@ const DeliveryNoteBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Delivery Challan Date<span style={{ color: '#EF4444', marginLeft: '2px' }}>*</span>
+              Delivery Challan Date<span className="cred-required-dot" />
             </label>
 
             <div style={{ width: '100%', maxWidth: '480px' }}>
@@ -934,7 +939,7 @@ const DeliveryNoteBuilder = () => {
               fontWeight: 500,
               color: '#475569'
             }}>
-              Challan Type<span style={{ color: '#EF4444', marginLeft: '2px' }}>*</span>
+              Challan Type<span className="cred-required-dot" />
             </label>
 
             <div style={{ width: '100%', maxWidth: '480px' }}>
@@ -1347,7 +1352,7 @@ const DeliveryNoteBuilder = () => {
               }}
             >
               <Plus size={14} />
-              <span>+ Add New Row</span>
+              <span>Add New Row</span>
             </button>
           </div>
         </div>
@@ -1716,150 +1721,81 @@ const DeliveryNoteBuilder = () => {
       </div>
 
       {/* QUICK CUSTOMER MODAL */}
-      <Modal
+      <ModalShell
         isOpen={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
-        title="Add New Customer"
+        title="Add Customer"
+        maxWidth="460px"
+        formId="quick-customer-dn-form"
+        submitLabel="Create Customer"
+        submittingLabel="Saving..."
+        submitting={submittingCustomer}
       >
-        <form onSubmit={handleCreateCustomer}>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: '#475569', marginBottom: '4px' }}>
-              Customer Name<span style={{ color: '#EF4444' }}>*</span>
-            </label>
-            <input
-              type="text"
+        <form id="quick-customer-dn-form" onSubmit={handleCreateCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+          <Field label="Customer Name" required>
+            <TextInput
               required
+              autoFocus
               value={newCustomerForm.name}
               onChange={(e) => setNewCustomerForm(p => ({ ...p, name: e.target.value }))}
-              style={{
-                width: '100%',
-                height: '36px',
-                padding: '0 10px',
-                border: '1px solid var(--border, #E4E4E4)',
-                borderRadius: '6px',
-                fontSize: '13px',
-                color: 'var(--text, #111111)',
-                backgroundColor: 'var(--card-bg, #ffffff)',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
             />
-          </div>
+          </Field>
 
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: '#475569', marginBottom: '4px' }}>
-              Company Name
-            </label>
-            <input
-              type="text"
+          <Field label="Company Name">
+            <TextInput
               value={newCustomerForm.company_name}
               onChange={(e) => setNewCustomerForm(p => ({ ...p, company_name: e.target.value }))}
-              style={{
-                width: '100%',
-                height: '36px',
-                padding: '0 10px',
-                border: '1px solid var(--border, #E4E4E4)',
-                borderRadius: '6px',
-                fontSize: '13px',
-                color: 'var(--text, #111111)',
-                backgroundColor: 'var(--card-bg, #ffffff)',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
             />
-          </div>
+          </Field>
 
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: '#475569', marginBottom: '4px' }}>
-              Phone Number
-            </label>
-            <input
-              type="text"
+          <Field label="Phone Number">
+            <TextInput
               value={newCustomerForm.phone}
               onChange={(e) => setNewCustomerForm(p => ({ ...p, phone: e.target.value }))}
-              style={{
-                width: '100%',
-                height: '36px',
-                padding: '0 10px',
-                border: '1px solid var(--border, #E4E4E4)',
-                borderRadius: '6px',
-                fontSize: '13px',
-                color: 'var(--text, #111111)',
-                backgroundColor: 'var(--card-bg, #ffffff)',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
             />
-          </div>
+          </Field>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: '#475569', marginBottom: '4px' }}>
-              Delivery / Billing Address
-            </label>
-            <textarea
+          <Field label="Delivery / Billing Address">
+            <Textarea
               rows={2}
               value={newCustomerForm.address}
               onChange={(e) => setNewCustomerForm(p => ({ ...p, address: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                border: '1px solid var(--border, #E4E4E4)',
-                borderRadius: '6px',
-                fontSize: '13px',
-                color: 'var(--text, #111111)',
-                backgroundColor: 'var(--card-bg, #ffffff)',
-                outline: 'none',
-                boxSizing: 'border-box',
-                fontFamily: 'inherit'
-              }}
             />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setIsCustomerModalOpen(false)}
-              style={{
-                height: '34px',
-                padding: '0 14px',
-                backgroundColor: 'transparent',
-                border: '1px solid var(--border, #E4E4E4)',
-                borderRadius: '6px',
-                fontSize: '12.5px',
-                color: 'var(--text, #111111)',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submittingCustomer}
-              style={{
-                height: '34px',
-                padding: '0 18px',
-                backgroundColor: 'var(--black, #0A0A0A)',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12.5px',
-                fontWeight: 500,
-                color: '#FFFFFF',
-                cursor: 'pointer'
-              }}
-            >
-              {submittingCustomer ? 'Saving...' : 'Create Customer'}
-            </button>
-          </div>
+          </Field>
         </form>
-      </Modal>
+      </ModalShell>
 
       {/* BULK MATERIALS MODAL */}
-      <Modal
+      <ModalShell
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         title="Add Items in Bulk"
+        maxWidth="540px"
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)' }}>
+              {selectedBulkMaterials.length} item(s) selected
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="cred-modal-cancel-btn"
+                onClick={() => setIsBulkModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="cred-modal-submit-btn"
+                onClick={handleAddBulkToTable}
+              >
+                Add Selected Items
+              </button>
+            </div>
+          </div>
+        }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 0' }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -1911,14 +1847,14 @@ const DeliveryNoteBuilder = () => {
                       padding: '10px 14px',
                       borderBottom: '1px solid var(--border, #E4E4E4)',
                       cursor: 'pointer',
-                      backgroundColor: isChecked ? 'var(--bg-band, #F2F2F2)' : 'transparent'
+                      backgroundColor: isChecked ? 'var(--fill-ghost-hover, #F2F2F2)' : 'transparent'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => {}} // handled by row click
+                        onChange={() => {}}
                         style={{ cursor: 'pointer' }}
                       />
                       <div>
@@ -1941,49 +1877,8 @@ const DeliveryNoteBuilder = () => {
               })
             )}
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)' }}>
-              {selectedBulkMaterials.length} item(s) selected
-            </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setIsBulkModalOpen(false)}
-                style={{
-                  height: '34px',
-                  padding: '0 14px',
-                  backgroundColor: 'transparent',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  borderRadius: '6px',
-                  fontSize: '12.5px',
-                  color: 'var(--text, #111111)',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAddBulkToTable}
-                style={{
-                  height: '34px',
-                  padding: '0 18px',
-                  backgroundColor: 'var(--black, #0A0A0A)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '12.5px',
-                  fontWeight: 500,
-                  color: '#FFFFFF',
-                  cursor: 'pointer'
-                }}
-              >
-                Add Selected Items
-              </button>
-            </div>
-          </div>
         </div>
-      </Modal>
+      </ModalShell>
 
       {/* Responsive Breakpoint Styles */}
       <style>{`

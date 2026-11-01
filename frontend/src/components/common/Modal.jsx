@@ -20,6 +20,7 @@ const Modal = ({
   const overlayRef = useRef(null)
   const containerRef = useRef(null)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
+  const [isShaking, setIsShaking] = useState(false)
   const initialSnapshotRef = useRef(null)
 
   // Capture form snapshot across inputs, selects, and textareas
@@ -211,6 +212,8 @@ const Modal = ({
       } else {
         e.preventDefault()
         e.stopPropagation()
+        setIsShaking(true)
+        setTimeout(() => setIsShaking(false), 260)
       }
     }
   }
@@ -242,7 +245,7 @@ const Modal = ({
     >
       <div
         ref={containerRef}
-        className="modal-container glass-panel"
+        className={`modal-container glass-panel ${isShaking ? "modal-shake-animate" : ""}`}
         style={{
           position: 'relative',
           maxHeight: 'min(94vh, 850px)',

@@ -1,39 +1,33 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useParams, Link, useLocation } from 'react-router-dom'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Plus, Trash2, Check, X,
-  FileText, Download, Printer, AlertCircle,
-  Building2, Calendar, ShieldCheck, RefreshCw,
-  ChevronRight, Info, Zap, Layers
+  X, Plus, Trash2, Check, Download, Printer,
+  AlertCircle, Search, ChevronDown
 } from 'lucide-react'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import Modal from '../components/common/Modal'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  Textarea
+} from '../components/common/FormPrimitives'
 import { handlePdfResponse } from '../utils/pdfDownload'
-import { showError, showToast, showWarning } from '../utils/swal'
+import { showError, showToast, showWarning, showConfirm } from '../utils/swal'
 
 const POPULAR_UNITS = ['pcs', 'sq.m', 'm', 'sheet', 'roll', 'kg', 'set', 'box', 'pack', 'day', 'hour']
 const STATUS_OPTIONS = ['Draft', 'Sent', 'Approved', 'Rejected']
 
-const ZohoLabel = ({ children, required, hint }) => (
-  <label style={{
-    fontSize: '13px',
-    fontWeight: '500',
-    color: '#334155',
-    marginBottom: '6px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px'
-  }}>
-    {children}
-    {required && <span style={{ color: '#ef4444', fontWeight: '700' }}>*</span>}
-    {hint && (
-      <span title={hint} style={{ color: '#94a3b8', cursor: 'help', display: 'inline-flex' }}>
-        <Info size={13} />
-      </span>
-    )}
-  </label>
-)
+// Format numbers in tabular CRED style
+const formatTabular = (num) => {
+  const val = parseFloat(num) || 0
+  const parts = val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
+  return (
+    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+      {parts[0]}<span style={{ opacity: 0.55, fontSize: '0.85em' }}>.{parts[1]}</span>
+    </span>
+  )
+}
 
 const EstimateBuilder = () => {
   const { id } = useParams()
@@ -43,14 +37,30 @@ const EstimateBuilder = () => {
 
   // Loading & Action States
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState('')
   const [downloadingClientPdf, setDownloadingClientPdf] = useState(false)
   const [downloadingAdminPdf, setDownloadingAdminPdf] = useState(false)
+  const [isPdfDropdownOpen, setIsPdfDropdownOpen] = useState(false)
+  const pdfDropdownRef = useRef(null)
 
-  // System Data
+  // Dirty state tracking for unsaved changes
+  const [isDirty, setIsDirty] = useState(false)
+
+  // System Lookups
   const [materials, setMaterials] = useState([])
   const [customers, setCustomers] = useState([])
   const [categories, setCategories] = useState([])
+
+  // Customer dropdown search
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
+  const customerDropdownRef = useRef(null)
+
+  // Quick Customer Creation Modal
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', company_name: '', phone: '', email: '', address: '' })
+  const [submittingCustomer, setSubmittingCustomer] = useState(false)
 
   // Form State
   const [estimateNumber, setEstimateNumber] = useState('')
@@ -88,10 +98,24 @@ const EstimateBuilder = () => {
     ]
   })
 
-  const [newSectionInput, setNewSectionInput] = useState('')
-  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
-  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', company_name: '', phone: '', email: '', address: '' })
-  const [submittingCustomer, setSubmittingCustomer] = useState(false)
+  // Area / Section inline input state
+  const [isAddingArea, setIsAddingArea] = useState(false)
+  const [newAreaInput, setNewAreaInput] = useState('')
+  const [hoveredArea, setHoveredArea] = useState(null)
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target)) {
+        setIsCustomerDropdownOpen(false)
+      }
+      if (pdfDropdownRef.current && !pdfDropdownRef.current.contains(e.target)) {
+        setIsPdfDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   useEffect(() => {
     fetchInitialData()
@@ -100,12 +124,13 @@ const EstimateBuilder = () => {
   const fetchInitialData = async () => {
     try {
       setLoading(true)
+      const toArray = (data) => Array.isArray(data) ? data : (data?.results || [])
       const [matRes, custRes, catRes] = await Promise.all([
         api.get('materials/').catch(() => ({ data: [] })),
-        api.get('customers/').catch(() => ({ data: [] })),
+        api.get('customers/?page_size=1000').catch(() => ({ data: [] })),
         api.get('material-categories/').catch(() => ({ data: [] }))
       ])
-      const toArray = (data) => Array.isArray(data) ? data : (data?.results || [])
+
       setMaterials(toArray(matRes.data))
       setCustomers(toArray(custRes.data))
       setCategories(toArray(catRes.data))
@@ -123,8 +148,8 @@ const EstimateBuilder = () => {
             date: est.date || new Date().toISOString().slice(0, 10),
             valid_until: est.valid_until || '',
             status: est.status || 'Draft',
-            sections_list: Array.isArray(est.sections_list) && est.sections_list.length > 0 
-              ? est.sections_list 
+            sections_list: Array.isArray(est.sections_list) && est.sections_list.length > 0
+              ? est.sections_list
               : ['Outside', 'VIP Room', 'Storage Room'],
             activeSectionFilter: 'All',
             notes: est.notes || '',
@@ -144,6 +169,7 @@ const EstimateBuilder = () => {
           })
         }
       }
+      setIsDirty(false)
     } catch (err) {
       console.error('Failed to load estimation builder data:', err)
       showError('Load Error', 'Could not load required estimation and material pricing data.')
@@ -152,28 +178,50 @@ const EstimateBuilder = () => {
     }
   }
 
-  // Section management
-  const handleAddSection = () => {
-    const trimmed = newSectionInput.trim()
-    if (!trimmed) return
+  // Handle Cancel / Close with unsaved changes prompt
+  const handleCancelOrClose = async () => {
+    if (isDirty) {
+      const confirmed = await showConfirm({
+        title: 'Discard unsaved changes?',
+        text: 'You have unsaved changes in this estimate. Are you sure you want to discard them?',
+        confirmButtonText: 'Discard Changes',
+        cancelButtonText: 'Keep Editing',
+        isDangerous: true
+      })
+      if (!confirmed) return
+    }
+    navigate(`${basePath}/estimations`)
+  }
+
+  // Section / Area Management
+  const handleAddArea = () => {
+    const trimmed = newAreaInput.trim()
+    if (!trimmed) {
+      setIsAddingArea(false)
+      return
+    }
     if (!formData.sections_list.includes(trimmed)) {
       setFormData(prev => ({
         ...prev,
-        sections_list: [...prev.sections_list, trimmed]
+        sections_list: [...prev.sections_list, trimmed],
+        activeSectionFilter: trimmed
       }))
+      setIsDirty(true)
     }
-    setNewSectionInput('')
+    setNewAreaInput('')
+    setIsAddingArea(false)
   }
 
-  const handleRemoveSection = (secName) => {
+  const handleRemoveArea = (secName) => {
     setFormData(prev => ({
       ...prev,
       sections_list: prev.sections_list.filter(s => s !== secName),
       activeSectionFilter: prev.activeSectionFilter === secName ? 'All' : prev.activeSectionFilter
     }))
+    setIsDirty(true)
   }
 
-  // Items & Calculations
+  // Item Management & Calculations
   const handleAddItemRow = (targetSection = 'General') => {
     const defSec = targetSection !== 'All' ? targetSection : (formData.sections_list[0] || 'General')
     const newItem = {
@@ -199,6 +247,7 @@ const EstimateBuilder = () => {
       ...prev,
       items: [...prev.items, newItem]
     }))
+    setIsDirty(true)
   }
 
   const handleRemoveItemRow = (tempId) => {
@@ -210,19 +259,27 @@ const EstimateBuilder = () => {
       ...prev,
       items: prev.items.filter(i => i.temp_id !== tempId)
     }))
+    setIsDirty(true)
   }
 
   const handleSelectMaterialForItem = (tempId, materialId) => {
     const mat = materials.find(m => String(m.id) === String(materialId))
-    if (!mat) return
+    if (!mat) {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map(item => item.temp_id === tempId ? { ...item, material: null } : item)
+      }))
+      setIsDirty(true)
+      return
+    }
 
     setFormData(prev => {
       const updated = prev.items.map(item => {
         if (item.temp_id !== tempId) return item
 
         const shopPrices = Array.isArray(mat.shop_prices) ? mat.shop_prices : []
-        const lowestShop = shopPrices.length > 0 
-          ? shopPrices.reduce((prev, curr) => parseFloat(curr.price) < parseFloat(prev.price) ? curr : prev, shopPrices[0])
+        const lowestShop = shopPrices.length > 0
+          ? shopPrices.reduce((p, c) => parseFloat(c.price) < parseFloat(p.price) ? c : p, shopPrices[0])
           : null
 
         const uCost = lowestShop ? parseFloat(lowestShop.price || 0) : 0
@@ -259,6 +316,7 @@ const EstimateBuilder = () => {
       })
       return { ...prev, items: updated }
     })
+    setIsDirty(true)
   }
 
   const handleUpdateItemField = (tempId, field, value) => {
@@ -294,8 +352,10 @@ const EstimateBuilder = () => {
       })
       return { ...prev, items: updated }
     })
+    setIsDirty(true)
   }
 
+  // Live Calculations
   const liveTotals = useMemo(() => {
     const items = formData.items || []
     const subtotalCost = items.reduce((acc, i) => acc + (parseFloat(i.total_cost) || 0), 0)
@@ -307,31 +367,69 @@ const EstimateBuilder = () => {
     return { subtotalCost, subtotalPrice, tax, totalPrice, marginAmount, marginPct }
   }, [formData.items, formData.tax_amount])
 
-  const handleCustomerSelect = (val) => {
-    const matched = customers.find(c => String(c.id) === String(val) || c.name.toLowerCase() === val.toLowerCase())
-    if (matched) {
-      setFormData(prev => ({
-        ...prev,
-        customer: matched.id,
-        client_name: matched.name,
-        client_contact: matched.phone || matched.email || prev.client_contact
+  // Customer Selection
+  const selectedCustomer = useMemo(() => {
+    return customers.find(c => String(c.id) === String(formData.customer) || c.name.toLowerCase() === (formData.client_name || '').toLowerCase())
+  }, [customers, formData.customer, formData.client_name])
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch.trim()) return customers.slice(0, 20)
+    const q = customerSearch.toLowerCase()
+    return customers.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
+      c.company_name?.toLowerCase().includes(q) ||
+      c.phone?.includes(q) ||
+      c.email?.toLowerCase().includes(q)
+    ).slice(0, 20)
+  }, [customers, customerSearch])
+
+  const handleSelectCustomer = (c) => {
+    setFormData(prev => ({
+      ...prev,
+      customer: c.id,
+      client_name: c.name,
+      client_contact: c.phone || c.email || prev.client_contact
+    }))
+    setIsCustomerDropdownOpen(false)
+    setIsDirty(true)
+  }
+
+  const handleCreateCustomer = async (e) => {
+    e.preventDefault()
+    if (!newCustomerForm.name.trim()) {
+      showToast('Customer name is required', 'error')
+      return
+    }
+    try {
+      setSubmittingCustomer(true)
+      const { data } = await api.post('customers/', newCustomerForm)
+      setCustomers(p => [...p, data])
+      setFormData(p => ({
+        ...p,
+        customer: data.id,
+        client_name: data.name,
+        client_contact: data.phone || data.email || ''
       }))
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        customer: '',
-        client_name: val
-      }))
+      setIsCustomerModalOpen(false)
+      setNewCustomerForm({ name: '', company_name: '', phone: '', email: '', address: '' })
+      showToast('Customer created', 'success')
+      setIsDirty(true)
+    } catch (err) {
+      console.error('Customer create error:', err)
+      showError('Create Customer Failed', 'Could not create customer record.')
+    } finally {
+      setSubmittingCustomer(false)
     }
   }
 
+  // Form Submit
   const handleSubmit = async (overrideStatus) => {
     if (!formData.title.trim()) {
       showWarning('Title Required', 'Please enter a project or estimate title.')
       return
     }
     if (!formData.client_name.trim()) {
-      showWarning('Client Required', 'Please specify a client name.')
+      showWarning('Client Required', 'Please select or enter a client name.')
       return
     }
     if (formData.items.length === 0) {
@@ -342,7 +440,8 @@ const EstimateBuilder = () => {
     const finalStatus = overrideStatus || formData.status || 'Draft'
 
     try {
-      setActionLoading(true)
+      setSubmitting(true)
+      setFormError('')
       const payload = {
         title: formData.title.trim(),
         customer: formData.customer || null,
@@ -382,6 +481,7 @@ const EstimateBuilder = () => {
         await api.post('estimations/', payload)
         showToast(finalStatus === 'Draft' ? 'Estimate saved as Draft!' : 'Estimate saved successfully!', 'success')
       }
+      setIsDirty(false)
       navigate(`${basePath}/estimations`)
     } catch (err) {
       console.error('Failed to save estimate:', err)
@@ -391,12 +491,14 @@ const EstimateBuilder = () => {
         else if (err.response.data.detail) errMsg = err.response.data.detail
         else errMsg = JSON.stringify(err.response.data)
       }
+      setFormError(errMsg)
       showError('Save Failed', errMsg)
     } finally {
-      setActionLoading(false)
+      setSubmitting(false)
     }
   }
 
+  // PDF Exports
   const handleDownloadClientPdf = async () => {
     if (!id) return
     try {
@@ -429,1392 +531,1837 @@ const EstimateBuilder = () => {
     }
   }
 
-  const handleCreateCustomer = async (e) => {
-    e.preventDefault()
-    if (!newCustomerForm.name.trim()) {
-      showToast('Customer name is required', 'error')
-      return
-    }
-    try {
-      setSubmittingCustomer(true)
-      const { data } = await api.post('customers/', newCustomerForm)
-      setCustomers(p => [...p, data])
-      setFormData(p => ({
-        ...p,
-        customer: data.id,
-        client_name: data.name,
-        client_contact: data.phone || data.email || ''
-      }))
-      setIsCustomerModalOpen(false)
-      setNewCustomerForm({ name: '', company_name: '', phone: '', email: '', address: '' })
-      showToast('Customer created', 'success')
-    } catch {
-      showError('Failed', 'Could not create customer.')
-    } finally {
-      setSubmittingCustomer(false)
-    }
-  }
-
   if (loading) {
     return (
-      <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-        <SkeletonLoader rows={10} />
+      <div style={{ maxWidth: '1100px', margin: '40px auto', padding: '0 20px' }}>
+        <SkeletonLoader count={8} />
       </div>
     )
   }
 
-  const selectedCustomerObj = customers.find(c => String(c.id) === String(formData.customer) || c.name.toLowerCase() === formData.client_name.toLowerCase())
+  // Filtered items based on active area tab
+  const visibleItems = formData.items.filter(item =>
+    formData.activeSectionFilter === 'All' || item.section_name === formData.activeSectionFilter
+  )
 
   return (
-    <div style={{ background: '#f3f4f7', minHeight: '100vh', display: 'flex', flexDirection: 'column', color: '#1e293b' }}>
-
-      {/* Top Header / Breadcrumb Bar (Zoho Style) */}
-      <div className="builder-header" style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #e2e8f0',
-        padding: '0.85rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '1rem'
+    <div style={{
+      width: '100%',
+      minHeight: '100vh',
+      backgroundColor: 'var(--card-bg, #ffffff)',
+      color: 'var(--text, #111111)',
+      fontFamily: 'inherit',
+      boxSizing: 'border-box'
+    }}>
+      {/* Outer Centered Shell Matching Delivery Challan */}
+      <div style={{
+        maxWidth: '1100px',
+        margin: '0 auto',
+        padding: '24px 24px 100px',
+        boxSizing: 'border-box'
       }}>
-        <div className="builder-header-top" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            type="button"
-            onClick={() => navigate(`${basePath}/estimations`)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '32px',
-              height: '32px',
-              borderRadius: '6px',
-              border: '1px solid #e2e8f0',
-              background: '#ffffff',
-              color: '#475569',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#e2e8f0' }}
-            title="Back to Estimations"
-          >
-            <ArrowLeft size={16} />
-          </button>
+
+        {/* ── Page Header: Title + Close Icon (and PDF actions if editing) ── */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingBottom: '20px',
+          borderBottom: '1px solid var(--border, #E4E4E4)',
+          marginBottom: '28px'
+        }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '12px', color: '#64748b' }}>
-              <Link to={`${basePath}/estimations`} style={{ color: '#1366d9', textDecoration: 'none', fontWeight: '500' }}>Estimations</Link>
-              <ChevronRight size={12} />
-              <span>{isEditing ? 'Edit Estimate' : 'New Estimate'}</span>
-            </div>
-            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a', lineHeight: '1.2' }}>
-              {isEditing ? `Edit Estimate: ${estimateNumber || 'Draft'}` : 'New Estimate & Production Checklist'}
+            <h1 style={{
+              margin: 0,
+              fontSize: '19px',
+              fontWeight: 600,
+              letterSpacing: '-0.01em',
+              color: 'var(--text, #111111)'
+            }}>
+              {isEditing ? `Edit Estimate ${estimateNumber ? `(${estimateNumber})` : ''}` : 'New Estimate'}
             </h1>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* When editing: PDF Download dropdown */}
+            {isEditing && (
+              <div ref={pdfDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsPdfDropdownOpen(!isPdfDropdownOpen)}
+                  aria-label="Download PDFs"
+                  style={{
+                    height: '32px',
+                    padding: '0 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text, #111111)',
+                    fontSize: '12.5px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-band, #F2F2F2)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--card-bg, #ffffff)'}
+                >
+                  <Download size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                  <span>Download</span>
+                  <ChevronDown size={13} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                </button>
+
+                {isPdfDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '36px',
+                    right: 0,
+                    backgroundColor: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    borderRadius: '8px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                    zIndex: 200,
+                    minWidth: '180px',
+                    padding: '4px'
+                  }}>
+                    <button
+                      type="button"
+                      disabled={downloadingClientPdf}
+                      onClick={() => {
+                        setIsPdfDropdownOpen(false)
+                        handleDownloadClientPdf()
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'none',
+                        border: 'none',
+                        borderRadius: '4px',
+                        textAlign: 'left',
+                        fontSize: '12.5px',
+                        color: 'var(--text, #111111)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-band, #F2F2F2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Download size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                      <span>{downloadingClientPdf ? 'Generating…' : 'Client Checklist PDF'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={downloadingAdminPdf}
+                      onClick={() => {
+                        setIsPdfDropdownOpen(false)
+                        handleDownloadAdminPdf()
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'none',
+                        border: 'none',
+                        borderRadius: '4px',
+                        textAlign: 'left',
+                        fontSize: '12.5px',
+                        color: 'var(--text, #111111)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-band, #F2F2F2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Printer size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                      <span>{downloadingAdminPdf ? 'Generating…' : 'Admin PDF'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Plain X close button */}
+            <button
+              type="button"
+              onClick={handleCancelOrClose}
+              aria-label="Close"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '6px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                color: 'var(--text-muted, #8C8C8C)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--text, #111111)'
+                e.currentTarget.style.backgroundColor = 'var(--bg-band, #F2F2F2)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                e.currentTarget.style.backgroundColor = 'transparent'
+              }}
+            >
+              <X size={20} />
+            </button>
           </div>
         </div>
 
-        {/* Quick actions top right */}
-        <div className="builder-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {isEditing && (
-            <>
-              <button
-                type="button"
-                onClick={handleDownloadClientPdf}
-                disabled={downloadingClientPdf}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.45rem 0.85rem',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  borderRadius: '6px',
-                  border: '1px solid #bfdbfe',
-                  background: '#eff6ff',
-                  color: '#1366d9',
-                  cursor: 'pointer'
-                }}
-                title="Client-facing PDF"
-              >
-                {downloadingClientPdf ? <RefreshCw size={14} className="spin" /> : <Download size={14} />} Client Checklist PDF
-              </button>
+        {/* Error Banner */}
+        {formError && (
+          <div style={{
+            padding: '10px 14px',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            borderRadius: '6px',
+            color: '#DC2626',
+            fontSize: '13px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertCircle size={16} />
+            <span>{formError}</span>
+          </div>
+        )}
 
-              <button
-                type="button"
-                onClick={handleDownloadAdminPdf}
-                disabled={downloadingAdminPdf}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.45rem 0.85rem',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  color: '#334155',
-                  cursor: 'pointer'
-                }}
-                title="Admin full breakdown PDF"
-              >
-                {downloadingAdminPdf ? <RefreshCw size={14} className="spin" /> : <Printer size={14} />} Admin PDF
-              </button>
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => navigate(`${basePath}/estimations`)}
-            style={{
-              padding: '0.45rem 0.85rem',
-              fontSize: '13px',
-              fontWeight: '500',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#475569',
-              cursor: 'pointer'
-            }}
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubmit('Draft')}
-            disabled={actionLoading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.45rem 0.9rem',
-              fontSize: '13px',
-              fontWeight: '500',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#1e293b',
-              cursor: 'pointer'
-            }}
-          >
-            Save as Draft
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubmit()}
-            disabled={actionLoading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.45rem 1.1rem',
-              fontSize: '13px',
-              fontWeight: '600',
-              borderRadius: '6px',
-              border: 'none',
-              background: '#1366d9',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(19,102,217,0.3)'
-            }}
-          >
-            {actionLoading ? <RefreshCw size={14} className="spin" /> : <Check size={14} />}
-            {isEditing ? 'Update Estimate' : 'Save & Build Estimate'}
-          </button>
-        </div>
-      </div>
-
-      {/* Main Zoho Document Sheet Canvas */}
-      <div className="builder-canvas" style={{ maxWidth: '1280px', width: '100%', margin: '1.5rem auto 3rem', padding: '0 1.5rem', flex: 1, boxSizing: 'border-box' }}>
-
+        {/* ── TOP SECTION: Zoho Two-Column Form Style (180px Label Left / Field Right) ── */}
         <div style={{
-          background: '#ffffff',
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          overflow: 'hidden'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          marginBottom: '36px'
         }}>
 
-          {/* Customer Selection Row */}
-          <div className="builder-card-section" style={{ padding: '1.75rem 2rem 1.25rem', borderBottom: '1px solid #f1f5f9' }}>
-            <div style={{ maxWidth: '520px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <ZohoLabel required hint="Select or add the customer for this estimation">Customer / Client Name</ZohoLabel>
-                <button
-                  type="button"
-                  onClick={() => setIsCustomerModalOpen(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    background: 'none',
-                    border: 'none',
-                    color: '#1366d9',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    padding: 0
-                  }}
-                >
-                  <Plus size={13} /> New Customer
-                </button>
-              </div>
+          {/* Row 1: Customer / Client Name* */}
+          <div className="zoho-form-row" style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
+            <label style={{
+              width: '180px',
+              flexShrink: 0,
+              paddingTop: '9px',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #8C8C8C)'
+            }}>
+              Customer Name<span className="cred-required-dot" />
+            </label>
 
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  list="estimate-customer-suggestions"
-                  className="input-field"
-                  value={formData.client_name}
-                  onChange={e => handleCustomerSelect(e.target.value)}
-                  required
-                  style={{
-                    height: '38px',
-                    fontSize: '13.5px',
-                    borderRadius: '6px',
-                    borderColor: '#cbd5e1',
-                    fontWeight: formData.client_name ? '600' : '400',
-                    color: formData.client_name ? '#0f172a' : '#64748b'
-                  }}
-                />
-                <datalist id="estimate-customer-suggestions">
-                  {customers.map(c => (
-                    <option key={c.id} value={c.name} />
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Selected Customer Info Badge */}
-              {selectedCustomerObj && (
-                <div style={{
-                  marginTop: '0.65rem',
-                  padding: '0.65rem 0.85rem',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
+            <div ref={customerDropdownRef} style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
+              <div
+                onClick={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)}
+                style={{
+                  height: '38px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 12px',
+                  border: '1px solid var(--border, #E4E4E4)',
                   borderRadius: '6px',
-                  fontSize: '12.5px'
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <span style={{
+                  color: (formData.client_name || selectedCustomer) ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '600', color: '#1e293b' }}>{selectedCustomerObj.name}</span>
-                    {selectedCustomerObj.phone && (
-                      <span style={{ color: '#64748b' }}>Tel: {selectedCustomerObj.phone}</span>
+                  {selectedCustomer
+                    ? `${selectedCustomer.name}${selectedCustomer.company_name ? ` (${selectedCustomer.company_name})` : ''}`
+                    : (formData.client_name || 'Select or add a customer')}
+                </span>
+                <ChevronDown size={15} style={{ color: 'var(--text-muted, #8C8C8C)', flexShrink: 0, marginLeft: '8px' }} />
+              </div>
+
+              {/* Customer Dropdown Panel */}
+              {isCustomerDropdownOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '42px',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  zIndex: 200,
+                  padding: '8px',
+                  maxHeight: '280px',
+                  overflowY: 'auto'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid var(--border, #E4E4E4)', paddingBottom: '6px', marginBottom: '6px' }}>
+                    <Search size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                    <input
+                      type="text"
+                      placeholder="Search customers..."
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                      style={{
+                        border: 'none',
+                        outline: 'none',
+                        width: '100%',
+                        fontSize: '12.5px',
+                        color: 'var(--text, #111111)',
+                        background: 'transparent'
+                      }}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsCustomerDropdownOpen(false)
+                      setIsCustomerModalOpen(true)
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '7px 8px',
+                      background: 'var(--bg-band, #F2F2F2)',
+                      border: 'none',
+                      borderRadius: '4px',
+                      color: 'var(--text, #111111)',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '6px'
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>New Customer</span>
+                  </button>
+
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {filteredCustomers.length === 0 ? (
+                      <div style={{ padding: '8px', fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', textAlign: 'center' }}>
+                        No customers found
+                      </div>
+                    ) : (
+                      filteredCustomers.map(c => (
+                        <div
+                          key={c.id}
+                          onClick={() => handleSelectCustomer(c)}
+                          style={{
+                            padding: '7px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12.5px',
+                            color: 'var(--text, #111111)',
+                            backgroundColor: String(formData.customer) === String(c.id) ? 'var(--bg-band, #F2F2F2)' : 'transparent',
+                            transition: 'background 0.1s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-band, #F2F2F2)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = String(formData.customer) === String(c.id) ? 'var(--bg-band, #F2F2F2)' : 'transparent'}
+                        >
+                          <div style={{ fontWeight: 500 }}>{c.name}</div>
+                          {c.company_name && <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>{c.company_name}</div>}
+                        </div>
+                      ))
                     )}
                   </div>
-                  {selectedCustomerObj.address && (
-                    <div style={{ color: '#64748b', lineHeight: '1.4' }}>{selectedCustomerObj.address}</div>
-                  )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Form Properties Grid (Zoho Style 4-Column Row) */}
-          <div className="builder-card-section" style={{ padding: '1.5rem 2rem', background: '#fafbfc', borderBottom: '1px solid #e2e8f0' }}>
-            <div className="builder-form-grid" style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '1.25rem 1.5rem'
+          {/* Row 2: Project / Estimate Title* */}
+          <div className="zoho-form-row" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <label style={{
+              width: '180px',
+              flexShrink: 0,
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #8C8C8C)'
             }}>
-              
-              {/* Title */}
-              <div className="builder-grid-span2" style={{ gridColumn: 'span 2' }}>
-                <ZohoLabel required hint="Project or exhibition title for this estimate">Project / Estimate Title</ZohoLabel>
-                <input
-                  type="text"
-                  className="input-field"
-                  value={formData.title}
-                  onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  required
-                  style={{ height: '36px', fontSize: '13.5px', fontWeight: '600', borderRadius: '6px', borderColor: '#cbd5e1' }}
-                />
-              </div>
+              Project / Title<span className="cred-required-dot" />
+            </label>
 
-              {/* Status */}
-              <div>
-                <ZohoLabel>Status</ZohoLabel>
-                <select
-                  className="input-field"
-                  value={formData.status}
-                  onChange={e => setFormData({ ...formData, status: e.target.value })}
-                  style={{ height: '36px', fontSize: '13.5px', fontWeight: '600', borderRadius: '6px', borderColor: '#cbd5e1' }}
-                >
-                  {STATUS_OPTIONS.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Contact Person */}
-              <div>
-                <ZohoLabel hint="Direct contact person or phone for this project">Client Contact Person</ZohoLabel>
-                <input
-                  type="text"
-                  className="input-field"
-                  value={formData.client_contact}
-                  onChange={e => setFormData({ ...formData, client_contact: e.target.value })}
-                  style={{ height: '36px', fontSize: '13.5px', borderRadius: '6px', borderColor: '#cbd5e1' }}
-                />
-              </div>
-
-              {/* Estimate Date */}
-              <div>
-                <ZohoLabel required>Estimate Date</ZohoLabel>
-                <input
-                  type="date"
-                  className="input-field"
-                  value={formData.date}
-                  onChange={e => setFormData({ ...formData, date: e.target.value })}
-                  required
-                  style={{ height: '36px', fontSize: '13.5px', borderRadius: '6px', borderColor: '#cbd5e1' }}
-                />
-              </div>
-
-              {/* Valid Until */}
-              <div>
-                <ZohoLabel hint="Proposal validity period">Valid Until (Optional)</ZohoLabel>
-                <input
-                  type="date"
-                  className="input-field"
-                  value={formData.valid_until}
-                  onChange={e => setFormData({ ...formData, valid_until: e.target.value })}
-                  style={{ height: '36px', fontSize: '13.5px', borderRadius: '6px', borderColor: '#cbd5e1' }}
-                />
-              </div>
-
+            <div style={{ width: '100%', maxWidth: '480px' }}>
+              <input
+                type="text"
+                required
+                placeholder="Project or exhibition title for this estimate"
+                value={formData.title}
+                onChange={(e) => {
+                  setFormData(p => ({ ...p, title: e.target.value }))
+                  setIsDirty(true)
+                }}
+                style={{
+                  height: '38px',
+                  width: '100%',
+                  padding: '0 12px',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: 'var(--text, #111111)',
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
           </div>
 
-          {/* Area / Section / Room Organizer Bar */}
-          <div style={{
-            padding: '1rem 2rem',
-            background: '#ffffff',
-            borderBottom: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '0.75rem'
-          }}>
-            <div className="mobile-pills-scroll" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px', marginRight: '4px', flexShrink: 0 }}>
-                <Layers size={14} style={{ color: '#1366d9' }} /> Filter Area:
-              </span>
-              
-              <button
-                type="button"
-                onClick={() => setFormData(p => ({ ...p, activeSectionFilter: 'All' }))}
+          {/* Row 3: Status */}
+          <div className="zoho-form-row" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <label style={{
+              width: '180px',
+              flexShrink: 0,
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #8C8C8C)'
+            }}>
+              Status
+            </label>
+
+            <div style={{ width: '100%', maxWidth: '480px' }}>
+              <select
+                className="cred-select"
+                value={formData.status}
+                onChange={(e) => {
+                  setFormData(p => ({ ...p, status: e.target.value }))
+                  setIsDirty(true)
+                }}
                 style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid',
-                  borderColor: formData.activeSectionFilter === 'All' ? '#1366d9' : '#cbd5e1',
-                  background: formData.activeSectionFilter === 'All' ? '#eff6ff' : '#ffffff',
-                  color: formData.activeSectionFilter === 'All' ? '#1366d9' : '#475569',
-                  fontWeight: '600',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  whiteSpace: 'nowrap'
+                  height: '38px',
+                  width: '100%',
+                  fontSize: '13px',
+                  cursor: 'pointer'
                 }}
               >
-                All Areas ({formData.items.length})
-              </button>
-
-              {formData.sections_list.map((sec) => {
-                const count = formData.items.filter(i => i.section_name === sec).length
-                const isActive = formData.activeSectionFilter === sec
-                return (
-                  <div
-                    key={sec}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      borderRadius: '6px',
-                      background: isActive ? '#eff6ff' : '#ffffff',
-                      border: '1px solid',
-                      borderColor: isActive ? '#1366d9' : '#cbd5e1',
-                      overflow: 'hidden',
-                      flexShrink: 0
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setFormData(p => ({ ...p, activeSectionFilter: sec }))}
-                      style={{
-                        padding: '4px 8px',
-                        border: 'none',
-                        background: 'none',
-                        color: isActive ? '#1366d9' : '#475569',
-                        fontWeight: '600',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {sec} ({count})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSection(sec)}
-                      title={`Remove area "${sec}"`}
-                      style={{
-                        padding: '4px 5px',
-                        border: 'none',
-                        background: 'none',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                )
-              })}
+                {STATUS_OPTIONS.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
+          </div>
 
-            {/* Quick Add Area */}
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', width: 'auto' }}>
+          {/* Row 4: Client Contact Person */}
+          <div className="zoho-form-row" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <label style={{
+              width: '180px',
+              flexShrink: 0,
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #8C8C8C)'
+            }}>
+              Client Contact Person
+            </label>
+
+            <div style={{ width: '100%', maxWidth: '480px' }}>
               <input
                 type="text"
-                value={newSectionInput}
-                onChange={(e) => setNewSectionInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSection(); } }}
+                placeholder="Phone number or email address"
+                value={formData.client_contact}
+                onChange={(e) => {
+                  setFormData(p => ({ ...p, client_contact: e.target.value }))
+                  setIsDirty(true)
+                }}
                 style={{
-                  padding: '4px 8px',
-                  fontSize: '12.5px',
-                  borderRadius: '4px',
-                  border: '1px solid #cbd5e1',
-                  width: '130px'
+                  height: '38px',
+                  width: '100%',
+                  padding: '0 12px',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: 'var(--text, #111111)',
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  outline: 'none',
+                  boxSizing: 'border-box'
                 }}
               />
+            </div>
+          </div>
+
+          {/* Row 5: Estimate Date* */}
+          <div className="zoho-form-row" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <label style={{
+              width: '180px',
+              flexShrink: 0,
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #8C8C8C)'
+            }}>
+              Estimate Date<span className="cred-required-dot" />
+            </label>
+
+            <div style={{ width: '100%', maxWidth: '480px' }}>
+              <input
+                type="date"
+                required
+                value={formData.date}
+                onChange={(e) => {
+                  setFormData(p => ({ ...p, date: e.target.value }))
+                  setIsDirty(true)
+                }}
+                style={{
+                  height: '38px',
+                  width: '100%',
+                  padding: '0 12px',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: 'var(--text, #111111)',
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Row 6: Valid Until (Optional) */}
+          <div className="zoho-form-row" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <label style={{
+              width: '180px',
+              flexShrink: 0,
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #8C8C8C)'
+            }}>
+              Valid Until
+            </label>
+
+            <div style={{ width: '100%', maxWidth: '480px' }}>
+              <input
+                type="date"
+                value={formData.valid_until}
+                onChange={(e) => {
+                  setFormData(p => ({ ...p, valid_until: e.target.value }))
+                  setIsDirty(true)
+                }}
+                style={{
+                  height: '38px',
+                  width: '100%',
+                  padding: '0 12px',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: 'var(--text, #111111)',
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── AREAS SECTION (Animated Segmented Tabs + Hover X + Inline Add) ── */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          paddingBottom: '16px',
+          marginBottom: '20px',
+          borderBottom: '1px solid var(--border, #E4E4E4)'
+        }}>
+          {/* Left: Area Tabs */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            backgroundColor: 'var(--bg-band, #F2F2F2)',
+            padding: '4px',
+            borderRadius: '9999px'
+          }}>
+            {/* All Areas Tab */}
+            <button
+              type="button"
+              onClick={() => setFormData(p => ({ ...p, activeSectionFilter: 'All' }))}
+              style={{
+                height: '28px',
+                padding: '0 12px',
+                borderRadius: '9999px',
+                border: 'none',
+                backgroundColor: formData.activeSectionFilter === 'All' ? 'var(--black, #0A0A0A)' : 'transparent',
+                color: formData.activeSectionFilter === 'All' ? '#FFFFFF' : 'var(--text-muted, #8C8C8C)',
+                fontSize: '12.5px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              All Areas ({formData.items.length})
+            </button>
+
+            {/* Area Tabs with Hover X */}
+            {formData.sections_list.map((sec) => {
+              const count = formData.items.filter(i => i.section_name === sec).length
+              const isActive = formData.activeSectionFilter === sec
+              const isHovered = hoveredArea === sec
+
+              return (
+                <div
+                  key={sec}
+                  onMouseEnter={() => setHoveredArea(sec)}
+                  onMouseLeave={() => setHoveredArea(null)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    height: '28px',
+                    borderRadius: '9999px',
+                    backgroundColor: isActive ? 'var(--black, #0A0A0A)' : 'transparent',
+                    padding: '0 4px 0 10px',
+                    gap: '4px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, activeSectionFilter: sec }))}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: isActive ? '#FFFFFF' : 'var(--text-muted, #8C8C8C)',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {sec} ({count})
+                  </button>
+
+                  {/* × icon only on hover */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemoveArea(sec)
+                    }}
+                    title={`Remove area "${sec}"`}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '2px',
+                      cursor: 'pointer',
+                      color: isActive ? '#FFFFFF' : 'var(--text-muted, #8C8C8C)',
+                      opacity: isHovered ? 0.8 : 0,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'opacity 0.15s ease'
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Right: + Add Area (Plain text link revealing inline input) */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {isAddingArea ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder="Area name"
+                  value={newAreaInput}
+                  onChange={(e) => setNewAreaInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddArea()
+                    } else if (e.key === 'Escape') {
+                      setIsAddingArea(false)
+                      setNewAreaInput('')
+                    }
+                  }}
+                  autoFocus
+                  style={{
+                    height: '28px',
+                    padding: '0 8px',
+                    fontSize: '12.5px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--card-bg, #ffffff)',
+                    color: 'var(--text, #111111)',
+                    outline: 'none',
+                    width: '120px'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddArea}
+                  style={{
+                    height: '28px',
+                    padding: '0 10px',
+                    backgroundColor: 'var(--black, #0A0A0A)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingArea(false)
+                    setNewAreaInput('')
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted, #8C8C8C)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={handleAddSection}
+                onClick={() => setIsAddingArea(true)}
                 style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  borderRadius: '4px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  color: '#1366d9',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text, #111111)',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
                   cursor: 'pointer',
-                  whiteSpace: 'nowrap'
+                  padding: '4px 6px'
                 }}
               >
                 + Add Area
               </button>
-            </div>
+            )}
           </div>
+        </div>
 
-          {/* Line Items Table (Classic Zoho Books Item Grid) */}
-          <div className="builder-card-section" style={{ padding: '1.5rem 2rem' }}>
-            
-            {/* Desktop Table View */}
-            <div className="desktop-only-table" style={{
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              overflow: 'hidden',
-              marginBottom: '1rem'
-            }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={{ width: '36px', padding: '10px 8px', textAlign: 'center', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>#</th>
-                    <th style={{ width: '110px', padding: '10px 8px', textAlign: 'left', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Area / Room</th>
-                    <th style={{ padding: '10px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Item Description</th>
-                    <th style={{ width: '105px', padding: '10px 8px', textAlign: 'left', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Specs</th>
-                    <th style={{ width: '70px', padding: '10px 6px', textAlign: 'center', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Qty</th>
-                    <th style={{ width: '75px', padding: '10px 6px', textAlign: 'center', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Unit</th>
-                    <th style={{ width: '125px', padding: '10px 6px', textAlign: 'left', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Shop</th>
-                    <th style={{ width: '90px', padding: '10px 6px', textAlign: 'right', color: '#dc2626', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Cost (SAR)</th>
-                    <th style={{ width: '95px', padding: '10px 6px', textAlign: 'right', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Price (SAR)</th>
-                    <th style={{ width: '100px', padding: '10px 8px', textAlign: 'right', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Total</th>
-                    <th style={{ width: '85px', padding: '10px 8px', textAlign: 'right', color: '#16a34a', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Margin</th>
-                    <th style={{ width: '36px', padding: '10px 6px', textAlign: 'center' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formData.items
-                    .filter(item => formData.activeSectionFilter === 'All' || item.section_name === formData.activeSectionFilter)
-                    .map((item, idx) => {
-                      const mat = materials.find(m => m.id === item.material)
-                      const shopOptions = mat && Array.isArray(mat.shop_prices) ? mat.shop_prices : []
+        <style>{`
+          @media (max-width: 1099px) {
+            .estimate-table-desktop { display: none !important; }
+            .estimate-cards-mobile { display: flex !important; }
+          }
+          @media (min-width: 1100px) {
+            .estimate-table-desktop { display: block !important; }
+            .estimate-cards-mobile { display: none !important; }
+          }
+        `}</style>
 
-                      return (
-                        <tr key={item.temp_id} style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
-                          
-                          {/* Row Index */}
-                          <td style={{ padding: '8px 6px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
-                            {idx + 1}
-                          </td>
+        {/* ── DESKTOP ITEM TABLE (100% width, table-layout: fixed, stacked Item Details, no cut off) ── */}
+        <div className="estimate-table-desktop" style={{
+          width: '100%',
+          border: '1px solid var(--border, #E4E4E4)',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          backgroundColor: 'var(--card-bg, #ffffff)',
+          overflow: 'hidden'
+        }}>
+          <table style={{
+            width: '100%',
+            tableLayout: 'fixed',
+            borderCollapse: 'collapse',
+            fontSize: '12.5px',
+            textAlign: 'left'
+          }}>
+            <colgroup>
+              <col style={{ width: '3%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '33%' }} />
+              <col style={{ width: '6%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '4%' }} />
+            </colgroup>
+            <thead>
+              <tr style={{
+                borderBottom: '1px solid var(--border, #E4E4E4)',
+                backgroundColor: 'var(--bg-band, #F2F2F2)',
+                color: 'var(--text-muted, #8C8C8C)'
+              }}>
+                <th style={{ padding: '10px 4px', textAlign: 'center', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>#</th>
+                <th style={{ padding: '10px 6px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Area / Room</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Item Details</th>
+                <th style={{ padding: '10px 4px', textAlign: 'center', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Qty</th>
+                <th style={{ padding: '10px 6px', textAlign: 'left', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Unit</th>
+                <th style={{ padding: '10px 6px', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Shop</th>
+                <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Cost</th>
+                <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Price</th>
+                <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Total</th>
+                <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 500, fontSize: '11px', textTransform: 'uppercase' }}>Margin</th>
+                <th style={{ padding: '10px 12px 10px 4px', textAlign: 'center' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleItems.map((item, idx) => {
+                const mat = materials.find(m => m.id === item.material)
+                const shopOptions = mat && Array.isArray(mat.shop_prices) ? mat.shop_prices : []
 
-                          {/* Area / Section */}
-                          <td style={{ padding: '8px 6px', verticalAlign: 'top' }}>
-                            <select
-                              value={item.section_name}
-                              onChange={(e) => handleUpdateItemField(item.temp_id, 'section_name', e.target.value)}
-                              style={{
-                                width: '100%',
-                                height: '34px',
-                                borderRadius: '4px',
-                                border: '1px solid #e2e8f0',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                padding: '0 4px'
-                              }}
-                            >
-                              {formData.sections_list.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
-                              {!formData.sections_list.includes(item.section_name) && (
-                                <option value={item.section_name}>{item.section_name}</option>
-                              )}
-                            </select>
-                          </td>
+                return (
+                  <tr
+                    key={item.temp_id}
+                    style={{
+                      borderBottom: '1px solid var(--border, #E4E4E4)'
+                    }}
+                  >
+                    {/* # (3%) - baseline aligned */}
+                    <td style={{
+                      padding: '24px 4px 16px',
+                      textAlign: 'center',
+                      color: 'var(--text-muted, #8C8C8C)',
+                      fontSize: '12.5px',
+                      verticalAlign: 'top',
+                      fontVariantNumeric: 'tabular-nums'
+                    }}>
+                      {idx + 1}
+                    </td>
 
-                          {/* Item Description & Quick Material Selector */}
-                          <td style={{ padding: '8px 8px', verticalAlign: 'top' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <input
-                                type="text"
-                                value={item.item_name}
-                                onChange={(e) => handleUpdateItemField(item.temp_id, 'item_name', e.target.value)}
-                                required
-                                style={{
-                                  height: '34px',
-                                  padding: '0 8px',
-                                  fontSize: '13px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #e2e8f0',
-                                  fontWeight: '600'
-                                }}
-                              />
-                              {materials.length > 0 && (
-                                <select
-                                  value={item.material || ''}
-                                  onChange={(e) => handleSelectMaterialForItem(item.temp_id, e.target.value)}
-                                  style={{
-                                    width: '100%',
-                                    padding: '6px 10px',
-                                    fontSize: '0.85rem',
-                                    border: '1px solid #cbd5e1',
-                                    borderRadius: '5px',
-                                    background: '#ffffff',
-                                    color: item.material ? '#0f172a' : '#64748b',
-                                    outline: 'none',
-                                    cursor: 'pointer',
-                                    marginTop: '4px',
-                                    transition: 'border-color 0.15s ease'
-                                  }}
-                                >
-                                  <option value="">⚡ Pick from Price Chart...</option>
-                                  {materials.map(m => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.name} ({m.customer_price} SAR)
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                            </div>
-                          </td>
+                    {/* Area / Room (11%) - 34px height */}
+                    <td style={{ padding: '16px 4px', verticalAlign: 'top' }}>
+                      <select
+                        className="cred-select"
+                        value={item.section_name}
+                        onChange={(e) => handleUpdateItemField(item.temp_id, 'section_name', e.target.value)}
+                        style={{
+                          width: '100%',
+                          height: '34px',
+                          fontSize: '12.5px',
+                          fontWeight: 500,
+                          padding: '0 24px 0 8px',
+                          borderRadius: '4px',
+                          backgroundPosition: 'right 8px center',
+                          backgroundSize: '12px 12px'
+                        }}
+                      >
+                        {formData.sections_list.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                        {!formData.sections_list.includes(item.section_name) && (
+                          <option value={item.section_name}>{item.section_name}</option>
+                        )}
+                      </select>
+                    </td>
 
-                          {/* Measurements / Specs */}
-                          <td style={{ padding: '8px 6px', verticalAlign: 'top' }}>
-                            <input
-                              type="text"
-                              value={item.measurements}
-                              onChange={(e) => handleUpdateItemField(item.temp_id, 'measurements', e.target.value)}
-                              style={{
-                                width: '100%',
-                                height: '34px',
-                                padding: '0 6px',
-                                fontSize: '12px',
-                                borderRadius: '4px',
-                                border: '1px solid #e2e8f0'
-                              }}
-                            />
-                          </td>
-
-                          {/* Qty */}
-                          <td style={{ padding: '8px 6px', verticalAlign: 'top' }}>
-                            <input
-                              type="number"
-                              step="any"
-                              min="0.01"
-                              value={item.quantity}
-                              onChange={(e) => handleUpdateItemField(item.temp_id, 'quantity', e.target.value)}
-                              required
-                              style={{
-                                width: '100%',
-                                height: '34px',
-                                textAlign: 'center',
-                                fontSize: '13px',
-                                fontWeight: '700',
-                                borderRadius: '4px',
-                                border: '1px solid #e2e8f0'
-                              }}
-                            />
-                          </td>
-
-                          {/* Unit */}
-                          <td style={{ padding: '8px 6px', verticalAlign: 'top' }}>
-                            <select
-                              value={item.unit}
-                              onChange={(e) => handleUpdateItemField(item.temp_id, 'unit', e.target.value)}
-                              style={{
-                                width: '100%',
-                                height: '34px',
-                                fontSize: '12px',
-                                borderRadius: '4px',
-                                border: '1px solid #e2e8f0',
-                                textAlign: 'center',
-                                padding: '0 2px'
-                              }}
-                            >
-                              {POPULAR_UNITS.map(u => (
-                                <option key={u} value={u}>{u}</option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* Shop */}
-                          <td style={{ padding: '8px 6px', verticalAlign: 'top' }}>
-                            {shopOptions.length > 0 ? (
-                              <select
-                                value={item.selected_shop_name}
-                                onChange={(e) => {
-                                  const selShop = shopOptions.find(s => s.shop_name === e.target.value)
-                                  if (selShop) {
-                                    handleUpdateItemField(item.temp_id, 'selected_shop_name', selShop.shop_name)
-                                    handleUpdateItemField(item.temp_id, 'unit_cost', parseFloat(selShop.price || 0))
-                                  } else {
-                                    handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)
-                                  }
-                                }}
-                                style={{
-                                  width: '100%',
-                                  height: '34px',
-                                  fontSize: '12px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #e2e8f0',
-                                  padding: '0 4px'
-                                }}
-                              >
-                                <option value="">Select Shop...</option>
-                                {shopOptions.map(s => (
-                                  <option key={s.shop_name} value={s.shop_name}>
-                                    {s.shop_name} ({s.price} SAR)
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                type="text"
-                                value={item.selected_shop_name}
-                                onChange={(e) => handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)}
-                                style={{
-                                  width: '100%',
-                                  height: '34px',
-                                  fontSize: '12px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #e2e8f0',
-                                  padding: '0 6px'
-                                }}
-                              />
-                            )}
-                          </td>
-
-                          {/* Cost (Admin) */}
-                          <td style={{ padding: '8px 6px', verticalAlign: 'top' }}>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.unit_cost}
-                              onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_cost', e.target.value)}
-                              style={{
-                                width: '100%',
-                                height: '34px',
-                                textAlign: 'right',
-                                fontSize: '12.5px',
-                                color: '#dc2626',
-                                fontWeight: '600',
-                                borderRadius: '4px',
-                                border: '1px solid #e2e8f0',
-                                padding: '0 4px'
-                              }}
-                            />
-                          </td>
-
-                          {/* Price */}
-                          <td style={{ padding: '8px 6px', verticalAlign: 'top' }}>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.unit_price}
-                              onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_price', e.target.value)}
-                              required
-                              style={{
-                                width: '100%',
-                                height: '34px',
-                                textAlign: 'right',
-                                fontSize: '13px',
-                                fontWeight: '700',
-                                color: '#0f172a',
-                                borderRadius: '4px',
-                                border: '1px solid #e2e8f0',
-                                padding: '0 4px'
-                              }}
-                            />
-                          </td>
-
-                          {/* Line Total */}
-                          <td style={{ padding: '14px 8px 8px', textAlign: 'right', verticalAlign: 'top', fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>
-                            {parseFloat(item.total_price || 0).toLocaleString()} SAR
-                          </td>
-
-                          {/* Margin */}
-                          <td style={{
-                            padding: '14px 8px 8px',
-                            textAlign: 'right',
-                            verticalAlign: 'top',
-                            fontWeight: '700',
-                            fontSize: '12.5px',
-                            color: parseFloat(item.margin) >= 0 ? '#16a34a' : '#dc2626'
-                          }}>
-                            {parseFloat(item.margin || 0).toLocaleString()} SAR
-                          </td>
-
-                          {/* Remove */}
-                          <td style={{ padding: '8px 6px', textAlign: 'center', verticalAlign: 'top' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveItemRow(item.temp_id)}
-                              title="Delete row"
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '4px',
-                                border: 'none',
-                                background: 'transparent',
-                                color: '#94a3b8',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'color 0.15s ease'
-                              }}
-                              onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2' }}
-                              onMouseLeave={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent' }}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-
-                        </tr>
-                      )
-                    })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Native App Item Cards */}
-            <div className="mobile-only-cards" style={{ marginBottom: '1rem' }}>
-              {formData.items
-                .filter(item => formData.activeSectionFilter === 'All' || item.section_name === formData.activeSectionFilter)
-                .map((item, idx) => {
-                  const mat = materials.find(m => m.id === item.material)
-                  const shopOptions = mat && Array.isArray(mat.shop_prices) ? mat.shop_prices : []
-
-                  return (
-                    <div key={item.temp_id} className="builder-mobile-item-card">
-                      <div className="builder-mobile-item-header">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontWeight: '700', fontSize: '13px', color: '#1366d9' }}>
-                            Item #{idx + 1}
-                          </span>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            padding: '2px 7px',
-                            borderRadius: '4px',
-                            background: '#eff6ff',
-                            color: '#1366d9'
-                          }}>
-                            {item.section_name}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItemRow(item.temp_id)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#ef4444',
-                            padding: '2px 6px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}
-                        >
-                          <Trash2 size={13} /> Delete
-                        </button>
-                      </div>
-
-                      {/* Area / Section Dropdown */}
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <ZohoLabel>Area / Room</ZohoLabel>
-                        <select
-                          value={item.section_name}
-                          onChange={(e) => handleUpdateItemField(item.temp_id, 'section_name', e.target.value)}
-                          style={{
-                            width: '100%',
-                            height: '34px',
-                            borderRadius: '4px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12.5px',
-                            fontWeight: '600',
-                            padding: '0 6px'
-                          }}
-                        >
-                          {formData.sections_list.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Item Description & Quick Material Selector */}
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <ZohoLabel required>Item Description</ZohoLabel>
+                    {/* Item Details (33%): Stacked Description + Pick Chart + Specs (8px gap, identical widths & heights) */}
+                    <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                        {/* Line 1: Item description */}
                         <input
                           type="text"
+                          placeholder="Item description"
                           value={item.item_name}
                           onChange={(e) => handleUpdateItemField(item.temp_id, 'item_name', e.target.value)}
                           required
                           style={{
+                            height: '34px',
                             width: '100%',
-                            height: '36px',
-                            padding: '0 8px',
+                            padding: '0 10px',
                             fontSize: '13px',
+                            lineHeight: '34px',
                             borderRadius: '4px',
-                            border: '1px solid #cbd5e1',
-                            fontWeight: '600'
+                            border: '1px solid var(--border, #E4E4E4)',
+                            backgroundColor: 'var(--card-bg, #ffffff)',
+                            color: 'var(--text, #111111)',
+                            outline: 'none',
+                            fontWeight: 500,
+                            boxSizing: 'border-box'
                           }}
                         />
+
+                        {/* Line 2: "Pick from Price Chart…" select with same 34px height, padding, line-height */}
                         {materials.length > 0 && (
                           <select
+                            className="cred-select"
                             value={item.material || ''}
                             onChange={(e) => handleSelectMaterialForItem(item.temp_id, e.target.value)}
                             style={{
                               width: '100%',
-                              padding: '6px 10px',
-                              fontSize: '0.85rem',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '5px',
-                              background: '#ffffff',
-                              color: item.material ? '#0f172a' : '#64748b',
+                              height: '34px',
+                              lineHeight: '34px',
+                              padding: '0 28px 0 10px',
+                              fontSize: '12.5px',
+                              flexShrink: 0,
+                              borderRadius: '4px',
+                              border: '1px solid var(--border, #E4E4E4)',
+                              backgroundColor: 'var(--bg-subtle, #F7F7F7)',
+                              color: 'var(--text-muted, #737373)',
                               outline: 'none',
                               cursor: 'pointer',
-                              marginTop: '6px',
-                              transition: 'border-color 0.15s ease'
+                              backgroundPosition: 'right 10px center',
+                              backgroundSize: '12px 12px',
+                              boxSizing: 'border-box'
                             }}
                           >
-                            <option value="">⚡ Pick from Price Chart...</option>
+                            <option value="">Pick from Price Chart…</option>
                             {materials.map(m => (
                               <option key={m.id} value={m.id}>
-                                {m.name} ({m.customer_price} SAR)
+                                {m.name} ({m.customer_price || m.unit_price} SAR)
                               </option>
                             ))}
                           </select>
                         )}
-                      </div>
 
-                      {/* Specs / Measurements */}
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <ZohoLabel>Measurements / Specs</ZohoLabel>
+                        {/* Line 3: Specs input beneath it (height 34px, placeholder "Specs (optional)") */}
                         <input
                           type="text"
+                          placeholder="Specs (optional)"
                           value={item.measurements}
                           onChange={(e) => handleUpdateItemField(item.temp_id, 'measurements', e.target.value)}
                           style={{
                             width: '100%',
                             height: '34px',
-                            padding: '0 8px',
-                            fontSize: '12.5px',
+                            lineHeight: '34px',
+                            padding: '0 10px',
+                            fontSize: '13px',
                             borderRadius: '4px',
-                            border: '1px solid #cbd5e1'
+                            border: '1px solid var(--border, #E4E4E4)',
+                            backgroundColor: 'var(--card-bg, #ffffff)',
+                            color: 'var(--text, #111111)',
+                            outline: 'none',
+                            boxSizing: 'border-box'
                           }}
                         />
                       </div>
+                    </td>
 
-                      {/* 2x2 Grid for Qty & Unit, Customer Price & Cost */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <div>
-                          <ZohoLabel>Qty</ZohoLabel>
-                          <input
-                            type="number"
-                            step="any"
-                            min="0.01"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateItemField(item.temp_id, 'quantity', e.target.value)}
-                            required
-                            style={{
-                              width: '100%',
-                              height: '34px',
-                              textAlign: 'center',
-                              fontSize: '13px',
-                              fontWeight: '700',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1'
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <ZohoLabel>Unit</ZohoLabel>
-                          <select
-                            value={item.unit}
-                            onChange={(e) => handleUpdateItemField(item.temp_id, 'unit', e.target.value)}
-                            style={{
-                              width: '100%',
-                              height: '34px',
-                              fontSize: '12.5px',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1',
-                              textAlign: 'center',
-                              padding: '0 4px'
-                            }}
-                          >
-                            {POPULAR_UNITS.map(u => (
-                              <option key={u} value={u}>{u}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <ZohoLabel required>Price (SAR)</ZohoLabel>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.unit_price}
-                            onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_price', e.target.value)}
-                            required
-                            style={{
-                              width: '100%',
-                              height: '34px',
-                              textAlign: 'right',
-                              fontSize: '13px',
-                              fontWeight: '700',
-                              color: '#0f172a',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1',
-                              padding: '0 6px'
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <ZohoLabel hint="Internal shop cost">Cost (Admin)</ZohoLabel>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.unit_cost}
-                            onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_cost', e.target.value)}
-                            style={{
-                              width: '100%',
-                              height: '34px',
-                              textAlign: 'right',
-                              fontSize: '12.5px',
-                              color: '#dc2626',
-                              fontWeight: '600',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1',
-                              padding: '0 6px'
-                            }}
-                          />
-                        </div>
-                      </div>
+                    {/* Qty (6%) */}
+                    <td style={{ padding: '16px 4px', verticalAlign: 'top' }}>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0.01"
+                        value={item.quantity}
+                        onChange={(e) => handleUpdateItemField(item.temp_id, 'quantity', e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          height: '34px',
+                          textAlign: 'center',
+                          fontSize: '13px',
+                          fontVariantNumeric: 'tabular-nums',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          backgroundColor: 'var(--card-bg, #ffffff)',
+                          color: 'var(--text, #111111)',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          padding: '0 4px'
+                        }}
+                      />
+                    </td>
 
-                      {/* Shop / Supplier Selection */}
-                      <div style={{ marginBottom: '0.65rem' }}>
-                        <ZohoLabel>Shop / Supplier</ZohoLabel>
-                        {shopOptions.length > 0 ? (
-                          <select
-                            value={item.selected_shop_name}
-                            onChange={(e) => {
-                              const selShop = shopOptions.find(s => s.shop_name === e.target.value)
-                              if (selShop) {
-                                handleUpdateItemField(item.temp_id, 'selected_shop_name', selShop.shop_name)
-                                handleUpdateItemField(item.temp_id, 'unit_cost', parseFloat(selShop.price || 0))
-                              } else {
-                                handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)
-                              }
-                            }}
-                            style={{
-                              width: '100%',
-                              height: '34px',
-                              fontSize: '12px',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1',
-                              padding: '0 6px'
-                            }}
-                          >
-                            <option value="">Select Shop...</option>
-                            {shopOptions.map(s => (
-                              <option key={s.shop_name} value={s.shop_name}>
-                                {s.shop_name} ({s.price} SAR)
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={item.selected_shop_name}
-                            onChange={(e) => handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)}
-                            style={{
-                              width: '100%',
-                              height: '34px',
-                              fontSize: '12px',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1',
-                              padding: '0 8px'
-                            }}
-                          />
-                        )}
-                      </div>
+                    {/* Unit (9%) - left-aligned, widened so pcs/sheet never clip */}
+                    <td style={{ padding: '16px 4px', verticalAlign: 'top' }}>
+                      <select
+                        className="cred-select"
+                        value={item.unit}
+                        onChange={(e) => handleUpdateItemField(item.temp_id, 'unit', e.target.value)}
+                        style={{
+                          width: '100%',
+                          height: '34px',
+                          fontSize: '12.5px',
+                          borderRadius: '4px',
+                          textAlign: 'left',
+                          padding: '0 18px 0 6px',
+                          outline: 'none',
+                          backgroundPosition: 'right 6px center',
+                          backgroundSize: '10px 10px',
+                          boxSizing: 'border-box'
+                        }}
+                      >
+                        {POPULAR_UNITS.map(u => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </td>
 
-                      {/* Line Total & Profit Margin Strip */}
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: '#f8fafc',
-                        padding: '0.6rem 0.85rem',
-                        borderRadius: '6px',
-                        border: '1px solid #e2e8f0'
-                      }}>
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Line Margin</span>
-                          <span style={{
-                            fontWeight: '700',
-                            fontSize: '13px',
-                            color: parseFloat(item.margin) >= 0 ? '#16a34a' : '#dc2626'
-                          }}>
-                            {parseFloat(item.margin || 0).toLocaleString()} SAR
-                          </span>
-                        </div>
+                    {/* Shop (11%) */}
+                    <td style={{ padding: '16px 4px', verticalAlign: 'top' }}>
+                      {shopOptions.length > 0 ? (
+                        <select
+                          className="cred-select"
+                          value={item.selected_shop_name}
+                          onChange={(e) => {
+                            const selShop = shopOptions.find(s => s.shop_name === e.target.value)
+                            if (selShop) {
+                              handleUpdateItemField(item.temp_id, 'selected_shop_name', selShop.shop_name)
+                              handleUpdateItemField(item.temp_id, 'unit_cost', parseFloat(selShop.price || 0))
+                            } else {
+                              handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            height: '34px',
+                            fontSize: '12.5px',
+                            borderRadius: '4px',
+                            padding: '0 20px 0 6px',
+                            outline: 'none',
+                            backgroundPosition: 'right 6px center',
+                            backgroundSize: '10px 10px',
+                            boxSizing: 'border-box'
+                          }}
+                        >
+                          <option value="">Select Shop…</option>
+                          {shopOptions.map(s => (
+                            <option key={s.shop_name} value={s.shop_name}>
+                              {s.shop_name} ({s.price} SAR)
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder="Shop"
+                          value={item.selected_shop_name}
+                          onChange={(e) => handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)}
+                          style={{
+                            width: '100%',
+                            height: '34px',
+                            fontSize: '12.5px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border, #E4E4E4)',
+                            backgroundColor: 'var(--card-bg, #ffffff)',
+                            color: 'var(--text, #111111)',
+                            padding: '0 8px',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      )}
+                    </td>
 
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Quoted Total</span>
-                          <span style={{ fontWeight: '800', fontSize: '15px', color: '#1366d9' }}>
-                            {parseFloat(item.total_price || 0).toLocaleString()} SAR
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-            </div>
+                    {/* Cost (SAR) (9%) */}
+                    <td style={{ padding: '16px 4px', verticalAlign: 'top' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.unit_cost}
+                        onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_cost', e.target.value)}
+                        style={{
+                          width: '100%',
+                          height: '34px',
+                          textAlign: 'right',
+                          fontSize: '13px',
+                          fontVariantNumeric: 'tabular-nums',
+                          color: 'var(--text-muted, #8C8C8C)',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          backgroundColor: 'var(--card-bg, #ffffff)',
+                          padding: '0 8px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </td>
 
-            {/* Zoho Add Row Button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button
-                type="button"
-                onClick={() => handleAddItemRow(formData.activeSectionFilter)}
+                    {/* Price (SAR) (9%) */}
+                    <td style={{ padding: '16px 4px', verticalAlign: 'top' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.unit_price}
+                        onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_price', e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          height: '34px',
+                          textAlign: 'right',
+                          fontSize: '13px',
+                          fontVariantNumeric: 'tabular-nums',
+                          color: 'var(--text, #111111)',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          backgroundColor: 'var(--card-bg, #ffffff)',
+                          padding: '0 8px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </td>
+
+                    {/* Total (SAR) (8%) - baseline aligned */}
+                    <td style={{
+                      padding: '24px 6px 16px',
+                      textAlign: 'right',
+                      verticalAlign: 'top',
+                      fontSize: '13px',
+                      fontVariantNumeric: 'tabular-nums',
+                      color: 'var(--text, #111111)',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {formatTabular(item.total_price)}
+                    </td>
+
+                    {/* Margin (SAR) (7%) - baseline aligned, green text only */}
+                    <td style={{
+                      padding: '24px 6px 16px',
+                      textAlign: 'right',
+                      verticalAlign: 'top',
+                      fontSize: '13px',
+                      fontVariantNumeric: 'tabular-nums',
+                      color: 'var(--success, #16A34A)',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {formatTabular(item.margin)}
+                    </td>
+
+                    {/* Delete Icon (4%) - 32px plain icon button */}
+                    <td style={{ padding: '17px 12px 16px 4px', textAlign: 'center', verticalAlign: 'top' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItemRow(item.temp_id)}
+                        title="Delete row"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted, #8C8C8C)',
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '4px',
+                          transition: 'color 0.15s ease, background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = '#ef4444'
+                          e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── MOBILE / NARROW ITEM CARDS (< 1100px: Stacked card per item) ── */}
+        <div className="estimate-cards-mobile" style={{
+          display: 'none',
+          flexDirection: 'column',
+          gap: '12px',
+          marginBottom: '20px'
+        }}>
+          {visibleItems.map((item, idx) => {
+            const mat = materials.find(m => m.id === item.material)
+            const shopOptions = mat && Array.isArray(mat.shop_prices) ? mat.shop_prices : []
+
+            return (
+              <div
+                key={item.temp_id}
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  color: '#1366d9',
-                  background: 'none',
-                  border: 'none',
-                  padding: '4px 8px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  borderRadius: '4px'
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
               >
-                <Plus size={15} /> Add another line
-              </button>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                ({formData.items.length} {formData.items.length === 1 ? 'item' : 'items'})
-              </span>
-            </div>
+                {/* Header: Item # and Delete */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #8C8C8C)' }}>
+                    Item #{idx + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItemRow(item.temp_id)}
+                    title="Delete item"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted, #8C8C8C)',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
 
+                {/* Line 1: Description */}
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Description</label>
+                  <input
+                    type="text"
+                    placeholder="Item description"
+                    value={item.item_name}
+                    onChange={(e) => handleUpdateItemField(item.temp_id, 'item_name', e.target.value)}
+                    required
+                    style={{
+                      height: '32px',
+                      width: '100%',
+                      padding: '0 8px',
+                      fontSize: '12.5px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text, #111111)',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Line 2: Pick from price chart */}
+                {materials.length > 0 && (
+                  <div>
+                    <select
+                      className="cred-select"
+                      value={item.material || ''}
+                      onChange={(e) => handleSelectMaterialForItem(item.temp_id, e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '28px',
+                        fontSize: '11.5px',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      <option value="">Pick from Price Chart…</option>
+                      {materials.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.customer_price || m.unit_price} SAR)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Line 3: Area & Specs (2 cols) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Area / Room</label>
+                    <select
+                      className="cred-select"
+                      value={item.section_name}
+                      onChange={(e) => handleUpdateItemField(item.temp_id, 'section_name', e.target.value)}
+                      style={{ width: '100%', height: '30px', fontSize: '11.5px', borderRadius: '4px' }}
+                    >
+                      {formData.sections_list.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Specs</label>
+                    <input
+                      type="text"
+                      placeholder="Specs (optional)"
+                      value={item.measurements}
+                      onChange={(e) => handleUpdateItemField(item.temp_id, 'measurements', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        padding: '0 6px',
+                        fontSize: '12px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        backgroundColor: 'var(--card-bg, #ffffff)',
+                        color: 'var(--text, #111111)',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Line 4: Qty, Unit, Shop (3 cols) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 80px 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Qty</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      value={item.quantity}
+                      onChange={(e) => handleUpdateItemField(item.temp_id, 'quantity', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        textAlign: 'center',
+                        fontSize: '12px',
+                        fontVariantNumeric: 'tabular-nums',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        backgroundColor: 'var(--card-bg, #ffffff)',
+                        color: 'var(--text, #111111)',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Unit</label>
+                    <select
+                      className="cred-select"
+                      value={item.unit}
+                      onChange={(e) => handleUpdateItemField(item.temp_id, 'unit', e.target.value)}
+                      style={{ width: '100%', height: '30px', fontSize: '11.5px', borderRadius: '4px' }}
+                    >
+                      {POPULAR_UNITS.map(u => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Shop</label>
+                    {shopOptions.length > 0 ? (
+                      <select
+                        className="cred-select"
+                        value={item.selected_shop_name}
+                        onChange={(e) => {
+                          const selShop = shopOptions.find(s => s.shop_name === e.target.value)
+                          if (selShop) {
+                            handleUpdateItemField(item.temp_id, 'selected_shop_name', selShop.shop_name)
+                            handleUpdateItemField(item.temp_id, 'unit_cost', parseFloat(selShop.price || 0))
+                          } else {
+                            handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)
+                          }
+                        }}
+                        style={{ width: '100%', height: '30px', fontSize: '11.5px', borderRadius: '4px' }}
+                      >
+                        <option value="">Select Shop...</option>
+                        {shopOptions.map(s => (
+                          <option key={s.shop_name} value={s.shop_name}>
+                            {s.shop_name} ({s.price} SAR)
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Shop"
+                        value={item.selected_shop_name}
+                        onChange={(e) => handleUpdateItemField(item.temp_id, 'selected_shop_name', e.target.value)}
+                        style={{
+                          width: '100%',
+                          height: '30px',
+                          fontSize: '11.5px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          backgroundColor: 'var(--card-bg, #ffffff)',
+                          color: 'var(--text, #111111)',
+                          padding: '0 6px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Line 5: Cost, Price (2 cols) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Cost (SAR)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unit_cost}
+                      onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_cost', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        textAlign: 'right',
+                        fontSize: '12px',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        backgroundColor: 'var(--card-bg, #ffffff)',
+                        padding: '0 6px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', display: 'block', marginBottom: '3px' }}>Price (SAR)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unit_price}
+                      onChange={(e) => handleUpdateItemField(item.temp_id, 'unit_price', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        textAlign: 'right',
+                        fontSize: '12px',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--text, #111111)',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        backgroundColor: 'var(--card-bg, #ffffff)',
+                        padding: '0 6px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Line 6: Total & Margin summary */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dotted var(--border, #E4E4E4)', fontSize: '12.5px' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted, #8C8C8C)', marginRight: '6px' }}>Total:</span>
+                    <strong style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--text, #111111)' }}>{formatTabular(item.total_price)} SAR</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted, #8C8C8C)', marginRight: '6px' }}>Margin:</span>
+                    <strong style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--success, #16A34A)' }}>{formatTabular(item.margin)} SAR</strong>
+                  </div>
+                </div>
+
+              </div>
+            )
+          })}
+        </div>
+
+        {/* "+ Add another line" Button Matching Challan */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '36px' }}>
+          <button
+            type="button"
+            onClick={() => handleAddItemRow(formData.activeSectionFilter)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text, #111111)',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 0'
+            }}
+          >
+            <Plus size={14} />
+            <span>Add another line</span>
+          </button>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)' }}>
+            ({formData.items.length} {formData.items.length === 1 ? 'item' : 'items'})
+          </span>
+        </div>
+
+        {/* ── TOTALS + NOTES SECTION (Two-column layout matching Challan) ── */}
+        <div className="zoho-bottom-grid" style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) 360px',
+          gap: '40px',
+          alignItems: 'start'
+        }}>
+
+          {/* Left Column: Scope & Production Notes */}
+          <div>
+            <label style={{
+              display: 'block',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-muted, #8C8C8C)',
+              marginBottom: '6px'
+            }}>
+              Scope & Production Notes
+            </label>
+            <textarea
+              rows={4}
+              placeholder="Enter notes to be printed on the generated client checklist"
+              value={formData.notes}
+              onChange={(e) => {
+                setFormData(p => ({ ...p, notes: e.target.value }))
+                setIsDirty(true)
+              }}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: 'var(--text, #111111)',
+                backgroundColor: 'var(--card-bg, #ffffff)',
+                outline: 'none',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+            <div style={{ fontSize: '11.5px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px' }}>
+              These notes will be printed on the generated client checklist.
+            </div>
           </div>
 
-          {/* Bottom Split Section: Notes on Left, Zoho Summary Box on Right */}
-          <div className="builder-split-bottom" style={{
-            padding: '1.75rem 2rem 2.25rem',
-            borderTop: '1px solid #f1f5f9',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(350px, 1fr) 380px',
-            gap: '2.5rem',
-            alignItems: 'start'
-          }}>
-
-            {/* Left: Scope & Production Notes */}
-            <div>
-              <ZohoLabel hint="Visible in client checklist PDF">Scope & Production Notes</ZohoLabel>
-              <textarea
-                className="input-field"
-                rows={5}
-                value={formData.notes}
-                onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                style={{ fontSize: '13px', borderRadius: '6px', borderColor: '#cbd5e1', resize: 'vertical' }}
-              />
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                These notes will be printed on the generated client checklist.
-              </div>
-            </div>
-
-            {/* Right: Calculation Summary Card (Pure Zoho Books Layout) */}
+          {/* Right Column: Calculation Summary (Simple Totals Block matching Challan) */}
+          <div>
             <div style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              backgroundColor: 'var(--bg-band, #F2F2F2)',
               borderRadius: '8px',
-              padding: '1.25rem 1.5rem',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+              padding: '16px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
             }}>
-              
               {/* Internal Cost (Admin) */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', fontSize: '13.5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Internal Cost (Admin)</span>
-                <span style={{ fontWeight: '600', color: '#dc2626' }}>{liveTotals.subtotalCost.toLocaleString()} SAR</span>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                color: 'var(--text-muted, #8C8C8C)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Internal Cost</span>
+                  <span style={{ fontSize: '10px', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '3px', background: 'var(--border, #E4E4E4)', color: 'var(--text-muted, #8C8C8C)' }}>
+                    Admin only
+                  </span>
+                </div>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatTabular(liveTotals.subtotalCost)} SAR
+                </span>
               </div>
 
-              {/* Quoted Subtotal */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', fontSize: '13.5px' }}>
-                <span style={{ color: '#475569', fontWeight: '500' }}>Customer Quoted Subtotal</span>
-                <span style={{ fontWeight: '600', color: '#0f172a' }}>{liveTotals.subtotalPrice.toLocaleString()} SAR</span>
+              {/* Customer Quoted Subtotal */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                color: 'var(--text, #111111)'
+              }}>
+                <span style={{ fontWeight: 500 }}>Customer Quoted Subtotal</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
+                  {formatTabular(liveTotals.subtotalPrice)} SAR
+                </span>
               </div>
 
-              {/* Tax / VAT */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', fontSize: '13.5px' }}>
-                <span style={{ color: '#475569', fontWeight: '500' }}>Tax / VAT (SAR)</span>
+              {/* Tax / VAT (SAR) */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                color: 'var(--text, #111111)'
+              }}>
+                <span>Tax / VAT (SAR)</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={formData.tax_amount}
-                    onChange={e => setFormData({ ...formData, tax_amount: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      setFormData(p => ({ ...p, tax_amount: parseFloat(e.target.value) || 0 }))
+                      setIsDirty(true)
+                    }}
                     style={{
-                      width: '90px',
-                      height: '30px',
+                      width: '80px',
+                      height: '28px',
                       textAlign: 'right',
                       padding: '0 6px',
-                      fontSize: '13px',
+                      fontSize: '12.5px',
+                      fontVariantNumeric: 'tabular-nums',
                       borderRadius: '4px',
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      fontWeight: '600'
+                      border: '1px solid var(--border, #E4E4E4)',
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text, #111111)',
+                      outline: 'none',
+                      boxSizing: 'border-box'
                     }}
                   />
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>SAR</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
                 </div>
               </div>
 
-              {/* Profit Margin */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', fontSize: '13.5px' }}>
-                <span style={{ color: '#475569', fontWeight: '500' }}>Gross Profit Margin</span>
-                <span style={{ fontWeight: '700', color: liveTotals.marginAmount >= 0 ? '#16a34a' : '#dc2626' }}>
-                  {liveTotals.marginAmount.toLocaleString()} SAR ({liveTotals.marginPct}%)
-                </span>
-              </div>
-
-              {/* Grand Total Row (Zoho Books Highlight) */}
+              {/* Gross Profit Margin */}
               <div style={{
-                borderTop: '2px solid #cbd5e1',
-                marginTop: '0.75rem',
-                paddingTop: '0.85rem',
                 display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'space-between',
-                alignItems: 'baseline'
+                fontSize: '13px',
+                color: 'var(--text-muted, #8C8C8C)'
               }}>
-                <span style={{ fontSize: '14.5px', fontWeight: '700', color: '#0f172a' }}>
-                  Total (SAR)
-                </span>
-                <span style={{ fontSize: '22px', fontWeight: '800', color: '#1366d9', letterSpacing: '-0.01em' }}>
-                  {liveTotals.totalPrice.toLocaleString()} SAR
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Gross Profit Margin</span>
+                  <span style={{ fontSize: '10px', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '3px', background: 'var(--border, #E4E4E4)', color: 'var(--text-muted, #8C8C8C)' }}>
+                    Admin only
+                  </span>
+                </div>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatTabular(liveTotals.marginAmount)} SAR ({liveTotals.marginPct}%)
                 </span>
               </div>
 
-            </div>
+              {/* Hairline Divider */}
+              <div style={{ height: '1px', backgroundColor: 'var(--border, #E4E4E4)', margin: '4px 0' }} />
 
+              {/* Grand Total (SAR) */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between'
+              }}>
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: 'var(--text, #111111)'
+                }}>
+                  Total ( SAR )
+                </span>
+                <span style={{
+                  fontSize: '20px',
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--text, #111111)'
+                }}>
+                  {formatTabular(liveTotals.totalPrice)}
+                </span>
+              </div>
+            </div>
           </div>
 
         </div>
 
       </div>
 
-      {/* Sticky Bottom Action Toolbar (Zoho Books Signature Bar) */}
-      <div className="builder-sticky-bar" style={{
+      {/* ── FOOTER BAR (Sticky at Bottom Matching Challan) ── */}
+      <div style={{
         position: 'sticky',
         bottom: 0,
-        background: '#ffffff',
-        borderTop: '1px solid #e2e8f0',
-        padding: '0.85rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: 90,
-        boxShadow: '0 -4px 12px rgba(0,0,0,0.04)'
+        backgroundColor: 'var(--card-bg, #ffffff)',
+        borderTop: '1px solid var(--border, #E4E4E4)',
+        padding: '14px 24px',
+        zIndex: 100,
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.03)'
       }}>
-        <div className="builder-sticky-info" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '12.5px', color: '#64748b' }}>
-          <span style={{ fontWeight: '600', color: '#0f172a' }}>{formData.items.length} Items</span>
-          <span>•</span>
-          <span style={{ color: liveTotals.marginAmount >= 0 ? '#16a34a' : '#dc2626', fontWeight: '600' }}>
-            Margin: {liveTotals.marginPct}% ({liveTotals.marginAmount.toLocaleString()} SAR)
-          </span>
-        </div>
+        <div style={{
+          maxWidth: '1100px',
+          margin: '0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          {/* Left: Summary text */}
+          <div style={{
+            fontSize: '12.5px',
+            color: 'var(--text-muted, #8C8C8C)',
+            fontVariantNumeric: 'tabular-nums'
+          }}>
+            <span>{formData.items.length} {formData.items.length === 1 ? 'Item' : 'Items'}</span>
+            <span style={{ margin: '0 8px' }}>·</span>
+            <span>Margin: {liveTotals.marginPct}% ({formatTabular(liveTotals.marginAmount)} SAR)</span>
+          </div>
 
-        <div className="builder-sticky-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <button
-            type="button"
-            onClick={() => navigate(`${basePath}/estimations`)}
-            style={{
-              padding: '0.5rem 1.1rem',
-              fontSize: '13.5px',
-              fontWeight: '500',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#475569',
-              cursor: 'pointer'
-            }}
-          >
-            Cancel
-          </button>
+          {/* Right Action Buttons: Cancel, Save as Draft, Save & Build Estimate */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={handleCancelOrClose}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                backgroundColor: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: 'var(--text-muted, #8C8C8C)',
+                cursor: 'pointer',
+                transition: 'color 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text, #111111)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'}
+            >
+              Cancel
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit('Draft')}
-            disabled={actionLoading}
-            style={{
-              padding: '0.5rem 1.25rem',
-              fontSize: '13.5px',
-              fontWeight: '500',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#1e293b',
-              cursor: 'pointer'
-            }}
-          >
-            Save as Draft
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit('Draft')}
+              disabled={submitting}
+              style={{
+                height: '36px',
+                padding: '0 16px',
+                backgroundColor: 'var(--card-bg, #ffffff)',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: 'var(--text, #111111)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-band, #F2F2F2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--card-bg, #ffffff)'}
+            >
+              Save as Draft
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit()}
-            disabled={actionLoading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.5rem 1.4rem',
-              fontSize: '13.5px',
-              fontWeight: '600',
-              borderRadius: '6px',
-              border: 'none',
-              background: '#1366d9',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(19,102,217,0.35)'
-            }}
-          >
-            {actionLoading ? <RefreshCw size={14} className="spin" /> : <Check size={14} />}
-            {isEditing ? 'Update Estimate' : 'Save & Build Estimate'}
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit()}
+              disabled={submitting}
+              style={{
+                height: '36px',
+                padding: '0 24px',
+                backgroundColor: 'var(--black, #0A0A0A)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '9999px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'opacity 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+            >
+              <Check size={14} />
+              <span>{isEditing ? 'Update Estimate' : 'Save & Build Estimate'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Quick Add Customer Modal */}
-      <Modal isOpen={isCustomerModalOpen} onClose={() => setIsCustomerModalOpen(false)} title="New Customer">
+      {/* ── Quick Add Customer Modal (Using shared ModalShell) ── */}
+      <ModalShell
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        title="New Customer"
+      >
         <form onSubmit={handleCreateCustomer}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
-            <div className="form-group" style={{ marginBottom: 0, gridColumn: '1/-1' }}>
-              <ZohoLabel required>Customer Name</ZohoLabel>
-              <input
-                type="text"
-                className="input-field"
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+            <Field label="Customer Name" required>
+              <TextInput
                 value={newCustomerForm.name}
-                onChange={e => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                onChange={(e) => setNewCustomerForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="Customer or company contact name"
                 required
                 autoFocus
-                style={{ height: '36px', fontSize: '13.5px', borderRadius: '6px' }}
               />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0, gridColumn: '1/-1' }}>
-              <ZohoLabel>Company Name</ZohoLabel>
-              <input
-                type="text"
-                className="input-field"
-                value={newCustomerForm.company_name || ''}
-                onChange={e => setNewCustomerForm({ ...newCustomerForm, company_name: e.target.value })}
-                style={{ height: '36px', fontSize: '13.5px', borderRadius: '6px' }}
+            </Field>
+
+            <Field label="Company Name">
+              <TextInput
+                value={newCustomerForm.company_name}
+                onChange={(e) => setNewCustomerForm(p => ({ ...p, company_name: e.target.value }))}
+                placeholder="Company / Organization"
               />
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Field label="Phone Number">
+                <TextInput
+                  value={newCustomerForm.phone}
+                  onChange={(e) => setNewCustomerForm(p => ({ ...p, phone: e.target.value }))}
+                  placeholder="+966 5x xxx xxxx"
+                />
+              </Field>
+
+              <Field label="Email Address">
+                <TextInput
+                  type="email"
+                  value={newCustomerForm.email}
+                  onChange={(e) => setNewCustomerForm(p => ({ ...p, email: e.target.value }))}
+                  placeholder="contact@example.com"
+                />
+              </Field>
             </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <ZohoLabel>Phone Number</ZohoLabel>
-              <input
-                type="text"
-                className="input-field"
-                value={newCustomerForm.phone}
-                onChange={e => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
-                style={{ height: '36px', fontSize: '13.5px', borderRadius: '6px' }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <ZohoLabel>Email Address</ZohoLabel>
-              <input
-                type="email"
-                className="input-field"
-                value={newCustomerForm.email}
-                onChange={e => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
-                style={{ height: '36px', fontSize: '13.5px', borderRadius: '6px' }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: '1.25rem', gridColumn: '1/-1' }}>
-              <ZohoLabel>Billing Address</ZohoLabel>
-              <textarea
-                className="input-field"
+
+            <Field label="Billing Address">
+              <Textarea
                 rows={2}
                 value={newCustomerForm.address}
-                onChange={e => setNewCustomerForm({ ...newCustomerForm, address: e.target.value })}
-                style={{ fontSize: '13px', borderRadius: '6px' }}
+                onChange={(e) => setNewCustomerForm(p => ({ ...p, address: e.target.value }))}
+                placeholder="Street address, city, PO Box"
               />
-            </div>
+            </Field>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
             <button
               type="button"
-              className="btn btn-secondary"
               onClick={() => setIsCustomerModalOpen(false)}
               disabled={submittingCustomer}
-              style={{ padding: '0.45rem 1rem', fontSize: '13px' }}
+              style={{
+                height: '36px',
+                padding: '0 16px',
+                background: 'none',
+                border: 'none',
+                borderRadius: '6px',
+                color: 'var(--text-muted, #8C8C8C)',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
               disabled={submittingCustomer}
-              style={{ padding: '0.45rem 1.25rem', fontSize: '13px', background: '#1366d9', borderColor: '#1366d9' }}
+              style={{
+                height: '36px',
+                padding: '0 20px',
+                backgroundColor: 'var(--black, #0A0A0A)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '9999px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: submittingCustomer ? 'not-allowed' : 'pointer'
+              }}
             >
-              {submittingCustomer ? 'Saving...' : 'Save Customer'}
+              {submittingCustomer ? 'Saving…' : 'Save Customer'}
             </button>
           </div>
         </form>
-      </Modal>
+      </ModalShell>
 
     </div>
   )

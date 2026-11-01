@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useSettings } from '../contexts/SettingsContext'
 import { Plus, RefreshCw, AlertCircle, Edit, Trash2, BookOpen, Folder, ChevronRight, Briefcase, Layers, ArrowDownLeft, ArrowUpRight } from '../components/icons'
 import api from '../api'
@@ -239,9 +240,9 @@ const Payments = () => {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>Record customer invoice payments and track vendor disbursements</p>
         </div>
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ borderRadius: 'var(--radius-sm)' }}>
-            <Plus size={16} /> Record Payment
-          </button>
+          <PageHeaderButton onClick={() => handleOpenModal()}>
+            Record Payment
+          </PageHeaderButton>
         </div>
       </div>
 

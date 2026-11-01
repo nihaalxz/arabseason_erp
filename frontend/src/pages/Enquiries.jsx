@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { GooeyMenu } from '../components/cashbook/cred/GooeyMenu'
 import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
 import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useNavigate } from 'react-router-dom'
 import { 
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
@@ -14,7 +15,18 @@ import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
 import SearchBar from '../components/common/SearchBar'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import Modal from '../components/common/Modal'
+// import Modal from '../components/common/Modal'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  NumberInput,
+  Select as CredSelect,
+  DateInput,
+  Textarea,
+  Dropzone,
+  InlineAddLink
+} from '../components/common/FormPrimitives'
 import { showConfirm, showError, showToast, showSuccess } from '../utils/swal'
 import { handlePdfResponse } from '../utils/pdfDownload'
 
@@ -610,14 +622,9 @@ export default function Enquiries({ currentUser }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button 
-            type="button"
-            className="cred-enquiry-submit-btn" 
-            onClick={() => handleOpenModal()} 
-            style={{ padding: '8px 18px', fontSize: '13px' }}
-          >
-            <Plus size={15} /> New Enquiry
-          </button>
+          <PageHeaderButton onClick={() => handleOpenModal()}>
+            New Enquiry
+          </PageHeaderButton>
         </div>
       </div>
 
@@ -1404,37 +1411,16 @@ export default function Enquiries({ currentUser }) {
         )}
       </div>
 
-      {/* ── 6. CREATE / EDIT ENQUIRY MODAL (CRED Style with Plain Selects & Pinned Footer) ── */}
-      <Modal
+      {/* ── 6. CREATE / EDIT ENQUIRY MODAL (CRED Style with Shared Primitives) ── */}
+      <ModalShell
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isEditing ? `Edit Enquiry: ${selectedEnquiry?.enquiry_number}` : 'New Customer Enquiry'}
         maxWidth="680px"
-        closeOnBackdrop={true}
-        style={{
-          borderRadius: '24px',
-          background: 'var(--card-bg, #FFFFFF)',
-          border: '1px solid var(--border, #E4E4E4)'
-        }}
-        footer={
-          <>
-            <button
-              type="button"
-              className="cred-enquiry-cancel-btn"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="new-enquiry-form"
-              className="cred-enquiry-submit-btn"
-              disabled={submitting}
-            >
-              {submitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Enquiry')}
-            </button>
-          </>
-        }
+        formId="new-enquiry-form"
+        submitLabel={isEditing ? 'Save Changes' : 'Create Enquiry'}
+        submittingLabel="Saving..."
+        submitting={submitting}
       >
         <form id="new-enquiry-form" onSubmit={handleSaveEnquiry}>
           {formError && (
@@ -1443,413 +1429,446 @@ export default function Enquiries({ currentUser }) {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            {/* Existing Customer (Optional plain select) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px', padding: '4px 0' }}>
+            {/* Existing Customer */}
             <div style={{ gridColumn: '1 / -1' }}>
-              <label className="cred-form-label">Existing Customer (Optional)</label>
-              <select
-                value={formData.customer_id}
-                onChange={(e) => {
-                  const cId = e.target.value
-                  const found = customers.find(c => String(c.id) === String(cId))
-                  setFormData(prev => ({
-                    ...prev,
-                    customer_id: cId,
-                    customer_name: found ? found.name : prev.customer_name,
-                    phone: found && found.phone ? found.phone : prev.phone,
-                    email: found && found.email ? found.email : prev.email
-                  }))
-                }}
-              >
-                <option value="">Select existing customer</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.company_name ? `(${c.company_name})` : ''}
-                  </option>
-                ))}
-              </select>
+              <Field label="Existing Customer">
+                <CredSelect
+                  value={formData.customer_id}
+                  placeholder="Select existing customer..."
+                  onChange={(e) => {
+                    const cId = e.target.value
+                    const found = customers.find(c => String(c.id) === String(cId))
+                    setFormData(prev => ({
+                      ...prev,
+                      customer_id: cId,
+                      customer_name: found ? found.name : prev.customer_name,
+                      phone: found && found.phone ? found.phone : prev.phone,
+                      email: found && found.email ? found.email : prev.email
+                    }))
+                  }}
+                >
+                  <option value="">Select existing customer...</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.company_name ? `(${c.company_name})` : ''}
+                    </option>
+                  ))}
+                </CredSelect>
+              </Field>
             </div>
 
             {/* Customer Name */}
             <div>
-              <label className="cred-form-label">
-                Customer Name
-                <span className="cred-required-dot" title="Required" />
-              </label>
-              <input
-                type="text"
-                required
-                className="cred-input"
-                placeholder="e.g. Abdullah Al-Otaibi"
-                value={formData.customer_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, customer_name: e.target.value }))}
-              />
+              <Field label="Customer Name" required>
+                <TextInput
+                  required
+                  placeholder="e.g. Abdullah Al-Otaibi"
+                  value={formData.customer_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, customer_name: e.target.value }))}
+                />
+              </Field>
             </div>
 
             {/* Phone Number */}
             <div>
-              <label className="cred-form-label">Phone Number</label>
-              <input
-                type="text"
-                className="cred-input"
-                placeholder="e.g. +966 50 123 4567"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              />
+              <Field label="Phone Number">
+                <TextInput
+                  placeholder="e.g. +966 50 123 4567"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                />
+              </Field>
             </div>
 
-            {/* Inquiry Channel (Plain select) */}
+            {/* Inquiry Channel */}
             <div>
-              <label className="cred-form-label">Inquiry Channel</label>
-              <select
-                value={formData.channel}
-                onChange={(e) => setFormData(prev => ({ ...prev, channel: e.target.value }))}
-              >
-                <option value="whatsapp">WhatsApp</option>
-                <option value="phone_call">Phone Call</option>
-                <option value="email">Email</option>
-                <option value="walk_in">Walk-in</option>
-                <option value="website">Website / Online</option>
-                <option value="other">Other</option>
-              </select>
+              <Field label="Inquiry Channel">
+                <CredSelect
+                  value={formData.channel}
+                  onChange={(e) => setFormData(prev => ({ ...prev, channel: e.target.value }))}
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="phone_call">Phone Call</option>
+                  <option value="email">Email</option>
+                  <option value="walk_in">Walk-in</option>
+                  <option value="website">Website / Online</option>
+                  <option value="other">Other</option>
+                </CredSelect>
+              </Field>
             </div>
 
             {/* Enquiry Date */}
             <div>
-              <label className="cred-form-label">Enquiry Date</label>
-              <input
-                type="date"
-                className="cred-input"
-                value={formData.date}
-                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-              />
+              <Field label="Enquiry Date">
+                <DateInput
+                  value={formData.date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </Field>
             </div>
 
-            {/* Salesperson (Lead Brought By - Plain select) */}
+            {/* Salesperson */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="cred-form-label" style={{ margin: 0 }}>Salesperson (Lead Brought By)</label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewSalespersonForm({ name: '', phone: '', email: '' })
-                    setIsSalespersonModalOpen(true)
-                  }}
-                  className="cred-link-btn"
-                >
-                  + Add New Salesman
-                </button>
-              </div>
-              <select
-                value={formData.salesperson || ''}
-                onChange={(e) => {
-                  const val = e.target.value
-                  const sp = salespersons.find(s => String(s.id) === String(val))
-                  setFormData(prev => ({
-                    ...prev,
-                    salesperson: val,
-                    salesperson_name: sp ? sp.name : ''
-                  }))
-                }}
+              <Field
+                label="Salesperson"
+                rightAction={
+                  <InlineAddLink
+                    onClick={() => {
+                      setNewSalespersonForm({ name: '', phone: '', email: '' })
+                      setIsSalespersonModalOpen(true)
+                    }}
+                    label="+ New"
+                  />
+                }
               >
-                <option value="">Select salesperson</option>
-                {salespersons.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} {s.phone ? `(${s.phone})` : ''}
-                  </option>
-                ))}
-              </select>
+                <CredSelect
+                  value={formData.salesperson || ''}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    const sp = salespersons.find(s => String(s.id) === String(val))
+                    setFormData(prev => ({
+                      ...prev,
+                      salesperson: val,
+                      salesperson_name: sp ? sp.name : ''
+                    }))
+                  }}
+                >
+                  <option value="">Select salesperson...</option>
+                  {salespersons.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {s.phone ? `(${s.phone})` : ''}
+                    </option>
+                  ))}
+                </CredSelect>
+              </Field>
             </div>
 
             {/* Project Summary */}
             <div>
-              <label className="cred-form-label">Project Summary</label>
-              <input
-                type="text"
-                className="cred-input"
-                placeholder="e.g. 3D Acrylic Glow Signboard for Riyadh Branch"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              />
+              <Field label="Project Summary">
+                <TextInput
+                  placeholder="e.g. 3D Acrylic Glow Signboard for Riyadh Branch"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                />
+              </Field>
             </div>
 
             {/* Customer Requirements */}
             <div style={{ gridColumn: '1 / -1' }}>
-              <label className="cred-form-label">
-                Customer Requirements
-                <span className="cred-required-dot" title="Required" />
-              </label>
-              <textarea
-                rows={4}
-                required
-                className="cred-textarea"
-                placeholder="Describe what the customer asked for (dimensions, materials, quantity, specifications)..."
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              />
+              <Field label="Customer Requirements" required>
+                <Textarea
+                  rows={4}
+                  required
+                  placeholder="Describe what the customer asked for (dimensions, materials, quantity, specifications)..."
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </Field>
             </div>
 
-            {/* Estimated Value (SAR) */}
+            {/* Estimated Value */}
             <div>
-              <label className="cred-form-label">Estimated Value (SAR)</label>
-              <input
-                type="number"
-                step="0.01"
-                className="cred-input"
-                placeholder="e.g. 4500"
-                value={formData.estimated_value}
-                onChange={(e) => setFormData(prev => ({ ...prev, estimated_value: e.target.value }))}
-              />
+              <Field label="Estimated Value">
+                <NumberInput
+                  prefix="SAR"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={formData.estimated_value}
+                  onChange={(e) => setFormData(prev => ({ ...prev, estimated_value: e.target.value }))}
+                />
+              </Field>
             </div>
 
-            {/* Next Follow-up Call Date */}
+            {/* Next Follow-up Date */}
             <div>
-              <label className="cred-form-label">Next Follow-up Call Date</label>
-              <input
-                type="date"
-                className="cred-input"
-                value={formData.next_follow_up_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
-              />
+              <Field label="Next Follow-up Date">
+                <DateInput
+                  value={formData.next_follow_up_date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
+                />
+              </Field>
             </div>
 
-            {/* Reference Photo / Site Attachment */}
+            {/* Attachment */}
             <div style={{ gridColumn: '1 / -1' }}>
-              <label className="cred-form-label">Reference Photo / Site Attachment</label>
-              {formData.attachment ? (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: 'var(--fill-ghost-hover, #F4F4F4)',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  borderRadius: '16px',
-                  padding: '10px 14px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                    {formData.attachment_type?.includes('pdf') ? (
-                      <FileText size={18} color="var(--danger, #DC2626)" />
-                    ) : (
-                      <img
-                        src={formData.attachment}
-                        alt="preview"
-                        style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }}
-                      />
-                    )}
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                      {formData.attachment_name || 'Uploaded Reference'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveAttachment}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--danger, #DC2626)',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}
-                    title="Remove attachment"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: '1px dashed var(--border, #E4E4E4)',
-                    borderRadius: '16px',
-                    padding: '18px 20px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: 'var(--fill-ghost-hover, #F9F9F9)',
-                    transition: 'border-color 0.15s ease, background-color 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--text-muted, #8C8C8C)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
-                  }}
-                >
-                  <UploadCloud size={16} strokeWidth={1.8} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
-                    Click to upload reference photo or PDF document
-                  </span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,.pdf,application/pdf"
-                    style={{ display: 'none' }}
-                    onChange={handleAttachmentChange}
-                  />
-                </div>
-              )}
+              <Field label="Attachment">
+                <Dropzone
+                  value={formData.attachment ? {
+                    name: formData.attachment_name,
+                    url: formData.attachment,
+                    type: formData.attachment_type
+                  } : null}
+                  onUpload={handleAttachmentChange}
+                  onRemove={handleRemoveAttachment}
+                  placeholder="Click to upload a document or image"
+                  hint="PDF, JPG, PNG up to 10MB"
+                />
+              </Field>
             </div>
           </div>
         </form>
-      </Modal>
+      </ModalShell>
 
       {/* ── 7. LOG FOLLOW-UP MODAL ── */}
-      <Modal
+      <ModalShell
         isOpen={isFollowUpModalOpen && !!selectedEnquiry}
         onClose={() => setIsFollowUpModalOpen(false)}
         title={`Log Follow-up Call: ${selectedEnquiry?.enquiry_number || ''}`}
-        maxWidth="540px"
+        maxWidth="520px"
+        formId="follow-up-form"
+        submitLabel="Log Follow-up"
+        submittingLabel="Logging..."
+        submitting={submitting}
       >
-        <form onSubmit={handleSaveFollowUp}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+        <form id="follow-up-form" onSubmit={handleSaveFollowUp}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px 18px', padding: '4px 0' }}>
             {/* Contact Mode */}
-            <div className="form-group">
-              <label>Contact Channel</label>
-              <select
-                className="input-field"
-                value={followUpData.contact_mode}
-                onChange={(e) => setFollowUpData(prev => ({ ...prev, contact_mode: e.target.value }))}
-              >
-                <option value="phone_call">Phone Call</option>
-                <option value="whatsapp">WhatsApp Message</option>
-                <option value="email">Email</option>
-                <option value="meeting">In-Person Meeting</option>
-                <option value="other">Other</option>
-              </select>
+            <div>
+              <Field label="Contact Channel">
+                <CredSelect
+                  value={followUpData.contact_mode}
+                  onChange={(e) => setFollowUpData(prev => ({ ...prev, contact_mode: e.target.value }))}
+                >
+                  <option value="phone_call">Phone Call</option>
+                  <option value="whatsapp">WhatsApp Message</option>
+                  <option value="email">Email</option>
+                  <option value="meeting">In-Person Meeting</option>
+                  <option value="other">Other</option>
+                </CredSelect>
+              </Field>
             </div>
 
             {/* Outcome */}
-            <div className="form-group">
-              <label>Call Outcome</label>
-              <select
-                className="input-field"
-                value={followUpData.outcome}
-                onChange={(e) => setFollowUpData(prev => ({ ...prev, outcome: e.target.value }))}
-              >
-                <option value="interested">Interested / In Discussion</option>
-                <option value="requested_discount">Asked for Price Discount</option>
-                <option value="quotation_requested">Asked for Formal Quotation</option>
-                <option value="will_revert">Will Revert Later</option>
-                <option value="ready_to_close">Ready to Confirm (Won!)</option>
-                <option value="not_interested">Declined / Not Interested</option>
-                <option value="unreachable">Unreachable / No Answer</option>
-              </select>
+            <div>
+              <Field label="Call Outcome">
+                <CredSelect
+                  value={followUpData.outcome}
+                  onChange={(e) => setFollowUpData(prev => ({ ...prev, outcome: e.target.value }))}
+                >
+                  <option value="interested">Interested / In Discussion</option>
+                  <option value="requested_discount">Asked for Price Discount</option>
+                  <option value="quotation_requested">Asked for Formal Quotation</option>
+                  <option value="will_revert">Will Revert Later</option>
+                  <option value="ready_to_close">Ready to Confirm (Won!)</option>
+                  <option value="not_interested">Declined / Not Interested</option>
+                  <option value="unreachable">Unreachable / No Answer</option>
+                </CredSelect>
+              </Field>
             </div>
 
             {/* Next Follow-up Date */}
             {followUpData.outcome !== 'not_interested' && followUpData.outcome !== 'ready_to_close' && (
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label>Schedule Next Follow-up Call</label>
-                <input
-                  type="date"
-                  className="input-field"
-                  value={followUpData.next_follow_up_date}
-                  onChange={(e) => setFollowUpData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
-                />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <Field label="Schedule Next Follow-up Date">
+                  <DateInput
+                    value={followUpData.next_follow_up_date}
+                    onChange={(e) => setFollowUpData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
+                  />
+                </Field>
               </div>
             )}
 
             {/* Notes */}
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Conversation Notes & Updates *</label>
-              <textarea
-                rows={3}
-                required
-                className="input-field"
-                placeholder="e.g. Spoke to client. They requested a 5% discount on the quote. Will confirm order tomorrow."
-                value={followUpData.notes}
-                onChange={(e) => setFollowUpData(prev => ({ ...prev, notes: e.target.value }))}
-                style={{ minHeight: '80px', height: 'auto', resize: 'vertical' }}
-              />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Conversation Notes" required>
+                <Textarea
+                  rows={3}
+                  required
+                  placeholder="e.g. Spoke to client. They requested a 5% discount on the quote. Will confirm order tomorrow."
+                  value={followUpData.notes}
+                  onChange={(e) => setFollowUpData(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </Field>
             </div>
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ padding: '0.65rem 1.25rem' }}
-              onClick={() => setIsFollowUpModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ padding: '0.65rem 1.75rem' }}
-              disabled={submitting}
-            >
-              {submitting ? 'Logging...' : 'Log Follow-up Call'}
-            </button>
-          </div>
         </form>
-      </Modal>
+      </ModalShell>
 
       {/* ── 8. CANCEL / LOST MODAL ── */}
-      <Modal
+      <ModalShell
         isOpen={isCancelModalOpen && !!selectedEnquiry}
         onClose={() => setIsCancelModalOpen(false)}
-        title="Cancel / Mark Lead as Lost"
+        title="Cancel Enquiry"
         maxWidth="480px"
-      >
-        <form onSubmit={handleSaveCancel}>
-          <div className="form-group">
-            <label>Primary Loss Reason *</label>
-            <select
-              className="input-field"
-              value={cancelData.cancellation_reason}
-              onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_reason: e.target.value }))}
-            >
-              {CANCELLATION_REASONS.map(r => (
-                <option key={r.id} value={r.id}>{r.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Additional Notes (Optional)</label>
-            <textarea
-              rows={3}
-              className="input-field"
-              placeholder="e.g. Customer stated another company offered 15% cheaper for acrylic signage."
-              value={cancelData.cancellation_notes}
-              onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_notes: e.target.value }))}
-              style={{ minHeight: '80px', height: 'auto', resize: 'vertical' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+        formId="cancel-enquiry-form"
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ padding: '0.65rem 1.25rem' }}
+              className="cred-modal-cancel-btn"
               onClick={() => setIsCancelModalOpen(false)}
+              disabled={submitting}
             >
               Keep Active
             </button>
             <button
               type="submit"
-              className="btn"
-              style={{ background: 'var(--danger, #dc2626)', color: '#ffffff', border: 'none', padding: '0.65rem 1.75rem', borderRadius: 'var(--radius-sm)' }}
+              form="cancel-enquiry-form"
+              className="cred-modal-submit-btn"
+              style={{ background: 'var(--danger, #DC2626)', color: '#FFFFFF' }}
               disabled={submitting}
             >
               {submitting ? 'Cancelling...' : 'Confirm Cancellation'}
             </button>
           </div>
+        }
+      >
+        <form id="cancel-enquiry-form" onSubmit={handleSaveCancel}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+            <Field label="Primary Loss Reason" required>
+              <CredSelect
+                value={cancelData.cancellation_reason}
+                onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_reason: e.target.value }))}
+              >
+                {CANCELLATION_REASONS.map(r => (
+                  <option key={r.id} value={r.id}>{r.label}</option>
+                ))}
+              </CredSelect>
+            </Field>
+
+            <Field label="Additional Notes">
+              <Textarea
+                rows={3}
+                placeholder="e.g. Customer stated another company offered 15% cheaper for acrylic signage."
+                value={cancelData.cancellation_notes}
+                onChange={(e) => setCancelData(prev => ({ ...prev, cancellation_notes: e.target.value }))}
+              />
+            </Field>
+          </div>
         </form>
-      </Modal>
+      </ModalShell>
 
       {/* ── 9. TIMELINE & LEAD HISTORY MODAL ── */}
-      <Modal
+      <ModalShell
         isOpen={isDetailModalOpen && !!selectedEnquiry}
         onClose={() => setIsDetailModalOpen(false)}
         title={`Enquiry Details: ${selectedEnquiry?.enquiry_number || ''}`}
         maxWidth="780px"
+        footer={
+          selectedEnquiry ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {selectedEnquiry.status !== 'converted' && selectedEnquiry.status !== 'cancelled' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="cred-modal-submit-btn"
+                      onClick={() => {
+                        setIsDetailModalOpen(false)
+                        handleOpenFollowUp(selectedEnquiry)
+                      }}
+                      style={{ height: '36px', padding: '0 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Phone size={13} /> Log Follow-up
+                    </button>
+
+                    <button
+                      type="button"
+                      className="cred-modal-cancel-btn"
+                      onClick={() => {
+                        setIsDetailModalOpen(false)
+                        handleMarkConverted(selectedEnquiry)
+                      }}
+                      style={{
+                        height: '36px',
+                        padding: '0 14px',
+                        fontSize: '13px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        color: 'var(--success, #0F7638)',
+                        borderColor: 'var(--border, #E4E4E4)'
+                      }}
+                    >
+                      <CheckCircle2 size={13} /> Mark Won
+                    </button>
+
+                    <button
+                      type="button"
+                      className="cred-modal-cancel-btn"
+                      onClick={() => {
+                        setIsDetailModalOpen(false)
+                        handleOpenCancel(selectedEnquiry)
+                      }}
+                      style={{
+                        height: '36px',
+                        padding: '0 14px',
+                        fontSize: '13px',
+                        color: 'var(--danger, #DC2626)',
+                        borderColor: 'var(--border, #E4E4E4)'
+                      }}
+                    >
+                      Mark Lost
+                    </button>
+                  </>
+                ) : selectedEnquiry.status === 'cancelled' ? (
+                  <button
+                    type="button"
+                    className="cred-modal-cancel-btn"
+                    onClick={() => {
+                      setIsDetailModalOpen(false)
+                      handleRestore(selectedEnquiry)
+                    }}
+                    style={{
+                      height: '36px',
+                      padding: '0 16px',
+                      fontSize: '13px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <RotateCcw size={13} /> Restore to Active
+                  </button>
+                ) : null}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="cred-modal-cancel-btn"
+                  onClick={() => handleDownloadPdf(selectedEnquiry)}
+                  disabled={downloadingPdfId === selectedEnquiry.id}
+                  style={{
+                    height: '36px',
+                    padding: '0 14px',
+                    fontSize: '13px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Export Enquiry & Lead History to PDF"
+                >
+                  <Printer size={13} className={downloadingPdfId === selectedEnquiry.id ? 'spin' : ''} />
+                  {downloadingPdfId === selectedEnquiry.id ? 'Printing...' : 'Print PDF'}
+                </button>
+
+                <button
+                  type="button"
+                  className="cred-modal-cancel-btn"
+                  onClick={() => {
+                    setIsDetailModalOpen(false)
+                    handleOpenModal(selectedEnquiry)
+                  }}
+                  style={{ height: '36px', padding: '0 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Edit3 size={13} /> Edit Enquiry
+                </button>
+
+                <button
+                  type="button"
+                  className="cred-modal-cancel-btn"
+                  style={{ height: '36px', padding: '0 18px', fontSize: '13px' }}
+                  onClick={() => setIsDetailModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : null
+        }
       >
         {selectedEnquiry && (() => {
           const chCfg = CHANNEL_CONFIG[selectedEnquiry.channel] || CHANNEL_CONFIG.other
@@ -1861,42 +1880,42 @@ export default function Enquiries({ currentUser }) {
           const sortedFollowUps = [...(selectedEnquiry.follow_ups || [])].sort((a, b) => new Date(a.date) - new Date(b.date))
 
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' }}>
               {/* Compact Summary Header Card */}
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '0.75rem 1rem',
-                background: 'var(--bg-subtle, #f8fafc)',
+                padding: '12px 16px',
+                background: 'var(--fill-ghost, #F7F7F7)',
                 borderRadius: '8px',
-                border: '1px solid var(--border-color, #e2e8f0)',
-                gap: '1rem'
+                border: '1px solid var(--border, #E4E4E4)',
+                gap: '16px'
               }}>
                 <div>
-                  <div style={{ fontWeight: '700', fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text, #111111)' }}>
                     {selectedEnquiry.customer_name || selectedEnquiry.customer_detail?.name || 'Walk-in Prospect'}
                     {selectedEnquiry.phone ? ` • ${selectedEnquiry.phone}` : ''}
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>
                     {selectedEnquiry.title || selectedEnquiry.description || 'General Enquiry'}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {selectedEnquiry.estimated_value && (
-                    <div style={{ fontWeight: '800', fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text, #111111)' }}>
                       {formatCurrency(selectedEnquiry.estimated_value)}
                     </div>
                   )}
                   <span style={{
-                    fontSize: '0.7rem',
-                    fontWeight: '700',
-                    padding: '0.15rem 0.5rem',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
                     borderRadius: '4px',
                     background: stCfg.bg,
                     color: stCfg.color,
                     display: 'inline-block',
-                    marginTop: '0.2rem'
+                    marginTop: '4px'
                   }}>
                     {stCfg.label}
                   </span>
@@ -1904,15 +1923,15 @@ export default function Enquiries({ currentUser }) {
               </div>
 
               {/* Sequential Lifecycle Stepper */}
-              <div style={{ position: 'relative', paddingLeft: '32px', margin: '0.25rem 0' }}>
+              <div style={{ position: 'relative', paddingLeft: '32px', margin: '4px 0' }}>
                 {/* Vertical continuous line */}
                 <div style={{
                   position: 'absolute',
-                  left: '14px',
+                  left: '12px',
                   top: '12px',
                   bottom: '16px',
                   width: '2px',
-                  background: '#e2e8f0',
+                  background: 'var(--border, #E4E4E4)',
                   zIndex: 0
                 }} />
 
@@ -1922,56 +1941,57 @@ export default function Enquiries({ currentUser }) {
                     position: 'absolute',
                     left: '-32px',
                     top: '2px',
-                    width: '26px',
-                    height: '26px',
+                    width: '24px',
+                    height: '24px',
                     borderRadius: '50%',
-                    background: '#1366d9',
-                    color: '#ffffff',
+                    background: 'var(--text, #0A0A0A)',
+                    color: 'var(--card-bg, #FFFFFF)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontWeight: '700',
-                    fontSize: '0.75rem',
-                    boxShadow: '0 0 0 3px #ffffff'
+                    fontWeight: 600,
+                    fontSize: '11px',
+                    boxShadow: '0 0 0 3px var(--card-bg, #FFFFFF)'
                   }}>
                     1
                   </div>
 
                   <div style={{
-                    background: '#ffffff',
-                    border: '1px solid var(--border-color, #e2e8f0)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    border: '1px solid var(--border, #E4E4E4)',
                     borderRadius: '8px',
-                    padding: '0.75rem 0.95rem'
+                    padding: '12px 14px'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
-                      <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                      <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text, #111111)' }}>
                         Enquiry Received
                       </span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted, #8C8C8C)' }}>
                         {selectedEnquiry.date}
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px' }}>
                       Received via <strong style={{ color: chCfg.color }}>{chCfg.label}</strong>
                       {selectedEnquiry.created_by_name && ` • Logged by ${selectedEnquiry.created_by_name}`}
                       {salespersonName && ` • Lead owner: ${salespersonName}`}
                     </div>
                     {selectedEnquiry.attachment && (
-                      <div style={{ marginTop: '0.4rem' }}>
+                      <div style={{ marginTop: '8px' }}>
                         <button
                           type="button"
                           onClick={() => setPreviewMediaUrl(selectedEnquiry.attachment)}
                           style={{
                             background: 'none',
                             border: 'none',
-                            color: '#1366d9',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
+                            color: 'var(--text, #111111)',
+                            fontSize: '12px',
+                            fontWeight: 500,
                             padding: 0,
                             cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '0.25rem'
+                            gap: '4px',
+                            textDecoration: 'underline'
                           }}
                         >
                           <FileText size={13} /> View Attached File
@@ -1986,43 +2006,43 @@ export default function Enquiries({ currentUser }) {
                   const outcomeCfg = OUTCOME_CONFIG[fu.outcome] || OUTCOME_CONFIG.other
 
                   return (
-                    <div key={fu.id || idx} style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
+                    <div key={fu.id || idx} style={{ position: 'relative', marginTop: '14px', zIndex: 1 }}>
                       <div style={{
                         position: 'absolute',
                         left: '-32px',
                         top: '2px',
-                        width: '26px',
-                        height: '26px',
+                        width: '24px',
+                        height: '24px',
                         borderRadius: '50%',
-                        background: '#0284c7',
-                        color: '#ffffff',
+                        background: 'var(--text, #0A0A0A)',
+                        color: 'var(--card-bg, #FFFFFF)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontWeight: '700',
-                        fontSize: '0.75rem',
-                        boxShadow: '0 0 0 3px #ffffff'
+                        fontWeight: 600,
+                        fontSize: '11px',
+                        boxShadow: '0 0 0 3px var(--card-bg, #FFFFFF)'
                       }}>
                         {idx + 2}
                       </div>
 
                       <div style={{
-                        background: '#ffffff',
-                        border: '1px solid var(--border-color, #e2e8f0)',
+                        background: 'var(--card-bg, #FFFFFF)',
+                        border: '1px solid var(--border, #E4E4E4)',
                         borderRadius: '8px',
-                        padding: '0.75rem 0.95rem'
+                        padding: '12px 14px'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                             {(fu.contact_mode_display || fu.contact_mode) && (
-                              <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                              <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text, #111111)' }}>
                                 Via {fu.contact_mode_display || fu.contact_mode}
                               </span>
                             )}
                             <span style={{
-                              fontSize: '0.7rem',
-                              fontWeight: '700',
-                              padding: '0.12rem 0.45rem',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 6px',
                               borderRadius: '4px',
                               background: outcomeCfg.bg,
                               color: outcomeCfg.color
@@ -2031,17 +2051,17 @@ export default function Enquiries({ currentUser }) {
                             </span>
                           </div>
 
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          <span style={{ fontSize: '11.5px', color: 'var(--text-muted, #8C8C8C)' }}>
                             {fu.date ? new Date(fu.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '---'}
                           </span>
                         </div>
 
                         {fu.notes && (
                           <div style={{
-                            fontSize: '0.82rem',
-                            color: 'var(--text-main)',
-                            marginTop: '0.35rem',
-                            lineHeight: '1.4'
+                            fontSize: '12.5px',
+                            color: 'var(--text, #111111)',
+                            marginTop: '6px',
+                            lineHeight: '1.45'
                           }}>
                             {fu.notes}
                           </div>
@@ -2053,41 +2073,41 @@ export default function Enquiries({ currentUser }) {
 
                 {/* ── FINAL STEP: RESOLUTION OR ACTIVE STATUS ── */}
                 {selectedEnquiry.status === 'converted' ? (
-                  <div style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
+                  <div style={{ position: 'relative', marginTop: '14px', zIndex: 1 }}>
                     <div style={{
                       position: 'absolute',
                       left: '-32px',
                       top: '2px',
-                      width: '26px',
-                      height: '26px',
+                      width: '24px',
+                      height: '24px',
                       borderRadius: '50%',
-                      background: '#0f7638',
+                      background: 'var(--success, #0F7638)',
                       color: '#ffffff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontWeight: '800',
-                      fontSize: '0.85rem',
-                      boxShadow: '0 0 0 3px #ffffff'
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      boxShadow: '0 0 0 3px var(--card-bg, #FFFFFF)'
                     }}>
                       ✓
                     </div>
 
                     <div style={{
-                      background: '#f0fdf4',
-                      border: '1px solid #bbf7d0',
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
                       borderRadius: '8px',
-                      padding: '0.75rem 0.95rem'
+                      padding: '12px 14px'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#166534' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--success, #0F7638)' }}>
                           Deal Won (Converted)
                         </span>
-                        <span style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '600' }}>
+                        <span style={{ fontSize: '11.5px', color: 'var(--success, #0F7638)', fontWeight: 500 }}>
                           {selectedEnquiry.converted_at ? new Date(selectedEnquiry.converted_at).toLocaleDateString() : 'Won'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.78rem', color: '#15803d', marginTop: '0.2rem' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--success, #0F7638)', marginTop: '4px' }}>
                         Client confirmed order.
                         {selectedEnquiry.converted_quotation_number && ` Linked Quotation: ${selectedEnquiry.converted_quotation_number}.`}
                         {selectedEnquiry.converted_job_order_title && ` Linked Job: ${selectedEnquiry.converted_job_order_title}.`}
@@ -2095,49 +2115,49 @@ export default function Enquiries({ currentUser }) {
                     </div>
                   </div>
                 ) : selectedEnquiry.status === 'cancelled' ? (
-                  <div style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
+                  <div style={{ position: 'relative', marginTop: '14px', zIndex: 1 }}>
                     <div style={{
                       position: 'absolute',
                       left: '-32px',
                       top: '2px',
-                      width: '26px',
-                      height: '26px',
+                      width: '24px',
+                      height: '24px',
                       borderRadius: '50%',
-                      background: '#dc2626',
+                      background: 'var(--danger, #DC2626)',
                       color: '#ffffff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontWeight: '800',
-                      fontSize: '0.85rem',
-                      boxShadow: '0 0 0 3px #ffffff'
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      boxShadow: '0 0 0 3px var(--card-bg, #FFFFFF)'
                     }}>
                       ✕
                     </div>
 
                     <div style={{
-                      background: '#fef2f2',
-                      border: '1px solid #fecaca',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
                       borderRadius: '8px',
-                      padding: '0.75rem 0.95rem'
+                      padding: '12px 14px'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#991b1b' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--danger, #DC2626)' }}>
                           Closed / Lost
                         </span>
                         <span style={{
-                          fontSize: '0.7rem',
-                          fontWeight: '700',
-                          padding: '0.1rem 0.45rem',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '2px 6px',
                           borderRadius: '4px',
-                          background: '#fee2e2',
-                          color: '#dc2626'
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          color: 'var(--danger, #DC2626)'
                         }}>
                           {selectedEnquiry.cancellation_reason_display || selectedEnquiry.cancellation_reason || 'Lost'}
                         </span>
                       </div>
                       {selectedEnquiry.cancellation_notes && (
-                        <div style={{ fontSize: '0.78rem', color: '#7f1d1d', marginTop: '0.25rem' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--danger, #DC2626)', marginTop: '4px' }}>
                           {selectedEnquiry.cancellation_notes}
                         </div>
                       )}
@@ -2145,42 +2165,42 @@ export default function Enquiries({ currentUser }) {
                   </div>
                 ) : (
                   /* Active Pipeline Node */
-                  <div style={{ position: 'relative', marginTop: '1rem', zIndex: 1 }}>
+                  <div style={{ position: 'relative', marginTop: '14px', zIndex: 1 }}>
                     <div style={{
                       position: 'absolute',
                       left: '-32px',
                       top: '2px',
-                      width: '26px',
-                      height: '26px',
+                      width: '24px',
+                      height: '24px',
                       borderRadius: '50%',
-                      background: '#f1f5f9',
-                      border: '2px dashed #0284c7',
-                      color: '#0284c7',
+                      background: 'var(--fill-ghost, #F4F4F4)',
+                      border: '2px dashed var(--border, #E4E4E4)',
+                      color: 'var(--text-muted, #8C8C8C)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontWeight: '800',
-                      fontSize: '0.9rem',
-                      boxShadow: '0 0 0 3px #ffffff'
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      boxShadow: '0 0 0 3px var(--card-bg, #FFFFFF)'
                     }}>
                       •
                     </div>
 
                     <div style={{
-                      background: '#f8fafc',
-                      border: '1px dashed #cbd5e1',
+                      background: 'var(--fill-ghost, #F7F7F7)',
+                      border: '1px dashed var(--border, #E4E4E4)',
                       borderRadius: '8px',
-                      padding: '0.75rem 0.95rem'
+                      padding: '12px 14px'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text, #111111)' }}>
                           Current Status: Under Follow-up
                         </span>
                         {followStatus && (
                           <span style={{
-                            fontSize: '0.7rem',
-                            fontWeight: '700',
-                            padding: '0.12rem 0.45rem',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '2px 6px',
                             borderRadius: '4px',
                             background: followStatus.bg,
                             color: followStatus.color
@@ -2189,7 +2209,7 @@ export default function Enquiries({ currentUser }) {
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px' }}>
                         {selectedEnquiry.next_follow_up_date
                           ? `Next contact scheduled for: ${selectedEnquiry.next_follow_up_date}`
                           : 'Awaiting next follow-up action'}
@@ -2198,227 +2218,51 @@ export default function Enquiries({ currentUser }) {
                   </div>
                 )}
               </div>
-
-              {/* MODAL ACTION BUTTONS FOOTER */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '0.65rem',
-                marginTop: '0.5rem',
-                paddingTop: '1rem',
-                borderTop: '1px solid var(--border-color, #e2e8f0)'
-              }}>
-                {/* Left quick action buttons for active leads */}
-                <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {selectedEnquiry.status !== 'converted' && selectedEnquiry.status !== 'cancelled' ? (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => {
-                          setIsDetailModalOpen(false)
-                          handleOpenFollowUp(selectedEnquiry)
-                        }}
-                        style={{ height: '36px', padding: '0 0.95rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', borderRadius: '6px' }}
-                      >
-                        <Phone size={13} /> Log Follow-up
-                      </button>
-
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={() => {
-                          setIsDetailModalOpen(false)
-                          handleMarkConverted(selectedEnquiry)
-                        }}
-                        style={{
-                          height: '36px',
-                          padding: '0 0.9rem',
-                          fontSize: '0.8rem',
-                          background: 'rgba(15, 118, 56, 0.1)',
-                          color: '#0f7638',
-                          border: '1px solid rgba(15, 118, 56, 0.3)',
-                          borderRadius: '6px',
-                          fontWeight: '700',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <CheckCircle2 size={13} /> Mark Won
-                      </button>
-
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={() => {
-                          setIsDetailModalOpen(false)
-                          handleOpenCancel(selectedEnquiry)
-                        }}
-                        style={{
-                          height: '36px',
-                          padding: '0 0.85rem',
-                          fontSize: '0.8rem',
-                          background: 'transparent',
-                          color: '#dc2626',
-                          border: '1px solid rgba(220, 38, 38, 0.3)',
-                          borderRadius: '6px',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Mark Lost
-                      </button>
-                    </>
-                  ) : selectedEnquiry.status === 'cancelled' ? (
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        setIsDetailModalOpen(false)
-                        handleRestore(selectedEnquiry)
-                      }}
-                      style={{
-                        height: '36px',
-                        padding: '0 1rem',
-                        fontSize: '0.8rem',
-                        background: 'rgba(19, 102, 217, 0.1)',
-                        color: 'var(--primary, #1366d9)',
-                        border: '1px solid rgba(19, 102, 217, 0.3)',
-                        borderRadius: '6px',
-                        fontWeight: '700',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <RotateCcw size={13} /> Restore to Active
-                    </button>
-                  ) : null}
-                </div>
-
-                {/* Right buttons: Print PDF, Edit & Close (neatly aligned to the right) */}
-                <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', marginLeft: 'auto', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => handleDownloadPdf(selectedEnquiry)}
-                    disabled={downloadingPdfId === selectedEnquiry.id}
-                    style={{
-                      height: '36px',
-                      padding: '0 0.85rem',
-                      fontSize: '0.8rem',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      borderRadius: '6px',
-                      color: 'var(--primary, #1366d9)',
-                      border: '1px solid rgba(19, 102, 217, 0.3)',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
-                    title="Export Enquiry & Lead History to PDF"
-                  >
-                    <Printer size={14} className={downloadingPdfId === selectedEnquiry.id ? 'spin' : ''} />
-                    {downloadingPdfId === selectedEnquiry.id ? 'Printing...' : 'Print PDF'}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setIsDetailModalOpen(false)
-                      handleOpenModal(selectedEnquiry)
-                    }}
-                    style={{ height: '36px', padding: '0 0.85rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', borderRadius: '6px', cursor: 'pointer' }}
-                  >
-                    <Edit3 size={13} /> Edit Enquiry
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ height: '36px', padding: '0 1.1rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', cursor: 'pointer' }}
-                    onClick={() => setIsDetailModalOpen(false)}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
             </div>
           )
         })()}
-      </Modal>
+      </ModalShell>
 
       {/* ── QUICK-CREATE SALESPERSON MODAL ── */}
-      <Modal
+      <ModalShell
         isOpen={isSalespersonModalOpen}
         onClose={() => setIsSalespersonModalOpen(false)}
-        title="Add New Salesperson"
+        title="Add Salesperson"
         maxWidth="450px"
+        formId="quick-salesperson-form"
+        submitLabel="Add Salesperson"
+        submittingLabel="Saving..."
+        submitting={savingSalesperson}
       >
-        <form onSubmit={handleQuickCreateSalesperson}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group">
-              <label>Salesperson Name *</label>
-              <input
-                type="text"
-                required
-                autoFocus
-                className="input-field"
-                placeholder="e.g. Tariq Mansoor"
-                value={newSalespersonForm.name}
-                onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
+        <form id="quick-salesperson-form" onSubmit={handleQuickCreateSalesperson} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+          <Field label="Salesperson Name" required>
+            <TextInput
+              required
+              autoFocus
+              placeholder="e.g. Tariq Mansoor"
+              value={newSalespersonForm.name}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, name: e.target.value }))}
+            />
+          </Field>
 
-            <div className="form-group">
-              <label>Phone / WhatsApp Number (Optional)</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="e.g. +966 55 987 6543"
-                value={newSalespersonForm.phone}
-                onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, phone: e.target.value }))}
-              />
-            </div>
+          <Field label="Phone Number">
+            <TextInput
+              placeholder="e.g. +966 55 987 6543"
+              value={newSalespersonForm.phone}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, phone: e.target.value }))}
+            />
+          </Field>
 
-            <div className="form-group">
-              <label>Email Address (Optional)</label>
-              <input
-                type="email"
-                className="input-field"
-                placeholder="e.g. tariq@arabseason.com"
-                value={newSalespersonForm.email}
-                onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, email: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setIsSalespersonModalOpen(false)}
-              disabled={savingSalesperson}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={savingSalesperson}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-            >
-              {savingSalesperson ? 'Saving...' : <><Check size={16} /> Save & Select</>}
-            </button>
-          </div>
+          <Field label="Email Address">
+            <TextInput
+              type="email"
+              placeholder="e.g. tariq@arabseason.com"
+              value={newSalespersonForm.email}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, email: e.target.value }))}
+            />
+          </Field>
         </form>
-      </Modal>
+      </ModalShell>
 
       {/* ── 10. FULL PHOTO PREVIEW MODAL ── */}
       {previewMediaUrl && (

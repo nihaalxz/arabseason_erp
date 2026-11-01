@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useNavigate, Link } from 'react-router-dom'
 import { 
   Plus, Search, RefreshCw, Trash2, Edit, Download, 
@@ -208,22 +209,9 @@ const CreditNotes = () => {
             Refresh
           </button>
 
-          <Link
-            to="/credit-notes/new"
-            className="btn btn-primary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              borderColor: '#dc2626'
-            }}
-          >
-            <Plus size={16} />
+          <PageHeaderButton to="/credit-notes/new">
             New Credit Note
-          </Link>
+          </PageHeaderButton>
         </div>
       </div>
 

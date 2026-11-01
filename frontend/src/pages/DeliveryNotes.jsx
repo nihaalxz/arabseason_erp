@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Edit, Trash2, Download, Truck } from 'lucide-react'
 import PlainFilterDropdown from '../components/common/PlainFilterDropdown'
@@ -210,28 +211,9 @@ const DeliveryNotes = () => {
         </div>
 
         <div>
-          <button
-            type="button"
-            className="cred-jobs-submit-btn"
-            onClick={() => navigate('/delivery-notes/new')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 18px',
-              borderRadius: '9999px',
-              background: 'var(--text, #0A0A0A)',
-              color: 'var(--card-bg, #FFFFFF)',
-              fontSize: '13px',
-              fontWeight: 500,
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <Plus size={15} strokeWidth={2} />
-            <span>New Delivery Note</span>
-          </button>
+          <PageHeaderButton onClick={() => navigate('/delivery-notes/new')}>
+            New Delivery Note
+          </PageHeaderButton>
         </div>
       </div>
 

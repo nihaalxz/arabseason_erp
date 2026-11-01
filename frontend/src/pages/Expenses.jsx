@@ -1,10 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useSettings } from '../contexts/SettingsContext'
-import { Plus, Minus, RefreshCw, AlertCircle, Edit, Trash2, ArrowLeft, X, ChevronDown, BookOpen, Folder, ChevronRight, Layers, ArrowUpDown, Receipt } from '../components/icons'
+import { Edit3, Trash2, AlertCircle, Receipt } from 'lucide-react'
 import api from '../api'
-import Modal from '../components/common/Modal'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import SearchBar from '../components/common/SearchBar'
+import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
+import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
+import CredPagination from '../components/cashbook/cred/CredPagination'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  NumberInput,
+  Select,
+  DateInput,
+  Textarea,
+  Checkbox
+} from '../components/common/FormPrimitives'
 import { showConfirm, showError, showToast } from '../utils/swal'
 
 const Expenses = () => {
@@ -29,10 +41,6 @@ const Expenses = () => {
   const [newTypeName, setNewTypeName] = useState('')
   const [showAddType, setShowAddType] = useState(false)
 
-  // Custom Dropdown Open States
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
-  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
-
   // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState(null)
@@ -49,7 +57,7 @@ const Expenses = () => {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
   
-  // Defensive Context Access
+  // Settings Context
   const context = useSettings()
   const settings = context?.settings || {}
   const formatCurrency = context?.formatCurrency || ((v) => v)
@@ -96,9 +104,11 @@ const Expenses = () => {
         params.category = selectedCategoryBook
       }
       const response = await api.get('expenses/', { params })
-      setExpenses(response.data.results || [])
-      setTotalCount(response.data.count || 0)
-      setTotalPages(Math.ceil((response.data.count || 0) / 25) || 1)
+      const results = response.data.results || response.data || []
+      setExpenses(results)
+      const count = response.data.count || results.length
+      setTotalCount(count)
+      setTotalPages(Math.ceil(count / 25) || 1)
       setError('')
     } catch (err) {
       console.error('Fetch Expenses error:', err)
@@ -142,6 +152,16 @@ const Expenses = () => {
     fetchTypes()
   }, [])
 
+  // Listen to top-strip refresh event
+  useEffect(() => {
+    const handleAppRefresh = () => {
+      fetchExpenses()
+      fetchSummary()
+    }
+    window.addEventListener('app:refresh', handleAppRefresh)
+    return () => window.removeEventListener('app:refresh', handleAppRefresh)
+  }, [page, searchQuery, selectedCategoryBook])
+
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return
     try {
@@ -150,27 +170,8 @@ const Expenses = () => {
       setFormData({ ...formData, category: res.data.name })
       setNewCategoryName('')
       setShowAddCategory(false)
-      setCategoryDropdownOpen(false)
     } catch (err) {
       setFormError(err.response?.data?.detail || 'Category already exists or failed to create.')
-    }
-  }
-
-  const handleDeleteCategory = async (e, id) => {
-    e.stopPropagation()
-    const confirmed = await showConfirm({
-      title: 'Delete Category?',
-      text: 'Delete this category? This cannot be undone.',
-      confirmButtonText: 'Yes, Delete',
-      isDangerous: true,
-    })
-    if (!confirmed) return
-    try {
-      await api.delete(`expense-categories/${id}/`)
-      setCategories(categories.filter(c => c.id !== id))
-      showToast('Category deleted', 'success')
-    } catch (err) {
-      showError('Delete Failed', err.response?.data?.message || err.response?.data?.detail || 'Failed to delete category.')
     }
   }
 
@@ -182,27 +183,8 @@ const Expenses = () => {
       setFormData({ ...formData, type: res.data.name })
       setNewTypeName('')
       setShowAddType(false)
-      setTypeDropdownOpen(false)
     } catch (err) {
       setFormError(err.response?.data?.detail || 'Type already exists or failed to create.')
-    }
-  }
-
-  const handleDeleteType = async (e, id) => {
-    e.stopPropagation()
-    const confirmed = await showConfirm({
-      title: 'Delete Type?',
-      text: 'Delete this type? This cannot be undone.',
-      confirmButtonText: 'Yes, Delete',
-      isDangerous: true,
-    })
-    if (!confirmed) return
-    try {
-      await api.delete(`expense-types/${id}/`)
-      setTypes(types.filter(t => t.id !== id))
-      showToast('Type deleted', 'success')
-    } catch (err) {
-      showError('Delete Failed', err.response?.data?.message || err.response?.data?.detail || 'Failed to delete type.')
     }
   }
 
@@ -211,8 +193,6 @@ const Expenses = () => {
     setNewCategoryName('')
     setShowAddType(false)
     setNewTypeName('')
-    setCategoryDropdownOpen(false)
-    setTypeDropdownOpen(false)
     if (expense) {
       setEditingExpense(expense)
       setFormData({
@@ -231,7 +211,7 @@ const Expenses = () => {
         description: '',
         amount: 0,
         date: new Date().toISOString().split('T')[0],
-        category: '',
+        category: categories[0]?.name || '',
         type: 'Operational',
         notes: '',
         job_order: '',
@@ -283,7 +263,7 @@ const Expenses = () => {
         await api.delete(`expenses/${id}/`)
         setExpenses(expenses.filter(e => e.id !== id))
         showToast('Expense record deleted', 'success')
-      } catch (err) {
+      } catch {
         showError('Delete Failed', 'Failed to delete expense.')
       }
     }
@@ -292,7 +272,7 @@ const Expenses = () => {
   const safeFormatCurrency = (val) => {
     try {
       return formatCurrency(val || 0)
-    } catch (e) {
+    } catch {
       return `${settings?.currency || ''} ${val || 0}`
     }
   }
@@ -306,542 +286,487 @@ const Expenses = () => {
     : (activeCategorySummary ? activeCategorySummary.count : expenses.length)
   const currentAvg = currentCount > 0 ? (currentTotalAmount / currentCount) : 0
 
+  // Category Animated Tabs list
+  const categoryTabs = useMemo(() => {
+    const list = [
+      { id: 'all', label: 'All Books', count: summaryData.count || totalCount }
+    ]
+    categories.forEach((c) => {
+      const catStat = summaryData.by_category?.find((sc) => sc.category === c.name)
+      list.push({
+        id: c.name,
+        label: c.name,
+        count: catStat ? catStat.count : undefined
+      })
+    })
+    return list
+  }, [categories, summaryData, totalCount])
+
   return (
-    <div className="expenses-page erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', paddingBottom: '3rem' }}>
-      <div className="page-header" style={{ marginBottom: '1.25rem' }}>
+    <div className="expenses-page erp-page-container erp-page-transition" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', paddingBottom: '3rem' }}>
+      
+      {/* ── 1. PAGE HEADER (Enquiries CRED Style) ── */}
+      <div className="page-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontWeight: '700', letterSpacing: '-0.01em', fontSize: '1.35rem' }}>Expenses</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>Track operational costs, vendor bills, and business expenditures</p>
+          <h2 style={{ fontWeight: 600, letterSpacing: '-0.02em', fontSize: '24px', margin: 0, color: 'var(--text, #0A0A0A)' }}>
+            Expenses
+          </h2>
+          <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
+            Track operational costs, vendor bills, and business expenditures
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ borderRadius: 'var(--radius-sm)' }}>
-            <Plus size={16} /> Record Expense
-          </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <PageHeaderButton onClick={() => handleOpenModal()}>
+            Record Expense
+          </PageHeaderButton>
         </div>
       </div>
 
-      {/* Category Books: Breadcrumb when viewing a specific book */}
-      {selectedCategoryBook !== 'all' && (
-        <div className="breadcrumb-nav-bar" style={{ marginBottom: '1rem' }}>
-          <span className="breadcrumb-item" onClick={() => handleSelectBook('all')}>
-            <BookOpen size={15} /> All Expense Books
-          </span>
-          <span className="breadcrumb-separator"><ChevronRight size={14} /></span>
-          <span className="breadcrumb-current">
-            <Folder size={15} /> {selectedCategoryBook}
-          </span>
-          <button 
-            onClick={() => handleSelectBook('all')}
-            style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.825rem', fontWeight: '600' }}
-          >
-            &larr; View All Books
-          </button>
+      {/* ── 2. CATEGORY TABS (CRED Animated Tabs) ── */}
+      {categoryTabs.length > 1 && (
+        <div style={{ width: '100%', overflowX: 'auto', marginBottom: '1.25rem', WebkitOverflowScrolling: 'touch' }}>
+          <CredAnimatedTabs
+            tabs={categoryTabs}
+            value={selectedCategoryBook}
+            onChange={handleSelectBook}
+            className="case-preserve"
+            layoutId="expenses-category-tabs"
+          />
         </div>
       )}
 
-      {/* Category Books Grid (Cashbook Shelf Pattern) */}
-      {selectedCategoryBook === 'all' && summaryData.by_category && summaryData.by_category.length > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
-            <div style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Layers size={16} color="var(--primary)" />
-              Browse by Expense Category Books ({summaryData.by_category.length})
-            </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Click any category book to view its records</span>
-          </div>
-          <div className="category-books-grid">
-            {summaryData.by_category.map(cat => (
-              <div 
-                key={cat.category} 
-                className="category-book-card"
-                onClick={() => handleSelectBook(cat.category)}
-              >
-                <div className="category-book-header">
-                  <div className="category-book-icon">
-                    <BookOpen size={18} />
-                  </div>
-                  <div className="category-book-badge">
-                    {cat.count} {cat.count === 1 ? 'entry' : 'entries'}
-                  </div>
-                </div>
-                <div className="category-book-title">{cat.category}</div>
-                <div className="category-book-total">{safeFormatCurrency(cat.total)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Quick Category Books Pill Bar */}
-      <div className="category-pill-bar" style={{ marginBottom: '1.25rem' }}>
-        <button 
-          className={`category-pill ${selectedCategoryBook === 'all' ? 'active' : ''}`}
-          onClick={() => handleSelectBook('all')}
-        >
-          All Books ({summaryData.count || totalCount})
-        </button>
-        {categories.map(c => {
-          const catStat = summaryData.by_category?.find(sc => sc.category === c.name)
-          return (
-            <button 
-              key={c.id} 
-              className={`category-pill ${selectedCategoryBook === c.name ? 'active' : ''}`}
-              onClick={() => handleSelectBook(c.name)}
-            >
-              {c.name} {catStat ? `(${catStat.count})` : ''}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <SearchBar
+      {/* ── 3. BORDERLESS FILLED SEARCH BAR ── */}
+      <div style={{ width: '100%', marginBottom: '1.25rem' }}>
+        <CredSearchInput
           value={searchQuery}
-          onChange={handleSearchChange}
-          style={{ flex: 1, minWidth: '220px', maxWidth: '420px' }}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onClear={() => handleSearchChange('')}
+          placeholder="Search expenses by description, category, or note…"
+          style={{ width: '100%', height: '38px' }}
         />
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button
-            className="btn btn-secondary"
-            onClick={() => { fetchExpenses(); fetchSummary(); }}
-            title="Refresh table"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
-          >
-            <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
-          </button>
-        </div>
       </div>
 
       {error && (
-        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <AlertCircle size={18} /> {error}
         </div>
       )}
 
-      <div className="glass-panel" style={{ overflowX: 'auto', minHeight: '200px', position: 'relative', paddingBottom: 0 }}>
+      {/* ── 4. MAIN DATA TABLE (Customers Table Style) ── */}
+      <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
         {loading ? (
-          <div style={{ padding: '1.5rem' }}>
+          <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>
         ) : (
           <>
-        {!loading && expenses && expenses.length === 0 && !error && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            {searchQuery 
-              ? `No expenses matching "${searchQuery}" in ${selectedCategoryBook === 'all' ? 'any book' : selectedCategoryBook}` 
-              : `No expenses recorded in ${selectedCategoryBook === 'all' ? 'the system' : selectedCategoryBook}. Click "+ Record Expense" to create one.`}
-          </div>
-        )}
-
-        {!loading && expenses && expenses.length > 0 && (
-          <>
-            {/* Desktop Table View */}
-            <div className="desktop-only-table">
-              <div className="table-container">
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th>Entry Date</th>
-                      <th>Classification / Details</th>
-                      <th>Linked Entity</th>
-                      <th style={{ textAlign: 'right' }}>Expenditure Value</th>
-                      <th style={{ textAlign: 'right' }}>Management</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expenses.map(exp => (
-                      <tr key={exp?.id || Math.random()} style={{ borderLeft: '4px solid #dc2626' }}>
-                        <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{exp?.date || 'N/A'}</td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{exp?.description || 'No Description'}</span>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              background: '#fee2e2',
-                              color: '#b91c1c',
-                              border: '1px solid #fecaca',
-                              padding: '1px 7px',
-                              borderRadius: '12px',
-                              fontSize: '0.68rem',
-                              fontWeight: '800'
-                            }}>
-                              <Minus size={10} strokeWidth={3} /> Cash Out
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '0.75rem', marginTop: '0.2rem', color: 'var(--text-muted)' }}>
-                            {exp?.category} &bull; {exp?.type} {exp?.is_opening_balance && <span style={{ background: 'var(--warning)', color: '#fff', padding: '0.1rem 0.4rem', borderRadius: '4px', marginLeft: '0.5rem' }}>Opening Bal</span>}
-                          </div>
-                        </td>
-                        <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                          {exp?.job_order ? (
-                            <span style={{ background: 'var(--primary-10, rgba(59, 130, 246, 0.1))', color: 'var(--primary)', padding: '0.25rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '600' }}>
-                              Linked Job
-                            </span>
-                          ) : '---'}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: '800', color: '#dc2626' }}>
-                          − {safeFormatCurrency(exp?.amount)}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                            <button 
-                              className="btn-icon" 
-                              style={{ width: '32px', height: '32px' }}
-                              onClick={() => handleOpenModal(exp)}
-                              title="Modify Record"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button 
-                              className="btn-icon" 
-                              style={{ width: '32px', height: '32px', color: 'var(--danger)' }}
-                              onClick={() => handleDelete(exp?.id)}
-                              title="Remove Record"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Native Cards View (<= 768px) */}
-            <div className="mobile-only-cards" style={{ padding: '0.75rem' }}>
-              {expenses.map(exp => (
-                <div 
-                  key={exp?.id || Math.random()} 
-                  className="mobile-entity-card"
-                  style={{ borderLeft: '4px solid #dc2626' }}
-                  onClick={() => handleOpenModal(exp)}
-                >
-                  <div className="mobile-card-header">
-                    <div className="mobile-card-title-group">
-                      <div 
-                        className="mobile-card-avatar" 
-                        style={{ background: '#fee2e2', color: '#dc2626' }}
-                      >
-                        <Receipt size={17} />
-                      </div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div className="mobile-card-title">{exp?.description || 'Expense Entry'}</div>
-                        <div className="mobile-card-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '2px',
-                            background: '#fee2e2',
-                            color: '#b91c1c',
-                            border: '1px solid #fecaca',
-                            padding: '1px 6px',
-                            borderRadius: '10px',
-                            fontSize: '0.65rem',
-                            fontWeight: '800'
-                          }}>
-                            <Minus size={9} strokeWidth={3} /> Cash Out
-                          </span>
-                          <span style={{ fontWeight: '600', color: '#475569' }}>{exp?.category}</span>
-                          <span>&bull; {exp?.date || 'N/A'}</span>
-                          {exp?.is_opening_balance && (
-                            <span style={{ background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '700' }}>
-                              Opening Bal
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: '1rem', fontWeight: '800', color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
-                        -{safeFormatCurrency(exp?.amount)}
-                      </div>
-                      {exp?.job_order && (
-                        <span className="mobile-card-badge" style={{ background: '#ebf3fc', color: '#1366d9', fontSize: '0.65rem' }}>
-                          Linked Job
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mobile-card-footer" onClick={(e) => e.stopPropagation()}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                      Type: {exp?.type || 'Standard'}
-                    </div>
-                    <div className="mobile-card-actions">
-                      <button 
-                        className="mobile-card-action-btn" 
-                        onClick={() => handleOpenModal(exp)}
-                        title="Modify Record"
-                      >
-                        <Edit size={14} />
-                      </button>
-                      <button 
-                        className="mobile-card-action-btn delete" 
-                        onClick={() => handleDelete(exp?.id)}
-                        title="Remove Record"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Always Visible Sticky Totals Bar */}
-            <div className="sticky-totals-bar">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <BookOpen size={16} color="var(--primary)" />
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Active Book:</span>
-                <span style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '0.875rem' }}>
-                  {selectedCategoryBook === 'all' ? 'All Expenses' : selectedCategoryBook}
-                </span>
-              </div>
-              <div className="sticky-totals-items">
-                <div className="sticky-total-item">
-                  <span className="sticky-total-label">Total Entries</span>
-                  <span className="sticky-total-value">{currentCount}</span>
-                </div>
-                <div className="sticky-total-item">
-                  <span className="sticky-total-label">Total Expenditure</span>
-                  <span className="sticky-total-value" style={{ color: 'var(--danger)' }}>
-                    {safeFormatCurrency(currentTotalAmount)}
-                  </span>
-                </div>
-                <div className="sticky-total-item">
-                  <span className="sticky-total-label">Average / Entry</span>
-                  <span className="sticky-total-value">
-                    {safeFormatCurrency(currentAvg)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {totalPages > 1 && (
-              <div className="pagination" style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                <button 
-                  className="btn glass-panel" 
-                  disabled={page === 1}
-                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                >
-                  Prev
-                </button>
-                <span style={{ display: 'flex', alignItems: 'center', padding: '0 1rem' }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button 
-                  className="btn glass-panel" 
-                  disabled={page === totalPages}
-                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-                >
-                  Next
-                </button>
+            {expenses.length === 0 && !error && (
+              <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+                <Receipt size={22} strokeWidth={1.6} style={{ color: 'var(--text-muted, #8C8C8C)', opacity: 0.6, marginBottom: '8px' }} />
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                  {searchQuery 
+                    ? `No expenses matching "${searchQuery}" in ${selectedCategoryBook === 'all' ? 'any book' : selectedCategoryBook}.` 
+                    : `No expenses recorded in ${selectedCategoryBook === 'all' ? 'the system' : selectedCategoryBook}. Click "Record Expense" to create one.`}
+                </p>
               </div>
             )}
-          </>
-        )}
+
+            {expenses.length > 0 && (
+              <>
+                {/* Desktop Table View */}
+                <div className="desktop-only-table" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+                        <th style={{ width: '15%', padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Date</th>
+                        <th style={{ width: '40%', padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Description</th>
+                        <th style={{ width: '20%', padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Linked Job</th>
+                        <th style={{ minWidth: '150px', padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Amount</th>
+                        <th style={{ width: '80px', minWidth: '80px', padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expenses.map((exp) => (
+                        <tr
+                          key={exp?.id || Math.random()}
+                          className="cred-table-row"
+                          onClick={() => handleOpenModal(exp)}
+                          style={{
+                            borderBottom: '1px solid var(--border, #E4E4E4)',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.15s ease'
+                          }}
+                        >
+                          {/* Date */}
+                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: 'var(--text-muted, #8C8C8C)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                            {exp?.date || '—'}
+                          </td>
+
+                          {/* Description */}
+                          <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                            <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {exp?.description || 'No Description'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>
+                              {exp?.category || 'General'} &bull; {exp?.type || 'Operational'}
+                              {exp?.is_opening_balance && (
+                                <span style={{ marginLeft: '6px', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
+                                  (Opening Bal)
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Linked Job */}
+                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: exp?.job_order ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)', whiteSpace: 'nowrap' }}>
+                            {exp?.job_order ? (
+                              <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {exp.job_order_title || exp.job_order_order_id || (typeof exp.job_order === 'object' ? exp.job_order.title || exp.job_order.order_id : `Job #${exp.job_order}`)}
+                              </span>
+                            ) : '—'}
+                          </td>
+
+                          {/* Amount */}
+                          <td style={{ minWidth: '150px', padding: '12px 16px', verticalAlign: 'middle', textAlign: 'right', fontSize: '13px', fontVariantNumeric: 'tabular-nums', color: 'var(--danger, #DC2626)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                            − {safeFormatCurrency(exp?.amount)}
+                          </td>
+
+                          {/* Actions */}
+                          <td style={{ width: '80px', minWidth: '80px', padding: '12px 16px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                              <button
+                                type="button"
+                                className="cred-action-icon-btn"
+                                onClick={() => handleOpenModal(exp)}
+                                title="Edit"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '4px',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '4px',
+                                  transition: 'color 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text, #111111)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                              >
+                                <Edit3 size={15} strokeWidth={1.8} />
+                              </button>
+                              <button
+                                type="button"
+                                className="cred-action-icon-btn delete"
+                                onClick={() => handleDelete(exp?.id)}
+                                title="Delete"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '4px',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '4px',
+                                  transition: 'color 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger, #DC2626)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                              >
+                                <Trash2 size={15} strokeWidth={1.8} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── 5. BORDERLESS SUMMARY ROW (CRED Typography) ── */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                  padding: '16px 4px',
+                  borderTop: '1px solid var(--border, #E4E4E4)',
+                  marginTop: '8px',
+                  fontSize: '12px',
+                  color: 'var(--text-muted, #8C8C8C)'
+                }}>
+                  <div>
+                    <span>Active Book: </span>
+                    <strong style={{ color: 'var(--text, #0A0A0A)', fontWeight: 500 }}>
+                      {selectedCategoryBook === 'all' ? 'All Expenses' : selectedCategoryBook}
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                    <div>
+                      <span>Total Entries: </span>
+                      <strong style={{ color: 'var(--text, #0A0A0A)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                        {currentCount}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Total Expenditure: </span>
+                      <strong style={{ color: 'var(--danger, #DC2626)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                        − {safeFormatCurrency(currentTotalAmount)}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Average / Entry: </span>
+                      <strong style={{ color: 'var(--text, #0A0A0A)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                        {safeFormatCurrency(currentAvg)}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── 6. PAGINATION (CredPagination) ── */}
+                {totalPages > 1 && (
+                  <CredPagination
+                    page={page}
+                    totalPages={totalPages}
+                    total={totalCount}
+                    rangeStart={(page - 1) * 25 + 1}
+                    rangeEnd={Math.min(page * 25, totalCount)}
+                    onPageChange={(p) => setPage(p)}
+                  />
+                )}
+              </>
+            )}
           </>
         )}
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <span>{editingExpense ? 'Edit Expense' : 'Add New Expense'}</span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '0.2rem 0.65rem',
-              borderRadius: '999px',
-              fontSize: '0.75rem',
-              fontWeight: '800',
-              background: '#fee2e2',
-              color: '#b91c1c',
-              border: '1px solid #fecaca'
-            }}>
-              <Minus size={12} strokeWidth={3} /> Cash Out (Debit)
-            </span>
-          </div>
-        }
+      {/* ── 7. ADD / EDIT EXPENSE MODAL (Enquiries ModalShell Style) ── */}
+      <ModalShell
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingExpense ? 'Edit Expense' : 'New Expense'}
+        maxWidth="560px"
+        formId="expense-modal-form"
+        submitLabel={editingExpense ? 'Save Changes' : 'Create Expense'}
+        submittingLabel="Saving..."
+        submitting={submitting}
+        closeOnBackdrop={false}
       >
-        <form onSubmit={handleSubmit} className="form-grid">
-          {formError && <div className="error-message col-span-2">{formError}</div>}
-          
-          <div className="form-group col-span-2">
-            <label>Description *</label>
-            <input 
-              type="text" 
-              className="input-field" 
-              value={formData.description} 
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              required
-            />
-          </div>
-          
-          <style dangerouslySetInnerHTML={{__html: `
-            .custom-dropdown-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; cursor: pointer; transition: background 0.2s; }
-            .custom-dropdown-item:hover { background: var(--border-light); }
-            .custom-dropdown-item .delete-btn { opacity: 0; color: var(--danger); background: transparent; border: none; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
-            .custom-dropdown-item:hover .delete-btn { opacity: 1; }
-            .custom-dropdown-item .delete-btn:hover { background: rgba(239, 68, 68, 0.1); }
-          `}} />
-          
-          <div className="form-group">
-            <label>Category *</label>
-            <div style={{ display: 'flex', gap: '0.5rem', width: '100%', position: 'relative' }}>
-              {!showAddCategory ? (
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <div 
-                    className="input-field" 
-                    style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}
-                    onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-                  >
-                    <span>{formData.category || 'Select Category'}</span>
-                    <ChevronDown size={16} color="var(--text-muted)" />
-                  </div>
-                  {categoryDropdownOpen && (
-                    <div className="glass-panel" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: '4px', maxHeight: '200px', overflowY: 'auto', padding: 0 }}>
-                      {categories.map(c => (
-                        <div key={c.id} className="custom-dropdown-item" onClick={() => { setFormData({...formData, category: c.name}); setCategoryDropdownOpen(false); }}>
-                          <span>{c.name}</span>
-                          <button type="button" className="delete-btn" onClick={(e) => handleDeleteCategory(e, c.id)} title="Delete Category"><X size={14} /></button>
-                        </div>
-                      ))}
-                      <div className="custom-dropdown-item" style={{ fontWeight: 'bold', color: 'var(--primary)' }} onClick={() => { setShowAddCategory(true); setCategoryDropdownOpen(false); }}>
-                        + Add New Category
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                  <input 
-                    type="text" className="input-field"
-                    value={newCategoryName}
-                    onChange={e => setNewCategoryName(e.target.value)}
-                    autoFocus
-                  />
-                  <button type="button" className="btn btn-primary" style={{ padding: '0.5rem' }} onClick={handleAddCategory}>Add</button>
-                  <button type="button" className="btn" style={{ padding: '0.5rem' }} onClick={() => setShowAddCategory(false)}><ArrowLeft size={16}/></button>
-                </div>
-              )}
+        <form id="expense-modal-form" onSubmit={handleSubmit}>
+          {formError && (
+            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <AlertCircle size={18} /> {formError}
             </div>
-          </div>
+          )}
 
-          <div className="form-group">
-            <label>Type *</label>
-            <div style={{ display: 'flex', gap: '0.5rem', width: '100%', position: 'relative' }}>
-              {!showAddType ? (
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <div 
-                    className="input-field" 
-                    style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}
-                    onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
-                  >
-                    <span>{formData.type || 'Select Type'}</span>
-                    <ChevronDown size={16} color="var(--text-muted)" />
-                  </div>
-                  {typeDropdownOpen && (
-                    <div className="glass-panel" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: '4px', maxHeight: '200px', overflowY: 'auto', padding: 0 }}>
-                      {types.map(t => (
-                        <div key={t.id} className="custom-dropdown-item" onClick={() => { setFormData({...formData, type: t.name}); setTypeDropdownOpen(false); }}>
-                          <span>{t.name}</span>
-                          <button type="button" className="delete-btn" onClick={(e) => handleDeleteType(e, t.id)} title="Delete Type"><X size={14} /></button>
-                        </div>
-                      ))}
-                      <div className="custom-dropdown-item" style={{ fontWeight: 'bold', color: 'var(--primary)' }} onClick={() => { setShowAddType(true); setTypeDropdownOpen(false); }}>
-                        + Add New Type
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                  <input 
-                    type="text" className="input-field"
-                    value={newTypeName}
-                    onChange={e => setNewTypeName(e.target.value)}
-                    autoFocus
-                  />
-                  <button type="button" className="btn btn-primary" style={{ padding: '0.5rem' }} onClick={handleAddType}>Add</button>
-                  <button type="button" className="btn" style={{ padding: '0.5rem' }} onClick={() => setShowAddType(false)}><ArrowLeft size={16}/></button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Amount *</label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-              <span style={{ 
-                position: 'absolute', left: '12px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '700', zIndex: 1
-              }}>{settings?.currency || ''}</span>
-              <input 
-                type="number" step="0.01" className="input-field" style={{ paddingLeft: '3.5rem' }}
-                value={formData.amount} 
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+            <Field label="Description" required>
+              <TextInput
                 required
+                autoFocus
+                placeholder="e.g. Office stationery, equipment maintenance..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <Field
+                label="Category"
+                required
+                rightAction={
+                  !showAddCategory ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCategory(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text, #111111)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                    >
+                      + Add new
+                    </button>
+                  ) : null
+                }
+              >
+                {!showAddCategory ? (
+                  <Select
+                    required
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder="Select Category"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <TextInput
+                      autoFocus
+                      placeholder="Category name..."
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="page-header-btn"
+                      style={{ height: '38px', padding: '0 12px', fontSize: '12px' }}
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddCategory(false); setNewCategoryName('') }}
+                      className="cred-modal-cancel-btn"
+                      style={{ height: '38px', padding: '0 10px', fontSize: '12px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </Field>
+
+              <Field
+                label="Type"
+                required
+                rightAction={
+                  !showAddType ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddType(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text, #111111)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                    >
+                      + Add new
+                    </button>
+                  ) : null
+                }
+              >
+                {!showAddType ? (
+                  <Select
+                    required
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    placeholder="Select Type"
+                  >
+                    {types.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <TextInput
+                      autoFocus
+                      placeholder="Type name..."
+                      value={newTypeName}
+                      onChange={(e) => setNewTypeName(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddType}
+                      className="page-header-btn"
+                      style={{ height: '38px', padding: '0 12px', fontSize: '12px' }}
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddType(false); setNewTypeName('') }}
+                      className="cred-modal-cancel-btn"
+                      style={{ height: '38px', padding: '0 10px', fontSize: '12px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </Field>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <Field label="Amount" required>
+                <NumberInput
+                  required
+                  step="0.01"
+                  min="0"
+                  prefix="SAR"
+                  placeholder="0.00"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                />
+              </Field>
+
+              <Field label="Date of Expense" required>
+                <DateInput
+                  required
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                />
+              </Field>
+            </div>
+
+            <Field label="Link to Job Order (Optional)">
+              <Select
+                value={formData.job_order}
+                onChange={(e) => setFormData({ ...formData, job_order: e.target.value })}
+              >
+                <option value="">No Active Linkage</option>
+                {jobOrders && jobOrders.map((j) => (
+                  <option key={j?.id || Math.random()} value={j?.id}>
+                    {j?.order_id || `#ID${j?.id}`} — {j?.title || 'Job Order'}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Additional Notes">
+              <Textarea
+                rows={2}
+                placeholder="Enter any additional reference notes or remarks..."
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              />
+            </Field>
+
+            <div style={{ paddingTop: '2px' }}>
+              <Checkbox
+                checked={formData.is_opening_balance}
+                onChange={(checked) => setFormData({ ...formData, is_opening_balance: checked })}
+                label={
+                  <span style={{ fontSize: '13px', color: 'var(--text, #111111)', fontWeight: 400 }}>
+                    Mark as System Opening Balance
+                  </span>
+                }
               />
             </div>
           </div>
-
-          <div className="form-group">
-            <label>Date of Expense *</label>
-            <input 
-              type="date" className="input-field" value={formData.date} 
-              onChange={(e) => setFormData({...formData, date: e.target.value})}
-              required
-            />
-          </div>
-
-          <div className="form-group col-span-2">
-            <label>Link to Job Order (Optional)</label>
-            <select className="input-field" value={formData.job_order} onChange={e => setFormData({...formData, job_order: e.target.value})}>
-              <option value="">No Active Linkage</option>
-              {jobOrders && jobOrders.map(j => <option key={j?.id || Math.random()} value={j?.id}>{j?.order_id || `#ID${j?.id}`} - {j?.title}</option>)}
-            </select>
-          </div>
-
-          <div className="form-group col-span-2">
-            <label>Additional Notes</label>
-            <textarea 
-              className="input-field" style={{ minHeight: '60px' }} 
-              value={formData.notes} 
-              onChange={(e) => setFormData({...formData, notes: e.target.value})}
-            ></textarea>
-          </div>
-
-          <div className="form-group col-span-2" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-             <input 
-               type="checkbox" checked={formData.is_opening_balance} 
-               onChange={e => setFormData({...formData, is_opening_balance: e.target.checked})}
-               style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-             />
-             <label style={{ margin: 0, cursor: 'pointer', fontWeight: '600' }} onClick={() => setFormData({...formData, is_opening_balance: !formData.is_opening_balance})}>
-               Mark as System Opening Balance
-             </label>
-          </div>
-
-          <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <button type="button" className="btn" style={{ padding: '0.75rem 1.5rem' }} onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 2rem' }} disabled={submitting}>
-              {submitting ? (
-                <><span className="spinner" style={{ marginRight: '8px' }}></span>Processing...</>
-              ) : (editingExpense ? 'Save Changes' : 'Create Expense')}
-            </button>
-          </div>
         </form>
-      </Modal>
+      </ModalShell>
     </div>
   )
 }

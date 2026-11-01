@@ -22,7 +22,8 @@ export default function PlainFilterDropdown({
   align = 'left',
   id,
   className = '',
-  style = {}
+  style = {},
+  icon: Icon = null
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
@@ -161,15 +162,26 @@ export default function PlainFilterDropdown({
           transition: 'background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease'
         }}
       >
-        <span
-          style={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {displayLabel}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+          {Icon && (
+            <Icon
+              size={13}
+              style={{
+                color: 'var(--text-muted, #8C8C8C)',
+                flexShrink: 0
+              }}
+            />
+          )}
+          <span
+            style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {displayLabel}
+          </span>
+        </div>
         <ChevronDown
           size={14}
           strokeWidth={1.8}

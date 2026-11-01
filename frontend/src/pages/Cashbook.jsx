@@ -3087,6 +3087,18 @@ const Cashbook = ({ currentUser = null }) => {
     }
   }
 
+  const handleRemoveRoughJobAttachment = () => {
+    setEntryFormData(prev => ({
+      ...prev,
+      rough_job_attachment: '',
+      rough_job_attachment_name: '',
+      rough_job_attachment_type: ''
+    }))
+    if (roughJobFileInputRef.current) {
+      roughJobFileInputRef.current.value = ''
+    }
+  }
+
   // Submit entry
   const handleSubmitEntry = async (e) => {
     e.preventDefault()

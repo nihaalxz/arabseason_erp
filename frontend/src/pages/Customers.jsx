@@ -1,32 +1,75 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Trash2, Plus, RefreshCw, AlertCircle, Phone, Mail, ChevronRight } from '../components/icons'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { 
+  Plus, Edit3, Trash2, Filter, AlertCircle, 
+  ChevronRight, Phone, Mail, User
+} from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
-import Modal from '../components/common/Modal'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import SearchBar from '../components/common/SearchBar'
+import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
+import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
+import PlainFilterDropdown from '../components/common/PlainFilterDropdown'
+import PageHeaderButton from '../components/common/PageHeaderButton'
+import CredPagination from '../components/cashbook/cred/CredPagination'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  NumberInput,
+  Textarea
+} from '../components/common/FormPrimitives'
 import { showConfirm, showError, showToast } from '../utils/swal'
+
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All Customers' },
+  { value: 'receivable_due', label: 'Receivable Due' },
+  { value: 'payable_owed', label: 'Payable Owed' },
+  { value: 'fully_paid', label: 'Fully Paid' },
+  { value: 'has_advance', label: 'Has Advance' },
+]
 
 const Customers = () => {
   const { formatCurrency } = useSettings()
+  const navigate = useNavigate()
+  const basePath = '/accounting'
+
+  // Primary Data State
   const [customers, setCustomers] = useState([])
-  const [summary, setSummary] = useState({ total_billed: 0, paid_amount: 0, pending_balance: 0, total_payable: 0 })
+  const [summary, setSummary] = useState({ 
+    total_billed: 0, 
+    paid_amount: 0, 
+    pending_balance: 0, 
+    total_payable: 0, 
+    total_count: 0, 
+    pending_count: 0 
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
-  const navigate = useNavigate()
-  const basePath = '/accounting'
 
-  // Section Switcher State: 'pending' (Customers with pending balance) | 'all' (Full list)
+  // Section Switcher State: 'pending' (Pending Balance) | 'all' (All Customers)
   const [activeSection, setActiveSection] = useState('pending')
+
+  // KPI Card Filter: null | 'billed' | 'received' | 'due' | 'payable'
+  const [activeCard, setActiveCard] = useState(null)
+
+  // Dropdown Filter: 'all' | 'receivable_due' | 'payable_owed' | 'fully_paid' | 'has_advance'
+  const [filterStatus, setFilterStatus] = useState('all')
 
   // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null)
-  const [formData, setFormData] = useState({ name: '', company_name: '', email: '', phone: '', address: '', payable_amount: '' })
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    company_name: '', 
+    email: '', 
+    phone: '', 
+    address: '', 
+    payable_amount: '' 
+  })
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -38,7 +81,14 @@ const Customers = () => {
   const fetchSummary = async () => {
     try {
       const res = await api.get('customers/summary/')
-      setSummary(res.data || { total_billed: 0, paid_amount: 0, pending_balance: 0, total_payable: 0, total_count: 0, pending_count: 0 })
+      setSummary(res.data || { 
+        total_billed: 0, 
+        paid_amount: 0, 
+        pending_balance: 0, 
+        total_payable: 0, 
+        total_count: 0, 
+        pending_count: 0 
+      })
     } catch (err) {
       console.error('Failed to fetch customer summary:', err)
     }
@@ -69,6 +119,18 @@ const Customers = () => {
     }
   }
 
+  const handleCardClick = (cardKey) => {
+    if (activeCard === cardKey) {
+      setActiveCard(null)
+    } else {
+      setActiveCard(cardKey)
+      if (cardKey === 'billed' && activeSection === 'pending') {
+        setActiveSection('all')
+      }
+    }
+    setPage(1)
+  }
+
   const handleSectionSwitch = (section) => {
     setActiveSection(section)
     setPage(1)
@@ -85,7 +147,7 @@ const Customers = () => {
       const rawPa = customer.remaining_payable ?? customer.payable_amount
       const pa = rawPa != null ? parseFloat(rawPa) : 0
       setFormData({ 
-        name: customer.name, 
+        name: customer.name || '', 
         company_name: customer.company_name || customer.company || '',
         email: customer.email || '', 
         phone: customer.phone || '', 
@@ -102,7 +164,10 @@ const Customers = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!formData.name) return setFormError('Name is required')
+    if (!formData.name.trim()) {
+      setFormError('Full Name / Primary Contact is required')
+      return
+    }
     
     try {
       setSubmitting(true)
@@ -110,15 +175,22 @@ const Customers = () => {
 
       const payload = {
         ...formData,
+        name: formData.name.trim(),
+        company_name: formData.company_name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim(),
         payable_amount: formData.payable_amount !== '' ? parseFloat(formData.payable_amount) || 0 : 0
       }
       
       if (editingCustomer) {
         const response = await api.put(`customers/${editingCustomer.id}/`, payload)
         setCustomers(prev => prev.map(c => c.id === editingCustomer.id ? response.data : c))
+        showToast('Customer record updated', 'success')
       } else {
         const response = await api.post('customers/', payload)
         setCustomers(prev => [response.data, ...prev.filter(c => c.id !== response.data.id)])
+        showToast('New customer created', 'success')
       }
       fetchSummary()
       
@@ -159,497 +231,594 @@ const Customers = () => {
         setCustomers(customers.filter(c => c.id !== id))
         fetchSummary()
         showToast('Customer moved to Recycle Bin', 'success')
-      } catch (err) {
+      } catch {
         showError('Action Failed', 'Failed to move customer to Recycle Bin.')
       }
     }
   }
 
+  // Combined cohesive filtering (KPI card + Dropdown filter)
+  const displayedCustomers = useMemo(() => {
+    return customers.filter(c => {
+      const billed = parseFloat(c.total_billed) || 0
+      const paid = parseFloat(c.paid_amount) || 0
+      const pending = parseFloat(c.pending_balance) || 0
+      const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0
+
+      // KPI Card Filter
+      if (activeCard === 'received' && !(paid > 0)) return false
+      if (activeCard === 'due' && !(pending > 0)) return false
+      if (activeCard === 'payable' && !(payable > 0)) return false
+      // 'billed' shows all customers
+
+      // Dropdown Filter Menu
+      if (filterStatus === 'receivable_due' && !(pending > 0)) return false
+      if (filterStatus === 'payable_owed' && !(payable > 0)) return false
+      if (filterStatus === 'fully_paid' && !(pending <= 0 && billed > 0)) return false
+      if (filterStatus === 'has_advance' && !(paid < 0 || pending < 0)) return false
+
+      return true
+    })
+  }, [customers, activeCard, filterStatus])
+
   return (
     <div className="customers-page erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
-      <div className="page-header" style={{ marginBottom: '0.85rem' }}>
+      
+      {/* ── 1. PAGE HEADER (Enquiries CRED Style) ── */}
+      <div className="page-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontWeight: '700', letterSpacing: '-0.01em', fontSize: '1.35rem' }}>Customers</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>Manage client records, receivables, and ledger history</p>
+          <h2 style={{ fontWeight: 600, letterSpacing: '-0.02em', fontSize: '24px', margin: 0, color: 'var(--text, #0A0A0A)' }}>
+            Customers
+          </h2>
+          <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
+            Manage client records, receivables, and ledger history
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ borderRadius: 'var(--radius-sm)' }}>
-            <Plus size={16} /> New Customer
-          </button>
-        </div>
-      </div>
-
-      {/* Financial Summary Cards */}
-      <div className="summary-cards-grid" style={{ marginBottom: '0.85rem' }}>
-        <div className="glass-panel" style={{ textAlign: 'left', padding: '0.75rem 1rem', borderTop: '3px solid #1366d9' }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Billed</p>
-          <h2 style={{ color: 'var(--text-main)', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(summary.total_billed)}</h2>
-        </div>
-        <div className="glass-panel" style={{ textAlign: 'left', padding: '0.75rem 1rem', borderTop: '3px solid #0f7638' }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount Received</p>
-          <h2 style={{ color: '#0f7638', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(summary.paid_amount)}</h2>
-        </div>
-        <div className="glass-panel" style={{ textAlign: 'left', padding: '0.75rem 1rem', borderTop: `3px solid ${summary.pending_balance > 0 ? '#dc2626' : '#0f7638'}` }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Receivables Due</p>
-          <h2 style={{ color: summary.pending_balance > 0 ? '#dc2626' : '#0f7638', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(summary.pending_balance)}</h2>
-        </div>
-        <div className="glass-panel" style={{ textAlign: 'left', padding: '0.75rem 1rem', borderTop: `3px solid ${(summary.total_payable || 0) > 0 ? '#2563eb' : '#94a3b8'}` }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payables Owed</p>
-          <h2 style={{ color: (summary.total_payable || 0) > 0 ? '#2563eb' : 'var(--text-main)', fontWeight: '800', fontSize: '1.35rem', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(summary.total_payable || 0)}</h2>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <PageHeaderButton onClick={() => handleOpenModal()}>
+            New Customer
+          </PageHeaderButton>
         </div>
       </div>
 
-      {/* Customer List Split Section Tabs: (a) Pending Balance Only | (b) Full Customer List */}
+      {/* ── 2. KPI CARDS (4 cards, Enquiries Style with Active Ink Border) ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '16px',
+        marginBottom: '20px'
+      }}>
+        {/* Card 1: Total Billed */}
+        <div 
+          onClick={() => handleCardClick('billed')}
+          style={{ 
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: activeCard === 'billed' ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
+          }}
+        >
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
+            Total Billed
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {formatCurrency(summary.total_billed || 0)}
+          </div>
+        </div>
+
+        {/* Card 2: Amount Received */}
+        <div 
+          onClick={() => handleCardClick('received')}
+          style={{ 
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: activeCard === 'received' ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
+          }}
+        >
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
+            Amount Received
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {formatCurrency(summary.paid_amount || 0)}
+          </div>
+        </div>
+
+        {/* Card 3: Receivables Due */}
+        <div 
+          onClick={() => handleCardClick('due')}
+          style={{ 
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: activeCard === 'due' ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
+          }}
+        >
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
+            Receivables Due
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {formatCurrency(summary.pending_balance || 0)}
+          </div>
+        </div>
+
+        {/* Card 4: Payables Owed */}
+        <div 
+          onClick={() => handleCardClick('payable')}
+          style={{ 
+            background: 'var(--card-bg, #FFFFFF)',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: activeCard === 'payable' ? '2px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'border-color 0.15s ease, transform 0.1s ease',
+            boxSizing: 'border-box'
+          }}
+        >
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
+            Payables Owed
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {formatCurrency(summary.total_payable || 0)}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. STATUS TABS BAR (CRED Animated Tabs) ── */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '0.75rem',
-        marginBottom: '0.85rem',
+        gap: '12px',
+        marginBottom: '16px',
         flexWrap: 'wrap'
       }}>
-        <div style={{ 
-          display: 'inline-flex', 
-          gap: '0.4rem', 
-          background: 'rgba(0,0,0,0.04)', 
-          padding: '0.3rem', 
-          borderRadius: '10px' 
-        }}>
-          <button
-            type="button"
-            className="btn"
-            id="tab-pending-customers"
-            onClick={() => handleSectionSwitch('pending')}
-            style={{
-              padding: '0.55rem 1.1rem',
-              fontSize: '0.85rem',
-              fontWeight: activeSection === 'pending' ? '700' : '600',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSection === 'pending' ? '#ffffff' : 'transparent',
-              color: activeSection === 'pending' ? 'var(--danger, #dc2626)' : 'var(--text-muted)',
-              boxShadow: activeSection === 'pending' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: activeSection === 'pending' ? '#dc2626' : '#94a3b8',
-              display: 'inline-block'
-            }} />
-            (a) Pending Balance Only
-            <span style={{
-              background: activeSection === 'pending' ? '#fee2e2' : 'rgba(0,0,0,0.06)',
-              color: activeSection === 'pending' ? '#b91c1c' : 'inherit',
-              padding: '0.15rem 0.55rem',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: '800'
-            }}>
-              {summary.pending_count !== undefined ? summary.pending_count : 0}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className="btn"
-            id="tab-all-customers"
-            onClick={() => handleSectionSwitch('all')}
-            style={{
-              padding: '0.55rem 1.1rem',
-              fontSize: '0.85rem',
-              fontWeight: activeSection === 'all' ? '700' : '600',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSection === 'all' ? '#ffffff' : 'transparent',
-              color: activeSection === 'all' ? 'var(--primary, #1366d9)' : 'var(--text-muted)',
-              boxShadow: activeSection === 'all' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            (b) Full Customer List
-            <span style={{
-              background: activeSection === 'all' ? '#ebf3fc' : 'rgba(0,0,0,0.06)',
-              color: activeSection === 'all' ? '#1366d9' : 'inherit',
-              padding: '0.15rem 0.55rem',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: '800'
-            }}>
-              {summary.total_count !== undefined ? summary.total_count : 0}
-            </span>
-          </button>
-        </div>
-
-        {activeSection === 'pending' && summary.pending_balance > 0 && (
-          <div style={{
-            fontSize: '0.8rem',
-            color: '#b91c1c',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            padding: '0.45rem 0.9rem',
-            borderRadius: '8px',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem'
-          }}>
-            <AlertCircle size={15} />
-            Unsettled Receivables: <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(summary.pending_balance)}</strong>
-          </div>
-        )}
+        <CredAnimatedTabs
+          tabs={[
+            { id: 'pending', label: 'Pending Balance', count: summary.pending_count ?? 0 },
+            { id: 'all', label: 'All Customers', count: summary.total_count ?? 0 },
+          ]}
+          value={activeSection}
+          onChange={handleSectionSwitch}
+          className="case-preserve cred-enquiry-tabs"
+          layoutId="cred-customer-tabs"
+        />
       </div>
 
-      <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <SearchBar
-          value={searchQuery}
-          onChange={handleSearchChange}
-          style={{ flex: 1, minWidth: '220px', maxWidth: '420px' }}
-        />
-        <button
-          className="btn btn-secondary"
-          onClick={() => { fetchCustomers(); fetchSummary(); }}
-          title="Refresh table"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
-        >
-          <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
-        </button>
+      {/* ── 4. SEARCH + FILTERS ROW (Directly on page, soft filled search) ── */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '20px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '260px' }}>
+          <CredSearchInput
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onClear={() => handleSearchChange('')}
+            placeholder="Search customers…"
+            style={{ flex: 1 }}
+          />
+          <PlainFilterDropdown
+            icon={Filter}
+            value={filterStatus}
+            onChange={(val) => { setFilterStatus(val); setPage(1); }}
+            options={FILTER_OPTIONS}
+            minWidth={160}
+            ariaLabel="Filter customers"
+          />
+        </div>
       </div>
 
       {error && (
-        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <AlertCircle size={18} /> {error}
         </div>
       )}
 
-      <div className="glass-panel" style={{ overflowX: 'auto', minHeight: '200px', position: 'relative' }}>
+      {/* ── 5. MAIN DATA TABLE (Directly on page, Enquiries Table Style) ── */}
+      <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
         {loading ? (
-          <div style={{ padding: '1.5rem' }}>
+          <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>
         ) : (
           <>
-        {customers.length === 0 && !error && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            {searchQuery 
-              ? `No customers matching "${searchQuery}" in ${activeSection === 'pending' ? 'pending accounts' : 'customer directory'}` 
-              : activeSection === 'pending'
-                ? 'All customer accounts are fully settled! No pending payment balances.'
-                : 'No customers found. Click "+ New Customer" to create one.'}
-          </div>
-        )}
+            {displayedCustomers.length === 0 && !error && (
+              <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+                <User size={22} strokeWidth={1.6} style={{ color: 'var(--text-muted, #8C8C8C)', opacity: 0.6, marginBottom: '8px' }} />
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                  {searchQuery 
+                    ? `No customers matching "${searchQuery}".`
+                    : filterStatus !== 'all' || activeCard
+                    ? 'No customers match the selected filter.'
+                    : activeSection === 'pending'
+                    ? 'All customer accounts are fully settled. No pending balance.'
+                    : 'No customers found.'}
+                </p>
+              </div>
+            )}
 
-        {customers.length > 0 && (
-          <>
-            {/* Desktop Table View */}
-            <div className="desktop-only-table">
-              <div className="table-container">
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th>Customer Name</th>
-                      <th>Company Name</th>
-                      <th>Email Address</th>
-                      <th>Phone Number</th>
-                      <th style={{ textAlign: 'right' }}>Total Billed</th>
-                      <th style={{ textAlign: 'right' }}>Amount Paid</th>
-                      <th style={{ textAlign: 'right' }}>Receivables Due</th>
-                      <th style={{ textAlign: 'right' }}>Payables Owed</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customers.map(customer => (
-                      <tr key={customer.id} onClick={() => navigate(`${basePath}/customers/${customer.id}`)} style={{ cursor: 'pointer' }} className="hover-row">
-                        <td>
-                          <div style={{ fontWeight: '700', color: 'var(--primary)' }}>{customer.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.2rem' }}>CID-{customer.id.toString().padStart(5, '0')}</div>
-                        </td>
-                        <td style={{ fontWeight: '600', color: customer.company_name ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                          {customer.company_name || '---'}
-                        </td>
-                        <td style={{ color: 'var(--text-muted)', fontWeight: '500' }}>{customer.email || '---'}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>{customer.phone || '---'}</td>
-                        <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--text-main)' }}>
-                          {formatCurrency(customer.total_billed || 0)}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--success)' }}>
-                          {formatCurrency(customer.paid_amount || 0)}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: '700', color: (customer.pending_balance || 0) > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                          {formatCurrency(customer.pending_balance || 0)}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: '700', color: (parseFloat(customer.remaining_payable ?? customer.payable_amount) || 0) > 0 ? '#2563eb' : 'var(--text-muted)' }}>
-                          {formatCurrency(parseFloat(customer.remaining_payable ?? customer.payable_amount) || 0)}
-                        </td>
-                        <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                          <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+            {displayedCustomers.length > 0 && (
+              <>
+                {/* Desktop Table View */}
+                <div className="desktop-only-table" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+                        <th style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Customer name</th>
+                        <th style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Company name</th>
+                        <th style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Email address</th>
+                        <th style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Phone number</th>
+                        <th style={{ minWidth: '150px', padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Total billed</th>
+                        <th style={{ minWidth: '150px', padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Amount paid</th>
+                        <th style={{ minWidth: '150px', padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Receivables due</th>
+                        <th style={{ minWidth: '150px', padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Payables owed</th>
+                        <th style={{ width: '80px', minWidth: '80px', padding: '10px 14px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayedCustomers.map((customer) => {
+                        const payableBal = parseFloat(customer.remaining_payable ?? customer.payable_amount) || 0
+                        return (
+                          <tr
+                            key={customer.id}
+                            className="cred-table-row"
+                            onClick={() => navigate(`${basePath}/customers/${customer.id}`)}
+                            style={{
+                              borderBottom: '1px solid var(--border, #E4E4E4)',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                          >
+                            {/* Customer Name + CID */}
+                            <td style={{ padding: '12px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                              <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {customer.name}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                                CID-{customer.id.toString().padStart(5, '0')}
+                              </div>
+                            </td>
+
+                            {/* Company Name */}
+                            <td style={{ padding: '12px 10px', verticalAlign: 'middle', fontSize: '13px', color: customer.company_name ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {customer.company_name || '—'}
+                            </td>
+
+                            {/* Email Address */}
+                            <td style={{ padding: '12px 10px', verticalAlign: 'middle', fontSize: '13px', color: customer.email ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {customer.email || '—'}
+                            </td>
+
+                            {/* Phone Number */}
+                            <td style={{ padding: '12px 10px', verticalAlign: 'middle', fontSize: '13px', color: customer.phone ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                              {customer.phone || '—'}
+                            </td>
+
+                            {/* Total Billed */}
+                            <td style={{ minWidth: '150px', padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right', fontSize: '13px', fontVariantNumeric: 'tabular-nums', color: 'var(--text, #111111)', whiteSpace: 'nowrap' }}>
+                              {formatCurrency(customer.total_billed || 0)}
+                            </td>
+
+                            {/* Amount Paid */}
+                            <td style={{ minWidth: '150px', padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right', fontSize: '13px', fontVariantNumeric: 'tabular-nums', color: 'var(--text, #111111)', whiteSpace: 'nowrap' }}>
+                              {formatCurrency(customer.paid_amount || 0)}
+                            </td>
+
+                            {/* Receivables Due */}
+                            <td style={{ minWidth: '150px', padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right', fontSize: '13px', fontVariantNumeric: 'tabular-nums', color: (customer.pending_balance || 0) > 0 ? 'var(--danger, #DC2626)' : 'var(--text, #111111)', whiteSpace: 'nowrap' }}>
+                              {formatCurrency(customer.pending_balance || 0)}
+                            </td>
+
+                            {/* Payables Owed */}
+                            <td style={{ minWidth: '150px', padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right', fontSize: '13px', fontVariantNumeric: 'tabular-nums', color: 'var(--text, #111111)', whiteSpace: 'nowrap' }}>
+                              {formatCurrency(payableBal)}
+                            </td>
+
+                            {/* Actions */}
+                            <td style={{ width: '80px', minWidth: '80px', padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  className="cred-action-icon-btn"
+                                  onClick={() => handleOpenModal(customer)}
+                                  title="Edit"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: '4px',
+                                    color: 'var(--text-muted, #8C8C8C)',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '4px',
+                                    transition: 'color 0.15s ease'
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text, #111111)')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                                >
+                                  <Edit3 size={15} strokeWidth={1.8} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="cred-trash-icon-btn"
+                                  onClick={() => handleDelete(customer.id)}
+                                  title="Delete"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: '4px',
+                                    color: 'var(--text-muted, #8C8C8C)',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '4px',
+                                    transition: 'color 0.15s ease'
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger, #DC2626)')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                                >
+                                  <Trash2 size={15} strokeWidth={1.8} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards View */}
+                <div className="mobile-only-cards" style={{ padding: '0.75rem 0' }}>
+                  {displayedCustomers.map((customer) => {
+                    const hasDue = (customer.pending_balance || 0) > 0
+                    const payableBal = parseFloat(customer.remaining_payable ?? customer.payable_amount) || 0
+                    const hasPayable = payableBal > 0
+                    const initials = customer.name
+                      ? customer.name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+                      : 'CU'
+
+                    return (
+                      <div 
+                        key={customer.id} 
+                        className="mobile-entity-card"
+                        onClick={() => navigate(`${basePath}/customers/${customer.id}`)}
+                        style={{
+                          background: 'var(--card-bg, #FFFFFF)',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          borderRadius: '16px',
+                          padding: '16px',
+                          marginBottom: '12px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              background: 'var(--fill-ghost-hover, #F4F4F4)',
+                              color: 'var(--text, #111111)',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              {initials}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {customer.name}
+                              </div>
+                              {customer.company_name && (
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '1px' }}>
+                                  {customer.company_name}
+                                </div>
+                              )}
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>CID-{customer.id.toString().padStart(5, '0')}</span>
+                                {customer.phone && <span>&bull; {customer.phone}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronRight size={16} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', padding: '10px', background: 'var(--fill-ghost-hover, #F4F4F4)', borderRadius: '10px', marginBottom: '12px' }}>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>Billed</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'var(--text, #111111)' }}>{formatCurrency(customer.total_billed || 0)}</span>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>Received</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'var(--text, #111111)' }}>{formatCurrency(customer.paid_amount || 0)}</span>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>Receivables Due</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: hasDue ? 'var(--danger, #DC2626)' : 'var(--text, #111111)' }}>
+                              {formatCurrency(customer.pending_balance || 0)}
+                            </span>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>Payables Owed</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: hasPayable ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)' }}>
+                              {formatCurrency(payableBal)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {customer.phone && (
+                              <a 
+                                href={`tel:${customer.phone}`} 
+                                style={{ padding: '6px', borderRadius: '4px', color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex', alignItems: 'center' }}
+                                title="Call customer"
+                              >
+                                <Phone size={14} />
+                              </a>
+                            )}
+                            {customer.email && (
+                              <a 
+                                href={`mailto:${customer.email}`} 
+                                style={{ padding: '6px', borderRadius: '4px', color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex', alignItems: 'center' }}
+                                title="Email customer"
+                              >
+                                <Mail size={14} />
+                              </a>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
                             <button 
-                              className="btn-icon" 
-                              style={{ width: '32px', height: '32px' }}
+                              type="button"
                               onClick={() => handleOpenModal(customer)}
-                              title="Edit Record"
+                              title="Edit Customer"
+                              style={{ background: 'none', border: 'none', padding: '6px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
                             >
-                              <Edit size={14} />
+                              <Edit3 size={14} />
                             </button>
                             <button 
-                              className="btn-icon" 
-                              style={{ width: '32px', height: '32px', color: 'var(--danger)' }}
+                              type="button"
                               onClick={() => handleDelete(customer.id)}
-                              title="Decommission Record"
+                              title="Delete Customer"
+                              style={{ background: 'none', border: 'none', padding: '6px', color: 'var(--danger, #DC2626)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
                             >
                               <Trash2 size={14} />
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Native Cards View (<= 768px) */}
-            <div className="mobile-only-cards" style={{ padding: '0.75rem' }}>
-              {customers.map(customer => {
-                const hasDue = (customer.pending_balance || 0) > 0
-                const payableBal = parseFloat(customer.remaining_payable ?? customer.payable_amount) || 0
-                const hasPayable = payableBal > 0
-                const initials = customer.name
-                  ? customer.name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
-                  : 'CU'
-
-                return (
-                  <div 
-                    key={customer.id} 
-                    className="mobile-entity-card"
-                    onClick={() => navigate(`${basePath}/customers/${customer.id}`)}
-                  >
-                    <div className="mobile-card-header">
-                      <div className="mobile-card-title-group">
-                        <div className="mobile-card-avatar" style={{ background: '#ebf3fc', color: '#1366d9' }}>
-                          {initials}
-                        </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div className="mobile-card-title">{customer.name}</div>
-                          {customer.company_name && (
-                            <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: '600', marginTop: '1px' }}>
-                              {customer.company_name}
-                            </div>
-                          )}
-                          <div className="mobile-card-sub">
-                            <span style={{ fontWeight: '600', color: '#64748b' }}>CID-{customer.id.toString().padStart(5, '0')}</span>
-                            {customer.phone && <span>&bull; {customer.phone}</span>}
-                            {hasPayable && (
-                              <span style={{ 
-                                marginLeft: '0.4rem', 
-                                background: '#eff6ff', 
-                                color: '#2563eb', 
-                                padding: '1px 6px', 
-                                borderRadius: '4px', 
-                                fontSize: '0.65rem', 
-                                fontWeight: '700' 
-                              }}>
-                                Payable Owed
-                              </span>
-                            )}
-                          </div>
                         </div>
                       </div>
-                      <ChevronRight size={18} color="#94a3b8" />
-                    </div>
+                    )
+                  })}
+                </div>
 
-                    <div className="mobile-card-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Billed</span>
-                        <span className="mobile-card-metric-value">{formatCurrency(customer.total_billed || 0)}</span>
-                      </div>
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Received</span>
-                        <span className="mobile-card-metric-value" style={{ color: '#16a34a' }}>{formatCurrency(customer.paid_amount || 0)}</span>
-                      </div>
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Receivables Due</span>
-                        <span className="mobile-card-metric-value" style={{ color: hasDue ? '#dc2626' : '#16a34a' }}>
-                          {formatCurrency(customer.pending_balance || 0)}
-                        </span>
-                      </div>
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Payables Owed</span>
-                        <span className="mobile-card-metric-value" style={{ color: hasPayable ? '#2563eb' : '#64748b' }}>
-                          {formatCurrency(payableBal)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mobile-card-footer" onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        {customer.phone && (
-                          <a 
-                            href={`tel:${customer.phone}`} 
-                            className="mobile-card-action-btn"
-                            title="Call customer"
-                          >
-                            <Phone size={14} />
-                          </a>
-                        )}
-                        {customer.email && (
-                          <a 
-                            href={`mailto:${customer.email}`} 
-                            className="mobile-card-action-btn"
-                            title="Email customer"
-                          >
-                            <Mail size={14} />
-                          </a>
-                        )}
-                      </div>
-                      <div className="mobile-card-actions">
-                        <button 
-                          className="mobile-card-action-btn" 
-                          onClick={() => handleOpenModal(customer)}
-                          title="Edit Customer"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button 
-                          className="mobile-card-action-btn delete" 
-                          onClick={() => handleDelete(customer.id)}
-                          title="Delete Customer"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {totalPages > 1 && (
-              <div className="pagination" style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                <button 
-                  className="btn glass-panel" 
-                  disabled={page === 1}
-                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                >
-                  Prev
-                </button>
-                <span style={{ display: 'flex', alignItems: 'center', padding: '0 1rem' }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button 
-                  className="btn glass-panel" 
-                  disabled={page === totalPages}
-                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-                >
-                  Next
-                </button>
-              </div>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <CredPagination
+                    page={page}
+                    totalPages={totalPages}
+                    total={summary.total_count || customers.length}
+                    rangeStart={(page - 1) * 25 + 1}
+                    rangeEnd={Math.min(page * 25, summary.total_count || customers.length)}
+                    onPageChange={(p) => setPage(p)}
+                  />
+                )}
+              </>
             )}
-          </>
-        )}
           </>
         )}
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+      {/* ── 6. ADD / EDIT CUSTOMER MODAL (Enquiries ModalShell Style) ── */}
+      <ModalShell
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingCustomer ? 'Edit Customer' : 'New Customer'}
+        maxWidth="540px"
+        formId="customer-modal-form"
+        submitLabel={editingCustomer ? 'Save Changes' : 'Create Customer'}
+        submittingLabel="Saving..."
+        submitting={submitting}
+        closeOnBackdrop={false}
       >
-        <form onSubmit={handleSubmit}>
-          {formError && <div className="error-message">{formError}</div>}
-          
-          <div className="form-grid">
-            <div className="form-group col-span-2">
-              <label>Full Name / Primary Contact *</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.name} 
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+        <form id="customer-modal-form" onSubmit={handleSubmit}>
+          {formError && (
+            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <AlertCircle size={18} /> {formError}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+            <Field label="Full Name / Primary Contact" required>
+              <TextInput
                 required
+                autoFocus
+                placeholder="e.g. Faisal Al-Harbi"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
+            </Field>
+
+            <Field label="Company Name">
+              <TextInput
+                placeholder="e.g. Kingdom Trading LLC"
+                value={formData.company_name}
+                onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+              />
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <Field label="Email Address">
+                <TextInput
+                  type="email"
+                  placeholder="e.g. client@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </Field>
+              <Field label="Phone Number">
+                <TextInput
+                  type="tel"
+                  placeholder="e.g. +966 50 123 4567"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </Field>
             </div>
 
-            <div className="form-group col-span-2">
-              <label>Company Name</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.company_name} 
-                onChange={(e) => setFormData({...formData, company_name: e.target.value})}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Email Address</label>
-              <input 
-                type="email" 
-                className="input-field" 
-                value={formData.email} 
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Phone Number</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.phone} 
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              />
-            </div>
-
-            <div className="form-group col-span-2">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                <label style={{ margin: 0, fontWeight: '600' }}>Payable Amount (SAR)</label>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: '500' }}>
+            <Field
+              label="Payable Amount (SAR)"
+              rightAction={
+                <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
                   {editingCustomer ? 'Amount company owes to customer' : 'Initial payable balance owed'}
                 </span>
-              </div>
-              <input 
-                type="number" 
+              }
+            >
+              <NumberInput
                 step="0.01"
                 min="0"
-                className="input-field" 
-                value={formData.payable_amount} 
-                onChange={(e) => setFormData({...formData, payable_amount: e.target.value})}
+                prefix="SAR"
+                placeholder="0.00"
+                value={formData.payable_amount}
+                onChange={(e) => setFormData({ ...formData, payable_amount: e.target.value })}
               />
-            </div>
+            </Field>
 
-            <div className="form-group col-span-2">
-              <label>Complete Address</label>
-              <textarea 
-                className="input-field" 
-                style={{ minHeight: '100px' }} 
-                value={formData.address} 
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-              ></textarea>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <button type="button" className="btn btn-secondary" style={{ padding: '0.75rem 1.5rem' }} onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 2rem' }} disabled={submitting}>
-              {submitting ? 'Saving...' : (editingCustomer ? 'Save Changes' : 'Create Customer')}
-            </button>
+            <Field label="Complete Address">
+              <Textarea
+                rows={3}
+                placeholder="Enter building number, street, district, city..."
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </Field>
           </div>
         </form>
-      </Modal>
+      </ModalShell>
     </div>
   )
 }

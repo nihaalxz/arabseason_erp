@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, RefreshCw, AlertCircle, Edit, Trash2, MoreVertical, Phone, Mail, ChevronRight, Building2 } from '../components/icons'
+import { useNavigate } from 'react-router-dom'
+import { Edit3, Trash2, AlertCircle, Building2 } from 'lucide-react'
 import api from '../api'
-import Modal from '../components/common/Modal'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import SearchBar from '../components/common/SearchBar'
+import PageHeaderButton from '../components/common/PageHeaderButton'
+import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
+import CredPagination from '../components/cashbook/cred/CredPagination'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  NumberInput,
+  Textarea
+} from '../components/common/FormPrimitives'
 import { showConfirm, showError, showToast } from '../utils/swal'
 
 const Vendors = () => {
@@ -13,6 +21,7 @@ const Vendors = () => {
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
   const basePath = '/accounting'
@@ -35,6 +44,15 @@ const Vendors = () => {
     fetchVendors()
   }, [page, searchQuery])
 
+  // Listen to top-strip refresh event
+  useEffect(() => {
+    const handleAppRefresh = () => {
+      fetchVendors()
+    }
+    window.addEventListener('app:refresh', handleAppRefresh)
+    return () => window.removeEventListener('app:refresh', handleAppRefresh)
+  }, [page, searchQuery])
+
   const fetchVendors = async () => {
     try {
       setLoading(true)
@@ -43,8 +61,11 @@ const Vendors = () => {
         params.search = searchQuery.trim()
       }
       const response = await api.get('vendors/', { params })
-      setVendors(response.data.results || [])
-      setTotalPages(Math.ceil((response.data.count || 0) / 25) || 1)
+      const results = response.data.results || response.data || []
+      setVendors(results)
+      const count = response.data.count || results.length
+      setTotalCount(count)
+      setTotalPages(Math.ceil(count / 25) || 1)
       setError('')
     } catch (err) {
       setError('Failed to fetch vendors. Please try again.')
@@ -144,317 +165,275 @@ const Vendors = () => {
         await api.delete(`vendors/${id}/`)
         setVendors(vendors.filter(v => v.id !== id))
         showToast('Vendor moved to Recycle Bin', 'success')
-      } catch (err) {
+      } catch {
         showError('Action Failed', 'Failed to move vendor to Recycle Bin.')
       }
     }
   }
 
   return (
-    <div className="vendors-page erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
-      <div className="page-header" style={{ marginBottom: '1.25rem' }}>
+    <div className="vendors-page erp-page-container erp-page-transition" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', paddingBottom: '3rem' }}>
+      
+      {/* ── 1. PAGE HEADER (Enquiries CRED Style) ── */}
+      <div className="page-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontWeight: '700', letterSpacing: '-0.01em', fontSize: '1.35rem' }}>Vendors</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>Manage supplier profiles, procurement contracts, and billing terms</p>
+          <h2 style={{ fontWeight: 600, letterSpacing: '-0.02em', fontSize: '24px', margin: 0, color: 'var(--text, #0A0A0A)' }}>
+            Vendors
+          </h2>
+          <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
+            Manage supplier profiles, procurement contracts, and billing terms
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ borderRadius: 'var(--radius-sm)' }}>
-            <Plus size={16} /> New Vendor
-          </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <PageHeaderButton onClick={() => handleOpenModal()}>
+            New Vendor
+          </PageHeaderButton>
         </div>
       </div>
 
-      <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <SearchBar
+      {/* ── 2. BORDERLESS FILLED SEARCH BAR (Full width, no outer card, no double border) ── */}
+      <div style={{ width: '100%', marginBottom: '1.25rem' }}>
+        <CredSearchInput
           value={searchQuery}
-          onChange={handleSearchChange}
-          style={{ flex: 1, minWidth: '220px', maxWidth: '420px' }}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onClear={() => handleSearchChange('')}
+          placeholder="Search vendors…"
+          style={{ width: '100%', height: '38px' }}
         />
-        <button
-          className="btn btn-secondary"
-          onClick={fetchVendors}
-          title="Refresh table"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
-        >
-          <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
-        </button>
       </div>
 
       {error && (
-        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <AlertCircle size={18} /> {error}
         </div>
       )}
 
-      <div className="glass-panel" style={{ overflowX: 'auto', minHeight: '200px', position: 'relative' }}>
+      {/* ── 3. TABLE ── */}
+      <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
         {loading ? (
-          <div style={{ padding: '1.5rem' }}>
+          <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>
         ) : (
           <>
-        {vendors.length === 0 && !error && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            {searchQuery ? `No vendors matching "${searchQuery}"` : 'No vendors found. Click "+ New Vendor" to create one.'}
-          </div>
-        )}
-
-        {vendors.length > 0 && (
-          <>
-            {/* Desktop Table View */}
-            <div className="desktop-only-table">
-              <div className="table-container">
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th>Vendor Name</th>
-                      <th>Company Name</th>
-                      <th>Email Address</th>
-                      <th>Phone Number</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vendors.map(vendor => (
-                      <tr key={vendor.id} onClick={() => navigate(`${basePath}/vendors/${vendor.id}`)} style={{ cursor: 'pointer' }} className="hover-row">
-                        <td>
-                          <div style={{ fontWeight: '700', color: 'var(--primary)' }}>{vendor.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.2rem' }}>VID-{vendor.id.toString().padStart(5, '0')}</div>
-                        </td>
-                        <td style={{ fontWeight: '600', color: 'var(--text-muted)' }}>{vendor.company || '---'}</td>
-                        <td style={{ color: 'var(--text-muted)', fontWeight: '500' }}>{vendor.email || '---'}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>{vendor.phone || '---'}</td>
-                        <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                          <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                            <button 
-                              className="btn-icon" 
-                              style={{ width: '32px', height: '32px' }}
-                              onClick={() => handleOpenModal(vendor)}
-                              title="Modify Record"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button 
-                              className="btn-icon" 
-                              style={{ width: '32px', height: '32px', color: 'var(--danger)' }}
-                              onClick={() => handleDelete(vendor.id)}
-                              title="Decommission Record"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Native Cards View (<= 768px) */}
-            <div className="mobile-only-cards" style={{ padding: '0.75rem' }}>
-              {vendors.map(vendor => {
-                const initials = vendor.name
-                  ? vendor.name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
-                  : 'VN'
-
-                return (
-                  <div 
-                    key={vendor.id} 
-                    className="mobile-entity-card"
-                    onClick={() => navigate(`${basePath}/vendors/${vendor.id}`)}
-                  >
-                    <div className="mobile-card-header">
-                      <div className="mobile-card-title-group">
-                        <div className="mobile-card-avatar" style={{ background: '#fef3c7', color: '#b45309' }}>
-                          {initials}
-                        </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div className="mobile-card-title">{vendor.name}</div>
-                          <div className="mobile-card-sub">
-                            <span style={{ fontWeight: '600', color: '#64748b' }}>VID-{vendor.id.toString().padStart(5, '0')}</span>
-                            {vendor.company && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                                &bull; <Building2 size={11} /> {vendor.company}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight size={18} color="#94a3b8" />
-                    </div>
-
-                    <div className="mobile-card-grid mobile-card-grid-2">
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Phone</span>
-                        <span className="mobile-card-metric-value" style={{ fontSize: '0.8rem', fontWeight: '600' }}>
-                          {vendor.phone || 'No phone'}
-                        </span>
-                      </div>
-                      <div className="mobile-card-metric">
-                        <span className="mobile-card-metric-label">Email</span>
-                        <span className="mobile-card-metric-value" style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b' }}>
-                          {vendor.email || 'No email'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mobile-card-footer" onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        {vendor.phone && (
-                          <a 
-                            href={`tel:${vendor.phone}`} 
-                            className="mobile-card-action-btn"
-                            title="Call vendor"
-                          >
-                            <Phone size={14} />
-                          </a>
-                        )}
-                        {vendor.email && (
-                          <a 
-                            href={`mailto:${vendor.email}`} 
-                            className="mobile-card-action-btn"
-                            title="Email vendor"
-                          >
-                            <Mail size={14} />
-                          </a>
-                        )}
-                      </div>
-                      <div className="mobile-card-actions">
-                        <button 
-                          className="mobile-card-action-btn" 
-                          onClick={() => handleOpenModal(vendor)}
-                          title="Modify Record"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button 
-                          className="mobile-card-action-btn delete" 
-                          onClick={() => handleDelete(vendor.id)}
-                          title="Decommission Record"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {totalPages > 1 && (
-              <div className="pagination" style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                <button 
-                  className="btn glass-panel" 
-                  disabled={page === 1}
-                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                >
-                  Prev
-                </button>
-                <span style={{ display: 'flex', alignItems: 'center', padding: '0 1rem' }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button 
-                  className="btn glass-panel" 
-                  disabled={page === totalPages}
-                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-                >
-                  Next
-                </button>
+            {vendors.length === 0 && !error && (
+              <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+                <Building2 size={22} strokeWidth={1.6} style={{ color: 'var(--text-muted, #8C8C8C)', opacity: 0.6, marginBottom: '8px' }} />
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
+                  {searchQuery ? `No vendors matching "${searchQuery}".` : 'No vendors recorded yet.'}
+                </p>
               </div>
             )}
-          </>
-        )}
+
+            {vendors.length > 0 && (
+              <>
+                {/* Desktop Table View */}
+                <div className="desktop-only-table" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+                        <th style={{ padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Vendor Name</th>
+                        <th style={{ padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Company Name</th>
+                        <th style={{ padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Email Address</th>
+                        <th style={{ padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>Phone Number</th>
+                        <th style={{ width: '80px', minWidth: '80px', padding: '10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vendors.map((vendor) => (
+                        <tr
+                          key={vendor.id}
+                          className="cred-table-row"
+                          onClick={() => navigate(`${basePath}/vendors/${vendor.id}`)}
+                          style={{
+                            borderBottom: '1px solid var(--border, #E4E4E4)',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.15s ease'
+                          }}
+                        >
+                          {/* Vendor Name + VID */}
+                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {vendor.name}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                              VID-{vendor.id.toString().padStart(5, '0')}
+                            </div>
+                          </td>
+
+                          {/* Company Name */}
+                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: vendor.company ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {vendor.company || '—'}
+                          </td>
+
+                          {/* Email Address */}
+                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: vendor.email ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {vendor.email || '—'}
+                          </td>
+
+                          {/* Phone Number */}
+                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: vendor.phone ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                            {vendor.phone || '—'}
+                          </td>
+
+                          {/* Actions */}
+                          <td style={{ width: '80px', minWidth: '80px', padding: '12px 16px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                              <button
+                                type="button"
+                                className="cred-action-icon-btn"
+                                onClick={() => handleOpenModal(vendor)}
+                                title="Edit"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '4px',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '4px',
+                                  transition: 'color 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text, #111111)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                              >
+                                <Edit3 size={15} strokeWidth={1.8} />
+                              </button>
+                              <button
+                                type="button"
+                                className="cred-action-icon-btn delete"
+                                onClick={() => handleDelete(vendor.id)}
+                                title="Delete"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: '4px',
+                                  color: 'var(--text-muted, #8C8C8C)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '4px',
+                                  transition: 'color 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger, #DC2626)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                              >
+                                <Trash2 size={15} strokeWidth={1.8} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <CredPagination
+                    page={page}
+                    totalPages={totalPages}
+                    total={totalCount}
+                    rangeStart={(page - 1) * 25 + 1}
+                    rangeEnd={Math.min(page * 25, totalCount)}
+                    onPageChange={(p) => setPage(p)}
+                  />
+                )}
+              </>
+            )}
           </>
         )}
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        title={editingVendor ? 'Edit Vendor' : 'Add New Vendor'}
+      {/* ── 4. ADD / EDIT VENDOR MODAL (Enquiries ModalShell Style) ── */}
+      <ModalShell
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingVendor ? 'Edit Vendor' : 'New Vendor'}
+        maxWidth="540px"
+        formId="vendor-modal-form"
+        submitLabel={editingVendor ? 'Save Changes' : 'Create Vendor'}
+        submittingLabel="Saving..."
+        submitting={submitting}
+        closeOnBackdrop={false}
       >
-        <form onSubmit={handleSubmit}>
-          {formError && <div className="error-message">{formError}</div>}
-          
-          <div className="form-grid">
-            <div className="form-group col-span-2">
-              <label>Vendor Name *</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.name} 
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+        <form id="vendor-modal-form" onSubmit={handleSubmit}>
+          {formError && (
+            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <AlertCircle size={18} /> {formError}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+            <Field label="Vendor Name" required>
+              <TextInput
                 required
+                autoFocus
+                placeholder="e.g. Al-Futtaim Engineering"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
-            </div>
-            
-            <div className="form-group col-span-2">
-              <label>Company / Organization</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.company} 
-                onChange={(e) => setFormData({...formData, company: e.target.value})}
+            </Field>
+
+            <Field label="Company / Organization">
+              <TextInput
+                placeholder="e.g. Al-Futtaim Group"
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
               />
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <Field label="Email Address">
+                <TextInput
+                  type="email"
+                  placeholder="e.g. vendor@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </Field>
+              <Field label="Phone Number">
+                <TextInput
+                  type="tel"
+                  placeholder="e.g. +966 50 123 4567"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </Field>
             </div>
 
-            <div className="form-group">
-              <label>Email Address</label>
-              <input 
-                type="email" 
-                className="input-field" 
-                value={formData.email} 
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Phone Number</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.phone} 
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              />
-            </div>
-
-            <div className="form-group col-span-2">
-              <label>Due Amount / Opening Balance (SAR)</label>
-              <input 
-                type="number" 
+            <Field
+              label="Due Amount / Opening Balance (SAR)"
+              rightAction={
+                <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
+                  Initial outstanding payable balance owed
+                </span>
+              }
+            >
+              <NumberInput
                 step="0.01"
                 min="0"
-                className="input-field" 
-                value={formData.opening_balance} 
-                onChange={(e) => setFormData({...formData, opening_balance: e.target.value})}
+                prefix="SAR"
+                placeholder="0.00"
+                value={formData.opening_balance}
+                onChange={(e) => setFormData({ ...formData, opening_balance: e.target.value })}
               />
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-                Initial outstanding payable balance owed to this vendor before disbursements.
-              </small>
-            </div>
+            </Field>
 
-            <div className="form-group col-span-2">
-              <label>Physical Address</label>
-              <textarea 
-                className="input-field" 
-                style={{ minHeight: '100px' }} 
-                value={formData.address} 
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-              ></textarea>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <button type="button" className="btn btn-secondary" style={{ padding: '0.75rem 1.5rem' }} onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 2rem' }} disabled={submitting}>
-              {submitting ? 'Processing...' : (editingVendor ? 'Save Changes' : 'Create Vendor')}
-            </button>
+            <Field label="Physical Address">
+              <Textarea
+                rows={3}
+                placeholder="Enter street, district, building, city..."
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </Field>
           </div>
         </form>
-      </Modal>
+      </ModalShell>
     </div>
   )
 }

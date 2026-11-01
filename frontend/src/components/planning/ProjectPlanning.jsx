@@ -3,7 +3,14 @@ import api from '../../api'
 import { Plus, Edit, Trash2, X, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
 import PlainFilterDropdown from '../common/PlainFilterDropdown'
 import CredSearchInput from '../cashbook/cred/CredSearchInput'
-import Modal from '../common/Modal'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  Select as CredSelect,
+  DateInput,
+  Textarea
+} from '../common/FormPrimitives'
 import { showConfirm, showError, showToast } from '../../utils/swal'
 
 const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
@@ -661,105 +668,35 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
       )}
 
       {/* 6. Create / Edit Plan Modal */}
-      <Modal
+      <ModalShell
         isOpen={isModalOpen}
         onClose={() => !saving && setIsModalOpen(false)}
         title={editingPlanId ? 'Edit Project Plan' : 'Create Project Plan'}
         maxWidth="640px"
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              disabled={saving}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '9999px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'transparent',
-                color: 'var(--text, #111111)',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: saving ? 'not-allowed' : 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="project-plan-form"
-              disabled={saving}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 20px',
-                borderRadius: '9999px',
-                background: 'var(--text, #0A0A0A)',
-                color: 'var(--card-bg, #FFFFFF)',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: saving ? 'not-allowed' : 'pointer',
-                transition: 'opacity 0.15s ease',
-                opacity: saving ? 0.7 : 1
-              }}
-            >
-              {saving ? 'Saving...' : editingPlanId ? 'Save Changes' : 'Create Project Plan'}
-            </button>
-          </div>
-        }
+        formId="project-plan-form"
+        submitLabel={editingPlanId ? 'Save Changes' : 'Create Project Plan'}
+        submittingLabel="Saving..."
+        submitting={saving}
       >
         <form id="project-plan-form" onSubmit={handleSubmit}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' }}>
             {/* Plan Title */}
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                Plan Title <span style={{ color: 'var(--danger, #DC2626)' }}>*</span>
-              </label>
-              <input
-                type="text"
-                className="input-field"
+            <Field label="Plan Title" required>
+              <TextInput
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
+                autoFocus
                 placeholder="e.g. Stage Setup & Audio Rigging"
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  padding: '0 12px',
-                  fontSize: '13px',
-                  background: 'var(--card-bg, #FFFFFF)',
-                  color: 'var(--text, #111111)',
-                  boxSizing: 'border-box'
-                }}
               />
-            </div>
+            </Field>
 
             {/* Associated Job Order & Status */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                  Associated Job Order
-                </label>
-                <select
-                  className="input-field plain-modal-select"
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <Field label="Associated Job Order">
+                <CredSelect
                   value={formData.job_order}
                   onChange={(e) => setFormData({ ...formData, job_order: e.target.value })}
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    padding: '0 12px',
-                    fontSize: '13px',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #111111)',
-                    boxSizing: 'border-box'
-                  }}
                 >
                   <option value="">Standalone plan</option>
                   {jobOrders.map(j => (
@@ -767,373 +704,283 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
                       {j.order_id || `#AS${j.id}`} - {j.title} ({j.customer_name || 'Customer'})
                     </option>
                   ))}
-                </select>
-              </div>
+                </CredSelect>
+              </Field>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                  Plan Status
-                </label>
-                <select
-                  className="input-field plain-modal-select"
+              <Field label="Plan Status">
+                <CredSelect
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    padding: '0 12px',
-                    fontSize: '13px',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #111111)',
-                    boxSizing: 'border-box'
-                  }}
                 >
                   <option value="Planned">Planned</option>
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                   <option value="On Hold">On Hold</option>
-                </select>
-              </div>
+                </CredSelect>
+              </Field>
             </div>
 
             {/* Target Dates */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                  Target Start Date
-                </label>
-                <input
-                  type="date"
-                  className="input-field"
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <Field label="Target Start Date">
+                <DateInput
                   value={formData.start_date}
                   onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    padding: '0 12px',
-                    fontSize: '13px',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #111111)',
-                    boxSizing: 'border-box'
-                  }}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                  Target End Date
-                </label>
-                <input
-                  type="date"
-                  className="input-field"
+              <Field label="Target End Date">
+                <DateInput
                   value={formData.end_date}
                   onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    padding: '0 12px',
-                    fontSize: '13px',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #111111)',
-                    boxSizing: 'border-box'
-                  }}
                 />
-              </div>
+              </Field>
             </div>
 
             {/* Tools Required */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                Tools Required
-              </label>
-              {formData.tools.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {formData.tools.map((tool, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        background: 'var(--fill-ghost, #F4F4F4)',
-                        color: 'var(--text, #111111)',
-                        border: '1px solid var(--border, #E4E4E4)',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 400
-                      }}
-                    >
-                      {tool}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTool(tool)}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex' }}
-                        title="Remove tool"
+              <Field label="Tools Required">
+                {formData.tools.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                    {formData.tools.map((tool, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'var(--fill-ghost, #F4F4F4)',
+                          color: 'var(--text, #111111)',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 400
+                        }}
                       >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div style={{ position: 'relative' }} ref={toolDropdownRef}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={toolInput}
-                    onChange={(e) => {
-                      setToolInput(e.target.value)
-                      setShowToolSuggestions(true)
-                    }}
-                    onFocus={() => setShowToolSuggestions(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleAddTool()
-                      }
-                    }}
-                    placeholder="Add tool name..."
-                    style={{
-                      flex: 1,
-                      height: '38px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      padding: '0 12px',
-                      fontSize: '13px',
-                      background: 'var(--card-bg, #FFFFFF)',
-                      color: 'var(--text, #111111)',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleAddTool()}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text, #0A0A0A)',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      padding: '0 8px',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    + Add Tool
-                  </button>
-                </div>
-                {/* Tool Suggestions */}
-                {showToolSuggestions && savedTools.length > 0 && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    background: 'var(--card-bg, #FFFFFF)',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-                    maxHeight: '160px',
-                    overflowY: 'auto',
-                    zIndex: 100,
-                    marginTop: '4px'
-                  }}>
-                    <div style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', borderBottom: '1px solid var(--border, #E4E4E4)', fontWeight: 500 }}>
-                      PREVIOUSLY SAVED TOOLS (CLICK TO ADD)
-                    </div>
-                    {savedTools
-                      .filter(st => !formData.tools.includes(st.name) && st.name.toLowerCase().includes(toolInput.toLowerCase()))
-                      .map((st, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => handleAddTool(st.name)}
-                          style={{
-                            padding: '6px 10px',
-                            cursor: 'pointer',
-                            fontSize: '12.5px',
-                            borderBottom: '1px solid var(--border, #E4E4E4)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            color: 'var(--text, #111111)'
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        {tool}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTool(tool)}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex' }}
+                          title="Remove tool"
                         >
-                          <span>{st.name}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>+ Add</span>
-                        </div>
-                      ))}
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
                   </div>
                 )}
-              </div>
+                <div style={{ position: 'relative' }} ref={toolDropdownRef}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <TextInput
+                      value={toolInput}
+                      onChange={(e) => {
+                        setToolInput(e.target.value)
+                        setShowToolSuggestions(true)
+                      }}
+                      onFocus={() => setShowToolSuggestions(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddTool()
+                        }
+                      }}
+                      placeholder="Add tool name..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddTool()}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text, #0A0A0A)',
+                        fontSize: '12.5px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        padding: '0 8px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      + Add Tool
+                    </button>
+                  </div>
+                  {/* Tool Suggestions */}
+                  {showToolSuggestions && savedTools.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: 'var(--card-bg, #FFFFFF)',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                      zIndex: 100,
+                      marginTop: '4px'
+                    }}>
+                      <div style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', borderBottom: '1px solid var(--border, #E4E4E4)', fontWeight: 500 }}>
+                        PREVIOUSLY SAVED TOOLS (CLICK TO ADD)
+                      </div>
+                      {savedTools
+                        .filter(st => !formData.tools.includes(st.name) && st.name.toLowerCase().includes(toolInput.toLowerCase()))
+                        .map((st, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => handleAddTool(st.name)}
+                            style={{
+                              padding: '6px 10px',
+                              cursor: 'pointer',
+                              fontSize: '12.5px',
+                              borderBottom: '1px solid var(--border, #E4E4E4)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              color: 'var(--text, #111111)'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <span>{st.name}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>+ Add</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </Field>
             </div>
 
             {/* Workers / Personnel */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                Workers / Personnel
-              </label>
-              {formData.workers.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {formData.workers.map((worker, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        background: 'var(--fill-ghost, #F4F4F4)',
-                        color: 'var(--text, #111111)',
-                        border: '1px solid var(--border, #E4E4E4)',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 400
-                      }}
-                    >
-                      {worker}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveWorker(worker)}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex' }}
-                        title="Remove worker"
+              <Field label="Workers / Personnel">
+                {formData.workers.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                    {formData.workers.map((worker, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'var(--fill-ghost, #F4F4F4)',
+                          color: 'var(--text, #111111)',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 400
+                        }}
                       >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div style={{ position: 'relative' }} ref={workerDropdownRef}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={workerInput}
-                    onChange={(e) => {
-                      setWorkerInput(e.target.value)
-                      setShowWorkerSuggestions(true)
-                    }}
-                    onFocus={() => setShowWorkerSuggestions(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleAddWorker()
-                      }
-                    }}
-                    placeholder="Add worker name..."
-                    style={{
-                      flex: 1,
-                      height: '38px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      padding: '0 12px',
-                      fontSize: '13px',
-                      background: 'var(--card-bg, #FFFFFF)',
-                      color: 'var(--text, #111111)',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleAddWorker()}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text, #0A0A0A)',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      padding: '0 8px',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    + Add Worker
-                  </button>
-                </div>
-                {/* Worker Suggestions */}
-                {showWorkerSuggestions && savedWorkers.length > 0 && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    background: 'var(--card-bg, #FFFFFF)',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-                    maxHeight: '160px',
-                    overflowY: 'auto',
-                    zIndex: 100,
-                    marginTop: '4px'
-                  }}>
-                    <div style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', borderBottom: '1px solid var(--border, #E4E4E4)', fontWeight: 500 }}>
-                      PREVIOUSLY SAVED WORKERS (CLICK TO ADD)
-                    </div>
-                    {savedWorkers
-                      .filter(sw => !formData.workers.includes(sw.name) && sw.name.toLowerCase().includes(workerInput.toLowerCase()))
-                      .map((sw, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => handleAddWorker(sw.name)}
-                          style={{
-                            padding: '6px 10px',
-                            cursor: 'pointer',
-                            fontSize: '12.5px',
-                            borderBottom: '1px solid var(--border, #E4E4E4)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            color: 'var(--text, #111111)'
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        {worker}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveWorker(worker)}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted, #8C8C8C)', display: 'inline-flex' }}
+                          title="Remove worker"
                         >
-                          <span>{sw.name}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>+ Add</span>
-                        </div>
-                      ))}
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
                   </div>
                 )}
-              </div>
+                <div style={{ position: 'relative' }} ref={workerDropdownRef}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <TextInput
+                      value={workerInput}
+                      onChange={(e) => {
+                        setWorkerInput(e.target.value)
+                        setShowWorkerSuggestions(true)
+                      }}
+                      onFocus={() => setShowWorkerSuggestions(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddWorker()
+                        }
+                      }}
+                      placeholder="Add worker name..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddWorker()}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text, #0A0A0A)',
+                        fontSize: '12.5px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        padding: '0 8px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      + Add Worker
+                    </button>
+                  </div>
+                  {/* Worker Suggestions */}
+                  {showWorkerSuggestions && savedWorkers.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: 'var(--card-bg, #FFFFFF)',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                      zIndex: 100,
+                      marginTop: '4px'
+                    }}>
+                      <div style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', borderBottom: '1px solid var(--border, #E4E4E4)', fontWeight: 500 }}>
+                        PREVIOUSLY SAVED WORKERS (CLICK TO ADD)
+                      </div>
+                      {savedWorkers
+                        .filter(sw => !formData.workers.includes(sw.name) && sw.name.toLowerCase().includes(workerInput.toLowerCase()))
+                        .map((sw, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => handleAddWorker(sw.name)}
+                            style={{
+                              padding: '6px 10px',
+                              cursor: 'pointer',
+                              fontSize: '12.5px',
+                              borderBottom: '1px solid var(--border, #E4E4E4)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              color: 'var(--text, #111111)'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <span>{sw.name}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>+ Add</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </Field>
             </div>
 
             {/* Plan Scope & Description */}
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)', marginBottom: '6px' }}>
-                Plan Scope & Description
-              </label>
-              <textarea
+            <Field label="Plan Scope & Description">
+              <Textarea
                 rows={3}
-                className="input-field"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Detailed breakdown of work stages, requirements, or safety notes..."
-                style={{
-                  width: '100%',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  padding: '8px 12px',
-                  fontSize: '13px',
-                  background: 'var(--card-bg, #FFFFFF)',
-                  color: 'var(--text, #111111)',
-                  boxSizing: 'border-box',
-                  resize: 'vertical'
-                }}
               />
-            </div>
+            </Field>
           </div>
         </form>
-      </Modal>
+      </ModalShell>
     </div>
   )
 })

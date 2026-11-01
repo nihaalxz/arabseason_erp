@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useNavigate } from 'react-router-dom'
 import { 
   Plus, Search, RefreshCw, Trash2, Edit, ArrowDownTray, 
@@ -658,13 +659,9 @@ const Invoices = () => {
           >
             <RefreshCw size={14} /> Refresh
           </button>
-          <button 
-            className="btn btn-primary" 
-            onClick={() => navigate('/invoices/new')}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 1.1rem', fontWeight: '600' }}
-          >
-            <Plus size={16} /> Create Invoice
-          </button>
+          <PageHeaderButton onClick={() => navigate('/invoices/new')}>
+            New Invoice
+          </PageHeaderButton>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useSettings } from '../contexts/SettingsContext'
 import * as XLSX from 'xlsx'
 import { 
@@ -297,7 +298,7 @@ const Banks = () => {
         responseType: 'blob'
       })
 
-      const bankSlug = (selectedBank?.bank_name || 'bank').toLowerCase().replace(/[^a-z0-9]/g, '_')
+      const bankSlug = (activeBankObj?.bank_name || 'bank').toLowerCase().replace(/[^a-z0-9]/g, '_')
       handlePdfResponse(res, `bank_statement_${bankSlug}_${new Date().toISOString().slice(0, 10)}.pdf`)
     } catch (err) {
       console.error('Server PDF generation error:', err)
@@ -465,15 +466,9 @@ const Banks = () => {
             <span>Refresh</span>
           </button>
           {activeTab === 'accounts' && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => handleOpenModal()}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '38px', fontWeight: '700' }}
-            >
-              <Plus size={17} strokeWidth={2.5} />
-              <span>Add Bank Account</span>
-            </button>
+            <PageHeaderButton onClick={() => handleOpenModal()}>
+                Add Bank Account
+              </PageHeaderButton>
           )}
         </div>
       </div>

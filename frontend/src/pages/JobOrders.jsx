@@ -1,6 +1,7 @@
 import React from 'react'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import PlainFilterDropdown from '../components/common/PlainFilterDropdown'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
 import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import { useSearchParams } from 'react-router-dom'
@@ -12,6 +13,18 @@ import Select from 'react-select'
 import CreatableSelect from 'react-select/creatable'
 import api from '../api'
 import Modal from '../components/common/Modal'
+import {
+  ModalShell,
+  Field,
+  TextInput,
+  NumberInput,
+  Select as CredSelect,
+  Dropzone,
+  RowList,
+  InlineAddLink,
+  credSelectStyles,
+  CredOption
+} from '../components/common/FormPrimitives'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import SearchBar from '../components/common/SearchBar'
 import ProjectPlanning from '../components/planning/ProjectPlanning'
@@ -543,18 +556,18 @@ const JobOrders = ({ embedded = false }) => {
         <div
           {...innerProps}
           style={{
-            padding: '10px 14px',
+            padding: '9px 12px',
             cursor: 'pointer',
-            backgroundColor: isFocused ? 'var(--primary, #3b82f6)' : '#2563eb',
-            color: '#ffffff',
-            fontWeight: '600',
-            fontSize: '0.875rem',
+            backgroundColor: isFocused ? 'var(--fill-ghost-hover, #F4F4F4)' : 'transparent',
+            color: 'var(--text, #111111)',
+            fontWeight: 500,
+            fontSize: '13px',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem'
+            gap: '6px'
           }}
         >
-          <span>➕ Use "{data.label}"</span>
+          <span>+ Use "{data.label}"</span>
         </div>
       )
     }
@@ -568,12 +581,18 @@ const JobOrders = ({ embedded = false }) => {
           justifyContent: 'space-between',
           padding: '8px 12px',
           cursor: 'pointer',
-          backgroundColor: isSelected ? '#e0e7ff' : (isFocused ? '#f1f5f9' : 'transparent'),
-          color: isSelected ? 'var(--primary, #2563eb)' : '#1e293b',
-          fontSize: '0.875rem'
+          backgroundColor: isSelected
+            ? 'var(--fill-ghost-hover, #F4F4F4)'
+            : (isFocused ? 'var(--fill-ghost-hover, #F4F4F4)' : 'transparent'),
+          color: 'var(--text, #111111)',
+          fontSize: '13px',
+          borderRadius: '8px'
         }}
       >
-        <span style={{ flex: 1, fontWeight: isSelected ? '700' : '500' }}>{data.label}</span>
+        <span style={{ flex: 1, fontWeight: isSelected ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.label}</span>
+        {isSelected && (
+          <Check size={14} style={{ color: 'var(--text, #111111)', marginRight: '6px', flexShrink: 0 }} />
+        )}
         <button
           type="button"
           title={`Remove "${data.label}" from suggestions`}
@@ -583,22 +602,21 @@ const JobOrders = ({ embedded = false }) => {
             handleDeleteTitle(data.value)
           }}
           style={{
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.25)',
-            color: '#ef4444',
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-muted, #8C8C8C)',
             cursor: 'pointer',
-            padding: '3px 8px',
-            borderRadius: '6px',
+            padding: '3px 6px',
+            borderRadius: '4px',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.3rem',
-            fontSize: '0.75rem',
-            fontWeight: '700'
+            gap: '3px',
+            fontSize: '12px'
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--danger, #DC2626)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)' }}
         >
-          <Trash2 size={12} /> Clear
+          <Trash2 size={12} />
         </button>
       </div>
     )
@@ -1483,7 +1501,7 @@ const JobOrders = ({ embedded = false }) => {
       fetchJobSummary()
       fetchPendingJobOrders()
       if (isAdmin) fetchAssignedCount()
-      fetchCustomers()
+      fetchLookups()
     }
     window.addEventListener('app:refresh', handleAppRefresh)
     return () => window.removeEventListener('app:refresh', handleAppRefresh)
@@ -1508,51 +1526,15 @@ const JobOrders = ({ embedded = false }) => {
         </div>
         {activeSection === 'planning' ? (
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button 
-              type="button"
-              className="cred-jobs-submit-btn" 
-              onClick={() => projectPlanningRef.current?.openCreateModal?.()} 
-              style={{
-                background: 'var(--black, #0A0A0A)',
-                color: '#FFFFFF',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '9999px',
-                padding: '8px 18px',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Plus size={15} /> Create Project Plan
-            </button>
+            <PageHeaderButton onClick={() => projectPlanningRef.current?.openCreateModal?.()}>
+              Create Project Plan
+            </PageHeaderButton>
           </div>
         ) : (activeSection === 'orders' || activeSection === 'pending') && (
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button 
-              type="button"
-              className="cred-jobs-submit-btn" 
-              onClick={() => handleOpenModal()} 
-              style={{
-                background: 'var(--black, #0A0A0A)',
-                color: '#FFFFFF',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '9999px',
-                padding: '8px 18px',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Plus size={15} /> New Job Order
-            </button>
+            <PageHeaderButton onClick={() => handleOpenModal()}>
+              New Job Order
+            </PageHeaderButton>
           </div>
         )}
       </div>
@@ -2590,292 +2572,343 @@ const JobOrders = ({ embedded = false }) => {
         </>
       )}
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => { setIsModalOpen(false); setSubmitting(false); setSelectedPendingForCreation(null); }} 
-        title={editingJob ? `Contract ${editingJob.order_id || editingJob.id}` : selectedPendingForCreation ? `Convert Pending Entry: ${selectedPendingForCreation.title || ''}` : 'Create New Job Order'}
-        maxWidth="780px"
-      >
-        <div className="job-modal-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-          {/* Main Job Order Form */}
-          <form onSubmit={handleSubmit} className="form-grid">
-            {formError && <div className="error-message col-span-2">{formError}</div>}
-            
-            {selectedPendingForCreation && (
-              <div className="col-span-2" style={{
-                background: 'rgba(91, 75, 219, 0.08)',
-                border: '1px solid rgba(91, 75, 219, 0.25)',
-                borderRadius: '8px',
-                padding: '0.65rem 0.9rem',
-                fontSize: '0.82rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.55rem',
-                color: 'var(--primary, #5B4BDB)'
-              }}>
-                <Clock size={16} />
-                <span>
-                  Converting rough entry <strong>{selectedPendingForCreation.title}</strong> into an official Job Order.
-                  {(parseFloat(selectedPendingForCreation.initial_deposit) || 0) > 0 && (
-                    <> Initial deposit of <strong>{(parseFloat(selectedPendingForCreation.initial_deposit)).toLocaleString()} SAR</strong> is pre-filled as Advance.</>
-                  )}
-                </span>
-              </div>
+      {/* ── JOB ORDER MODAL (Create & Edit) ── */}
+      <ModalShell
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setSubmitting(false); setSelectedPendingForCreation(null); }}
+        title={editingJob ? 'Edit Job Order' : (selectedPendingForCreation ? `Convert Pending Entry: ${selectedPendingForCreation.title || ''}` : 'New Job Order')}
+        maxWidth="720px"
+        formId="job-order-form"
+        submitLabel={editingJob ? 'Save Changes' : 'Create Job Order'}
+        submittingLabel={editingJob ? 'Saving...' : 'Creating...'}
+        submitting={submitting}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', width: '100%' }}>
+            {editingJob && editingJob.status !== 'Cancelled' && (
+              <button
+                type="button"
+                className="cred-modal-cancel-btn"
+                style={{ marginRight: 'auto', color: 'var(--danger, #DC2626)', borderColor: 'var(--border, #E4E4E4)' }}
+                onClick={() => handleCancelJob(editingJob)}
+              >
+                Cancel Job Order
+              </button>
             )}
-            
-            <div className="form-group col-span-2">
-              <label>Job Title / Subject *</label>
-              <CreatableSelect
-                isClearable
-                options={jobTitles.map(t => ({ label: t, value: t }))}
-                value={formData.title ? { label: formData.title, value: formData.title } : null}
-                onChange={(selected) => setFormData({...formData, title: selected ? selected.value : ''})}
-                onInputChange={(val) => { if (val) setFormData(prev => ({...prev, title: val})) }}
-                noOptionsMessage={({ inputValue }) => inputValue ? `Press Enter to use "${inputValue}"` : 'Type to add a title'}
-                formatCreateLabel={(val) => `Use "${val}"`}
-                components={{ Option: CustomTitleOption }}
-                styles={{
-                  control: (base) => ({ ...base, borderColor: 'var(--border-color)', padding: '2px', borderRadius: '8px', minHeight: '42px' }),
-                  menu: (base) => ({ ...base, zIndex: 999999 }),
-                  menuPortal: (base) => ({ ...base, zIndex: 999999 })
-                }}
-                menuPosition="fixed"
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-              />
-            </div>
-
-            <div className="form-group col-span-2">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Folder size={15} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontWeight: '700' }}>Linked Project / Specific Project</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Directly links Job Order to Project Planning)</span>
-              </label>
-              <CreatableSelect
-                isClearable
-                options={projectOptions.map(p => ({ label: p, value: p }))}
-                value={formData.project_name ? { label: formData.project_name, value: formData.project_name } : null}
-                onChange={(selected) => setFormData({...formData, project_name: selected ? selected.value : ''})}
-                onInputChange={(val) => { if (val) setFormData(prev => ({...prev, project_name: val})) }}
-                formatCreateLabel={(val) => `Link to Project "${val}"`}
-                styles={{
-                  control: (base) => ({ ...base, borderColor: 'var(--border-color)', padding: '2px', borderRadius: '8px', minHeight: '42px' }),
-                  menu: (base) => ({ ...base, zIndex: 999999 }),
-                  menuPortal: (base) => ({ ...base, zIndex: 999999 })
-                }}
-                menuPosition="fixed"
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-              />
-            </div>
-            
-            <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <label>Client / Customer *</label>
-                <button type="button" onClick={() => setIsCustomerModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', padding: 0 }}>
-                  <UserPlus size={14} /> New
-                </button>
-              </div>
-              <Select
-                isClearable
-                options={customers.map(c => ({ label: c.name, value: c.id }))}
-                value={formData.customer ? { label: customers.find(c => String(c.id) === String(formData.customer))?.name || '', value: formData.customer } : null}
-                onChange={(selected) => {
-                  const newCustomerId = selected ? selected.value : ''
-                  setFormData({...formData, customer: newCustomerId})
-                  // 4.3 — fetch prior balance only for new jobs
-                  if (!editingJob) fetchCustomerPriorBalance(newCustomerId)
-                }}
-                noOptionsMessage={() => 'No customers found'}
-                styles={{
-                  control: (base) => ({ ...base, borderColor: 'var(--border-color)', padding: '2px', borderRadius: '8px', minHeight: '42px' }),
-                  menu: (base) => ({ ...base, zIndex: 999999 }),
-                  menuPortal: (base) => ({ ...base, zIndex: 999999 })
-                }}
-                menuPosition="fixed"
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-              />
-              {/* 4.3 — Prior balance warning for new jobs */}
-              {!editingJob && formData.customer && customerPriorBalance > 0 && (
-                <div style={{
-                  marginTop: '0.5rem', padding: '0.6rem 0.85rem',
-                  background: '#fef9c3', border: '1px solid #fde68a',
-                  borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem'
-                }}>
-                  <span style={{ fontSize: '1rem' }}>⚠️</span>
-                  <div>
-                    <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#92400e' }}>Prior Outstanding Balance</div>
-                    <div style={{ fontSize: '0.75rem', color: '#b45309' }}>
-                      This customer has <strong>{formatCurrency(customerPriorBalance)}</strong> outstanding from previous jobs.
-                      This will be carried forward and added to this job's grand total.
-                    </div>
-                  </div>
-                </div>
-              )}
-              {editingJob && parseFloat(editingJob.prior_balance || 0) > 0 && (
-                <div style={{
-                  marginTop: '0.5rem', padding: '0.6rem 0.85rem',
-                  background: '#fef3c7', border: '1px solid #fde68a',
-                  borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem'
-                }}>
-                  <span style={{ fontSize: '1rem' }}>ℹ️</span>
-                  <div>
-                    <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#92400e' }}>Carried Forward Prior Balance</div>
-                    <div style={{ fontSize: '0.75rem', color: '#b45309' }}>
-                      This contract carried forward <strong>{formatCurrency(editingJob.prior_balance)}</strong> from previous engagements.
-                      Total owed across contracts: <strong>{formatCurrency(editingJob.outstanding_balance ?? (parseFloat(editingJob.prior_balance) + parseFloat(editingJob.balance || 0)))}</strong>.
-                    </div>
-                  </div>
-                </div>
-              )}
-              {!editingJob && formData.customer && fetchingPriorBalance && (
-                <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Checking prior balance...</div>
-              )}
-            </div>
-            
-            <div className="form-group">
-              <label>Assigned Vendor</label>
-              <Select
-                isClearable
-                options={vendors.map(v => ({ label: v.name, value: v.id }))}
-                value={formData.vendor ? { label: vendors.find(v => String(v.id) === String(formData.vendor))?.name || '', value: formData.vendor } : null}
-                onChange={(selected) => setFormData({...formData, vendor: selected ? selected.value : ''})}
-                noOptionsMessage={() => 'No vendors found'}
-                styles={{
-                  control: (base) => ({ ...base, borderColor: 'var(--border-color)', padding: '2px', borderRadius: '8px', minHeight: '42px' }),
-                  menu: (base) => ({ ...base, zIndex: 999999 }),
-                  menuPortal: (base) => ({ ...base, zIndex: 999999 })
-                }}
-                menuPosition="fixed"
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Current Status *</label>
-              <select 
-                className="input-field" 
-                value={formData.status} 
-                onChange={(e) => setFormData({...formData, status: e.target.value})}
-                required
+            {editingJob && editingJob.status === 'Cancelled' && isAdmin && (
+              <button
+                type="button"
+                className="cred-modal-cancel-btn"
+                style={{ marginRight: 'auto', color: 'var(--positive, #19B25B)', borderColor: 'var(--border, #E4E4E4)' }}
+                onClick={() => handleRestoreJob(editingJob)}
               >
-                <option value="">-- Select Status --</option>
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
+                Restore Job Order
+              </button>
+            )}
+            <button
+              type="button"
+              className="cred-modal-cancel-btn"
+              onClick={() => { setIsModalOpen(false); setSubmitting(false); setSelectedPendingForCreation(null); }}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="job-order-form"
+              className="cred-modal-submit-btn"
+              disabled={submitting}
+            >
+              {submitting ? (editingJob ? 'Saving...' : 'Creating...') : (editingJob ? 'Save Changes' : 'Create Job Order')}
+            </button>
+          </div>
+        }
+      >
+        <form id="job-order-form" onSubmit={handleSubmit}>
+          {formError && (
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: '8px',
+              color: '#DC2626',
+              fontSize: '12.5px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span>{formError}</span>
             </div>
+          )}
 
-            <div className="form-group">
-              <label>Estimated Total Amount</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-                <span style={{ 
-                  position: 'absolute', left: '12px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '700', zIndex: 1
-                }}>
-                  {settings?.currency || ''}
-                </span>
-                <input 
-                  type="number" step="0.01" className="input-field" style={{ paddingLeft: '3.5rem' }}
-                  value={formData.total_amount} 
-                  onChange={(e) => setFormData({...formData, total_amount: e.target.value})}
-                  onWheel={(e) => e.currentTarget.blur()}
+          {selectedPendingForCreation && (
+            <div style={{
+              background: 'var(--fill-ghost-hover, #F4F4F4)',
+              border: '1px solid var(--border, #E4E4E4)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '12.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: 'var(--text, #111111)',
+              marginBottom: '16px'
+            }}>
+              <Clock size={16} style={{ color: 'var(--text-muted, #8C8C8C)', flexShrink: 0 }} />
+              <span>
+                Converting rough entry <strong>{selectedPendingForCreation.title}</strong> into an official Job Order.
+                {(parseFloat(selectedPendingForCreation.initial_deposit) || 0) > 0 && (
+                  <> Initial deposit of <strong>{(parseFloat(selectedPendingForCreation.initial_deposit)).toLocaleString()} SAR</strong> is pre-filled as Advance.</>
+                )}
+              </span>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px', padding: '4px 0' }}>
+            {/* 1. Job Title (required, full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Job Title" required>
+                <CreatableSelect
+                  isClearable
+                  options={jobTitles.map(t => ({ label: t, value: t }))}
+                  value={formData.title ? { label: formData.title, value: formData.title } : null}
+                  onChange={(selected) => setFormData({ ...formData, title: selected ? selected.value : '' })}
+                  onInputChange={(val) => { if (val) setFormData(prev => ({ ...prev, title: val })) }}
+                  noOptionsMessage={({ inputValue }) => inputValue ? `Press Enter to use "${inputValue}"` : 'Type to add a title'}
+                  formatCreateLabel={(val) => `+ Use "${val}"`}
+                  components={{ Option: CustomTitleOption }}
+                  styles={credSelectStyles}
+                  menuPosition="fixed"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  placeholder="Select or type job title..."
                 />
-              </div>
+              </Field>
             </div>
 
-            {/* 4.3 — Payment Type */}
-            <div className="form-group">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span style={{ fontWeight: '700' }}>Payment Structure</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(how customer pays)</span>
-              </label>
-              <select
-                className="input-field"
-                value={formData.payment_type || 'full'}
-                onChange={(e) => setFormData({...formData, payment_type: e.target.value})}
-              >
-                <option value="full">Full Payment</option>
-                <option value="advance">Advance + Balance Later</option>
-                <option value="installment">Installments</option>
-              </select>
+            {/* 2. Linked Project (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Linked Project">
+                <CreatableSelect
+                  isClearable
+                  options={projectOptions.map(p => ({ label: p, value: p }))}
+                  value={formData.project_name ? { label: formData.project_name, value: formData.project_name } : null}
+                  onChange={(selected) => setFormData({ ...formData, project_name: selected ? selected.value : '' })}
+                  onInputChange={(val) => { if (val) setFormData(prev => ({ ...prev, project_name: val })) }}
+                  formatCreateLabel={(val) => `+ Link to Project "${val}"`}
+                  components={{ Option: CredOption }}
+                  styles={credSelectStyles}
+                  menuPosition="fixed"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  placeholder="Select or link a project..."
+                />
+              </Field>
             </div>
 
-            {/* 4.3 — Advance Amount (shown when payment_type is advance or installment) */}
-            {(formData.payment_type === 'advance' || formData.payment_type === 'installment') && (
-              <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ fontWeight: '700' }}>Advance Amount Received</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(collected now)</span>
-                </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-                  <span style={{
-                    position: 'absolute', left: '12px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '700', zIndex: 1
-                  }}>
-                    {settings?.currency || ''}
-                  </span>
-                  <input
-                    type="number" step="0.01" min="0" className="input-field" style={{ paddingLeft: '3.5rem' }}
-                    value={formData.advance_amount || ''}
-                    onChange={(e) => setFormData({...formData, advance_amount: e.target.value})}
-                    onWheel={(e) => e.currentTarget.blur()}
+            {/* 3. Customer (required) with small "+ New" link & Vendor side by side */}
+            <div>
+              <Field
+                label="Customer"
+                required
+                rightAction={
+                  <InlineAddLink
+                    onClick={() => setIsCustomerModalOpen(true)}
+                    label="+ New"
                   />
-                </div>
-                {formData.advance_amount > 0 && formData.total_amount > 0 && (
-                  <div style={{ marginTop: '0.4rem', padding: '0.4rem 0.7rem', background: '#f0fdf4', borderRadius: '6px', border: '1px solid #bbf7d0', fontSize: '0.75rem', color: '#166534' }}>
-                    ✓ Advance: <strong>{formatCurrency(formData.advance_amount)}</strong> &nbsp;·&nbsp;
-                    Outstanding after advance: <strong>{formatCurrency(Math.max(0, parseFloat(formData.total_amount || 0) - parseFloat(formData.advance_amount || 0)))}</strong>
-                    {customerPriorBalance > 0 && <span> + <strong>{formatCurrency(customerPriorBalance)}</strong> carried forward</span>}
+                }
+              >
+                <Select
+                  isClearable
+                  options={customers.map(c => ({
+                    label: c.company_name ? `${c.name} (${c.company_name})` : c.name,
+                    value: c.id
+                  }))}
+                  value={formData.customer ? {
+                    label: (() => {
+                      const c = customers.find(x => String(x.id) === String(formData.customer))
+                      return c ? (c.company_name ? `${c.name} (${c.company_name})` : c.name) : ''
+                    })(),
+                    value: formData.customer
+                  } : null}
+                  onChange={(selected) => {
+                    const newCustomerId = selected ? selected.value : ''
+                    setFormData({ ...formData, customer: newCustomerId })
+                    if (!editingJob) fetchCustomerPriorBalance(newCustomerId)
+                  }}
+                  noOptionsMessage={() => 'No customers found'}
+                  components={{ Option: CredOption }}
+                  styles={credSelectStyles}
+                  menuPosition="fixed"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  placeholder="Select customer..."
+                />
+                {!editingJob && formData.customer && customerPriorBalance > 0 && (
+                  <div style={{
+                    marginTop: '6px',
+                    fontSize: '12px',
+                    color: 'var(--text-muted, #8C8C8C)'
+                  }}>
+                    Prior outstanding balance: {formatCurrency(customerPriorBalance)}
                   </div>
                 )}
+                {editingJob && parseFloat(editingJob.prior_balance || 0) > 0 && (
+                  <div style={{
+                    marginTop: '6px',
+                    fontSize: '12px',
+                    color: 'var(--text-muted, #8C8C8C)'
+                  }}>
+                    Carried forward prior balance: {formatCurrency(editingJob.prior_balance)}
+                  </div>
+                )}
+              </Field>
+            </div>
+
+            <div>
+              <Field label="Vendor">
+                <Select
+                  isClearable
+                  options={vendors.map(v => ({
+                    label: v.company_name ? `${v.name} (${v.company_name})` : v.name,
+                    value: v.id
+                  }))}
+                  value={formData.vendor ? {
+                    label: (() => {
+                      const v = vendors.find(x => String(x.id) === String(formData.vendor))
+                      return v ? (v.company_name ? `${v.name} (${v.company_name})` : v.name) : ''
+                    })(),
+                    value: formData.vendor
+                  } : null}
+                  onChange={(selected) => setFormData({ ...formData, vendor: selected ? selected.value : '' })}
+                  noOptionsMessage={() => 'No vendors found'}
+                  components={{ Option: CredOption }}
+                  styles={credSelectStyles}
+                  menuPosition="fixed"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  placeholder="Select vendor..."
+                />
+              </Field>
+            </div>
+
+            {/* 4. Status (required) and Estimated Amount side by side */}
+            <div>
+              <Field label="Status" required>
+                <CredSelect
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  required
+                >
+                  <option value="">-- Select Status --</option>
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </CredSelect>
+              </Field>
+            </div>
+
+            <div>
+              <Field label="Estimated Amount">
+                <NumberInput
+                  prefix="SAR"
+                  value={formData.total_amount}
+                  onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </Field>
+            </div>
+
+            {/* 5. Payment Structure and Invoice Number side by side */}
+            <div>
+              <Field label="Payment Structure">
+                <CredSelect
+                  value={formData.payment_type || 'full'}
+                  onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+                >
+                  <option value="full">Full Payment</option>
+                  <option value="advance">Advance + Balance Later</option>
+                  <option value="installment">Installments</option>
+                </CredSelect>
+              </Field>
+            </div>
+
+            <div>
+              <Field label="Invoice Number">
+                <TextInput
+                  value={formData.invoice_number || ''}
+                  onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
+                  placeholder="e.g. INV-001"
+                />
+              </Field>
+            </div>
+
+            {/* Advance Amount (if payment_type is advance or installment) */}
+            {(formData.payment_type === 'advance' || formData.payment_type === 'installment') && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <Field label="Advance Amount Received">
+                  <NumberInput
+                    prefix="SAR"
+                    value={formData.advance_amount || ''}
+                    onChange={(e) => setFormData({ ...formData, advance_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </Field>
               </div>
             )}
 
-            <div className="form-group">
-              <label>Invoice Number</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.invoice_number || ''} 
-                onChange={(e) => setFormData({...formData, invoice_number: e.target.value})}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label>Quotation Number</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.quotation_number || ''} 
-                onChange={(e) => setFormData({...formData, quotation_number: e.target.value})}
-              />
+            {/* 6. Quotation Number and Created By side by side */}
+            <div>
+              <Field label="Quotation Number">
+                <TextInput
+                  value={formData.quotation_number || ''}
+                  onChange={(e) => setFormData({ ...formData, quotation_number: e.target.value })}
+                  placeholder="e.g. Q-001"
+                />
+              </Field>
             </div>
 
-            {/* Created By & Payment Collected By Fields */}
-            <div className="form-group">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span style={{ fontWeight: '700' }}>Created By</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Staff member)</span>
-              </label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.created_by_staff || ''} 
-                onChange={(e) => setFormData({...formData, created_by_staff: e.target.value})}
-                list="staff-options-list"
-              />
+            <div>
+              <Field label="Created By">
+                <TextInput
+                  value={formData.created_by_staff || currentUser?.username || ''}
+                  disabled
+                  readOnly
+                  style={{
+                    backgroundColor: 'var(--fill-ghost-hover, #F4F4F4)',
+                    color: 'var(--text-muted, #8C8C8C)'
+                  }}
+                />
+              </Field>
             </div>
 
-            <div className="form-group">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span style={{ fontWeight: '700' }}>Payment Collected By</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Staff member)</span>
-              </label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={formData.payment_collected_by || ''} 
-                onChange={(e) => setFormData({...formData, payment_collected_by: e.target.value})}
-                list="staff-options-list"
-              />
+            {/* 7. Payment Collected By and Assign to Admin side by side */}
+            <div>
+              <Field label="Payment Collected By">
+                <TextInput
+                  value={formData.payment_collected_by || ''}
+                  onChange={(e) => setFormData({ ...formData, payment_collected_by: e.target.value })}
+                  list="staff-options-list"
+                  placeholder="Staff member"
+                />
+              </Field>
+            </div>
+
+            <div>
+              <Field
+                label="Assign to Admin"
+                tooltip="When accepted by this Admin, full ownership and all financial calculations/transactions will sit under their account."
+              >
+                <CredSelect
+                  value={formData.assigned_to || ''}
+                  onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                >
+                  <option value="">No admin assigned</option>
+                  {assignableAdmins.map(adm => (
+                    <option key={adm.id} value={adm.id}>
+                      {adm.name} ({adm.username})
+                    </option>
+                  ))}
+                </CredSelect>
+              </Field>
             </div>
 
             <datalist id="staff-options-list">
@@ -2884,143 +2917,26 @@ const JobOrders = ({ embedded = false }) => {
               ))}
             </datalist>
 
-            {/* Assign to Admin (Staff delegation to Nizam, Shuhaib, or any Admin) */}
-            <div className="form-group" style={{
-              background: '#f8fafc',
-              padding: '0.85rem',
-              borderRadius: '10px',
-              border: '1px solid #e2e8f0',
-              marginTop: '0.25rem',
-              marginBottom: '0.75rem'
-            }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.4rem' }}>
-                <span style={{ fontWeight: '700', color: '#1e293b' }}>Assign to Admin</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Send to Admin for review & ownership transfer)</span>
-              </label>
-              <select 
-                className="input-field" 
-                value={formData.assigned_to || ''} 
-                onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
-                style={{ background: '#ffffff' }}
-              >
-                <option value="">-- No Admin Assigned (Keep with creator) --</option>
-                {assignableAdmins.map(adm => (
-                  <option key={adm.id} value={adm.id}>
-                    {adm.name} ({adm.username})
-                  </option>
-                ))}
-              </select>
-              {formData.assigned_to ? (
-                <div style={{ marginTop: '0.45rem', fontSize: '0.75rem', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.4rem', lineHeight: 1.35 }}>
-                  <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                  <span>
-                    When accepted by this Admin, full ownership and all financial calculations/transactions will sit under their account.
-                  </span>
-                </div>
-              ) : (
-                <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', color: '#64748b' }}>
-                  Select an Admin (e.g. Nizam, Shuhaib) if you want them to review, accept, and take ownership of this contract.
-                </div>
-              )}
+            {/* 8. Scope of Work (full width repeatable rows) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Scope of Work">
+                <RowList
+                  items={descriptions}
+                  onChange={handleDescriptionChange}
+                  onAdd={handleAddDescription}
+                  onRemove={handleRemoveDescription}
+                  placeholder="Enter scope item..."
+                  addLabel="+ Add item"
+                />
+              </Field>
             </div>
 
-            {/* Scope of Work / Multiple Descriptions */}
-            <div className="form-group col-span-2">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                <label style={{ margin: 0, fontWeight: '700' }}>Scope of Work / Description</label>
-                <button 
-                  type="button" 
-                  onClick={handleAddDescription} 
-                  style={{ 
-                    background: 'rgba(59, 130, 246, 0.08)', 
-                    border: '1px solid rgba(59, 130, 246, 0.25)', 
-                    color: 'var(--primary, #2563eb)', 
-                    fontSize: '0.8rem', 
-                    fontWeight: '700',
-                    borderRadius: '6px',
-                    padding: '0.35rem 0.75rem',
-                    cursor: 'pointer', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.35rem',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary, #2563eb)'; e.currentTarget.style.color = '#fff' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)'; e.currentTarget.style.color = 'var(--primary, #2563eb)' }}
-                >
-                  <Plus size={14} /> Add Description Item
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {descriptions.map((desc, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{
-                      minWidth: '28px', height: '32px', borderRadius: '50%',
-                      backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '0.75rem',
-                      fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      border: '1px solid #e2e8f0', flexShrink: 0
-                    }}>
-                      {idx + 1}
-                    </div>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={desc}
-                      onChange={(e) => handleDescriptionChange(idx, e.target.value)}
-                    />
-                    {descriptions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDescription(idx)}
-                        title="Remove this item"
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          border: '1px solid rgba(239, 68, 68, 0.2)',
-                          color: 'var(--danger, #ef4444)',
-                          cursor: 'pointer',
-                          padding: '0.55rem',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff' }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = 'var(--danger, #ef4444)' }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Contract ID — sequence ID (e.g. JOB0012) */}
-            <div className="form-group">
-              <label>Contract ID *</label>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span
-                  style={{
-                    padding: '0.65rem 0.85rem',
-                    background: 'var(--bg-main, #f1f5f9)',
-                    border: '1px solid var(--border-color)',
-                    borderRight: 'none',
-                    borderRadius: '8px 0 0 8px',
-                    fontWeight: '800',
-                    fontSize: '0.85rem',
-                    color: 'var(--primary, #2563eb)',
-                    userSelect: 'none'
-                  }}
-                >
-                  {contractPrefix || 'JOB'}
-                </span>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  style={{ borderRadius: '0 8px 8px 0', borderLeft: '1px solid var(--border-color)' }}
-                  value={contractNumber} 
+            {/* 9. Contract ID (required) */}
+            <div>
+              <Field label="Contract ID" required>
+                <TextInput
+                  prefix={contractPrefix || 'JOB'}
+                  value={contractNumber}
                   placeholder="0012"
                   onChange={(e) => {
                     const clean = e.target.value.replace(/^[A-Za-z]+/i, '').replace(/[^\d]/g, '')
@@ -3028,14 +2944,11 @@ const JobOrders = ({ embedded = false }) => {
                   }}
                   required
                 />
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                Full Contract ID: <strong style={{ color: 'var(--primary, #2563eb)', fontWeight: '800' }}>{(contractPrefix || 'JOB').replace(/^#+/, '')}{contractNumber ? contractNumber.padStart(4, '0') : '????'}</strong>
-              </div>
+              </Field>
             </div>
 
-            {/* Dynamic Custom Form Fields */}
-            <div className="col-span-2">
+            {/* 10. Dynamic Custom Form Fields */}
+            <div style={{ gridColumn: '1 / -1' }}>
               <DynamicCustomFields
                 formType="job_order"
                 values={formData.custom_fields || {}}
@@ -3051,787 +2964,99 @@ const JobOrders = ({ embedded = false }) => {
               />
             </div>
 
-            {/* Attachment / File Upload Section */}
-            <div className="col-span-2" style={{ marginTop: '0.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.45rem' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-main)', fontWeight: '700', fontSize: '0.85rem' }}>
-                  <Paperclip size={14} style={{ color: 'var(--primary, #5B4BDB)' }} />
-                  Attach File (Image or PDF)
-                </span>
-                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Supports PDF, JPG, PNG up to 10MB</span>
-              </div>
-
-              {!formData.attachment ? (
-                <label style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '1.25rem',
-                  borderRadius: '10px',
-                  border: '2px dashed var(--border-color)',
-                  background: 'var(--bg-card, #f8fafc)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  textAlign: 'center',
-                  gap: '0.35rem'
-                }}>
-                  <input 
-                    type="file" 
-                    accept="image/*,.pdf,application/pdf"
-                    onChange={handleAttachmentChange}
-                    style={{ display: 'none' }}
-                  />
-                  <UploadCloud size={26} style={{ color: 'var(--primary, #5B4BDB)' }} />
-                  <div style={{ fontSize: '0.84rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                    Click to upload document or image
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    Signed contract, quotation copy, drawings or work order photo
-                  </div>
-                </label>
-              ) : (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-card, #f1f5f9)',
-                  gap: '0.75rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
-                    {formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf') ? (
-                      <FileText size={24} style={{ color: '#ef4444', flexShrink: 0 }} />
-                    ) : (
-                      <img 
-                        src={formData.attachment} 
-                        alt="Preview" 
-                        style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', flexShrink: 0 }} 
-                      />
-                    )}
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {formData.attachment_name || 'Attached File'}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {formData.attachment_type?.includes('pdf') ? 'PDF Document' : 'Image File'}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const w = window.open('')
-                        if (formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf')) {
-                          w.document.write(`<iframe src="${formData.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
-                        } else {
-                          w.document.write(`<img src="${formData.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
-                        }
-                      }}
-                      title="Preview File"
-                      className="btn"
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '0.74rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      <LucideEye size={13} /> Preview
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRemoveAttachment}
-                      title="Remove File"
-                      className="btn"
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '0.74rem',
-                        color: '#ef4444',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      <Trash2 size={13} /> Remove
-                    </button>
-                  </div>
-                </div>
-              )}
+            {/* 11. Attachment */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Attachment">
+                <Dropzone
+                  value={formData.attachment ? {
+                    name: formData.attachment_name,
+                    url: formData.attachment,
+                    type: formData.attachment_type
+                  } : null}
+                  onUpload={handleAttachmentChange}
+                  onRemove={handleRemoveAttachment}
+                  placeholder="Click to upload a document or image"
+                  hint="PDF, JPG, PNG up to 10MB"
+                />
+              </Field>
             </div>
-
-            <div className="col-span-2 job-form-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
-              <div>
-                {editingJob && editingJob.status !== 'Cancelled' && (
-                  <button 
-                    type="button" 
-                    className="btn" 
-                    style={{ background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600', fontSize: '0.82rem' }}
-                    onClick={() => handleCancelJob(editingJob)}
-                  >
-                    <XCircle size={15} /> Cancel This Job Order
-                  </button>
-                )}
-                {editingJob && editingJob.status === 'Cancelled' && isAdmin && (
-                  <button 
-                    type="button" 
-                    className="btn" 
-                    style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600', fontSize: '0.82rem' }}
-                    onClick={() => handleRestoreJob(editingJob)}
-                  >
-                    <RefreshCw size={15} /> Restore Job Order
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button type="button" className="btn" onClick={() => { setIsModalOpen(false); setSubmitting(false) }}>Close</button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }}></span>
-                      Processing...
-                    </span>
-                  ) : (editingJob ? 'Update Contract' : 'Create Job Order')}
-                </button>
-              </div>
-            </div>
-          </form>
-
-          {/* Pricing & Profitability Structure (UPDATE 3.6) */}
-          {(() => {
-            const purchaseExpensesLive = expenses
-              .filter(e => {
-                const cat = (e.category || '').toLowerCase()
-                return !cat.includes('labor') && !cat.includes('labour') && !cat.includes('vendor') && !cat.includes('subcontractor')
-              })
-              .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)
-
-            const laborExpensesLive = expenses
-              .filter(e => {
-                const cat = (e.category || '').toLowerCase()
-                return cat.includes('labor') || cat.includes('labour') || cat.includes('vendor') || cat.includes('subcontractor')
-              })
-              .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)
-
-            const backendPurchase = editingJob ? parseFloat(editingJob.purchase_expenses || 0) : 0
-            const backendVendorLabor = editingJob ? parseFloat(editingJob.vendor_labor_costs || 0) : 0
-
-            const purchaseCost = Math.max(purchaseExpensesLive, backendPurchase)
-            const vendorLaborCost = Math.max(laborExpensesLive, backendVendorLabor)
-            const totalDirectCost = purchaseCost + vendorLaborCost
-            const sellingPrice = parseFloat(formData.total_amount || (editingJob ? editingJob.total_amount : 0) || 0)
-            const grossMargin = sellingPrice - totalDirectCost
-            const marginPct = sellingPrice > 0 ? ((grossMargin / sellingPrice) * 100).toFixed(1) : '0.0'
-
-            const linkedProj = formData.project_name || (editingJob ? getLinkedProjectTitle(editingJob) : '')
-
-            return (
-              <div className="glass-panel job-embedded-card" style={{ padding: '1.25rem 1.35rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main, #f8fafc)', marginTop: '-0.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                  <div>
-                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.1rem', fontWeight: '800' }}>
-                      <Briefcase size={20} style={{ color: 'var(--primary)' }}/> Pricing &amp; Profitability Structure
-                    </h3>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Directly tracks purchase expenses, vendor &amp; labor costs, and project margin.
-                    </div>
-                  </div>
-                  {linkedProj ? (
-                    <span style={{ 
-                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
-                      background: 'rgba(99, 102, 241, 0.1)', color: '#4f46e5', 
-                      border: '1px solid rgba(99, 102, 241, 0.25)', 
-                      padding: '0.35rem 0.85rem', borderRadius: '20px', 
-                      fontSize: '0.75rem', fontWeight: '800' 
-                    }}>
-                      <Folder size={13} /> Project: {linkedProj}
-                    </span>
-                  ) : (
-                    <span style={{ 
-                      display: 'inline-flex', alignItems: 'center', gap: '0.35rem', 
-                      background: 'rgba(234, 179, 8, 0.1)', color: '#b45309', 
-                      border: '1px solid rgba(234, 179, 8, 0.25)', 
-                      padding: '0.35rem 0.85rem', borderRadius: '20px', 
-                      fontSize: '0.75rem', fontWeight: '700' 
-                    }}>
-                      ⚠️ No Project Linked
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
-                  {/* Purchase Expenses */}
-                  <div style={{ background: 'white', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
-                      Purchase Expenses
-                    </div>
-                    <div style={{ fontWeight: '900', fontSize: '1.15rem', color: '#0369a1' }}>
-                      {formatCurrency(purchaseCost)}
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Materials &amp; Purchases</div>
-                  </div>
-
-                  {/* Vendor & Labor Costs */}
-                  <div style={{ background: 'white', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
-                      Vendor / Labor
-                    </div>
-                    <div style={{ fontWeight: '900', fontSize: '1.15rem', color: '#b45309' }}>
-                      {formatCurrency(vendorLaborCost)}
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Subcontracts &amp; Labour</div>
-                  </div>
-
-                  {/* Total Direct Cost */}
-                  <div style={{ background: 'white', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
-                      Total Direct Cost
-                    </div>
-                    <div style={{ fontWeight: '900', fontSize: '1.15rem', color: 'var(--danger)' }}>
-                      {formatCurrency(totalDirectCost)}
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Purchases + Labor</div>
-                  </div>
-
-                  {/* Quoted Selling Price */}
-                  <div style={{ background: 'white', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
-                      Contract Price
-                    </div>
-                    <div style={{ fontWeight: '900', fontSize: '1.15rem', color: 'var(--text-main)' }}>
-                      {formatCurrency(sellingPrice)}
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Quoted Selling Value</div>
-                  </div>
-
-                  {/* Gross Profit Margin */}
-                  <div style={{ 
-                    background: grossMargin >= 0 ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)', 
-                    padding: '1rem', borderRadius: '10px', 
-                    border: `1px solid ${grossMargin >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`, 
-                    boxShadow: 'var(--shadow-sm)' 
-                  }}>
-                    <div style={{ fontSize: '0.65rem', color: grossMargin >= 0 ? '#15803d' : '#b91c1c', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
-                      Gross Margin
-                    </div>
-                    <div style={{ fontWeight: '900', fontSize: '1.15rem', color: grossMargin >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                      {formatCurrency(grossMargin)}
-                    </div>
-                    <div style={{ 
-                      fontSize: '0.72rem', 
-                      fontWeight: '800', 
-                      color: Number(marginPct) >= 20 ? '#15803d' : (Number(marginPct) >= 0 ? '#b45309' : '#b91c1c'), 
-                      marginTop: '0.2rem' 
-                    }}>
-                      {marginPct}% Margin
-                    </div>
-                  </div>
-                </div>
-
-                {/* Visual Absorption & Margin Progress Bar */}
-                {sellingPrice > 0 && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: '600' }}>
-                      <span>Cost Absorption: {((totalDirectCost / sellingPrice) * 100).toFixed(0)}%</span>
-                      <span>Gross Margin: {marginPct}%</span>
-                    </div>
-                    <div style={{ height: '8px', width: '100%', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
-                      <div 
-                        style={{ 
-                          width: `${Math.min(100, (totalDirectCost / sellingPrice) * 100)}%`, 
-                          backgroundColor: totalDirectCost > sellingPrice ? '#dc2626' : '#f59e0b',
-                          transition: 'width 0.3s ease'
-                        }}
-                        title={`Direct Costs: ${formatCurrency(totalDirectCost)}`}
-                      />
-                      {grossMargin > 0 && (
-                        <div 
-                          style={{ 
-                            width: `${Math.min(100, (grossMargin / sellingPrice) * 100)}%`, 
-                            backgroundColor: '#16a34a',
-                            transition: 'width 0.3s ease'
-                          }}
-                          title={`Profit Margin: ${formatCurrency(grossMargin)}`}
-                        />
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-
-          {/* Embedded Expenses Section (Visible in both Create and Edit modes) */}
-          <div className="glass-panel job-embedded-card" style={{ padding: '1.15rem 1.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main, #f8fafc)', marginTop: '-0.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.1rem', fontWeight: '800' }}>
-                  <FileText size={20} style={{ color: 'var(--accent)' }}/> Job Expenses
-                </h3>
-              </div>
-              <button 
-                type="button" 
-                className="btn glass-panel" 
-                style={{ fontSize: '0.8rem', background: 'white', border: '1px solid var(--border-color)' }} 
-                onClick={() => {
-                  if (addingExpense) {
-                    handleCancelExpenseForm()
-                  } else {
-                    setEditingExpenseId(null)
-                    setExpenseForm({ description: '', amount: '', date: new Date().toISOString().split('T')[0], category: 'Project Material' })
-                    setExpenseDescriptions([''])
-                    setAddingExpense(true)
-                  }
-                }}
-              >
-                {addingExpense ? 'Cancel' : '+ Add Expense'}
-              </button>
-            </div>
-
-            {addingExpense && (
-              <form onSubmit={handleExpenseSubmit} style={{ 
-                 padding: '1.5rem', background: 'white', borderRadius: '12px', 
-                 border: '1px solid var(--border-color)', marginBottom: '2rem',
-                 boxShadow: 'var(--shadow-md)',
-                 animation: 'fadeIn 0.3s ease'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                    {editingExpenseId ? 'Edit Job Expense' : 'New Expense Entry'}
-                  </h4>
-                </div>
-
-                <div className="job-nested-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-                  <div className="form-group col-span-2">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <label style={{ margin: 0, fontWeight: '700' }}>Expense Description(s) *</label>
-                      <button
-                        type="button"
-                        onClick={handleAddExpenseDescription}
-                        style={{
-                          background: 'rgba(59, 130, 246, 0.08)',
-                          border: '1px solid rgba(59, 130, 246, 0.25)',
-                          color: 'var(--primary, #2563eb)',
-                          fontSize: '0.75rem',
-                          fontWeight: '700',
-                          borderRadius: '6px',
-                          padding: '0.25rem 0.6rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.25rem',
-                          transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary, #2563eb)'; e.currentTarget.style.color = '#fff' }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)'; e.currentTarget.style.color = 'var(--primary, #2563eb)' }}
-                      >
-                        <Plus size={12} /> Add Description
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {expenseDescriptions.map((desc, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <div style={{
-                            minWidth: '24px', height: '24px', borderRadius: '50%',
-                            backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '0.7rem',
-                            fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            border: '1px solid #e2e8f0', flexShrink: 0
-                          }}>
-                            {idx + 1}
-                          </div>
-                          <input
-                            type="text"
-                            className="input-field"
-                            value={desc}
-                            onChange={(e) => handleExpenseDescriptionChange(idx, e.target.value)}
-                            required={idx === 0}
-                          />
-                          {expenseDescriptions.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveExpenseDescription(idx)}
-                              title="Remove this item"
-                              style={{
-                                background: 'rgba(239, 68, 68, 0.08)',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                color: 'var(--danger, #ef4444)',
-                                cursor: 'pointer',
-                                padding: '0.5rem',
-                                borderRadius: '6px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff' }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = 'var(--danger, #ef4444)' }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Amount</label>
-                    <input type="number" step="0.01" className="input-field" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} onWheel={(e) => e.currentTarget.blur()} required />
-                  </div>
-                  <div className="form-group">
-                    <label>Date</label>
-                    <input type="date" className="input-field" value={expenseForm.date} onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} required />
-                  </div>
-                  <div className="form-group col-span-2">
-                    <label>Category (Purchase vs. Vendor/Labor)</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      list="expense-category-suggestions"
-                      value={expenseForm.category} 
-                      onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} 
-                    />
-                    <datalist id="expense-category-suggestions">
-                      <option value="Project Material" />
-                      <option value="Purchase / Supplies" />
-                      <option value="Vendor / Subcontractor" />
-                      <option value="Labor & Installation" />
-                      <option value="Equipment Rental" />
-                      <option value="Transport & Logistics" />
-                    </datalist>
-                  </div>
-                  <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                    <button type="button" className="btn" onClick={handleCancelExpenseForm}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" disabled={submittingExpense}>
-                      {submittingExpense ? 'Saving...' : (editingExpenseId ? 'Update Expense' : 'Add Expense')}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-
-            <div className="job-expenses-display" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1', minWidth: '220px' }}>
-                {expenses.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                    {expenses.map(exp => (
-                      <div key={exp.id} style={{ 
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', 
-                        background: 'white', borderRadius: '8px', fontSize: '0.8rem',
-                        border: '1px solid var(--border-light)',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-                      }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                          <span style={{ fontWeight: '600', color: 'var(--text-main)', whiteSpace: 'pre-line' }}>{exp.description}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{exp.category} &bull; {new Date(exp.date).toLocaleDateString()}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: '800', color: 'var(--danger)', fontSize: '0.9rem', marginRight: '0.25rem' }}>{formatCurrency(exp.amount)}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleEditExpense(exp)}
-                            title="Edit this expense"
-                            style={{
-                              background: 'rgba(59, 130, 246, 0.08)',
-                              border: '1px solid rgba(59, 130, 246, 0.25)',
-                              color: 'var(--primary, #2563eb)',
-                              cursor: 'pointer',
-                              padding: '0.35rem 0.55rem',
-                              borderRadius: '6px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem',
-                              fontSize: '0.75rem',
-                              fontWeight: '700',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary, #2563eb)'; e.currentTarget.style.color = '#fff' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)'; e.currentTarget.style.color = 'var(--primary, #2563eb)' }}
-                          >
-                            <Edit size={13} /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteExpense(exp.id)}
-                            title="Delete this expense"
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.08)',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              color: 'var(--danger, #ef4444)',
-                              cursor: 'pointer',
-                              padding: '0.35rem 0.55rem',
-                              borderRadius: '6px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem',
-                              fontSize: '0.75rem',
-                              fontWeight: '700',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = 'var(--danger, #ef4444)' }}
-                          >
-                            <Trash2 size={13} /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No expenses recorded for this job.</div>
-                )}
-              </div>
-              
-              {expenseData.length > 0 && (
-                <div style={{ width: '250px', height: '250px', background: 'white', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={expenseData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {expenseData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip formatter={(value) => formatCurrency(value)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Embedded Payment Section (Visible in both Create and Edit modes) */}
-          {(() => {
-            const currentContractTotal = editingJob 
-              ? parseFloat(editingJob.total_amount || 0)
-              : parseFloat(formData.total_amount || 0)
-
-            const currentPaidAmount = editingJob
-              ? parseFloat(editingJob.paid_amount || 0)
-              : pendingPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0)
-
-            const currentBalance = editingJob
-              ? parseFloat(editingJob.balance || 0)
-              : Math.max(0, currentContractTotal - currentPaidAmount)
-
-            const isFinancialSettled = currentContractTotal > 0 && currentBalance <= 0
-
-            return (
-              <div className="glass-panel job-embedded-card" style={{ padding: '1.15rem 1.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main, #f8fafc)' }}>
-                {/* Header: Title + Status Badge + Actions */}
-                <div className="job-settlement-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.1rem', fontWeight: '800' }}>
-                      <CreditCard size={20} style={{ color: 'var(--accent)' }}/> Financial Settlement
-                    </h3>
-                    {/* Visual payment status badge next to title */}
-                    {isFinancialSettled ? (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                        background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)',
-                        border: '1px solid rgba(16, 185, 129, 0.25)',
-                        padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '800',
-                        letterSpacing: '0.02em'
-                      }}>
-                        <CheckCircle2 size={12}/> PAID
-                      </span>
-                    ) : (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                        background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '800',
-                        letterSpacing: '0.02em'
-                      }}>
-                        <XCircle size={12}/> UNPAID
-                      </span>
-                    )}
-                  </div>
-                  <div className="job-settlement-actions" style={{ display: 'flex', gap: '0.65rem' }}>
-                    {/* Mark as Paid / Mark as Unpaid toggle */}
-                    <button 
-                      type="button"
-                      className="btn"
-                      style={{
-                        fontSize: '0.8rem',
-                        display: 'flex', alignItems: 'center', gap: '0.5rem',
-                        background: isFinancialSettled ? 'rgba(239, 68, 68, 0.05)' : 'var(--accent)',
-                        color: isFinancialSettled ? 'var(--danger)' : 'white',
-                        border: isFinancialSettled ? '1px solid rgba(239, 68, 68, 0.15)' : 'none',
-                      }}
-                      onClick={handleTogglePaid}
-                      disabled={submittingPayment}
-                    >
-                      {isFinancialSettled
-                        ? <><XCircle size={15}/> Mark as Unpaid</>
-                        : <><CheckCircle2 size={15}/> Mark as Paid</>
-                      }
-                    </button>
-                    <button type="button" className="btn glass-panel" style={{ fontSize: '0.8rem', background: 'white', border: '1px solid var(--border-color)' }} onClick={() => setAddingPayment(!addingPayment)}>
-                      {addingPayment ? 'Cancel' : '+ Add Payment'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Equal-width, evenly-spaced KPI cards */}
-                <div className="job-settlement-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
-                  <div style={{ 
-                    padding: '1.5rem 1rem', background: 'white', borderRadius: '12px', 
-                    border: '1px solid var(--border-color)', textAlign: 'center',
-                    boxShadow: 'var(--shadow-sm)', transition: 'all 0.3s ease'
-                  }} className="settlement-card">
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Contract Total</div>
-                    <div style={{ fontWeight: '900', fontSize: '1.25rem', color: 'var(--text-main)' }}>{formatCurrency(currentContractTotal)}</div>
-                  </div>
-                  <div style={{ 
-                    padding: '1.5rem 1rem', background: 'white', borderRadius: '12px', 
-                    border: '1px solid var(--border-color)', textAlign: 'center',
-                    boxShadow: 'var(--shadow-sm)', transition: 'all 0.3s ease'
-                  }} className="settlement-card">
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Amount Paid</div>
-                    <div style={{ fontWeight: '900', fontSize: '1.25rem', color: 'var(--success)' }}>{formatCurrency(currentPaidAmount)}</div>
-                  </div>
-                  <div style={{ 
-                    padding: '1.5rem 1rem', background: 'white', borderRadius: '12px', 
-                    border: '1px solid var(--border-color)', textAlign: 'center',
-                    boxShadow: 'var(--shadow-sm)', transition: 'all 0.3s ease'
-                  }} className="settlement-card">
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Pending Balance</div>
-                    <div style={{ fontWeight: '900', fontSize: '1.25rem', color: currentBalance > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                      {currentBalance > 0 ? formatCurrency(currentBalance) : (currentContractTotal > 0 ? 'Settled' : formatCurrency(0))}
-                    </div>
-                  </div>
-                </div>
-
-                {addingPayment && (
-                  <form onSubmit={handlePaymentSubmit} style={{ 
-                     padding: '1.5rem', background: 'white', borderRadius: '12px', 
-                     border: '1px solid var(--border-color)', marginBottom: '2rem',
-                     boxShadow: 'var(--shadow-md)',
-                     animation: 'fadeIn 0.3s ease'
-                  }}>
-                    <div className="job-nested-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-                      <div className="form-group">
-                        <label>Payment Amount</label>
-                        <input type="number" step="0.01" className="input-field" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} onWheel={(e) => e.currentTarget.blur()} required />
-                      </div>
-                      <div className="form-group">
-                        <label>Payment Date</label>
-                        <input type="date" className="input-field" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required />
-                      </div>
-                      <div className="form-group col-span-2">
-                        <label>Payment Notes</label>
-                        <input type="text" className="input-field" value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} />
-                      </div>
-                      <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button type="submit" className="btn btn-primary" disabled={submittingPayment}>
-                          {submittingPayment ? 'Saving...' : 'Confirm Payment'}
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                )}
-
-                {/* Minimal Transaction History */}
-                {(editingJob?.payment_history?.length > 0 || pendingPayments.length > 0) && (
-                  <div style={{ fontSize: 'var(--font-sm)' }}>
-                    <div style={{ color: 'var(--text-main)', marginBottom: '0.75rem', fontWeight: '700', fontSize: '0.85rem' }}>
-                      {editingJob ? 'Recent Settlement Activity' : 'Queued Payment(s)'}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                      {(editingJob ? (editingJob.payment_history || []).slice(0, 5) : pendingPayments).map(p => (
-                        <div key={p.id} style={{ 
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', 
-                          background: 'white', borderRadius: '8px', fontSize: '0.8rem',
-                          border: '1px solid var(--border-light)',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-                        }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                            <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>{p.notes || 'Full Settlement'}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(p.date).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <span style={{ fontWeight: '800', color: 'var(--success)', fontSize: '0.9rem' }}>{formatCurrency(p.amount)}</span>
-                            {!editingJob && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeletePendingPayment(p.id)}
-                                title="Remove queued payment"
-                                style={{
-                                  background: 'rgba(239, 68, 68, 0.08)',
-                                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                                  color: 'var(--danger, #ef4444)',
-                                  cursor: 'pointer',
-                                  padding: '0.35rem 0.5rem',
-                                  borderRadius: '6px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '700'
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff' }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = 'var(--danger, #ef4444)' }}
-                              >
-                                <Trash2 size={13} /> Delete
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-        </div>
-      </Modal>
-    
-      <Modal isOpen={isCustomerModalOpen} onClose={() => setIsCustomerModalOpen(false)} title="Create New Customer">
-        <form onSubmit={handleCustomerSubmit} className="form-grid">
-          <div className="form-group col-span-2">
-            <label>Full Name *</label>
-            <input type="text" className="input-field" value={customerForm.name} onChange={e => setCustomerForm({...customerForm, name: e.target.value})} required />
-          </div>
-          <div className="form-group col-span-2">
-            <label>Company Name</label>
-            <input type="text" className="input-field" value={customerForm.company_name || ''} onChange={e => setCustomerForm({...customerForm, company_name: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>Phone Number</label>
-            <input type="text" className="input-field" value={customerForm.phone} onChange={e => setCustomerForm({...customerForm, phone: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>Email Address</label>
-            <input type="email" className="input-field" value={customerForm.email} onChange={e => setCustomerForm({...customerForm, email: e.target.value})} />
-          </div>
-          <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <button type="button" className="btn" onClick={() => setIsCustomerModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={submittingCustomer}>
-              {submittingCustomer ? 'Saving...' : 'Create Customer'}
-            </button>
           </div>
         </form>
-      </Modal>
+      </ModalShell>
 
+      {/* ── CREATE CUSTOMER MODAL (Upgraded to shared primitives) ── */}
+      <ModalShell
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        title="New Customer"
+        maxWidth="480px"
+        formId="quick-customer-form"
+        submitLabel="Create Customer"
+        submittingLabel="Saving..."
+        submitting={submittingCustomer}
+      >
+        <form id="quick-customer-form" onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+          <Field label="Full Name" required>
+            <TextInput
+              value={customerForm.name}
+              onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })}
+              required
+              placeholder="e.g. Abdullah Al-Otaibi"
+            />
+          </Field>
+
+          <Field label="Company Name">
+            <TextInput
+              value={customerForm.company_name || ''}
+              onChange={e => setCustomerForm({ ...customerForm, company_name: e.target.value })}
+              placeholder="e.g. Al-Otaibi Trading"
+            />
+          </Field>
+
+          <Field label="Phone Number">
+            <TextInput
+              value={customerForm.phone}
+              onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value })}
+              placeholder="e.g. +966 50 123 4567"
+            />
+          </Field>
+
+          <Field label="Email Address">
+            <TextInput
+              type="email"
+              value={customerForm.email}
+              onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })}
+              placeholder="e.g. abdullah@example.com"
+            />
+          </Field>
+        </form>
+      </ModalShell>
+
+      {/* ── PREVIEW ATTACHMENT MODAL ── */}
       {previewAttachment && (
-        <Modal
+        <ModalShell
           isOpen={!!previewAttachment}
           onClose={() => setPreviewAttachment(null)}
           title={`Attachment: ${previewAttachment.name}`}
           maxWidth="820px"
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
+              <button
+                type="button"
+                className="cred-modal-cancel-btn"
+                onClick={() => setPreviewAttachment(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="cred-modal-submit-btn"
+                onClick={() => handleDownloadAttachment(previewAttachment.dataUrl, previewAttachment.name, previewAttachment.type)}
+              >
+                <Download size={14} /> Download File
+              </button>
+            </div>
+          }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{
@@ -3840,55 +3065,29 @@ const JobOrders = ({ embedded = false }) => {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              background: 'rgba(0,0,0,0.03)',
-              borderRadius: '8px',
-              padding: '0.5rem'
+              background: 'var(--fill-ghost-hover, #F4F4F4)',
+              borderRadius: '12px',
+              padding: '0.5rem',
+              border: '1px solid var(--border, #E4E4E4)'
             }}>
               {previewAttachment.type?.includes('pdf') || previewAttachment.name?.toLowerCase().endsWith('.pdf') ? (
                 <iframe
                   src={previewAttachment.blobUrl || previewAttachment.dataUrl}
-                  style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '6px' }}
+                  style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '8px' }}
                   title={previewAttachment.name}
                 />
               ) : (
                 <img
                   src={previewAttachment.blobUrl || previewAttachment.dataUrl}
                   alt={previewAttachment.name}
-                  style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', borderRadius: '6px' }}
+                  style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', borderRadius: '8px' }}
                 />
               )}
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem' }}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => window.open(previewAttachment.blobUrl || previewAttachment.dataUrl, '_blank')}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem' }}
-              >
-                <ExternalLink size={14} /> Open in New Tab
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => handleDownloadAttachment(previewAttachment.dataUrl, previewAttachment.name, previewAttachment.type)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem' }}
-              >
-                <Download size={14} /> Download File
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setPreviewAttachment(null)}
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </Modal>
+        </ModalShell>
       )}
 
-    
       {/* ── Scoped CRED Styles for Job Orders Page ── */}
       <style>{`
         .cred-jobs-tabs .cred-atabs-count,

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useSettings } from '../contexts/SettingsContext'
 import { Plus, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw, User, Calendar, FileText } from '../components/icons'
 import api from '../api'
@@ -141,9 +142,9 @@ const PaymentRequests = () => {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>Submit internal disbursement requests and manage financial approval workflows</p>
         </div>
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ borderRadius: 'var(--radius-sm)' }}>
-            <Plus size={16} /> New Request
-          </button>
+          <PageHeaderButton onClick={() => handleOpenModal()}>
+            New Request
+          </PageHeaderButton>
         </div>
       </div>
 

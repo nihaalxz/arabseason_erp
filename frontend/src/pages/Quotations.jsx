@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import PageHeaderButton from '../components/common/PageHeaderButton'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { 
   Plus, Search, RefreshCw, Trash2, Edit, ArrowDownTray, 
@@ -230,22 +231,9 @@ const Quotations = () => {
             Refresh
           </button>
 
-          <Link
-            to={`${basePath}/quotations/new`}
-            className="btn btn-primary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-              borderColor: '#4f46e5'
-            }}
-          >
-            <Plus size={16} />
+          <PageHeaderButton to={`${basePath}/quotations/new`}>
             New Quotation
-          </Link>
+          </PageHeaderButton>
         </div>
       </div>
 
