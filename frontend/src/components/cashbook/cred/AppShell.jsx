@@ -72,7 +72,7 @@ const AppShell = ({
   const sidebarWidth = isSidebarCollapsed ? 76 : 240;
 
   return (
-    <div className="cred-shell-desktop cred-app-root" style={{ background: 'var(--black, #0A0A0A)', minHeight: 'calc(100vh - 50px)' }}>
+    <div className="cred-shell-desktop cred-app-root" style={{ background: 'var(--bg, #FFFFFF)', minHeight: 'calc(100vh - 50px)', flex: 1, display: 'flex' }}>
       {/* Fixed Black Sidebar with all Cashbook & Manage items */}
       <SideRail
         activeTab={activeTab}

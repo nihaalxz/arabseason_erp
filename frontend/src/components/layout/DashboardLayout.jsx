@@ -116,7 +116,7 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
       <div 
         className="dashboard-body" 
         style={{ 
-          background: 'var(--black, #0A0A0A)', 
+          background: isCashbook ? (isDarkMode ? '#0A0A0A' : 'var(--bg, #FFFFFF)') : 'var(--black, #0A0A0A)', 
           marginTop: '50px', 
           minHeight: 'calc(100vh - 50px)', 
           display: 'flex', 

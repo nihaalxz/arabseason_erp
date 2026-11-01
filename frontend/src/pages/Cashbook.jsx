@@ -12575,11 +12575,14 @@ const Cashbook = ({ currentUser = null }) => {
       data-theme={isDarkMode ? 'dark' : 'light'}
       style={{
         width: '100%',
-        minHeight: '100vh',
-        background: 'var(--black)',
+        minHeight: 'calc(100vh - 50px)',
+        background: 'var(--bg, #FFFFFF)',
         margin: 0,
         padding: 0,
-        position: 'relative'
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1
       }}
     >
       {/* ========================================================= */}
