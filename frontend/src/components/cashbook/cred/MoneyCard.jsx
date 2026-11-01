@@ -49,6 +49,8 @@ const MoneyCard = ({
         userSelect: 'none',
         WebkitUserSelect: 'none',
         transition: 'border-color 0.15s ease, transform 0.1s ease',
+        justifyContent: actionText ? 'space-between' : 'center',
+        minHeight: actionText ? '104px' : '84px',
         ...style
       }}
     >

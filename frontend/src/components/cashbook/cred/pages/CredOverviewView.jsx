@@ -175,7 +175,7 @@ const CredOverviewView = ({
         isMobile={isMobile}
         activeId={activeCard}
         className="cred-dashboard-cards-grid"
-        desktopGridColumns="repeat(auto-fit, minmax(210px, 1fr))"
+        desktopGridColumns="repeat(5, minmax(0, 1fr))"
         style={{
           marginBottom: '28px'
         }}
