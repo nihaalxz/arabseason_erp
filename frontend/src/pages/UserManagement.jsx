@@ -14,8 +14,6 @@ const ALL_MODULES = [
   { key: 'jobs', label: 'Job Orders' },
   { key: 'planning', label: 'Project Planning' },
   { key: 'estimations', label: 'Estimations' },
-  { key: 'payments', label: 'Payments' },
-  { key: 'payment-requests', label: 'Payment Requests' },
   { key: 'expenses', label: 'Expenses' },
   { key: 'banks', label: 'Banks' },
   { key: 'cashbook', label: 'Cashbook' },

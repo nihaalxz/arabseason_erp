@@ -14,9 +14,7 @@ export const WORKSPACE_PRESETS = [
       invoices: true,
       estimations: false,
       planning: false,
-      payments: true,
       expenses: true,
-      payment_requests: false,
       banks: false,
       cashbook: false,
       reports: false,
@@ -37,9 +35,7 @@ export const WORKSPACE_PRESETS = [
       invoices: true,
       estimations: false,
       planning: false,
-      payments: true,
       expenses: true,
-      payment_requests: false,
       banks: false,
       cashbook: false,
       reports: true,
@@ -60,9 +56,7 @@ export const WORKSPACE_PRESETS = [
       invoices: true,
       estimations: true,
       planning: true,
-      payments: true,
       expenses: true,
-      payment_requests: true,
       banks: true,
       cashbook: true,
       reports: true,
@@ -144,22 +138,10 @@ export const FEATURE_DEFINITIONS = [
         path: '/credit-notes'
       },
       {
-        key: 'payments',
-        label: 'Payments & Receipts',
-        description: 'Incoming customer receipts and payment settlement logs.',
-        path: '/payments'
-      },
-      {
         key: 'expenses',
         label: 'Expenses & Overhead',
         description: 'Operational expenses, categorized bills, and cost tracking.',
         path: '/expenses'
-      },
-      {
-        key: 'payment_requests',
-        label: 'Payment Approval Requests',
-        description: 'Vendor payment requests, approvals, and disbursement flows.',
-        path: '/payment-requests'
       },
       {
         key: 'banks',

@@ -497,7 +497,7 @@ const AccountingDashboard = () => {
             <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
               Recent Payments Received
             </span>
-            <CredViewAll onClick={() => navigate('/payments')} label="view all" />
+            <CredViewAll onClick={() => navigate('/cashbook?tab=customers')} label="view all" />
           </div>
 
           <div style={{ overflowX: 'auto' }}>

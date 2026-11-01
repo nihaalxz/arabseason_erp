@@ -94,7 +94,7 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     navItems = [
       { name: 'Dashboard', path: '/accounting', icon: LayoutDashboard },
       { name: 'Invoices', path: '/invoices', icon: Receipt },
-      { name: 'Payments', path: '/payments', icon: CreditCard },
+      { name: 'Expenses', path: '/expenses', icon: Receipt },
       { name: 'Reports', path: '/reports', icon: FileBarChart },
     ]
   } else {
@@ -108,7 +108,7 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
   }
 
   const MODULE_PATH_KEY = {
-    '/accounting': 'payments',
+    '/accounting': 'invoices',
     '/accounting/customers': 'customers',
     '/accounting/vendors': 'vendors',
     '/accounting/estimations': 'estimations',
@@ -121,8 +121,6 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     '/jobs?tab=planning': 'planning',
     '/invoices': 'invoices',
     '/banks': 'banks',
-    '/payments': 'payments',
-    '/payment-requests': 'payment_requests',
     '/expenses': 'expenses',
     '/cashbook': 'cashbook',
     '/cashbook?view=books': 'cashbook',

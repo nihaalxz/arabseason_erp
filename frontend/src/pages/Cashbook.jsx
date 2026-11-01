@@ -6065,25 +6065,6 @@ const Cashbook = ({ currentUser = null }) => {
                 >
                   <Eye size={14} /> View Directory
                 </Link>
-                <Link
-                  to="/payments"
-                  style={{
-                    background: '#10b981',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '0.45rem 0.85rem',
-                    fontSize: '0.8rem',
-                    fontWeight: '700',
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    boxShadow: '0 1px 2px rgba(16, 185, 129, 0.2)'
-                  }}
-                >
-                  <Plus size={14} /> Record Payment
-                </Link>
               </div>
             </div>
 

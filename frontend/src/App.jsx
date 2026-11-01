@@ -9,9 +9,7 @@ import CustomerDetail from './pages/CustomerDetail'
 import Vendors from './pages/Vendors'
 import VendorDetail from './pages/VendorDetail'
 import JobOrders from './pages/JobOrders'
-import Payments from './pages/Payments'
 import Expenses from './pages/Expenses'
-import PaymentRequests from './pages/PaymentRequests'
 import Estimations from './pages/Estimations'
 import EstimateBuilder from './pages/EstimateBuilder'
 import Reports from './pages/Reports'
@@ -203,7 +201,7 @@ function App() {
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="accounting" element={canAccess('payments') ? <AccountingDashboard /> : <Navigate to="/" />} />
+              <Route path="accounting" element={(canAccess('invoices') || canAccess('expenses') || canAccess('cashbook') || isAdmin) ? <AccountingDashboard /> : <Navigate to="/" />} />
               
               {/* Accounting & Books Section-Aware Routes */}
               <Route path="accounting/customers" element={canAccess('customers') ? <Customers /> : <Navigate to="/accounting" />} />
@@ -245,8 +243,8 @@ function App() {
               <Route path="delivery-notes/new" element={canAccess('delivery_notes') ? <DeliveryNoteBuilder /> : <Navigate to="/" />} />
               <Route path="delivery-notes/:id/edit" element={canAccess('delivery_notes') ? <DeliveryNoteBuilder /> : <Navigate to="/" />} />
 
-              <Route path="payments" element={canAccess('payments') ? <Payments /> : <Navigate to="/" />} />
-              <Route path="payment-requests" element={canAccess('payment-requests') ? <PaymentRequests /> : <Navigate to="/" />} />
+              <Route path="payments" element={<Navigate to="/accounting" replace />} />
+              <Route path="payment-requests" element={<Navigate to="/accounting" replace />} />
               {/* Legacy Estimations Redirects */}
               <Route path="estimations" element={<RedirectToAccounting />} />
               <Route path="estimations/new" element={<RedirectToAccounting />} />

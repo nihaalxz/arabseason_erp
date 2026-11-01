@@ -90,9 +90,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
       location.pathname === '/credit-notes' ||
       location.pathname.startsWith('/credit-notes/') ||
       location.pathname === '/banks' ||
-      location.pathname === '/payments' ||
       location.pathname === '/expenses' ||
-      location.pathname === '/payment-requests' ||
       location.pathname === '/reports' ||
       location.pathname === '/salary'
     ) {
@@ -285,7 +283,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                     {isFeatureVisible('delivery_notes') && <Link to="/delivery-notes/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><FileText size={14} style={{ color: 'var(--primary)' }} /><span>New Delivery Note</span></Link>}
                   </>
                 )}
-                {(isFeatureVisible('invoices') || isFeatureVisible('credit_notes') || isFeatureVisible('vendors') || isFeatureVisible('expenses') || isFeatureVisible('payments') || isFeatureVisible('payment_requests') || isFeatureVisible('banks')) && (
+                {(isFeatureVisible('invoices') || isFeatureVisible('credit_notes') || isFeatureVisible('vendors') || isFeatureVisible('expenses') || isFeatureVisible('banks')) && (
                   <>
                     <div style={{ height: '1px', background: 'var(--border-light)', margin: '0.35rem 0' }} />
                     <div style={{ padding: '0.35rem 0.6rem', fontSize: '0.675rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Billing & Financials</div>
@@ -293,9 +291,6 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                     {isFeatureVisible('credit_notes') && <Link to="/credit-notes/new" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--warning)' }} /><span>New Credit Note</span></Link>}
                     {isFeatureVisible('vendors') && <Link to="/accounting/vendors" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Building2 size={14} style={{ color: 'var(--warning)' }} /><span>New Vendor</span></Link>}
                     {isFeatureVisible('expenses') && <Link to="/expenses" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><Receipt size={14} style={{ color: 'var(--danger)' }} /><span>Record Expense</span></Link>}
-                    {isFeatureVisible('payments') && <Link to="/payments" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><CreditCard size={14} style={{ color: 'var(--success)' }} /><span>Record Payment</span></Link>}
-                    {isFeatureVisible('payment_requests') && <Link to="/payment-requests" onClick={() => setShowQuickAdd(false)} className="zoho-quick-item"><ShieldCheck size={14} style={{ color: 'var(--info, #0284c7)' }} /><span>Payment Request</span></Link>}
-                    
                   </>
                 )}
                 {isFeatureVisible('cashbook') && (
