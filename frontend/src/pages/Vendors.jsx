@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Edit3, Trash2, AlertCircle, Building2 } from 'lucide-react'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -23,7 +22,6 @@ const Vendors = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
-  const navigate = useNavigate()
   const basePath = '/accounting'
 
   // Modal and Form state
@@ -244,10 +242,8 @@ const Vendors = () => {
                         <tr
                           key={vendor.id}
                           className="cred-table-row"
-                          onClick={() => navigate(`${basePath}/vendors/${vendor.id}`)}
                           style={{
                             borderBottom: '1px solid var(--border, #E4E4E4)',
-                            cursor: 'pointer',
                             transition: 'background-color 0.15s ease'
                           }}
                         >

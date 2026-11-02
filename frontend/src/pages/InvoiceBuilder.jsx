@@ -13,6 +13,14 @@ import { useSettings } from '../contexts/SettingsContext'
 import { showError, showToast, showSuccess, showConfirm } from '../utils/swal'
 import { handlePdfResponse } from '../utils/pdfDownload'
 
+const getTodayStr = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const PAYMENT_TERMS_OPTIONS = ['Due on Receipt', 'Net 15', 'Net 30', 'Net 45', 'Net 60', 'Custom']
 const UNIT_OPTIONS = ['Unit', 'Pcs', 'Hours', 'Days', 'Lot', 'Sq. M', 'Kg', 'Service', 'm', 'Roll', 'Box']
 const DEFAULT_ITEM = { description: '', material: '', quantity: 1, unit: 'Unit', unit_price: 0, discount_rate: 0, tax_rate: 15, tax_amount: 0, total: 0 }
@@ -635,6 +643,16 @@ const InvoiceBuilder = () => {
       }
     }
 
+    const todayCheck = getTodayStr()
+    if (invoiceForm.due_date && invoiceForm.due_date < todayCheck) {
+      setFormError('Invoice due date cannot be before today.')
+      return
+    }
+    if (invoiceForm.supply_date && invoiceForm.supply_date < todayCheck) {
+      setFormError('Supply date cannot be before today.')
+      return
+    }
+
     const finalStatus = targetStatus || invoiceForm.status || 'Issued'
 
     // Prepare payload (Persistence Rule: salesperson, subject, attachments are UI-only and stripped)
@@ -1189,8 +1207,15 @@ const InvoiceBuilder = () => {
               <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
                 <input
                   type="date"
+                  min={getTodayStr()}
                   value={invoiceForm.due_date}
-                  onChange={(e) => { setInvoiceForm(p => ({ ...p, due_date: e.target.value })); setIsDirty(true); }}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    const todayStr = getTodayStr()
+                    if (val && val < todayStr) return
+                    setInvoiceForm(p => ({ ...p, due_date: val }))
+                    setIsDirty(true)
+                  }}
                   style={{
                     height: '38px',
                     width: '100%',
@@ -1229,8 +1254,15 @@ const InvoiceBuilder = () => {
             <div style={{ width: '100%', maxWidth: '480px' }}>
               <input
                 type="date"
+                min={getTodayStr()}
                 value={invoiceForm.supply_date}
-                onChange={(e) => { setInvoiceForm(p => ({ ...p, supply_date: e.target.value })); setIsDirty(true); }}
+                onChange={(e) => {
+                  const val = e.target.value
+                  const todayStr = getTodayStr()
+                  if (val && val < todayStr) return
+                  setInvoiceForm(p => ({ ...p, supply_date: val }))
+                  setIsDirty(true)
+                }}
                 style={{
                   height: '38px',
                   width: '100%',

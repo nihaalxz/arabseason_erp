@@ -246,8 +246,8 @@ const Settings = ({ mode }) => {
               gap: '6px', 
               fontSize: '12.5px', 
               color: 'var(--text, #18181B)',
-              background: '#F4F4F5',
-              border: '1px solid #E4E4E7',
+              background: 'var(--fill-ghost, #F4F4F5)',
+              border: '1px solid var(--border, #E4E4E7)',
               padding: '6px 14px',
               borderRadius: '9999px',
               fontWeight: 500
@@ -284,8 +284,8 @@ const Settings = ({ mode }) => {
               transition: 'all 0.15s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#F4F4F5'
-              e.currentTarget.style.borderColor = '#D4D4D8'
+              e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F5)'
+              e.currentTarget.style.borderColor = 'var(--border-strong, #D4D4D8)'
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'var(--card-bg, #FFFFFF)'
@@ -424,7 +424,7 @@ const Settings = ({ mode }) => {
                           key={item.key}
                           onClick={() => toggleFeature(item.key)}
                           style={{
-                            background: '#FFFFFF',
+                            background: isEnabled ? 'var(--bg-subtle, #FAFAFA)' : 'transparent',
                             border: `1px solid ${isEnabled ? 'var(--text, #0A0A0A)' : 'var(--border, #E4E4E4)'}`,
                             borderRadius: '16px',
                             padding: '16px 18px',
@@ -432,8 +432,23 @@ const Settings = ({ mode }) => {
                             alignItems: 'flex-start',
                             gap: '14px',
                             cursor: 'pointer',
-                            transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                            transition: 'all 0.15s ease',
+                            opacity: isEnabled ? 1 : 0.65,
                             boxShadow: isEnabled ? '0 1px 4px rgba(0,0,0,0.04)' : 'none'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isEnabled) {
+                              e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)'
+                            } else {
+                              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isEnabled) {
+                              e.currentTarget.style.background = 'transparent'
+                            } else {
+                              e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                            }
                           }}
                         >
                           {/* Toggle Switch */}
@@ -442,7 +457,7 @@ const Settings = ({ mode }) => {
                             width: '36px',
                             height: '20px',
                             borderRadius: '9999px',
-                            background: isEnabled ? 'var(--black, #0A0A0A)' : '#E2E8F0',
+                            background: isEnabled ? 'var(--text, #0A0A0A)' : 'var(--border-strong, #D4D4D8)',
                             position: 'relative',
                             flexShrink: 0,
                             transition: 'background-color 0.2s ease'
@@ -451,7 +466,7 @@ const Settings = ({ mode }) => {
                               width: '14px',
                               height: '14px',
                               borderRadius: '50%',
-                              background: '#FFFFFF',
+                              background: isEnabled ? 'var(--card-bg, #FFFFFF)' : '#FFFFFF',
                               position: 'absolute',
                               top: '3px',
                               left: isEnabled ? '19px' : '3px',
@@ -471,9 +486,9 @@ const Settings = ({ mode }) => {
                                 fontWeight: 600,
                                 padding: '2px 8px',
                                 borderRadius: '9999px',
-                                background: isEnabled ? '#F4F4F5' : 'transparent',
+                                background: isEnabled ? 'var(--fill-ghost, #F4F4F5)' : 'transparent',
                                 color: isEnabled ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
-                                border: '1px solid #E4E4E7',
+                                border: '1px solid var(--border, #E4E4E7)',
                                 letterSpacing: '0.04em'
                               }}>
                                 {isEnabled ? 'VISIBLE' : 'HIDDEN'}
@@ -515,8 +530,9 @@ const Settings = ({ mode }) => {
                 width: '56px',
                 height: '56px',
                 borderRadius: '50%',
-                background: 'var(--black, #0A0A0A)',
-                color: '#FFFFFF',
+                background: 'var(--fill-ghost, #F1F5F9)',
+                color: 'var(--text, #0A0A0A)',
+                border: '1px solid var(--border, #E4E4E4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -539,9 +555,9 @@ const Settings = ({ mode }) => {
                     fontWeight: 600,
                     padding: '2px 8px',
                     borderRadius: '9999px',
-                    background: '#F1F5F9',
-                    color: '#475569',
-                    border: '1px solid #E2E8F0'
+                    background: 'var(--fill-ghost, #F1F5F9)',
+                    color: 'var(--text-muted, #475569)',
+                    border: '1px solid var(--border, #E2E8F0)'
                   }}>
                     Super Administrator
                   </span>
@@ -642,8 +658,8 @@ const Settings = ({ mode }) => {
                     padding: '0 14px',
                     borderRadius: '12px',
                     border: '1px solid var(--border, #E4E4E4)',
-                    background: '#F8FAFC',
-                    color: '#64748B',
+                    background: 'var(--fill-ghost, #F8FAFC)',
+                    color: 'var(--text-muted, #64748B)',
                     fontSize: '13.5px',
                     outline: 'none',
                     cursor: 'not-allowed',
@@ -666,8 +682,8 @@ const Settings = ({ mode }) => {
                     padding: '0 14px',
                     borderRadius: '12px',
                     border: '1px solid var(--border, #E4E4E4)',
-                    background: '#F8FAFC',
-                    color: '#64748B',
+                    background: 'var(--fill-ghost, #F8FAFC)',
+                    color: 'var(--text-muted, #64748B)',
                     fontSize: '13.5px',
                     outline: 'none',
                     cursor: 'not-allowed',
@@ -729,11 +745,11 @@ const Settings = ({ mode }) => {
                     boxSizing: 'border-box'
                   }}
                 >
-                  <option value="AED">UAE Dirham (AED)</option>
-                  <option value="SAR">Saudi Riyal (SAR)</option>
-                  <option value="USD">US Dollar ($)</option>
-                  <option value="EUR">Euro (€)</option>
-                  <option value="GBP">British Pound (£)</option>
+                  <option value="AED" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>UAE Dirham (AED)</option>
+                  <option value="SAR" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Saudi Riyal (SAR)</option>
+                  <option value="USD" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>US Dollar ($)</option>
+                  <option value="EUR" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Euro (€)</option>
+                  <option value="GBP" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>British Pound (£)</option>
                 </select>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', display: 'block' }}>
                   Applied across invoices, quotations, cashbook ledgers, and accounts.
@@ -761,9 +777,9 @@ const Settings = ({ mode }) => {
                     boxSizing: 'border-box'
                   }}
                 >
-                  <option value="AST">Riyadh (AST +3)</option>
-                  <option value="GST">Dubai (GST +4)</option>
-                  <option value="UTC">UTC / GMT</option>
+                  <option value="AST" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Riyadh (AST +3)</option>
+                  <option value="GST" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Dubai (GST +4)</option>
+                  <option value="UTC" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>UTC / GMT</option>
                 </select>
               </div>
 
@@ -788,9 +804,9 @@ const Settings = ({ mode }) => {
                     boxSizing: 'border-box'
                   }}
                 >
-                  <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 01/11/2026)</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 11/01/2026)</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-11-01)</option>
+                  <option value="DD/MM/YYYY" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>DD/MM/YYYY (e.g. 01/11/2026)</option>
+                  <option value="MM/DD/YYYY" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>MM/DD/YYYY (e.g. 11/01/2026)</option>
+                  <option value="YYYY-MM-DD" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>YYYY-MM-DD (e.g. 2026-11-01)</option>
                 </select>
               </div>
             </div>

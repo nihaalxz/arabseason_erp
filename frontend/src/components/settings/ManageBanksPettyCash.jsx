@@ -384,7 +384,7 @@ const ManageBanksPettyCash = () => {
               height: '32px',
               borderRadius: '50%',
               border: '1px solid var(--border, #E4E4E4)',
-              background: '#FBFBFB',
+              background: 'var(--fill-ghost, #FBFBFB)',
               color: 'var(--text, #0A0A0A)',
               display: 'flex',
               alignItems: 'center',
@@ -428,7 +428,7 @@ const ManageBanksPettyCash = () => {
               height: '32px',
               borderRadius: '50%',
               border: '1px solid var(--border, #E4E4E4)',
-              background: '#FBFBFB',
+              background: 'var(--fill-ghost, #FBFBFB)',
               color: 'var(--text, #0A0A0A)',
               display: 'flex',
               alignItems: 'center',
@@ -546,7 +546,7 @@ const ManageBanksPettyCash = () => {
                   width: '48px',
                   height: '48px',
                   borderRadius: '50%',
-                  background: '#FBFBFB',
+                  background: 'var(--fill-ghost, #FBFBFB)',
                   border: '1px solid var(--border, #E4E4E4)',
                   display: 'flex',
                   alignItems: 'center',
@@ -573,7 +573,7 @@ const ManageBanksPettyCash = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{
-                      background: '#FBFBFB',
+                      background: 'var(--fill-ghost, #FBFBFB)',
                       borderBottom: '1px solid var(--border, #E4E4E4)',
                       fontSize: '12px',
                       fontWeight: 500,
@@ -607,7 +607,7 @@ const ManageBanksPettyCash = () => {
                               width: '36px',
                               height: '36px',
                               borderRadius: '10px',
-                              background: '#F8FAFC',
+                              background: 'var(--fill-ghost, #F8FAFC)',
                               border: '1px solid var(--border, #E4E4E4)',
                               color: 'var(--text, #0A0A0A)',
                               display: 'flex',
@@ -698,9 +698,9 @@ const ManageBanksPettyCash = () => {
                             borderRadius: '9999px',
                             fontSize: '11px',
                             fontWeight: 600,
-                            background: bank.status === 'Active' ? '#F4F4F5' : 'transparent',
+                            background: bank.status === 'Active' ? 'var(--fill-ghost, #F4F4F5)' : 'transparent',
                             color: bank.status === 'Active' ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
-                            border: '1px solid #E4E4E7',
+                            border: '1px solid var(--border, #E4E4E7)',
                             letterSpacing: '0.02em'
                           }}>
                             {bank.status || 'Active'}
@@ -749,7 +749,7 @@ const ManageBanksPettyCash = () => {
                                 transition: 'all 0.15s ease'
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#F4F4F5'
+                                e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F5)'
                                 e.currentTarget.style.color = 'var(--text, #18181B)'
                               }}
                               onMouseLeave={(e) => {
@@ -779,7 +779,7 @@ const ManageBanksPettyCash = () => {
                   width: '48px',
                   height: '48px',
                   borderRadius: '50%',
-                  background: '#FBFBFB',
+                  background: 'var(--fill-ghost, #FBFBFB)',
                   border: '1px solid var(--border, #E4E4E4)',
                   display: 'flex',
                   alignItems: 'center',
@@ -806,7 +806,7 @@ const ManageBanksPettyCash = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{
-                      background: '#FBFBFB',
+                      background: 'var(--fill-ghost, #FBFBFB)',
                       borderBottom: '1px solid var(--border, #E4E4E4)',
                       fontSize: '12px',
                       fontWeight: 500,
@@ -840,7 +840,7 @@ const ManageBanksPettyCash = () => {
                               width: '36px',
                               height: '36px',
                               borderRadius: '10px',
-                              background: '#F8FAFC',
+                              background: 'var(--fill-ghost, #F8FAFC)',
                               border: '1px solid var(--border, #E4E4E4)',
                               color: 'var(--text, #0A0A0A)',
                               display: 'flex',
@@ -863,8 +863,9 @@ const ManageBanksPettyCash = () => {
                               width: '26px',
                               height: '26px',
                               borderRadius: '50%',
-                              background: 'var(--black, #0A0A0A)',
-                              color: '#FFFFFF',
+                              background: 'var(--fill-ghost, #F1F5F9)',
+                              color: 'var(--text, #0A0A0A)',
+                              border: '1px solid var(--border, #E4E4E4)',
                               fontSize: '11px',
                               fontWeight: 600,
                               display: 'flex',
@@ -920,9 +921,9 @@ const ManageBanksPettyCash = () => {
                             borderRadius: '9999px',
                             fontSize: '11px',
                             fontWeight: 600,
-                            background: account.status === 'Active' ? '#F4F4F5' : 'transparent',
+                            background: account.status === 'Active' ? 'var(--fill-ghost, #F4F4F5)' : 'transparent',
                             color: account.status === 'Active' ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
-                            border: '1px solid #E4E4E7',
+                            border: '1px solid var(--border, #E4E4E7)',
                             letterSpacing: '0.02em'
                           }}>
                             {account.status || 'Active'}
@@ -971,7 +972,7 @@ const ManageBanksPettyCash = () => {
                                 transition: 'all 0.15s ease'
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#F4F4F5'
+                                e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F5)'
                                 e.currentTarget.style.color = 'var(--text, #18181B)'
                               }}
                               onMouseLeave={(e) => {
@@ -1114,18 +1115,30 @@ const ManageBanksPettyCash = () => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
             <button
               type="button"
-              className="btn glass-panel"
               onClick={() => setIsBankModalOpen(false)}
+              style={{
+                height: '38px',
+                padding: '0 18px',
+                borderRadius: '9999px',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--fill-ghost, #F4F4F5)',
+                color: 'var(--text, #0A0A0A)',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--fill-ghost-hover, #EAEAEA)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--fill-ghost, #F4F4F5)'}
             >
               Cancel
             </button>
-            <button
+            <PageHeaderButton
               type="submit"
-              className="btn btn-primary"
               disabled={submitting}
             >
               {submitting ? 'Saving...' : editingItem ? 'Save Changes' : 'Create Bank Account'}
-            </button>
+            </PageHeaderButton>
           </div>
         </form>
       </Modal>
@@ -1233,18 +1246,30 @@ const ManageBanksPettyCash = () => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
             <button
               type="button"
-              className="btn glass-panel"
               onClick={() => setIsPettyModalOpen(false)}
+              style={{
+                height: '38px',
+                padding: '0 18px',
+                borderRadius: '9999px',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--fill-ghost, #F4F4F5)',
+                color: 'var(--text, #0A0A0A)',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--fill-ghost-hover, #EAEAEA)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--fill-ghost, #F4F4F5)'}
             >
               Cancel
             </button>
-            <button
+            <PageHeaderButton
               type="submit"
-              className="btn btn-primary"
               disabled={submitting}
             >
               {submitting ? 'Saving...' : editingItem ? 'Save Changes' : 'Create Petty Cash Account'}
-            </button>
+            </PageHeaderButton>
           </div>
         </form>
       </Modal>

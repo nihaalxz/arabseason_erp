@@ -449,6 +449,8 @@
 }
 
 /* ── 10. DARK MODE OVERRIDES (Synced with Cashbook) ── */
+body.cb-dark-bw,
+[data-theme="dark"],
 body.cb-dark-bw [data-theme-scope="soft-fintech"],
 .cb-dark-bw [data-theme-scope="soft-fintech"],
 [data-theme="dark"] [data-theme-scope="soft-fintech"] {
@@ -504,12 +506,30 @@ body.cb-dark-bw [data-theme-scope="soft-fintech"] .btn-secondary:hover,
 body.cb-dark-bw [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]),
 body.cb-dark-bw [data-theme-scope="soft-fintech"] select,
 body.cb-dark-bw [data-theme-scope="soft-fintech"] textarea,
+body.cb-dark-bw .input-field,
 [data-theme="dark"] [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]),
 [data-theme="dark"] [data-theme-scope="soft-fintech"] select,
-[data-theme="dark"] [data-theme-scope="soft-fintech"] textarea {
+[data-theme="dark"] [data-theme-scope="soft-fintech"] textarea,
+[data-theme="dark"] .input-field {
   background: #141414 !important;
   border-color: #262626 !important;
   color: #F5F5F5 !important;
+}
+
+/* All form-group labels in soft-fintech */
+.form-group label,
+.modal-container .form-group label,
+.modal-body .form-group label {
+  color: var(--text-muted, #8C8C8C) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+}
+
+body.cb-dark-bw .form-group label,
+[data-theme='dark'] .form-group label {
+  color: #A1A7B2 !important;
 }
 
 body.cb-dark-bw [data-theme-scope="soft-fintech"] input:focus,
@@ -571,7 +591,8 @@ body.cb-dark-bw [data-theme-scope="soft-fintech"] textarea:focus,
 
 .modal-container select option,
 .modal-body select option,
-.modal-content select option {
+.modal-content select option,
+select option {
   background-color: var(--card-bg, #FFFFFF);
   color: var(--text, #111111);
   padding: 8px 12px;
@@ -580,11 +601,18 @@ body.cb-dark-bw [data-theme-scope="soft-fintech"] textarea:focus,
 
 .modal-container select option[value=""],
 .modal-body select option[value=""],
-.modal-content select option[value=""] {
+.modal-content select option[value=""],
+select option[value=""] {
   color: var(--text-muted, #8C8C8C);
 }
 
-/* Dark mode for all modal selects */
+/* Dark mode for all selects & options */
+body.cb-dark-bw select option,
+[data-theme='dark'] select option {
+  background-color: #141517 !important;
+  color: #FFFFFF !important;
+}
+
 body.cb-dark-bw .modal-container select,
 body.cb-dark-bw .modal-body select,
 body.cb-dark-bw .modal-content select,
@@ -693,4 +721,129 @@ body.cb-dark-bw .plain-filter-dropdown-row:hover,
 body.cb-dark-bw .plain-filter-dropdown-row.is-selected svg,
 [data-theme='dark'] .plain-filter-dropdown-row.is-selected svg {
   color: #FFFFFF !important;
+}
+
+/* Alert, Discard, and Confirm Dialogs: Zero Blur */
+.discard-confirm-overlay,
+.swal2-container,
+div:where(.swal2-container),
+.erp-swal-container,
+.alert-overlay,
+.confirm-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+
+/* Discard Action Buttons: Perfectly Aligned */
+.discard-confirm-dialog .discard-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  margin-top: 10px !important;
+  box-sizing: border-box !important;
+}
+
+.discard-confirm-dialog .discard-btn {
+  flex: 1 1 0% !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  transition: all 0.15s ease !important;
+  text-decoration: none !important;
+}
+
+.discard-confirm-dialog .discard-btn-keep {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.discard-confirm-dialog .discard-btn-keep:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+body.cb-dark-bw .discard-confirm-dialog .discard-btn-keep,
+[data-theme='dark'] .discard-confirm-dialog .discard-btn-keep,
+html.dark .discard-confirm-dialog .discard-btn-keep {
+  background: #23262d !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #363a45 !important;
+}
+
+body.cb-dark-bw .discard-confirm-dialog .discard-btn-keep:hover,
+[data-theme='dark'] .discard-confirm-dialog .discard-btn-keep:hover,
+html.dark .discard-confirm-dialog .discard-btn-keep:hover {
+  background: #2d323b !important;
+  color: #ffffff !important;
+  border-color: #4a5060 !important;
+}
+
+/* Discard Icon Badge: Clean Theme Styling (No Red) */
+.discard-confirm-dialog .discard-icon-badge {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body.cb-dark-bw .discard-confirm-dialog .discard-icon-badge,
+[data-theme="dark"] .discard-confirm-dialog .discard-icon-badge,
+body[data-theme="dark"] .discard-confirm-dialog .discard-icon-badge,
+html.dark .discard-confirm-dialog .discard-icon-badge,
+body.dark .discard-confirm-dialog .discard-icon-badge,
+.cashbook-dark .discard-confirm-dialog .discard-icon-badge {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+.discard-confirm-dialog .discard-btn-discard {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border: 1px solid #0f172a !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15) !important;
+}
+
+.discard-confirm-dialog .discard-btn-discard:hover {
+  background: #1e293b !important;
+  border-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+body.cb-dark-bw .discard-confirm-dialog .discard-btn-discard,
+[data-theme="dark"] .discard-confirm-dialog .discard-btn-discard,
+body[data-theme="dark"] .discard-confirm-dialog .discard-btn-discard,
+html.dark .discard-confirm-dialog .discard-btn-discard,
+body.dark .discard-confirm-dialog .discard-btn-discard,
+.cashbook-dark .discard-confirm-dialog .discard-btn-discard {
+  background: #ffffff !important;
+  color: #0a0a0a !important;
+  border: 1px solid #ffffff !important;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.18) !important;
+}
+
+body.cb-dark-bw .discard-confirm-dialog .discard-btn-discard:hover,
+[data-theme="dark"] .discard-confirm-dialog .discard-btn-discard:hover,
+body[data-theme="dark"] .discard-confirm-dialog .discard-btn-discard:hover,
+html.dark .discard-confirm-dialog .discard-btn-discard:hover,
+body.dark .discard-confirm-dialog .discard-btn-discard:hover,
+.cashbook-dark .discard-confirm-dialog .discard-btn-discard:hover {
+  background: #f1f5f9 !important;
+  border-color: #f1f5f9 !important;
+  color: #000000 !important;
 }

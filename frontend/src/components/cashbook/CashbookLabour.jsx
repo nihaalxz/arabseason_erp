@@ -1,3 +1,11 @@
+const getTodayStr = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 import React, { useState, useEffect, useMemo, useRef, useCallback, Children } from 'react'
 import { 
   Plus, Search, X, RefreshCw, AlertCircle, Trash2, 
@@ -2190,8 +2198,14 @@ export default function CashbookLabour({
               </label>
               <input
                 type="date"
+                min={getTodayStr()}
                 value={formData.due_date}
-                onChange={e => setFormData({ ...formData, due_date: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value
+                  const todayStr = getTodayStr()
+                  if (val && val < todayStr) return
+                  setFormData({ ...formData, due_date: val })
+                }}
                 style={{
                   width: '100%',
                   height: '38px',

@@ -16,9 +16,7 @@ export const ROUTES = {
   // Accounting & Books
   ACCOUNTING_DASHBOARD: '/accounting',
   CUSTOMERS: '/accounting/customers',
-  CUSTOMER_DETAIL: (id) => `/accounting/customers/${id}`,
   VENDORS: '/accounting/vendors',
-  VENDOR_DETAIL: (id) => `/accounting/vendors/${id}`,
   ESTIMATIONS: '/accounting/estimations',
   ESTIMATIONS_NEW: '/accounting/estimations/new',
   ESTIMATION_EDIT: (id) => `/accounting/estimations/${id}/edit`,

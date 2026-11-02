@@ -1,3 +1,11 @@
+const getTodayStr = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { GooeyMenu } from '../components/cashbook/cred/GooeyMenu'
 import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
@@ -7,7 +15,7 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Phone, Mail, MessageSquare, Plus, Search, Calendar, 
   Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
-  FileText, Trash2, Edit3, Eye, UploadCloud, 
+  FileText, Trash2, Eye, UploadCloud, 
   X, ChevronRight, Check, RotateCcw, UserCheck, User,
   Filter, ChevronDown, Printer
 } from 'lucide-react'
@@ -138,7 +146,6 @@ export default function Enquiries({ currentUser }) {
     attachment_name: '',
     attachment_type: ''
   })
-  const [isEditing, setIsEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -328,52 +335,28 @@ export default function Enquiries({ currentUser }) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // Open Create / Edit Modal
-  const handleOpenModal = (enq = null) => {
+  // Open Create Modal
+  const handleOpenModal = () => {
     setFormError('')
-    if (enq) {
-      setSelectedEnquiry(enq)
-      setIsEditing(true)
-      setFormData({
-        customer_id: enq.customer || '',
-        customer_name: enq.customer_name || enq.customer_detail?.name || '',
-        phone: enq.phone || enq.customer_detail?.phone || '',
-        email: enq.email || enq.customer_detail?.email || '',
-        salesperson: enq.salesperson || '',
-        salesperson_name: enq.salesperson_name || enq.salesperson_detail?.name || '',
-        channel: enq.channel || 'whatsapp',
-        date: enq.date || new Date().toISOString().split('T')[0],
-        title: enq.title || '',
-        description: enq.description || '',
-        estimated_value: enq.estimated_value || '',
-        status: enq.status || 'enquiry',
-        next_follow_up_date: enq.next_follow_up_date || '',
-        attachment: enq.attachment || '',
-        attachment_name: enq.attachment_name || '',
-        attachment_type: enq.attachment_type || ''
-      })
-    } else {
-      setSelectedEnquiry(null)
-      setIsEditing(false)
-      setFormData({
-        customer_id: '',
-        customer_name: '',
-        phone: '',
-        email: '',
-        salesperson: '',
-        salesperson_name: '',
-        channel: 'whatsapp',
-        date: new Date().toISOString().split('T')[0],
-        title: '',
-        description: '',
-        estimated_value: '',
-        status: 'enquiry',
-        next_follow_up_date: '',
-        attachment: '',
-        attachment_name: '',
-        attachment_type: ''
-      })
-    }
+    setSelectedEnquiry(null)
+    setFormData({
+      customer_id: '',
+      customer_name: '',
+      phone: '',
+      email: '',
+      salesperson: '',
+      salesperson_name: '',
+      channel: 'whatsapp',
+      date: new Date().toISOString().split('T')[0],
+      title: '',
+      description: '',
+      estimated_value: '',
+      status: 'enquiry',
+      next_follow_up_date: '',
+      attachment: '',
+      attachment_name: '',
+      attachment_type: ''
+    })
     setIsModalOpen(true)
   }
 
@@ -417,6 +400,12 @@ export default function Enquiries({ currentUser }) {
       return
     }
 
+    const todayStr = getTodayStr()
+    if (formData.next_follow_up_date && formData.next_follow_up_date < todayStr) {
+      setFormError('Next follow-up date cannot be before today.')
+      return
+    }
+
     setSubmitting(true)
     setFormError('')
     try {
@@ -439,13 +428,8 @@ export default function Enquiries({ currentUser }) {
         attachment_type: formData.attachment_type
       }
 
-      if (isEditing && selectedEnquiry) {
-        await api.patch(`enquiries/${selectedEnquiry.id}/`, payload)
-        showToast('Enquiry updated successfully', 'success')
-      } else {
-        await api.post('enquiries/', payload)
-        showToast('New enquiry recorded', 'success')
-      }
+      await api.post('enquiries/', payload)
+      showToast('New enquiry recorded', 'success')
 
       setIsModalOpen(false)
       fetchEnquiries()
@@ -480,6 +464,12 @@ export default function Enquiries({ currentUser }) {
     e.preventDefault()
     if (!followUpData.notes.trim()) {
       showError('Notes Required', 'Please enter a summary of the follow-up conversation.')
+      return
+    }
+
+    const todayStrFU = getTodayStr()
+    if (followUpData.next_follow_up_date && followUpData.next_follow_up_date < todayStrFU) {
+      showError('Invalid Date', 'Next follow-up date cannot be before today.')
       return
     }
 
@@ -651,7 +641,7 @@ export default function Enquiries({ currentUser }) {
           <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
             Follow-ups Due Today
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 600, color: metrics.due_today_count > 0 ? 'var(--due, #EE7A2E)' : 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
             {metrics.due_today_count}
           </div>
         </div>
@@ -752,6 +742,7 @@ export default function Enquiries({ currentUser }) {
               setDueTodayOnly(!dueTodayOnly)
               setActiveSection('active')
             }}
+            className={`enquiry-due-today-pill ${dueTodayOnly ? 'is-active' : ''}`}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -761,14 +752,11 @@ export default function Enquiries({ currentUser }) {
               borderRadius: '9999px',
               fontSize: '12px',
               fontWeight: 500,
-              background: dueTodayOnly ? 'var(--black, #0A0A0A)' : 'var(--card-bg, #FFFFFF)',
-              color: dueTodayOnly ? '#FFFFFF' : 'var(--due, #EE7A2E)',
-              border: dueTodayOnly ? '1px solid var(--black, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
           >
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--due, #EE7A2E)' }} />
+            <span className="due-dot" style={{ width: '6px', height: '6px', borderRadius: '50%' }} />
             <span>Follow-up Calls Due Today: <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{metrics.due_today_count}</strong></span>
           </button>
         )}
@@ -1415,10 +1403,10 @@ export default function Enquiries({ currentUser }) {
       <ModalShell
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={isEditing ? `Edit Enquiry: ${selectedEnquiry?.enquiry_number}` : 'New Customer Enquiry'}
+        title="New Customer Enquiry"
         maxWidth="680px"
         formId="new-enquiry-form"
-        submitLabel={isEditing ? 'Save Changes' : 'Create Enquiry'}
+        submitLabel="Create Enquiry"
         submittingLabel="Saving..."
         submitting={submitting}
       >
@@ -1435,7 +1423,6 @@ export default function Enquiries({ currentUser }) {
               <Field label="Existing Customer">
                 <CredSelect
                   value={formData.customer_id}
-                  placeholder="Select existing customer..."
                   onChange={(e) => {
                     const cId = e.target.value
                     const found = customers.find(c => String(c.id) === String(cId))
@@ -1585,8 +1572,14 @@ export default function Enquiries({ currentUser }) {
             <div>
               <Field label="Next Follow-up Date">
                 <DateInput
+                  min={getTodayStr()}
                   value={formData.next_follow_up_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    const todayStr = getTodayStr()
+                    if (val && val < todayStr) return
+                    setFormData(prev => ({ ...prev, next_follow_up_date: val }))
+                  }}
                 />
               </Field>
             </div>
@@ -1663,8 +1656,14 @@ export default function Enquiries({ currentUser }) {
               <div style={{ gridColumn: '1 / -1' }}>
                 <Field label="Schedule Next Follow-up Date">
                   <DateInput
+                    min={getTodayStr()}
                     value={followUpData.next_follow_up_date}
-                    onChange={(e) => setFollowUpData(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      const todayStr = getTodayStr()
+                      if (val && val < todayStr) return
+                      setFollowUpData(prev => ({ ...prev, next_follow_up_date: val }))
+                    }}
                   />
                 </Field>
               </div>
@@ -1843,18 +1842,6 @@ export default function Enquiries({ currentUser }) {
                 >
                   <Printer size={13} className={downloadingPdfId === selectedEnquiry.id ? 'spin' : ''} />
                   {downloadingPdfId === selectedEnquiry.id ? 'Printing...' : 'Print PDF'}
-                </button>
-
-                <button
-                  type="button"
-                  className="cred-modal-cancel-btn"
-                  onClick={() => {
-                    setIsDetailModalOpen(false)
-                    handleOpenModal(selectedEnquiry)
-                  }}
-                  style={{ height: '36px', padding: '0 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Edit3 size={13} /> Edit Enquiry
                 </button>
 
                 <button

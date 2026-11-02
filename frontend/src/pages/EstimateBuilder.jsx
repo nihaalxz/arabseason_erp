@@ -15,6 +15,14 @@ import {
 import { handlePdfResponse } from '../utils/pdfDownload'
 import { showError, showToast, showWarning, showConfirm } from '../utils/swal'
 
+const getTodayStr = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const POPULAR_UNITS = ['pcs', 'sq.m', 'm', 'sheet', 'roll', 'kg', 'set', 'box', 'pack', 'day', 'hour']
 const STATUS_OPTIONS = ['Draft', 'Sent', 'Approved', 'Rejected']
 
@@ -434,6 +442,12 @@ const EstimateBuilder = () => {
     }
     if (formData.items.length === 0) {
       showWarning('No Items', 'Please add at least one item to this estimate.')
+      return
+    }
+
+    const todayCheck = getTodayStr()
+    if (formData.valid_until && formData.valid_until < todayCheck) {
+      showWarning('Invalid Expiry Date', 'Estimate validity / expiry date cannot be before today.')
       return
     }
 
@@ -1043,9 +1057,13 @@ const EstimateBuilder = () => {
             <div style={{ width: '100%', maxWidth: '480px' }}>
               <input
                 type="date"
+                min={getTodayStr()}
                 value={formData.valid_until}
                 onChange={(e) => {
-                  setFormData(p => ({ ...p, valid_until: e.target.value }))
+                  const val = e.target.value
+                  const todayStr = getTodayStr()
+                  if (val && val < todayStr) return
+                  setFormData(p => ({ ...p, valid_until: val }))
                   setIsDirty(true)
                 }}
                 style={{

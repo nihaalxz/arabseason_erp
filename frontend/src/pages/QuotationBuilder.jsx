@@ -16,6 +16,14 @@ import { useSettings } from '../contexts/SettingsContext'
 import { showError, showToast, showSuccess, showConfirm } from '../utils/swal'
 import { handlePdfResponse } from '../utils/pdfDownload'
 
+const getTodayStr = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const DEFAULT_QUOTATION_TERMS = `1. Production will begin after approval of cost and receipt of PO from the client.
 2. The above cost is as per the project brief provided; any changes in artwork and specification will be charged additionally.
 3. All artwork and approvals are to be provided by the client before starting production. Any delay in providing approvals will delay the project accordingly.
@@ -557,6 +565,13 @@ const QuotationBuilder = () => {
       return
     }
 
+    const todayCheck = getTodayStr()
+    if (form.valid_until && form.valid_until < todayCheck) {
+      setFormError('Expiry date cannot be before today.')
+      showToast('Expiry date cannot be in the past', 'warning')
+      return
+    }
+
     // Prepare payload (Persistence Rule: salesperson, subject, attachments are UI-only and stripped)
     const payload = {
       quotation_number: form.quotation_number.trim(),
@@ -1023,7 +1038,26 @@ const QuotationBuilder = () => {
                   type="date"
                   required
                   value={form.quotation_date}
-                  onChange={(e) => { setForm(p => ({ ...p, quotation_date: e.target.value })); setIsDirty(true); }}
+                  onChange={(e) => {
+                    const newQuoteDate = e.target.value
+                    setForm(p => {
+                      let newValidUntil = p.valid_until
+                      if (newQuoteDate) {
+                        const qD = new Date(newQuoteDate)
+                        if (!isNaN(qD.getTime())) {
+                          const vD = new Date(qD)
+                          vD.setDate(vD.getDate() + 30)
+                          newValidUntil = vD.toISOString().split('T')[0]
+                        }
+                      }
+                      return {
+                        ...p,
+                        quotation_date: newQuoteDate,
+                        valid_until: newValidUntil
+                      }
+                    })
+                    setIsDirty(true)
+                  }}
                   style={{
                     height: '38px',
                     width: '100%',
@@ -1052,10 +1086,20 @@ const QuotationBuilder = () => {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <input
                   type="date"
+                  min={getTodayStr()}
                   placeholder="Expiry Date"
                   title="Expiry Date"
                   value={form.valid_until}
-                  onChange={(e) => { setForm(p => ({ ...p, valid_until: e.target.value })); setIsDirty(true); }}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    const todayStr = getTodayStr()
+                    if (val && val < todayStr) {
+                      showToast('Expiry date cannot be before today', 'warning')
+                      return
+                    }
+                    setForm(p => ({ ...p, valid_until: val }))
+                    setIsDirty(true)
+                  }}
                   style={{
                     height: '38px',
                     width: '100%',

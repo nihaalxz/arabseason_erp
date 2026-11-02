@@ -4,15 +4,10 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import CredTopStrip from '../cashbook/cred/CredTopStrip'
 import { useModule } from '../../contexts/ModuleContext'
+import { getIsDarkMode, applyTheme, toggleTheme } from '../../utils/theme'
 
 const DashboardLayout = ({ onLogout, currentUser }) => {
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    try {
-      return localStorage.getItem('cashbook_dark_mode') === 'true'
-    } catch (e) {
-      return false
-    }
-  })
+  const [isDarkMode, setIsDarkMode] = useState(() => getIsDarkMode())
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(() => {
@@ -57,14 +52,30 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
     localStorage.setItem('sidebarPinned', isSidebarPinned)
   }, [isSidebarPinned])
 
+  // Sync theme changes from custom events & cross-tab storage
   useEffect(() => {
-    try {
-      localStorage.setItem('cashbook_dark_mode', String(isDarkMode))
-    } catch (e) {}
-    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light')
-    document.body.classList.toggle('cb-dark-bw', isDarkMode)
-    document.body.style.colorScheme = isDarkMode ? 'dark' : 'light'
-  }, [isDarkMode])
+    const handleThemeSync = (e) => {
+      const current = typeof e?.detail?.isDarkMode === 'boolean'
+        ? e.detail.isDarkMode
+        : getIsDarkMode()
+      setIsDarkMode(current)
+    }
+    window.addEventListener('app:theme-change', handleThemeSync)
+    window.addEventListener('storage', handleThemeSync)
+    return () => {
+      window.removeEventListener('app:theme-change', handleThemeSync)
+      window.removeEventListener('storage', handleThemeSync)
+    }
+  }, [])
+
+  // Enforce theme on mount, isDarkMode change, and route transitions
+  useEffect(() => {
+    const current = getIsDarkMode()
+    if (current !== isDarkMode) {
+      setIsDarkMode(current)
+    }
+    applyTheme(current)
+  }, [location.pathname, isDarkMode])
 
   // If on mobile and trying to view any non-cashbook page, immediately redirect to Cashbook
   if (isMobile && !isCashbook) {
@@ -86,7 +97,8 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
   }
 
   const handleToggleTheme = () => {
-    setIsDarkMode(prev => !prev)
+    const next = toggleTheme()
+    setIsDarkMode(next)
   }
 
   const sidebarWidth = isSidebarPinned ? 240 : 76
@@ -178,7 +190,7 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
             }}
           >
             <div key={isCashbook ? 'cashbook' : location.pathname} className="erp-page-transition">
-              <Outlet context={{ currentUser, onLogout }} />
+              <Outlet context={{ currentUser, onLogout, isDarkMode, onToggleTheme: handleToggleTheme }} />
             </div>
           </main>
         </div>

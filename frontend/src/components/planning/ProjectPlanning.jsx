@@ -1,3 +1,11 @@
+const getTodayStr = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
 import api from '../../api'
 import { Plus, Edit, Trash2, X, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
@@ -731,8 +739,14 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
 
               <Field label="Target End Date">
                 <DateInput
+                  min={getTodayStr()}
                   value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    const todayStr = getTodayStr()
+                    if (val && val < todayStr) return
+                    setFormData({ ...formData, end_date: val })
+                  }}
                 />
               </Field>
             </div>

@@ -10,7 +10,11 @@
   --bg: #FFFFFF;
   --bg-band: #F2F2F2;
   --bg-panel: #F7F7F7;
+  --bg-subtle: #F7F7F7;
+  --bg-surface: #FFFFFF;
+  --bg-card: #FFFFFF;
   --card-bg: #FFFFFF;
+  --fill-ghost: #F7F7F7;
   --border: #E4E4E4;
   --divider-dotted: #D9D9D9;
 
@@ -115,7 +119,12 @@ body.cb-dark-bw,
   --bg: #0A0A0A;
   --bg-band: #141414;
   --bg-panel: #141414;
+  --bg-subtle: #1C1D21;
+  --bg-surface: #141517;
+  --bg-card: #141517;
   --card-bg: #141414;
+  --fill-ghost: #1C1D20;
+  --fill-ghost-hover: #222428;
   --border: #2A2A2A;
   --divider-dotted: #2A2A2A;
   --m-card-border: 1px solid var(--border);
