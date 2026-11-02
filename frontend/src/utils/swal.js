@@ -149,12 +149,12 @@ export const showDeleteConfirm = async (optionsOrTitle = {}, maybeText = '') => 
  * @param {string} [text='']
  * @param {'success'|'error'|'warning'|'info'|'question'} [icon='info']
  */
-export const showAlert = async (title, text = '', icon = 'info') => {
+export const showAlert = async (title, text = '', icon = 'info', confirmButtonText = 'OK') => {
   return await MySwal.fire({
     title,
     text,
     icon,
-    confirmButtonText: 'Understood',
+    confirmButtonText,
     customClass: {
       container: 'erp-swal-container',
       popup: 'erp-swal-popup',
@@ -169,22 +169,22 @@ export const showAlert = async (title, text = '', icon = 'info') => {
 /**
  * Show a success modal
  */
-export const showSuccess = async (title = 'Success!', text = '') => {
-  return await showAlert(title, text, 'success')
+export const showSuccess = async (title = 'Success!', text = '', confirmButtonText = 'OK') => {
+  return await showAlert(title, text, 'success', confirmButtonText)
 }
 
 /**
  * Show an error modal
  */
 export const showError = async (title = 'Error Occurred', text = '') => {
-  return await showAlert(title, text, 'error')
+  return await showAlert(title, text, 'error', confirmButtonText)
 }
 
 /**
  * Show a warning modal
  */
 export const showWarning = async (title = 'Attention', text = '') => {
-  return await showAlert(title, text, 'warning')
+  return await showAlert(title, text, 'warning', confirmButtonText)
 }
 
 /**

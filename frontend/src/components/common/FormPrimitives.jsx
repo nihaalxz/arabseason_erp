@@ -391,9 +391,13 @@ export const Select = ({
   style = {},
   ...props
 }) => {
+  const hasEmptyOption = React.Children.toArray(children).some(
+    (child) => React.isValidElement(child) && (child.props.value === '' || child.props.value === null || child.props.value === undefined)
+  )
+
   return (
     <select className={`cred-select ${className}`} style={style} {...props}>
-      {placeholder && <option value="">{placeholder}</option>}
+      {placeholder && !hasEmptyOption && <option value="">{placeholder}</option>}
       {options.length > 0
         ? options.map((opt) => {
             const val = typeof opt === 'object' ? opt.value : opt

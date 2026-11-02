@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Download, Edit, Trash2, Plus, Search, Check, X,
-  Layers, Briefcase, ChevronDown, Eye, EyeOff,
+  Layers, ChevronDown, Eye, EyeOff,
   FileUser, FileLock
 } from 'lucide-react'
 import api from '../api'
@@ -43,6 +43,53 @@ const POPULAR_UNITS = [
   { value: 'day', label: 'day' },
   { value: 'hour', label: 'hour' }
 ]
+
+const getEstimateStatusBadge = (status) => {
+  const s = (status || 'Draft').toLowerCase()
+  if (s === 'approved' || s === 'won') {
+    return {
+      bg: 'rgba(16, 185, 129, 0.12)',
+      color: '#34D399',
+      border: 'rgba(16, 185, 129, 0.3)',
+      dot: '#10B981',
+      label: status || 'Approved'
+    }
+  }
+  if (s === 'converted to job' || s.includes('converted')) {
+    return {
+      bg: 'rgba(16, 185, 129, 0.16)',
+      color: '#34D399',
+      border: 'rgba(16, 185, 129, 0.35)',
+      dot: '#10B981',
+      label: status || 'Converted to Job'
+    }
+  }
+  if (s === 'sent') {
+    return {
+      bg: 'rgba(59, 130, 246, 0.14)',
+      color: '#60A5FA',
+      border: 'rgba(96, 165, 250, 0.3)',
+      dot: '#3B82F6',
+      label: status || 'Sent'
+    }
+  }
+  if (s === 'rejected' || s === 'lost' || s === 'cancelled') {
+    return {
+      bg: 'rgba(239, 68, 68, 0.12)',
+      color: '#F87171',
+      border: 'rgba(239, 68, 68, 0.3)',
+      dot: '#EF4444',
+      label: status || 'Rejected'
+    }
+  }
+  return {
+    bg: 'rgba(245, 158, 11, 0.12)',
+    color: '#FBBF24',
+    border: 'rgba(245, 158, 11, 0.28)',
+    dot: '#F59E0B',
+    label: status || 'Draft'
+  }
+}
 
 const Estimations = () => {
   const navigate = useNavigate()
@@ -237,30 +284,6 @@ const Estimations = () => {
       fetchInitialData()
     } catch {
       showError('Delete Failed', 'Could not delete estimate.')
-    }
-  }
-
-  const handleConvertToJob = async (est) => {
-    const confirmed = await showConfirm(
-      `Convert ${est.estimate_number} to Job Order?`,
-      'This will create a production Job Order with financial data locked into the cashbook.'
-    )
-    if (!confirmed) return
-
-    try {
-      setActionLoading(true)
-      const res = await api.post(`estimations/${est.id}/convert-to-job/`, {})
-      showToast('Converted to Job Order successfully!', 'success')
-      setViewingEstimate(null)
-      if (res.data?.job_order?.id) {
-        navigate(`/jobs`)
-      } else {
-        fetchInitialData()
-      }
-    } catch {
-      showError('Conversion Failed', 'Could not convert estimate to job order.')
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -776,29 +799,28 @@ const Estimations = () => {
                           {marginPct.toFixed(1)}%
                         </td>
 
-                        {/* Status (plain text with small 6px dot) */}
+                        {/* Status badge with color touch */}
                         <td style={{ padding: '12px 12px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '12.5px',
-                            color: 'var(--text, #111111)'
-                          }}>
-                            <span style={{
-                              width: '6px',
-                              height: '6px',
-                              borderRadius: '50%',
-                              backgroundColor: est.status === 'Converted to Job' || est.status === 'Approved'
-                                ? 'var(--success, #16A34A)'
-                                : est.status === 'Sent'
-                                ? 'var(--warning, #D97706)'
-                                : est.status === 'Rejected'
-                                ? 'var(--danger, #DC2626)'
-                                : 'var(--text-muted, #8C8C8C)'
-                            }} />
-                            {est.status || 'Draft'}
-                          </span>
+                          {(() => {
+                            const sb = getEstimateStatusBadge(est.status)
+                            return (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '2px 8px',
+                                borderRadius: '9999px',
+                                fontSize: '11.5px',
+                                fontWeight: 500,
+                                background: sb.bg,
+                                color: sb.color,
+                                border: `1px solid ${sb.border}`
+                              }}>
+                                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: sb.dot }} />
+                                {sb.label}
+                              </span>
+                            )
+                          })()}
                         </td>
 
                         {/* Actions: 4 plain icon-only buttons with divider */}
@@ -1471,76 +1493,54 @@ const Estimations = () => {
           title={`Estimate: ${viewingEstimate.estimate_number}`}
           maxWidth="760px"
           footer={
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                {viewingEstimate.status !== 'Converted to Job' && (
-                  <button
-                    type="button"
-                    onClick={() => handleConvertToJob(viewingEstimate)}
-                    disabled={actionLoading}
-                    style={{
-                      height: '36px',
-                      padding: '0 14px',
-                      background: 'transparent',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      borderRadius: '9999px',
-                      color: 'var(--text, #111111)',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <Briefcase size={14} />
-                    <span>Convert to Job Order</span>
-                  </button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => handleExportClientPdf(viewingEstimate)}
-                  style={{
-                    height: '36px',
-                    padding: '0 14px',
-                    background: 'transparent',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    borderRadius: '9999px',
-                    color: 'var(--text, #111111)',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Download size={14} />
-                  <span>Client Checklist</span>
-                </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => handleExportClientPdf(viewingEstimate)}
+                style={{
+                  height: '38px',
+                  padding: '0 14px',
+                  background: 'var(--fill-ghost, transparent)',
+                  border: '1px solid var(--border, #282B32)',
+                  borderRadius: '9999px',
+                  color: 'var(--text, #FFFFFF)',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#60A5FA'}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border, #282B32)'}
+              >
+                <Download size={14} style={{ color: '#60A5FA' }} />
+                <span>Client Checklist</span>
+              </button>
 
                 <button
                   type="button"
                   onClick={() => handleExportAdminPdf(viewingEstimate)}
                   style={{
-                    height: '36px',
+                    height: '38px',
                     padding: '0 14px',
-                    background: 'transparent',
-                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--fill-ghost, transparent)',
+                    border: '1px solid var(--border, #282B32)',
                     borderRadius: '9999px',
-                    color: 'var(--text, #111111)',
+                    color: 'var(--text, #FFFFFF)',
                     fontSize: '13px',
                     fontWeight: 500,
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '6px'
+                    gap: '6px',
+                    transition: 'all 0.15s ease'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#A78BFA'}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border, #282B32)'}
                 >
-                  <Download size={14} />
+                  <Download size={14} style={{ color: '#A78BFA' }} />
                   <span>Admin PDF</span>
                 </button>
 
@@ -1551,55 +1551,183 @@ const Estimations = () => {
                     setViewingEstimate(null)
                     navigate(`${basePath}/estimations/${tid}/edit`)
                   }}
-                  className="page-header-btn"
+                  style={{
+                    height: '38px',
+                    padding: '0 18px',
+                    background: 'var(--text, #FFFFFF)',
+                    color: 'var(--card-bg, #0A0A0A)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    borderRadius: '9999px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  Edit Estimate
+                  <Edit size={13} />
+                  <span>Edit Estimate</span>
                 </button>
-              </div>
             </div>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Meta Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', background: 'var(--bg-subtle, #F7F7F7)', padding: '14px', borderRadius: '12px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+              gap: '14px',
+              background: 'var(--bg-subtle, #1C1D21)',
+              border: '1px solid var(--border, #282B32)',
+              padding: '16px 18px',
+              borderRadius: '16px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)'
+            }}>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Project / Title</div>
-                <div style={{ fontWeight: 600, color: 'var(--text, #111111)', marginTop: '2px' }}>{viewingEstimate.title}</div>
+                <div style={{
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted, #8C8C8C)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em'
+                }}>
+                  Project / Title
+                </div>
+                <div style={{
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  color: 'var(--text, #F5F5F5)',
+                  marginTop: '4px',
+                  wordBreak: 'break-word'
+                }}>
+                  {viewingEstimate.title || '—'}
+                </div>
               </div>
+
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client</div>
-                <div style={{ fontWeight: 500, color: 'var(--text, #111111)', marginTop: '2px' }}>{viewingEstimate.client_name || viewingEstimate.customer_name || '—'}</div>
+                <div style={{
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted, #8C8C8C)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em'
+                }}>
+                  Client
+                </div>
+                <div style={{
+                  fontWeight: 500,
+                  fontSize: '13.5px',
+                  color: 'var(--text, #F5F5F5)',
+                  marginTop: '4px',
+                  wordBreak: 'break-word'
+                }}>
+                  {viewingEstimate.client_name || viewingEstimate.customer_name || '—'}
+                </div>
               </div>
+
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</div>
-                <div style={{ fontWeight: 500, color: 'var(--text, #111111)', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>{viewingEstimate.date || '—'}</div>
+                <div style={{
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted, #8C8C8C)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em'
+                }}>
+                  Date
+                </div>
+                <div style={{
+                  fontWeight: 500,
+                  fontSize: '13.5px',
+                  color: 'var(--text, #F5F5F5)',
+                  marginTop: '4px',
+                  fontVariantNumeric: 'tabular-nums'
+                }}>
+                  {viewingEstimate.date || '—'}
+                </div>
               </div>
+
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</div>
-                <div style={{ fontWeight: 500, color: 'var(--text, #111111)', marginTop: '2px' }}>{viewingEstimate.status || 'Draft'}</div>
+                <div style={{
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted, #8C8C8C)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em'
+                }}>
+                  Status
+                </div>
+                <div style={{ marginTop: '4px' }}>
+                  {(() => {
+                    const sb = getEstimateStatusBadge(viewingEstimate.status)
+                    return (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '3px 10px',
+                        borderRadius: '9999px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        background: sb.bg,
+                        color: sb.color,
+                        border: `1px solid ${sb.border}`,
+                        width: 'fit-content'
+                      }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sb.dot }} />
+                        {sb.label}
+                      </span>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
 
             {/* Financial Overview (Admin vs Client toggle) */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #111111)' }}>
-                Line Items ({viewingEstimate.items?.length || 0})
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #F5F5F5)' }}>
+                  Line Items
+                </span>
+                <span style={{
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                  padding: '1px 8px',
+                  borderRadius: '9999px',
+                  background: 'var(--bg-subtle, #1C1D21)',
+                  color: 'var(--text-muted, #8C8C8C)',
+                  border: '1px solid var(--border, #282B32)'
+                }}>
+                  {viewingEstimate.items?.length || 0}
+                </span>
               </div>
 
-              <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-subtle, #F7F7F7)', padding: '2px', borderRadius: '8px' }}>
+              <div style={{
+                display: 'inline-flex',
+                gap: '3px',
+                background: 'var(--bg-subtle, #1C1D21)',
+                border: '1px solid var(--border, #282B32)',
+                padding: '3px',
+                borderRadius: '10px'
+              }}>
                 <button
                   type="button"
                   onClick={() => setPreviewMode('client')}
                   style={{
-                    padding: '4px 10px',
+                    padding: '5px 12px',
                     fontSize: '12px',
-                    fontWeight: 500,
-                    borderRadius: '6px',
-                    border: 'none',
+                    fontWeight: previewMode === 'client' ? 600 : 500,
+                    borderRadius: '7px',
+                    border: previewMode === 'client' ? '1px solid var(--border, rgba(255,255,255,0.12))' : '1px solid transparent',
                     cursor: 'pointer',
-                    background: previewMode === 'client' ? 'var(--card-bg, #FFFFFF)' : 'transparent',
-                    color: previewMode === 'client' ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)',
-                    boxShadow: previewMode === 'client' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
+                    background: previewMode === 'client' ? 'var(--card-bg, #262930)' : 'transparent',
+                    color: previewMode === 'client' ? 'var(--text, #FFFFFF)' : 'var(--text-muted, #8C8C8C)',
+                    boxShadow: previewMode === 'client' ? '0 1px 3px rgba(0,0,0,0.25)' : 'none',
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   Client View
@@ -1608,15 +1736,16 @@ const Estimations = () => {
                   type="button"
                   onClick={() => setPreviewMode('admin')}
                   style={{
-                    padding: '4px 10px',
+                    padding: '5px 12px',
                     fontSize: '12px',
-                    fontWeight: 500,
-                    borderRadius: '6px',
-                    border: 'none',
+                    fontWeight: previewMode === 'admin' ? 600 : 500,
+                    borderRadius: '7px',
+                    border: previewMode === 'admin' ? '1px solid var(--border, rgba(255,255,255,0.12))' : '1px solid transparent',
                     cursor: 'pointer',
-                    background: previewMode === 'admin' ? 'var(--card-bg, #FFFFFF)' : 'transparent',
-                    color: previewMode === 'admin' ? 'var(--text, #111111)' : 'var(--text-muted, #8C8C8C)',
-                    boxShadow: previewMode === 'admin' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
+                    background: previewMode === 'admin' ? 'var(--card-bg, #262930)' : 'transparent',
+                    color: previewMode === 'admin' ? 'var(--text, #FFFFFF)' : 'var(--text-muted, #8C8C8C)',
+                    boxShadow: previewMode === 'admin' ? '0 1px 3px rgba(0,0,0,0.25)' : 'none',
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   Admin Breakdown
@@ -1630,35 +1759,85 @@ const Estimations = () => {
                 <div
                   key={idx}
                   style={{
-                    border: '1px solid var(--border, #E4E4E4)',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
+                    border: '1px solid var(--border, #282B32)',
+                    background: 'var(--bg-subtle, #1C1D21)',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '6px'
+                    gap: '8px',
+                    transition: 'border-color 0.15s ease'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <span style={{ fontWeight: 500, color: 'var(--text, #111111)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text, #F5F5F5)', fontSize: '13.5px' }}>
                         {idx + 1}. {it.item_name}
                       </span>
                       {it.section_name && (
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '8px' }}>
-                          ({it.section_name})
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: '#60A5FA',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          border: '1px solid rgba(59, 130, 246, 0.22)',
+                          padding: '1.5px 7px',
+                          borderRadius: '6px'
+                        }}>
+                          {it.section_name}
                         </span>
                       )}
                     </div>
-                    <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500, color: 'var(--text, #111111)' }}>
+                    <span style={{
+                      fontVariantNumeric: 'tabular-nums',
+                      fontWeight: 600,
+                      fontSize: '12px',
+                      color: 'var(--text, #F5F5F5)',
+                      background: 'var(--card-bg, #141517)',
+                      border: '1px solid var(--border, #282B32)',
+                      padding: '3px 9px',
+                      borderRadius: '6px'
+                    }}>
                       {it.quantity} {it.unit}
                     </span>
                   </div>
 
                   {previewMode === 'admin' && (
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', paddingTop: '4px', borderTop: '1px dotted var(--border, #E4E4E4)' }}>
-                      <div><span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Cost:</span> <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{parseFloat(it.total_cost || 0).toLocaleString()} SAR</strong></div>
-                      <div><span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Price:</span> <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{parseFloat(it.total_price || 0).toLocaleString()} SAR</strong></div>
-                      <div><span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Margin:</span> <strong style={{ color: 'var(--success, #16A34A)', fontVariantNumeric: 'tabular-nums' }}>{parseFloat(it.margin || 0).toLocaleString()} SAR</strong></div>
+                    <div style={{
+                      display: 'flex',
+                      gap: '20px',
+                      fontSize: '12px',
+                      paddingTop: '8px',
+                      borderTop: '1px dashed var(--border, #282B32)',
+                      alignItems: 'center',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Cost:</span>{' '}
+                        <strong style={{ color: 'var(--text, #F5F5F5)', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>
+                          {parseFloat(it.total_cost || 0).toLocaleString()} SAR
+                        </strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Price:</span>{' '}
+                        <strong style={{ color: 'var(--text, #F5F5F5)', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>
+                          {parseFloat(it.total_price || 0).toLocaleString()} SAR
+                        </strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Margin:</span>{' '}
+                        <strong style={{
+                          color: '#10B981',
+                          fontVariantNumeric: 'tabular-nums',
+                          marginLeft: '4px',
+                          background: 'rgba(16, 185, 129, 0.12)',
+                          padding: '2px 7px',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(16, 185, 129, 0.25)'
+                        }}>
+                          +{parseFloat(it.margin || 0).toLocaleString()} SAR
+                        </strong>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1666,12 +1845,35 @@ const Estimations = () => {
             </div>
 
             {/* Totals Summary */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid var(--border, #E4E4E4)' }}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)' }}>Total Quoted</div>
-                <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text, #111111)', fontVariantNumeric: 'tabular-nums' }}>
-                  {parseFloat(viewingEstimate.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 20px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.22)',
+              marginTop: '4px'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Total Quoted
                 </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>
+                  Final quoted price
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  color: '#10B981',
+                  fontVariantNumeric: 'tabular-nums',
+                  letterSpacing: '-0.02em'
+                }}>
+                  {parseFloat(viewingEstimate.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#34D399' }}>SAR</span>
               </div>
             </div>
           </div>

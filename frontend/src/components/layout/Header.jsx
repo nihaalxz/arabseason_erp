@@ -279,20 +279,25 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
           </button>
 
           {showNotifications && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', right: isMobile ? '-40px' : 0,
-              width: isMobile ? '300px' : '340px', maxHeight: '440px', overflowY: 'auto',
-              zIndex: 1050, background: '#ffffff', border: '1px solid #e2e8f0',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.18)', borderRadius: '10px',
-              animation: 'slideDown 0.15s ease-out'
-            }}>
+            <div 
+              className="header-notifications-dropdown"
+              style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: isMobile ? '-40px' : 0,
+                width: isMobile ? '300px' : '340px', maxHeight: '440px', overflowY: 'auto',
+                zIndex: 1050, borderRadius: '12px',
+                animation: 'slideDown 0.15s ease-out'
+              }}
+            >
               {/* Sticky header */}
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.7rem 0.85rem 0.5rem', borderBottom: '1px solid #f1f5f9',
-                position: 'sticky', top: 0, background: '#ffffff', zIndex: 1
-              }}>
-                <span style={{ fontWeight: '700', fontSize: '0.825rem', color: '#0f172a' }}>
+              <div 
+                className="notif-header"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.75rem 0.9rem 0.6rem',
+                  position: 'sticky', top: 0, zIndex: 1
+                }}
+              >
+                <span className="notif-header-title" style={{ fontWeight: '700', fontSize: '0.825rem' }}>
                   Notifications{unreadCount > 0 && (
                     <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.65rem', padding: '1px 6px', marginLeft: '5px' }}>
                       {unreadCount}
@@ -301,7 +306,8 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                 </span>
                 {unreadCount > 0 && (
                   <button type="button" onClick={handleMarkAllRead}
-                    style={{ background: 'none', border: 'none', fontSize: '0.72rem', color: '#3b82f6', cursor: 'pointer', fontWeight: '600' }}>
+                    className="notif-mark-read"
+                    style={{ background: 'none', border: 'none', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '600' }}>
                     Mark all read
                   </button>
                 )}
@@ -309,10 +315,10 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
 
               {/* Items */}
               {notifLoading && notifications.length === 0 ? (
-                <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>Loading…</div>
+                <div className="notif-loading-state" style={{ padding: '1.5rem', textAlign: 'center', fontSize: '0.8rem' }}>Loading…</div>
               ) : notifications.length === 0 ? (
-                <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>
-                  <Bell size={28} style={{ opacity: 0.3, display: 'block', margin: '0 auto 0.5rem' }} />
+                <div className="notif-empty-state" style={{ padding: '2rem 1rem', textAlign: 'center', fontSize: '0.8rem' }}>
+                  <Bell size={28} className="notif-empty-bell" style={{ display: 'block', margin: '0 auto 0.5rem' }} />
                   No notifications yet
                 </div>
               ) : (
@@ -321,28 +327,35 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                   const isPending = !notif.action_taken || notif.action_taken === 'pending'
                   const isApproving = approvingId === notif.id
                   return (
-                    <div key={notif.id} style={{
-                      padding: '0.65rem 0.85rem', borderBottom: '1px solid #f8fafc',
-                      background: notif.is_read ? '#ffffff' : '#f0f7ff', transition: 'background 0.15s'
-                    }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                        <div style={{
-                          width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
-                          background: isPettyCash ? '#fef3c7' : '#e0f2fe',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
+                    <div 
+                      key={notif.id} 
+                      className={`notif-item ${notif.is_read ? 'is-read' : 'is-unread'}`}
+                      style={{
+                        padding: '0.65rem 0.85rem',
+                        transition: 'background 0.15s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'flex-start' }}>
+                        <div 
+                          className={`notif-icon-bubble ${isPettyCash ? 'is-petty' : 'is-bell'}`}
+                          style={{
+                            width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
                           {isPettyCash
-                            ? <Banknote size={14} style={{ color: '#d97706' }} />
-                            : <Bell size={14} style={{ color: '#0284c7' }} />}
+                            ? <Banknote size={14} />
+                            : <Bell size={14} />}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: '600', fontSize: '0.78rem', color: '#0f172a', marginBottom: '2px' }}>{notif.title}</div>
-                          <div style={{ fontSize: '0.72rem', color: '#475569', lineHeight: 1.4, marginBottom: '3px' }}>{notif.message}</div>
-                          <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{formatNotifTime(notif.created_at)}</div>
+                          <div className="notif-title" style={{ fontWeight: '600', fontSize: '0.78rem', marginBottom: '2px' }}>{notif.title}</div>
+                          <div className="notif-message" style={{ fontSize: '0.72rem', lineHeight: 1.4, marginBottom: '3px' }}>{notif.message}</div>
+                          <div className="notif-time" style={{ fontSize: '0.65rem' }}>{formatNotifTime(notif.created_at)}</div>
 
                           {isPettyCash && isPending && !notif.is_read && (
                             <div style={{ display: 'flex', gap: '0.4rem', marginTop: '7px' }}>
                               <button type="button" disabled={isApproving} onClick={() => handleApproveEntry(notif)}
+                                className="notif-btn-ok"
                                 style={{
                                   display: 'flex', alignItems: 'center', gap: '4px',
                                   padding: '4px 12px', borderRadius: '5px', border: 'none',
@@ -352,10 +365,10 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                                 <Check size={11} /> OK
                               </button>
                               <button type="button" disabled={isApproving} onClick={() => handleRejectEntry(notif)}
+                                className="notif-btn-reject"
                                 style={{
                                   display: 'flex', alignItems: 'center', gap: '4px',
                                   padding: '4px 12px', borderRadius: '5px',
-                                  border: '1px solid #fca5a5', background: '#fff5f5', color: '#ef4444',
                                   fontSize: '0.72rem', fontWeight: '700', cursor: isApproving ? 'wait' : 'pointer', opacity: isApproving ? 0.7 : 1
                                 }}>
                                 <X size={11} /> Reject
@@ -370,7 +383,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                           )}
                         </div>
                         {!notif.is_read && (
-                          <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#3b82f6', flexShrink: 0, marginTop: '5px' }} />
+                          <div className="notif-unread-dot" style={{ width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0, marginTop: '5px' }} />
                         )}
                       </div>
                     </div>
@@ -403,13 +416,12 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
           </div>
 
           {showDropdown && (
-            <div style={{
+            <div className="profile-dropdown" style={{
               position: 'absolute', top: 'calc(100% + 6px)', right: 0, width: '220px',
-              padding: '0.5rem', zIndex: 1050, background: '#ffffff',
-              border: '1px solid #e2e8f0', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              padding: '0.5rem', zIndex: 1050,
               borderRadius: 'var(--radius-md)', animation: 'slideDown 0.15s ease-out'
             }}>
-              <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border-light)', marginBottom: '0.35rem' }}>
+              <div className="profile-dropdown-header">
                 <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>{displayName}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{currentUser?.email || displayRole}</div>
               </div>
@@ -441,7 +453,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                 <Landmark size={15} />
                 Manage Banks and Petty Cash
               </Link>
-              <div style={{ height: '1px', background: 'var(--border-light, #e2e8f0)', margin: '0.35rem 0' }} />
+              <div className="profile-dropdown-divider" />
               <button
                 type="button"
                 className="dropdown-item"
@@ -466,10 +478,299 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
           from { opacity: 0; transform: translateY(-6px); }
           to { opacity: 1; transform: translateY(0); }
         }
+
+        /* ── Profile Dropdown ── */
+        .profile-dropdown {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+        .profile-dropdown-header {
+          padding: 0.5rem 0.75rem;
+          border-bottom: 1px solid #e2e8f0;
+          margin-bottom: 0.35rem;
+        }
+        .profile-dropdown-divider {
+          height: 1px;
+          background: #e2e8f0;
+          margin: 0.35rem 0;
+        }
         .dropdown-item:hover,
         .zoho-quick-item:hover {
-          background: var(--border-light, #f1f5f9) !important;
+          background: #f1f5f9 !important;
         }
+
+        /* ── Dark mode: data-theme="dark" / .cb-dark-bw ── */
+        [data-theme='dark'] .profile-dropdown,
+        body.cb-dark-bw .profile-dropdown {
+          background: #1C1D20 !important;
+          border-color: #282B32 !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.45) !important;
+        }
+        [data-theme='dark'] .profile-dropdown-header,
+        body.cb-dark-bw .profile-dropdown-header {
+          border-bottom-color: #282B32 !important;
+        }
+        [data-theme='dark'] .profile-dropdown-divider,
+        body.cb-dark-bw .profile-dropdown-divider {
+          background: #282B32 !important;
+        }
+        [data-theme='dark'] .dropdown-item:hover,
+        body.cb-dark-bw .dropdown-item:hover {
+          background: #222428 !important;
+        }
+
+        /* ── Dark mode: obsidian theme ── */
+        [data-theme-id='obsidian'] .profile-dropdown {
+          background: #151d2e !important;
+          border-color: #1f2d44 !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+        }
+        [data-theme-id='obsidian'] .profile-dropdown-header {
+          border-bottom-color: #1f2d44 !important;
+        }
+        [data-theme-id='obsidian'] .profile-dropdown-divider {
+          background: #1f2d44 !important;
+        }
+        [data-theme-id='obsidian'] .dropdown-item:hover {
+          background: rgba(51,102,153,0.12) !important;
+        }
+
+        
+        /* ── Notifications Dropdown: Default Light ── */
+        .header-notifications-dropdown {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .header-notifications-dropdown::-webkit-scrollbar {
+          width: 5px;
+        }
+        .header-notifications-dropdown::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.15);
+          border-radius: 4px;
+        }
+
+        .notif-header {
+          background: #ffffff;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .notif-header-title {
+          color: #0f172a;
+        }
+        .notif-mark-read {
+          color: #3b82f6;
+        }
+        .notif-mark-read:hover {
+          color: #1d4ed8;
+          text-decoration: underline;
+        }
+
+        .notif-empty-state,
+        .notif-loading-state {
+          color: #94a3b8;
+        }
+        .notif-empty-bell {
+          color: #94a3b8;
+          opacity: 0.35;
+        }
+
+        .notif-item {
+          border-bottom: 1px solid #f8fafc;
+        }
+        .notif-item.is-read {
+          background: #ffffff;
+        }
+        .notif-item.is-unread {
+          background: #f0f7ff;
+        }
+        .notif-item:hover {
+          background: #f8fafc;
+        }
+        .notif-item.is-unread:hover {
+          background: #e6f0fd;
+        }
+
+        .notif-title {
+          color: #0f172a;
+        }
+        .notif-message {
+          color: #475569;
+        }
+        .notif-time {
+          color: #94a3b8;
+        }
+
+        .notif-icon-bubble.is-petty {
+          background: #fef3c7;
+          color: #d97706;
+        }
+        .notif-icon-bubble.is-bell {
+          background: #e0f2fe;
+          color: #0284c7;
+        }
+
+        .notif-btn-reject {
+          border: 1px solid #fca5a5;
+          background: #fff5f5;
+          color: #ef4444;
+        }
+        .notif-btn-reject:hover {
+          background: #fee2e2;
+        }
+
+        .notif-unread-dot {
+          background: #3b82f6;
+        }
+
+        /* ── Notifications Dropdown: Dark Mode ── */
+        [data-theme='dark'] .header-notifications-dropdown,
+        body.cb-dark-bw .header-notifications-dropdown,
+        html.dark .header-notifications-dropdown,
+        [data-theme-id='obsidian'] .header-notifications-dropdown {
+          background: #141517 !important;
+          border-color: #282B32 !important;
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
+        }
+        [data-theme='dark'] .header-notifications-dropdown::-webkit-scrollbar-thumb,
+        body.cb-dark-bw .header-notifications-dropdown::-webkit-scrollbar-thumb,
+        html.dark .header-notifications-dropdown::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.16) !important;
+        }
+
+        [data-theme='dark'] .notif-header,
+        body.cb-dark-bw .notif-header,
+        html.dark .notif-header,
+        [data-theme-id='obsidian'] .notif-header {
+          background: #141517 !important;
+          border-bottom-color: #282B32 !important;
+        }
+        [data-theme='dark'] .notif-header-title,
+        body.cb-dark-bw .notif-header-title,
+        html.dark .notif-header-title,
+        [data-theme-id='obsidian'] .notif-header-title {
+          color: #ffffff !important;
+        }
+        [data-theme='dark'] .notif-mark-read,
+        body.cb-dark-bw .notif-mark-read,
+        html.dark .notif-mark-read,
+        [data-theme-id='obsidian'] .notif-mark-read {
+          color: #60a5fa !important;
+        }
+        [data-theme='dark'] .notif-mark-read:hover,
+        body.cb-dark-bw .notif-mark-read:hover,
+        html.dark .notif-mark-read:hover,
+        [data-theme-id='obsidian'] .notif-mark-read:hover {
+          color: #93c5fd !important;
+        }
+
+        [data-theme='dark'] .notif-empty-state,
+        body.cb-dark-bw .notif-empty-state,
+        html.dark .notif-empty-state,
+        [data-theme-id='obsidian'] .notif-empty-state,
+        [data-theme='dark'] .notif-loading-state,
+        body.cb-dark-bw .notif-loading-state,
+        html.dark .notif-loading-state,
+        [data-theme-id='obsidian'] .notif-loading-state {
+          color: #8E929E !important;
+        }
+        [data-theme='dark'] .notif-empty-bell,
+        body.cb-dark-bw .notif-empty-bell,
+        html.dark .notif-empty-bell,
+        [data-theme-id='obsidian'] .notif-empty-bell {
+          color: #8E929E !important;
+          opacity: 0.45 !important;
+        }
+
+        [data-theme='dark'] .notif-item,
+        body.cb-dark-bw .notif-item,
+        html.dark .notif-item,
+        [data-theme-id='obsidian'] .notif-item {
+          border-bottom-color: #22242a !important;
+        }
+        [data-theme='dark'] .notif-item.is-read,
+        body.cb-dark-bw .notif-item.is-read,
+        html.dark .notif-item.is-read,
+        [data-theme-id='obsidian'] .notif-item.is-read {
+          background: #141517 !important;
+        }
+        [data-theme='dark'] .notif-item.is-unread,
+        body.cb-dark-bw .notif-item.is-unread,
+        html.dark .notif-item.is-unread,
+        [data-theme-id='obsidian'] .notif-item.is-unread {
+          background: rgba(59, 130, 246, 0.08) !important;
+        }
+        [data-theme='dark'] .notif-item:hover,
+        body.cb-dark-bw .notif-item:hover,
+        html.dark .notif-item:hover,
+        [data-theme-id='obsidian'] .notif-item:hover {
+          background: #1c1d21 !important;
+        }
+        [data-theme='dark'] .notif-item.is-unread:hover,
+        body.cb-dark-bw .notif-item.is-unread:hover,
+        html.dark .notif-item.is-unread:hover,
+        [data-theme-id='obsidian'] .notif-item.is-unread:hover {
+          background: rgba(59, 130, 246, 0.14) !important;
+        }
+
+        [data-theme='dark'] .notif-title,
+        body.cb-dark-bw .notif-title,
+        html.dark .notif-title,
+        [data-theme-id='obsidian'] .notif-title {
+          color: #f1f5f9 !important;
+        }
+        [data-theme='dark'] .notif-message,
+        body.cb-dark-bw .notif-message,
+        html.dark .notif-message,
+        [data-theme-id='obsidian'] .notif-message {
+          color: #a0a6b5 !important;
+        }
+        [data-theme='dark'] .notif-time,
+        body.cb-dark-bw .notif-time,
+        html.dark .notif-time,
+        [data-theme-id='obsidian'] .notif-time {
+          color: #64748b !important;
+        }
+
+        [data-theme='dark'] .notif-icon-bubble.is-petty,
+        body.cb-dark-bw .notif-icon-bubble.is-petty,
+        html.dark .notif-icon-bubble.is-petty,
+        [data-theme-id='obsidian'] .notif-icon-bubble.is-petty {
+          background: rgba(245, 158, 11, 0.15) !important;
+          color: #fbbf24 !important;
+        }
+        [data-theme='dark'] .notif-icon-bubble.is-bell,
+        body.cb-dark-bw .notif-icon-bubble.is-bell,
+        html.dark .notif-icon-bubble.is-bell,
+        [data-theme-id='obsidian'] .notif-icon-bubble.is-bell {
+          background: rgba(59, 130, 246, 0.15) !important;
+          color: #60a5fa !important;
+        }
+
+        [data-theme='dark'] .notif-btn-reject,
+        body.cb-dark-bw .notif-btn-reject,
+        html.dark .notif-btn-reject,
+        [data-theme-id='obsidian'] .notif-btn-reject {
+          border: 1px solid rgba(239, 68, 68, 0.35) !important;
+          background: rgba(239, 68, 68, 0.12) !important;
+          color: #f87171 !important;
+        }
+        [data-theme='dark'] .notif-btn-reject:hover,
+        body.cb-dark-bw .notif-btn-reject:hover,
+        html.dark .notif-btn-reject:hover,
+        [data-theme-id='obsidian'] .notif-btn-reject:hover {
+          background: rgba(239, 68, 68, 0.22) !important;
+          color: #ffffff !important;
+        }
+
+        [data-theme='dark'] .notif-unread-dot,
+        body.cb-dark-bw .notif-unread-dot,
+        html.dark .notif-unread-dot,
+        [data-theme-id='obsidian'] .notif-unread-dot {
+          background: #3b82f6 !important;
+          box-shadow: 0 0 6px rgba(59, 130, 246, 0.6) !important;
+        }
+
         .zoho-quick-item {
           display: flex;
           align-items: center;

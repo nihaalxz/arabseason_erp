@@ -373,15 +373,17 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
                   <span
                     title={`${dueEnquiriesCount} follow-up ${dueEnquiriesCount === 1 ? 'call' : 'calls'} due today`}
                     style={{
-                      background: '#f59e0b',
-                      color: '#ffffff',
+                      background: isItemActive ? '#282a2e' : 'rgba(255, 255, 255, 0.10)',
+                      color: isItemActive ? '#ffffff' : '#8E929E',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
                       fontSize: '11px',
                       fontWeight: 600,
                       padding: '1px 7px',
                       borderRadius: '999px',
                       marginLeft: 'auto',
                       flexShrink: 0,
-                      zIndex: 2
+                      zIndex: 2,
+                      fontVariantNumeric: 'tabular-nums'
                     }}
                   >
                     {dueEnquiriesCount}

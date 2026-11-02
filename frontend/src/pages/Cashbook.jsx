@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, Children } from 'rea
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams, Navigate, useNavigate } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
+import { getIsDarkMode, applyTheme, toggleTheme } from '../utils/theme'
 import { 
   Plus, Minus, RefreshCw, AlertCircle, AlertTriangle, Trash2, Edit, 
   Settings as SettingsIcon, UserPlus, CloudUpload, Download, 
@@ -1556,33 +1557,32 @@ const Cashbook = ({ currentUser = null }) => {
   // Members Modal
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
 
-  // Monochrome Black & White Dark Mode State (NEW 3.1)
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem('cashbook_dark_mode') === 'true'
-  })
+  // Monochrome Black & White Dark Mode State (Synchronized across all modules)
+  const [isDarkMode, setIsDarkMode] = useState(() => getIsDarkMode())
 
   useEffect(() => {
-    try {
-      localStorage.setItem('cashbook_dark_mode', isDarkMode)
-      if (isDarkMode) {
-        document.documentElement.classList.add('cb-dark-bw')
-        document.body.classList.add('cb-dark-bw')
-        document.documentElement.setAttribute('data-theme', 'dark')
-        document.documentElement.style.colorScheme = 'dark'
-      } else {
-        document.documentElement.classList.remove('cb-dark-bw')
-        document.body.classList.remove('cb-dark-bw')
-        document.documentElement.setAttribute('data-theme', 'light')
-        document.documentElement.style.colorScheme = 'light'
-      }
-    } catch (e) {}
-    return () => {
-      document.documentElement.classList.remove('cb-dark-bw')
-      document.body.classList.remove('cb-dark-bw')
-      document.documentElement.removeAttribute('data-theme')
-      document.documentElement.style.colorScheme = ''
+    const handleThemeSync = (e) => {
+      const current = typeof e?.detail?.isDarkMode === 'boolean'
+        ? e.detail.isDarkMode
+        : getIsDarkMode()
+      setIsDarkMode(current)
     }
+    window.addEventListener('app:theme-change', handleThemeSync)
+    window.addEventListener('storage', handleThemeSync)
+    return () => {
+      window.removeEventListener('app:theme-change', handleThemeSync)
+      window.removeEventListener('storage', handleThemeSync)
+    }
+  }, [])
+
+  useEffect(() => {
+    applyTheme(isDarkMode)
   }, [isDarkMode])
+
+  const handleToggleDarkMode = useCallback(() => {
+    const next = toggleTheme()
+    setIsDarkMode(next)
+  }, [])
 
   // Collapsed Bank Accounts State (UPDATE 2.5)
   const [isBankAccountsExpanded, setIsBankAccountsExpanded] = useState(false)
@@ -6337,20 +6337,16 @@ const Cashbook = ({ currentUser = null }) => {
                               </span>
                             </td>
                             <td style={{ padding: '0.75rem 1rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                              <Link
-                                to={`/customers/${c.id}`}
-                                style={{
-                                  fontSize: '0.75rem',
-                                  fontWeight: '700',
-                                  color: '#1366D9',
-                                  textDecoration: 'none',
-                                  padding: '4px 10px',
-                                  background: '#eff6ff',
-                                  borderRadius: '6px'
-                                }}
-                              >
-                                View Details →
-                              </Link>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                color: '#64748b',
+                                padding: '4px 10px',
+                                background: '#f1f5f9',
+                                borderRadius: '6px'
+                              }}>
+                                {c.name}
+                              </span>
                             </td>
                           </tr>
                         )
@@ -12564,7 +12560,7 @@ const Cashbook = ({ currentUser = null }) => {
     onNotificationClick: () => { if (showToast) showToast('All notifications verified', 'info') },
     onProfileClick: () => {},
     isDarkMode,
-    onToggleTheme: () => setIsDarkMode(prev => !prev),
+    onToggleTheme: handleToggleDarkMode,
     unreadCount: 0
   }
 
@@ -12601,7 +12597,7 @@ const Cashbook = ({ currentUser = null }) => {
         onRefresh={() => handleUniversalRefresh()}
         isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
         isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(prev => !prev)}
+        onToggleTheme={handleToggleDarkMode}
         onOpenMembers={() => setIsMembersModalOpen(true)}
         onOpenRecycleBin={() => navigateToTab('recycle_bin')}
         recycleBinCount={0}
@@ -12698,7 +12694,7 @@ const Cashbook = ({ currentUser = null }) => {
             onSearchChange={(q) => setSearchQuery(q)}
             onExport={() => handleExportCSV()}
             isDarkMode={isDarkMode}
-            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onToggleTheme={handleToggleDarkMode}
             onOpenEntry={(e) => {
               setEditingEntry(e)
               handleOpenEntryModal(e.entry_type || 'in', e)
@@ -12759,7 +12755,7 @@ const Cashbook = ({ currentUser = null }) => {
             onRefresh={() => handleUniversalRefresh()}
             isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
             isDarkMode={isDarkMode}
-            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onToggleTheme={handleToggleDarkMode}
             onOpenRecycleBin={() => navigateToTab('recycle_bin')}
             recycleBinCount={0}
             pettyCashAccounts={pettyCashAccounts}
@@ -12812,7 +12808,7 @@ const Cashbook = ({ currentUser = null }) => {
             onRefresh={() => handleUniversalRefresh()}
             isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
             isDarkMode={isDarkMode}
-            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onToggleTheme={handleToggleDarkMode}
             onOpenMembers={() => setIsMembersModalOpen(true)}
             onOpenRecycleBin={() => navigateToTab('recycle_bin')}
             recycleBinCount={0}
@@ -13002,7 +12998,7 @@ const Cashbook = ({ currentUser = null }) => {
             onSearchChange={(q) => setSearchQuery(q)}
             onExport={() => handleExportCSV()}
             isDarkMode={isDarkMode}
-            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onToggleTheme={handleToggleDarkMode}
             onOpenEntry={(e) => {
               setEditingEntry(e)
               handleOpenEntryModal(e.entry_type || 'in', e)
@@ -14168,7 +14164,7 @@ const Cashbook = ({ currentUser = null }) => {
                 type="button"
                 id="btn-nav-dark-mode"
                 className="cb-hover-invert header-action-btn"
-                onClick={() => setIsDarkMode(prev => !prev)}
+                onClick={handleToggleDarkMode}
                 title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 style={{
                   background: isDarkMode ? '#141517' : '#ffffff',

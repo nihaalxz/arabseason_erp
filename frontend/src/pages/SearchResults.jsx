@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSettings } from '../contexts/SettingsContext'
-import { useSearchParams, Link } from 'react-router-dom'
-import { Search as SearchIcon, User, Briefcase, DollarSign, ArrowRight, Loader } from '../components/icons'
+import { useSearchParams } from 'react-router-dom'
+import { Search as SearchIcon, User, Briefcase, DollarSign, Loader } from '../components/icons'
 import api from '../api'
 
 const SearchResults = () => {
@@ -82,16 +82,15 @@ const SearchResults = () => {
                 <User size={20} /> Customers ({results.customers.length})
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                {results.customers.map(c => (
-                  <Link key={c.id} to={`/accounting/customers/${c.id}`} className="glass-panel" style={{ padding: '1.25rem', display: 'block', textDecoration: 'none', color: 'inherit' }}>
+                  {results.customers.map(c => (
+                  <div key={c.id} className="glass-panel" style={{ padding: '1.25rem', display: 'block', color: 'inherit' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>{c.name}</div>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{c.email || c.phone || 'No contact info'}</div>
                       </div>
-                      <ArrowRight size={18} className="text-muted" />
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             </section>

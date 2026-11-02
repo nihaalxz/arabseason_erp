@@ -1,9 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { 
-  Plus, Edit3, Trash2, Filter, AlertCircle, 
-  ChevronRight, Phone, Mail, User
-} from 'lucide-react'
+import { Plus, Edit3, Trash2, Filter, AlertCircle, Phone, Mail, User } from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -31,7 +27,6 @@ const FILTER_OPTIONS = [
 
 const Customers = () => {
   const { formatCurrency } = useSettings()
-  const navigate = useNavigate()
   const basePath = '/accounting'
 
   // Primary Data State
@@ -482,10 +477,8 @@ const Customers = () => {
                           <tr
                             key={customer.id}
                             className="cred-table-row"
-                            onClick={() => navigate(`${basePath}/customers/${customer.id}`)}
                             style={{
                               borderBottom: '1px solid var(--border, #E4E4E4)',
-                              cursor: 'pointer',
                               transition: 'background-color 0.15s ease'
                             }}
                           >
@@ -604,7 +597,6 @@ const Customers = () => {
                       <div 
                         key={customer.id} 
                         className="mobile-entity-card"
-                        onClick={() => navigate(`${basePath}/customers/${customer.id}`)}
                         style={{
                           background: 'var(--card-bg, #FFFFFF)',
                           border: '1px solid var(--border, #E4E4E4)',
@@ -645,7 +637,6 @@ const Customers = () => {
                               </div>
                             </div>
                           </div>
-                          <ChevronRight size={16} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', padding: '10px', background: 'var(--fill-ghost-hover, #F4F4F4)', borderRadius: '10px', marginBottom: '12px' }}>

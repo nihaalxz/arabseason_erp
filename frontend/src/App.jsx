@@ -5,9 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import AccountingDashboard from './pages/AccountingDashboard'
 import Customers from './pages/Customers'
-import CustomerDetail from './pages/CustomerDetail'
 import Vendors from './pages/Vendors'
-import VendorDetail from './pages/VendorDetail'
 import JobOrders from './pages/JobOrders'
 import Expenses from './pages/Expenses'
 import Estimations from './pages/Estimations'
@@ -201,9 +199,7 @@ function App() {
               
               {/* Accounting & Books Section-Aware Routes */}
               <Route path="accounting/customers" element={canAccess('customers') ? <Customers /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/customers/:id" element={canAccess('customers') ? <CustomerDetail /> : <Navigate to="/accounting" />} />
               <Route path="accounting/vendors" element={canAccess('vendors') ? <Vendors /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/vendors/:id" element={canAccess('vendors') ? <VendorDetail /> : <Navigate to="/accounting" />} />
               <Route path="accounting/estimations" element={canAccess('estimations') ? <Estimations /> : <Navigate to="/accounting" />} />
               <Route path="accounting/estimations/new" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/accounting" />} />
               <Route path="accounting/estimations/:id/edit" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/accounting" />} />
@@ -215,9 +211,7 @@ function App() {
               <Route path="enquiries" element={<Enquiries currentUser={currentUser} />} />
               {/* Legacy ERP Route Redirects to Accounting */}
               <Route path="customers" element={<RedirectToAccounting />} />
-              <Route path="customers/:id" element={<RedirectToAccounting />} />
               <Route path="vendors" element={<RedirectToAccounting />} />
-              <Route path="vendors/:id" element={<RedirectToAccounting />} />
               <Route path="jobs" element={(canAccess('jobs') || canAccess('planning')) ? <JobOrders /> : <Navigate to="/" />} />
               
               {/* Invoices */}

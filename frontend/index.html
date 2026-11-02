@@ -7,6 +7,22 @@
     <meta name="description" content="Arab Season ERP — Enterprise Resource Planning for Billing & Retail Management" />
     <title>Arab Season ERP | Enterprise Management System</title>
 
+    <script>
+      (function() {
+        try {
+          var isDark = localStorage.getItem('cashbook_dark_mode') === 'true' || localStorage.getItem('app_dark_mode') === 'true';
+          var theme = isDark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = theme;
+          if (isDark) {
+            document.documentElement.classList.add('cb-dark-bw', 'dark');
+          } else {
+            document.documentElement.classList.remove('cb-dark-bw', 'dark');
+          }
+        } catch(e) {}
+      })();
+    </script>
+
     <!-- PWA & Mobile Web App Capabilities -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0f172a" />

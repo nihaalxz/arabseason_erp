@@ -1,3 +1,11 @@
+const getTodayStr = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -1456,8 +1464,14 @@ const CredLabourChartView = ({
                   </label>
                   <input
                     type="date"
+                    min={getTodayStr()}
                     value={modalForm.due_date}
-                    onChange={(e) => setModalForm(prev => ({ ...prev, due_date: e.target.value }))}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      const todayStr = getTodayStr()
+                      if (val && val < todayStr) return
+                      setModalForm(prev => ({ ...prev, due_date: val }))
+                    }}
                     style={{
                       width: '100%',
                       height: '40px',

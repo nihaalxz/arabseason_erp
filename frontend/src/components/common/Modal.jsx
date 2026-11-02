@@ -222,6 +222,7 @@ const Modal = ({
     <div 
       ref={overlayRef}
       className="modal-overlay" 
+      data-theme-scope="soft-fintech"
       onClick={handleOverlayClick}
       style={{
         position: 'fixed',
@@ -318,8 +319,8 @@ const Modal = ({
               position: 'absolute',
               inset: 0,
               background: 'rgba(0, 0, 0, 0.72)',
-              backdropFilter: 'blur(5px)',
-              WebkitBackdropFilter: 'blur(5px)',
+              backdropFilter: 'none',
+              WebkitBackdropFilter: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -343,17 +344,18 @@ const Modal = ({
                 gap: '0.65rem'
               }}
             >
-              <div style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '12px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                color: '#ef4444',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '0.2rem'
-              }}>
+              <div 
+                className="discard-icon-badge"
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '0.2rem'
+                }}
+              >
                 <AlertTriangle size={24} strokeWidth={2.4} />
               </div>
               <h3 style={{
@@ -372,18 +374,38 @@ const Modal = ({
               }}>
                 You have unsaved changes. If you discard now, everything you entered will be lost.
               </p>
-              <div style={{ display: 'flex', gap: '0.75rem', width: '100%', marginTop: '0.25rem' }}>
+              <div 
+                className="discard-actions" 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '10px', 
+                  width: '100%', 
+                  marginTop: '0.65rem',
+                  boxSizing: 'border-box'
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setShowDiscardConfirm(false)}
-                  className="btn"
+                  className="discard-btn discard-btn-keep"
                   style={{
-                    flex: 1,
+                    flex: '1 1 0%',
                     height: '40px',
-                    fontSize: '0.86rem',
+                    minHeight: '40px',
+                    maxHeight: '40px',
+                    fontSize: '13px',
                     fontWeight: '600',
                     borderRadius: '10px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 16px',
+                    margin: 0,
+                    boxSizing: 'border-box',
+                    lineHeight: 1
                   }}
                 >
                   Keep Editing
@@ -394,17 +416,23 @@ const Modal = ({
                     setShowDiscardConfirm(false)
                     onClose?.()
                   }}
-                  className="btn btn-danger"
+                  className="discard-btn discard-btn-discard"
                   style={{
-                    flex: 1,
+                    flex: '1 1 0%',
                     height: '40px',
-                    fontSize: '0.86rem',
-                    fontWeight: '700',
-                    background: '#ef4444',
-                    color: '#ffffff',
-                    border: 'none',
+                    minHeight: '40px',
+                    maxHeight: '40px',
+                    fontSize: '13px',
+                    fontWeight: '600',
                     borderRadius: '10px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 16px',
+                    margin: 0,
+                    boxSizing: 'border-box',
+                    lineHeight: 1
                   }}
                 >
                   Discard
