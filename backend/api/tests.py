@@ -350,3 +350,44 @@ class JobOrderSequenceTests(TestCase):
         })
         self.assertEqual(res2.status_code, 201)
         self.assertEqual(res2.data['order_id'], 'JOB0012')
+
+
+from api.models import Vendor, VendorPayment
+
+class CommonVendorTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_user(username='admin_vnd', password='password123', is_staff=True, is_superuser=True)
+        self.staff1 = User.objects.create_user(username='staff_vnd1', password='password123', is_staff=False, is_superuser=False)
+        self.staff2 = User.objects.create_user(username='staff_vnd2', password='password123', is_staff=False, is_superuser=False)
+
+        # Vendors created by different users
+        self.v1 = Vendor.objects.create(name='Al-Futtaim Supplies', created_by=self.admin)
+        self.v2 = Vendor.objects.create(name='Bin Laden Steel', created_by=self.staff1)
+
+    def test_vendors_are_common_and_visible_to_all_staff(self):
+        client = APIClient()
+        client.force_authenticate(user=self.staff2)
+
+        res = client.get('/api/vendors/?nopage=true')
+        self.assertEqual(res.status_code, 200)
+        vendor_names = [v['name'] for v in res.data]
+        self.assertIn('Al-Futtaim Supplies', vendor_names)
+        self.assertIn('Bin Laden Steel', vendor_names)
+        self.assertEqual(len(vendor_names), 2)
+
+    def test_vendor_payments_accessible_by_vendor_id_for_staff(self):
+        vp = VendorPayment.objects.create(
+            vendor=self.v1,
+            amount=Decimal('500.00'),
+            payment_date='2026-11-01',
+            created_by=self.admin
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.staff2)
+
+        res = client.get(f'/api/vendor-payments/?vendor={self.v1.id}')
+        self.assertEqual(res.status_code, 200)
+        results = res.data.get('results', res.data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(float(results[0]['amount']), 500.0)

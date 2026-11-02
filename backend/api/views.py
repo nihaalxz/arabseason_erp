@@ -184,9 +184,8 @@ class VendorViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Vendors are company-wide; visible to all authenticated users
         qs = Vendor.objects.all().select_related('created_by').order_by('name')
-        if not is_admin_user(self.request.user):
-            qs = qs.filter(created_by=self.request.user)
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(
@@ -1120,15 +1119,14 @@ class VendorPaymentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = VendorPayment.objects.all().select_related('vendor', 'job_order', 'created_by').order_by('-payment_date')
-        if not is_admin_user(self.request.user):
-            queryset = queryset.filter(
-                Q(created_by=self.request.user) |
-                Q(job_order__created_by=self.request.user) |
-                Q(vendor__created_by=self.request.user)
-            )
         vendor_id = self.request.query_params.get('vendor')
         if vendor_id:
             queryset = queryset.filter(vendor_id=vendor_id)
+        elif not is_admin_user(self.request.user):
+            queryset = queryset.filter(
+                Q(created_by=self.request.user) |
+                Q(job_order__created_by=self.request.user)
+            )
         job_order_id = self.request.query_params.get('job_order')
         if job_order_id:
             queryset = queryset.filter(job_order_id=job_order_id)
@@ -1613,7 +1611,7 @@ class ReportAPIView(views.APIView):
             # Scoped base querysets
             job_base = JobOrder.objects.all() if is_admin else JobOrder.objects.filter(created_by=request.user)
             cust_base = Customer.objects.all()
-            vend_base = Vendor.objects.all() if is_admin else Vendor.objects.filter(created_by=request.user)
+            vend_base = Vendor.objects.all()
             cust_pay_base = CustomerPayment.objects.all() if is_admin else CustomerPayment.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))
             exp_base = (Expense.objects.all() if is_admin else Expense.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))).exclude(
                 Q(category__iexact='Transfer') | Q(notes__icontains='Internal Transfer') | Q(description__icontains='Internal Transfer') | Q(notes__icontains='➔') | Q(description__icontains='➔')
