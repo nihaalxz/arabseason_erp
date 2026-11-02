@@ -807,6 +807,16 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
       setContractPrefix('JOB')
       setContractNumber(nextSeq.toString().padStart(4, '0'))
 
+      // Authoritative next order ID from server
+      api.get('job-orders/next-order-id/')
+        .then(res => {
+          if (res.data?.number) {
+            setContractPrefix(res.data.prefix || 'JOB')
+            setContractNumber(res.data.number)
+          }
+        })
+        .catch(() => {})
+
       let defaultCreator = ''
       try {
         const savedUser = JSON.parse(localStorage.getItem('user') || '{}')
@@ -866,6 +876,16 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
     const nextSeq = maxNum + 1
     setContractPrefix('JOB')
     setContractNumber(nextSeq.toString().padStart(4, '0'))
+
+    // Authoritative next order ID from server
+    api.get('job-orders/next-order-id/')
+      .then(res => {
+        if (res.data?.number) {
+          setContractPrefix(res.data.prefix || 'JOB')
+          setContractNumber(res.data.number)
+        }
+      })
+      .catch(() => {})
 
     let creatorName = ''
     try {
@@ -2974,18 +2994,16 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
               </Field>
             </div>
 
-            {/* 9. Contract ID (required) */}
+            {/* 9. Contract ID (automatic & disabled) */}
             <div>
-              <Field label="Contract ID" required>
+              <Field label="Contract ID">
                 <TextInput
                   prefix={contractPrefix || 'JOB'}
                   value={contractNumber}
-                  placeholder="0012"
-                  onChange={(e) => {
-                    const clean = e.target.value.replace(/^[A-Za-z]+/i, '').replace(/[^\d]/g, '')
-                    setContractNumber(clean)
-                  }}
-                  required
+                  placeholder="0015"
+                  disabled
+                  readOnly
+                  title="Contract ID is generated automatically"
                 />
               </Field>
             </div>

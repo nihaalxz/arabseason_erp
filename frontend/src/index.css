@@ -4343,6 +4343,32 @@ input[type="number"] {
   width: 100%;
 }
 
+.cred-input:disabled,
+.cred-input-wrap.is-disabled,
+.cred-input-wrap:has(input:disabled) {
+  background-color: var(--fill-ghost-hover, #F8F9FA) !important;
+  border-color: var(--border, #E4E4E4) !important;
+  cursor: not-allowed !important;
+  opacity: 0.85;
+  box-shadow: none !important;
+}
+.cred-input:disabled::placeholder,
+.cred-input-wrap.is-disabled input::placeholder,
+.cred-input-wrap:has(input:disabled) input::placeholder {
+  color: var(--text-muted, #8C8C8C) !important;
+}
+.cred-input-wrap.is-disabled input,
+.cred-input-wrap:has(input:disabled) input {
+  cursor: not-allowed !important;
+  color: var(--text-muted, #8C8C8C) !important;
+  user-select: none;
+}
+.cred-input-wrap.is-disabled .cred-input-prefix,
+.cred-input-wrap:has(input:disabled) .cred-input-prefix {
+  color: var(--text-muted, #8C8C8C) !important;
+  opacity: 0.75;
+}
+
 /* React-select input reset to eliminate vertical cursor bar, pills, and text clipping in dark/light mode */
 .cred-field-group div[class*="-control"] input,
 div[class*="-control"] input,
@@ -4701,6 +4727,23 @@ body.cb-dark-bw .cred-select:focus,
 body.cb-dark-bw .cred-textarea:focus {
   border-color: #FFFFFF !important;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme='dark'] .cred-input:disabled,
+[data-theme='dark'] .cred-input-wrap.is-disabled,
+[data-theme='dark'] .cred-input-wrap:has(input:disabled),
+body.cb-dark-bw .cred-input:disabled,
+body.cb-dark-bw .cred-input-wrap.is-disabled,
+body.cb-dark-bw .cred-input-wrap:has(input:disabled) {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+[data-theme='dark'] .cred-input-wrap.is-disabled input,
+[data-theme='dark'] .cred-input-wrap:has(input:disabled) input,
+body.cb-dark-bw .cred-input-wrap.is-disabled input,
+body.cb-dark-bw .cred-input-wrap:has(input:disabled) input {
+  color: rgba(255, 255, 255, 0.45) !important;
 }
 
 [data-theme='dark'] .cred-select,

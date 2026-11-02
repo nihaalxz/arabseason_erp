@@ -315,14 +315,22 @@ export const TextInput = ({
   className = '',
   style = {},
   type = 'text',
+  disabled,
   ...props
 }) => {
   if (prefix || suffix) {
     return (
-      <div className={`cred-input-wrap ${className}`} style={style}>
+      <div
+        className={`cred-input-wrap ${disabled ? 'is-disabled' : ''} ${className}`}
+        style={{
+          ...(disabled ? { backgroundColor: 'var(--fill-ghost-hover, #F8F9FA)', cursor: 'not-allowed', opacity: 0.85 } : {}),
+          ...style
+        }}
+      >
         {prefix && <span className="cred-input-prefix">{prefix}</span>}
         <input
           type={type}
+          disabled={disabled}
           className="cred-input-prefixed"
           style={{
             border: 'none',
@@ -332,6 +340,7 @@ export const TextInput = ({
             boxShadow: 'none',
             borderRadius: 0,
             padding: 0,
+            cursor: disabled ? 'not-allowed' : undefined,
             ...(props.style || {})
           }}
           {...props}
@@ -344,8 +353,12 @@ export const TextInput = ({
   return (
     <input
       type={type}
-      className={`cred-input ${className}`}
-      style={style}
+      disabled={disabled}
+      className={`cred-input ${disabled ? 'is-disabled' : ''} ${className}`}
+      style={{
+        ...(disabled ? { backgroundColor: 'var(--fill-ghost-hover, #F8F9FA)', cursor: 'not-allowed', opacity: 0.85 } : {}),
+        ...style
+      }}
       {...props}
     />
   )
@@ -360,6 +373,7 @@ export const NumberInput = ({
   step = '0.01',
   className = '',
   style = {},
+  disabled,
   onWheel,
   ...props
 }) => {
@@ -370,11 +384,18 @@ export const NumberInput = ({
 
   if (prefix) {
     return (
-      <div className={`cred-input-wrap ${className}`} style={style}>
+      <div
+        className={`cred-input-wrap ${disabled ? 'is-disabled' : ''} ${className}`}
+        style={{
+          ...(disabled ? { backgroundColor: 'var(--fill-ghost-hover, #F8F9FA)', cursor: 'not-allowed', opacity: 0.85 } : {}),
+          ...style
+        }}
+      >
         <span className="cred-input-prefix">{prefix}</span>
         <input
           type="number"
           step={step}
+          disabled={disabled}
           className="cred-input-prefixed"
           onWheel={handleWheel}
           style={{
@@ -385,6 +406,7 @@ export const NumberInput = ({
             boxShadow: 'none',
             borderRadius: 0,
             padding: 0,
+            cursor: disabled ? 'not-allowed' : undefined,
             ...(props.style || {})
           }}
           {...props}
@@ -397,9 +419,13 @@ export const NumberInput = ({
     <input
       type="number"
       step={step}
-      className={`cred-input ${className}`}
+      disabled={disabled}
+      className={`cred-input ${disabled ? 'is-disabled' : ''} ${className}`}
       onWheel={handleWheel}
-      style={style}
+      style={{
+        ...(disabled ? { backgroundColor: 'var(--fill-ghost-hover, #F8F9FA)', cursor: 'not-allowed', opacity: 0.85 } : {}),
+        ...style
+      }}
       {...props}
     />
   )

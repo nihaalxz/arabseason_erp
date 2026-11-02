@@ -300,6 +300,21 @@ class JobOrderSerializer(serializers.ModelSerializer):
             if self.instance:
                 qs = qs.exclude(id=self.instance.id)
             if qs.exists():
+                # If creating and duplicate is encountered (e.g. concurrent creation with auto-generated ID),
+                # auto-generate the next unique sequential order ID
+                if not self.instance:
+                    import re
+                    prefix = "JOB"
+                    nums = []
+                    for j in JobOrder.objects.all():
+                        m = re.search(r'\d+', j.order_id or '')
+                        if m:
+                            try:
+                                nums.append(int(m.group()))
+                            except ValueError:
+                                pass
+                    seq = max(nums) + 1 if nums else 1
+                    return f"{prefix}{seq:04d}"
                 raise serializers.ValidationError(f"Contract ID '{val}' is already in use by another Job Order. Contract IDs must be unique.")
             return val
         return value

@@ -363,14 +363,17 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             prior_balance = max(Decimal('0'), (total_prior_billed + total_prior_invoices - total_prior_cn) - total_prior_paid)
 
         order_id = serializer.validated_data.get('order_id')
-        if not order_id:
-            import re
+        import re
+        if not order_id or JobOrder.objects.filter(order_id__iexact=order_id).exists():
             prefix = "JOB"
             nums = []
             for j in JobOrder.objects.all():
                 m = re.search(r'\d+', j.order_id or '')
                 if m:
-                    nums.append(int(m.group()))
+                    try:
+                        nums.append(int(m.group()))
+                    except ValueError:
+                        pass
             seq = max(nums) + 1 if nums else 1
             order_id = f"{prefix}{seq:04d}"
 
@@ -625,6 +628,31 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                     p.save(update_fields=['balance'])
                 cb_entry.delete()
             adv_payment.delete()
+
+    @action(detail=False, methods=['get'], url_path='next-order-id')
+    def next_order_id(self, request):
+        """
+        Generate the next sequential job order contract ID, e.g. JOB0015.
+        Uses true maximum numerical sequence to prevent duplicate IDs or regressions.
+        """
+        import re
+        prefix = "JOB"
+        nums = []
+        for j in JobOrder.objects.all():
+            m = re.search(r'\d+', j.order_id or '')
+            if m:
+                try:
+                    nums.append(int(m.group()))
+                except ValueError:
+                    pass
+        seq = max(nums) + 1 if nums else 1
+        num_str = f"{seq:04d}"
+        return Response({
+            'prefix': prefix,
+            'number': num_str,
+            'order_id': f"{prefix}{num_str}",
+            'next_number': f"{prefix}{num_str}"
+        })
 
     @action(detail=False, methods=['get'], url_path='prior-balance')
     def prior_balance(self, request):
@@ -4115,15 +4143,17 @@ class EstimationViewSet(viewsets.ModelViewSet):
                 estimation.customer = customer
 
             # Generate Job Order ID using true max sequence
-            existing_jobs = JobOrder.objects.filter(order_id__startswith='JOB-')
+            import re
             job_nums = []
-            for j in existing_jobs:
-                try:
-                    job_nums.append(int(j.order_id.split('-')[1]))
-                except (IndexError, ValueError):
-                    pass
+            for j in JobOrder.objects.all():
+                m = re.search(r'\d+', j.order_id or '')
+                if m:
+                    try:
+                        job_nums.append(int(m.group()))
+                    except ValueError:
+                        pass
             new_num = max(job_nums) + 1 if job_nums else 1
-            order_id = f"JOB-{new_num:04d}"
+            order_id = f"JOB{new_num:04d}"
 
             # Compute prior balance for customer
             prev_jobs_tot = JobOrder.objects.filter(customer=customer).aggregate(

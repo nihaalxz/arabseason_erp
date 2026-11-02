@@ -303,3 +303,50 @@ class PDFGeneratorSmokeTests(TestCase):
         self.assertGreater(p_ts, 0)
         self.assertIn("TIMESHEET", t_ts)
         self.assertIn("Ali Mansoor", t_ts)
+
+
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
+from api.models import JobOrder, Customer
+
+class JobOrderSequenceTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username='testseqadmin', password='password123', is_staff=True, is_superuser=True)
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.customer = Customer.objects.create(name='Test Customer Sequence', created_by=self.user)
+
+    def test_next_order_id_generation(self):
+        # Create JOB0001, JOB0002
+        JobOrder.objects.create(order_id='JOB0001', title='Job 1', customer=self.customer, created_by=self.user)
+        JobOrder.objects.create(order_id='JOB0002', title='Job 2', customer=self.customer, created_by=self.user)
+
+        res = self.client.get('/api/job-orders/next-order-id/')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['prefix'], 'JOB')
+        self.assertEqual(res.data['number'], '0003')
+        self.assertEqual(res.data['order_id'], 'JOB0003')
+
+    def test_auto_generate_order_id_on_create_if_blank_or_duplicate(self):
+        JobOrder.objects.create(order_id='JOB0010', title='Job 10', customer=self.customer, created_by=self.user)
+
+        # Blank order_id
+        res = self.client.post('/api/job-orders/', {
+            'title': 'Job 11 auto',
+            'customer': self.customer.id,
+            'status': 'In Progress',
+            'order_id': ''
+        })
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data['order_id'], 'JOB0011')
+
+        # Duplicate order_id submitted (should auto-increment)
+        res2 = self.client.post('/api/job-orders/', {
+            'title': 'Job 12 duplicate conflict',
+            'customer': self.customer.id,
+            'status': 'In Progress',
+            'order_id': 'JOB0011'
+        })
+        self.assertEqual(res2.status_code, 201)
+        self.assertEqual(res2.data['order_id'], 'JOB0012')
