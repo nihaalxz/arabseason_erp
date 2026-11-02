@@ -185,3 +185,4 @@ with pdfplumber.open('design-reference/DC-00002.pdf') as p_ref, pdfplumber.open(
     print(f"Elements with delta > 1.0 pt: {len(delta_gt_1)}")
     for item in delta_gt_1:
         print(f"  - {item[0]}: max_delta={item[1]:.2f} pt (dx={item[2]:+.2f}, dy={item[3]:+.2f})")
+

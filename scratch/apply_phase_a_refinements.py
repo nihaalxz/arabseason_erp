@@ -105,3 +105,4 @@ with open('backend/api/pdf_generator.py', 'w', encoding='utf-8') as f:
     f.write(text)
 
 print("Applied Phase A refinements successfully")
+
