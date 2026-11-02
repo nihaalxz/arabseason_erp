@@ -814,7 +814,7 @@ const CredVendorPriceChartView = ({
               background: isDarkMode ? '#FFFFFF' : '#0A0A0A',
               color: isDarkMode ? '#0A0A0A' : '#FFFFFF',
               border: 'none',
-              borderRadius: '10px',
+              borderRadius: '12px',
               padding: '8px 16px',
               fontWeight: 600,
               fontSize: '13px',
@@ -1287,9 +1287,9 @@ const CredVendorPriceChartView = ({
         >
           <div
             style={{
-              background: 'var(--bg-panel, #FFFFFF)',
+              background: 'var(--card-bg, #FFFFFF)',
               border: '1px solid var(--border, #E4E4E4)',
-              borderRadius: '20px',
+              borderRadius: '24px',
               width: '100%',
               maxWidth: '480px',
               maxHeight: '88vh',
@@ -1338,7 +1338,7 @@ const CredVendorPriceChartView = ({
                     padding: '0 10px',
                     borderRadius: '8px',
                     border: '1px solid var(--border, #E4E4E4)',
-                    background: 'var(--bg, #F9F9F9)',
+                    background: 'var(--card-bg, #FFFFFF)',
                     color: 'var(--text)',
                     fontSize: '13px',
                     outline: 'none'
@@ -1367,7 +1367,7 @@ const CredVendorPriceChartView = ({
                         padding: '0 12px',
                         borderRadius: '8px',
                         border: '1px solid var(--border, #E4E4E4)',
-                        background: 'var(--bg, #F9F9F9)',
+                        background: 'var(--card-bg, #FFFFFF)',
                         color: 'var(--text)',
                         fontSize: '13px',
                         outline: 'none'
@@ -1387,7 +1387,7 @@ const CredVendorPriceChartView = ({
                         padding: '0 10px',
                         borderRadius: '8px',
                         border: '1px solid var(--border, #E4E4E4)',
-                        background: 'var(--bg, #F9F9F9)',
+                        background: 'var(--card-bg, #FFFFFF)',
                         color: 'var(--text)',
                         fontSize: '13px',
                         outline: 'none',
@@ -1424,7 +1424,7 @@ const CredVendorPriceChartView = ({
                     padding: '0 10px',
                     borderRadius: '8px',
                     border: '1px solid var(--border, #E4E4E4)',
-                    background: 'var(--bg, #F9F9F9)',
+                    background: 'var(--card-bg, #FFFFFF)',
                     color: 'var(--text)',
                     fontSize: '13px',
                     outline: 'none',
@@ -1457,7 +1457,7 @@ const CredVendorPriceChartView = ({
                       padding: '0 10px',
                       borderRadius: '8px',
                       border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--bg, #F9F9F9)',
+                      background: 'var(--card-bg, #FFFFFF)',
                       color: 'var(--text)',
                       fontSize: '13px',
                       outline: 'none'
@@ -1490,7 +1490,7 @@ const CredVendorPriceChartView = ({
                       padding: '0 10px',
                       borderRadius: '8px',
                       border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--bg, #F9F9F9)',
+                      background: 'var(--card-bg, #FFFFFF)',
                       color: 'var(--text)',
                       fontSize: '13px',
                       outline: 'none',
@@ -1523,7 +1523,7 @@ const CredVendorPriceChartView = ({
                         padding: '0 10px',
                         borderRadius: '6px',
                         border: '1px solid var(--border, #E4E4E4)',
-                        background: 'var(--bg, #F9F9F9)',
+                        background: 'var(--card-bg, #FFFFFF)',
                         color: 'var(--text)',
                         fontSize: '12px',
                         outline: 'none'
@@ -1544,7 +1544,7 @@ const CredVendorPriceChartView = ({
                       padding: '0 10px',
                       borderRadius: '8px',
                       border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--bg, #F9F9F9)',
+                      background: 'var(--card-bg, #FFFFFF)',
                       color: 'var(--text)',
                       fontSize: '12px',
                       outline: 'none'
@@ -1568,7 +1568,7 @@ const CredVendorPriceChartView = ({
                     padding: '0 12px',
                     borderRadius: '8px',
                     border: '1px solid var(--border, #E4E4E4)',
-                    background: 'var(--bg, #F9F9F9)',
+                    background: 'var(--card-bg, #FFFFFF)',
                     color: 'var(--text)',
                     fontSize: '13px',
                     outline: 'none'

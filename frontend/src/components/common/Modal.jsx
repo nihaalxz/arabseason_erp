@@ -15,7 +15,9 @@ const Modal = ({
   maxWidth = '660px', 
   style = {},
   isDirty = undefined,
-  closeOnBackdrop = false 
+  closeOnBackdrop = false,
+  className = '',
+  overlayClassName = ''
 }) => {
   const overlayRef = useRef(null)
   const containerRef = useRef(null)
@@ -221,7 +223,7 @@ const Modal = ({
   const modalContent = (
     <div 
       ref={overlayRef}
-      className="modal-overlay" 
+      className={`modal-overlay ${overlayClassName}`.trim()} 
       onClick={handleOverlayClick}
       style={{
         position: 'fixed',
@@ -245,7 +247,7 @@ const Modal = ({
     >
       <div
         ref={containerRef}
-        className={`modal-container glass-panel ${isShaking ? "modal-shake-animate" : ""}`}
+        className={`modal-container glass-panel ${isShaking ? "modal-shake-animate" : ""} ${className}`.trim()}
         style={{
           position: 'relative',
           maxHeight: 'min(94vh, 850px)',

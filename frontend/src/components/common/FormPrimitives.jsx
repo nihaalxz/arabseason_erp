@@ -207,6 +207,8 @@ export const ModalShell = ({
   footer,
   style = {},
   closeOnBackdrop = false,
+  className = '',
+  overlayClassName = '',
   children
 }) => {
   const defaultFooter = (
@@ -237,6 +239,8 @@ export const ModalShell = ({
       title={title}
       maxWidth={maxWidth}
       closeOnBackdrop={closeOnBackdrop}
+      className={`cred-modal-shell ${className}`.trim()}
+      overlayClassName={`cred-modal-overlay ${overlayClassName}`.trim()}
       style={{
         borderRadius: '24px',
         background: 'var(--card-bg, #FFFFFF)',

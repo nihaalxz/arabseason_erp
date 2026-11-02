@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import api from '../../api'
 import Modal from '../common/Modal'
+import JobOrderModal from '../jobs/JobOrderModal'
 import CashbookSelect from '../common/CashbookSelect'
 import CredAnimatedTabs from './cred/CredAnimatedTabs'
 import GooeyMenu from './cred/GooeyMenu'
@@ -538,69 +539,12 @@ export default function CashbookJobOrders({
 
   // Modal open / edit
   const handleOpenAddModal = () => {
-    let maxNum = 0
-    ;(jobOrders || []).forEach(j => {
-      const m = (j.order_id || '').match(/\d+/)
-      if (m) {
-        const val = parseInt(m[0], 10)
-        if (!isNaN(val) && val > maxNum) maxNum = val
-      }
-    })
-    const nextSeq = maxNum + 1
-    const defaultOrderId = `JOB${nextSeq.toString().padStart(4, '0')}`
-
-    let defaultStaff = ''
-    try {
-      const u = JSON.parse(localStorage.getItem('user') || '{}')
-      defaultStaff = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || ''
-    } catch {}
-
     setEditingJob(null)
-    setFormData({
-      order_id: defaultOrderId,
-      title: '',
-      customer: customers[0]?.id || '',
-      vendor: '',
-      status: 'Pending',
-      total_amount: '',
-      advance_amount: '',
-      account_type: 'pca',
-      selected_account_id: pettyCashAccounts[0]?.id || '',
-      cashbook: cashbooks[0]?.id || '',
-      project_name: '',
-      created_by_staff: defaultStaff,
-      assigned_to: '',
-      description: '',
-      attachment: '',
-      attachment_name: '',
-      attachment_type: ''
-    })
-    setModalError('')
     setIsModalOpen(true)
   }
 
   const handleOpenEditModal = (job) => {
     setEditingJob(job)
-    setFormData({
-      order_id: job.order_id || '',
-      title: job.title || '',
-      customer: job.customer || (job.customer_id) || '',
-      vendor: job.vendor || job.vendor_id || '',
-      status: job.status || 'In Progress',
-      total_amount: job.total_amount != null ? String(job.total_amount) : '',
-      advance_amount: job.advance_amount != null ? String(job.advance_amount) : (job.paid_amount != null ? String(job.paid_amount) : ''),
-      account_type: 'pca',
-      selected_account_id: pettyCashAccounts[0]?.id || '',
-      cashbook: cashbooks[0]?.id || '',
-      project_name: job.project_name || '',
-      created_by_staff: job.created_by_staff || '',
-      assigned_to: job.assigned_to || '',
-      description: job.description || '',
-      attachment: job.attachment || '',
-      attachment_name: job.attachment_name || '',
-      attachment_type: job.attachment_type || ''
-    })
-    setModalError('')
     setIsModalOpen(true)
   }
 
@@ -829,11 +773,12 @@ export default function CashbookJobOrders({
   }
 
   const fieldLabelStyle = {
-    display: 'block',
-    fontSize: '0.88rem',
-    fontWeight: '700',
-    color: textPrimary,
-    marginBottom: '0.45rem',
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '12px',
+    fontWeight: '500',
+    color: 'var(--text-muted, #8C8C8C)',
+    marginBottom: '6px',
     letterSpacing: '-0.01em'
   }
 
@@ -1276,7 +1221,7 @@ export default function CashbookJobOrders({
       ) : filteredJobOrders.length === 0 ? (
         <div style={{
           background: effectiveIsMobile ? 'transparent' : cardBg,
-          border: effectiveIsMobile ? 'none' : `1px solid ${borderColor}`,
+          border: '1px solid var(--border, #E4E4E4)',
           borderRadius: '16px',
           padding: effectiveIsMobile ? '2.5rem 1rem' : '3rem 1.5rem',
           textAlign: 'center',
@@ -1783,616 +1728,23 @@ export default function CashbookJobOrders({
       />
 
       {/* ========================================================= */}
-      {/* ADD / EDIT JOB ORDER MODAL                                */}
+      {/* ADD / EDIT JOB ORDER MODAL — uses shared JobOrderModal component */}
       {/* ========================================================= */}
-      {isModalOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          className="cb-modal-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              e.preventDefault()
-              e.stopPropagation()
-            }
-          }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            width: '100vw',
-            height: '100vh',
-            background: isDarkMode ? 'rgba(0, 0, 0, 0.78)' : 'rgba(11, 27, 68, 0.50)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: effectiveIsMobile ? 'flex-end' : 'center',
-            justifyContent: 'center',
-            padding: effectiveIsMobile ? 0 : '1.5rem',
-            boxSizing: 'border-box'
-          }}
-        >
-          <div
-            className="cb-expense-modal-sheet"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: cardBg,
-              colorScheme: isDarkMode ? 'dark' : 'light',
-              border: effectiveIsMobile ? 'none' : `1px solid ${borderColor}`,
-              borderRadius: effectiveIsMobile ? '24px 24px 0 0' : '20px',
-              padding: effectiveIsMobile 
-                ? '1rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
-                : '1.75rem 2rem 1.25rem',
-              boxShadow: isDarkMode ? '0 24px 64px rgba(0,0,0,0.7)' : '0 20px 60px rgba(15,23,42,0.18)',
-              maxWidth: effectiveIsMobile ? '100%' : '800px',
-              width: '100%',
-              maxHeight: effectiveIsMobile ? '92vh' : 'calc(100vh - 3.5rem)',
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'relative',
-              margin: effectiveIsMobile ? 0 : 'auto',
-              boxSizing: 'border-box',
-              overflow: 'hidden'
-            }}
-          >
-            {/* Close Button Top Right */}
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              style={{
-                position: 'absolute',
-                top: effectiveIsMobile ? '1rem' : '1.25rem',
-                right: effectiveIsMobile ? '1rem' : '1.25rem',
-                background: isDarkMode ? '#1e2025' : '#f1f5f9',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: textMuted,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                zIndex: 10
-              }}
-            >
-              <X size={16} />
-            </button>
-
-            <div style={{ flexShrink: 0, marginBottom: '1.25rem', paddingRight: '2.5rem' }}>
-              <h3 style={{
-                fontSize: '1.25rem',
-                fontWeight: '800',
-                color: textPrimary,
-                margin: '0 0 0.25rem',
-                letterSpacing: '-0.02em'
-              }}>
-                {editingJob ? 'Edit Job Order' : 'Add New Job Order'}
-              </h3>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: textMuted }}>
-                Record client contract order details and track receivables
-              </p>
-            </div>
-
-            {modalError && (
-              <div style={{
-                flexShrink: 0,
-                background: isDarkMode ? 'rgba(239,68,68,0.15)' : '#fee2e2',
-                border: '1px solid #ef4444',
-                borderRadius: '10px',
-                padding: '0.65rem 0.85rem',
-                color: '#ef4444',
-                fontSize: '0.8rem',
-                fontWeight: '600',
-                marginBottom: '1rem'
-              }}>
-                {modalError}
-              </div>
-            )}
-
-            <form 
-              onSubmit={handleSaveJobOrder} 
-              autoComplete="off"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                flex: 1,
-                minHeight: 0,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                paddingRight: '6px'
-              }}
-            >
-              {/* Order ID & Status in 2 columns */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={fieldLabelStyle}>Order / Contract ID *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.order_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, order_id: e.target.value }))}
-                    style={inputControlStyle}
-                  />
-                </div>
-                <div>
-                  <label style={fieldLabelStyle}>Status *</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                    style={{ ...inputControlStyle, cursor: 'pointer' }}
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Title */}
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={fieldLabelStyle}>Job Order Title *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  style={inputControlStyle}
-                  autoFocus
-                />
-              </div>
-
-              {/* Customer & Assigned Vendor */}
-              <div style={{ display: 'grid', gridTemplateColumns: effectiveIsMobile ? '1fr' : '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
-                    <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Customer / Client *</label>
-                    <button
-                      type="button"
-                      onClick={() => setIsCustomerModalOpen(true)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--primary, #5B4BDB)',
-                        fontSize: '0.78rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        padding: 0,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      <UserPlus size={13} strokeWidth={2.2} /> New Customer
-                    </button>
-                  </div>
-                  <select
-                    required
-                    value={formData.customer}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customer: e.target.value }))}
-                    style={{ ...inputControlStyle, cursor: 'pointer' }}
-                  >
-                    <option value="">Select a customer...</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name || c.company_name} {c.company_name && c.name && c.company_name !== c.name ? `(${c.company_name})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={fieldLabelStyle}>Assigned Vendor (Optional)</label>
-                  <select
-                    value={formData.vendor || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, vendor: e.target.value }))}
-                    style={{ ...inputControlStyle, cursor: 'pointer' }}
-                  >
-                    <option value="">-- No Vendor Assigned --</option>
-                    {vendors.map(v => (
-                      <option key={v.id} value={v.id}>
-                        {v.name} {v.company ? `(${v.company})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Estimated Total Amount & Advance Amount Paid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={fieldLabelStyle}>Estimated Total Amount (SAR) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={formData.total_amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, total_amount: e.target.value }))}
-                    placeholder="e.g. 15000"
-                    style={inputControlStyle}
-                  />
-                </div>
-                <div>
-                  <label style={fieldLabelStyle}>Advance Received / Paid (SAR)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.advance_amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, advance_amount: e.target.value }))}
-                    placeholder="0.00"
-                    style={inputControlStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Financial Breakdown Card */}
-              {(() => {
-                const est = parseFloat(formData.total_amount) || 0
-                const adv = parseFloat(formData.advance_amount) || 0
-                const due = Math.max(0, est - adv)
-                return (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '0.5rem',
-                    padding: '0.65rem 0.85rem',
-                    background: isDarkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc',
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: '12px',
-                    marginBottom: '1rem',
-                    textAlign: 'center'
-                  }}>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Estimated Total</div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: '800', color: textPrimary, marginTop: '2px' }}>
-                        SAR {safeFormatAmount(est)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: '#10b981', fontWeight: '700', textTransform: 'uppercase' }}>Customer Paid</div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>
-                        SAR {safeFormatAmount(adv)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.65rem', color: due > 0 ? '#ef4444' : '#10b981', fontWeight: '700', textTransform: 'uppercase' }}>Due Amount</div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: '800', color: due > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
-                        SAR {safeFormatAmount(due)}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* Deposit Account Selector (shown when advance_amount > 0) */}
-              {parseFloat(formData.advance_amount || 0) > 0 && (
-                <div style={{
-                  padding: '0.85rem',
-                  background: isDarkMode ? 'rgba(59, 130, 246, 0.08)' : '#eff6ff',
-                  border: '1px solid #3b82f6',
-                  borderRadius: '12px',
-                  marginBottom: '1rem'
-                }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#3b82f6', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CreditCard size={13} /> DEPOSIT ADVANCE PAYMENT TO
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: '0.7rem' }}>Payment Mode</label>
-                      <select
-                        value={formData.account_type}
-                        onChange={(e) => {
-                          const type = e.target.value
-                          setFormData(prev => ({
-                            ...prev,
-                            account_type: type,
-                            selected_account_id: type === 'bank' ? (banks[0]?.id || '') : (pettyCashAccounts[0]?.id || '')
-                          }))
-                        }}
-                        style={{ ...inputControlStyle, padding: '0.5rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer' }}
-                      >
-                        <option value="pca">Petty Cash Account</option>
-                        <option value="bank">Bank Account</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: '0.7rem' }}>Destination Account</label>
-                      <select
-                        value={formData.selected_account_id}
-                        onChange={(e) => setFormData(prev => ({ ...prev, selected_account_id: e.target.value }))}
-                        style={{ ...inputControlStyle, padding: '0.5rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer' }}
-                      >
-                        {formData.account_type === 'bank' ? (
-                          banks.map(b => (
-                            <option key={b.id} value={b.id}>{b.bank_name || b.account_name} ({safeFormatAmount(b.balance)} SAR)</option>
-                          ))
-                        ) : (
-                          pettyCashAccounts.map(p => (
-                            <option key={p.id} value={p.id}>{p.name} ({safeFormatAmount(p.balance)} SAR)</option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                  {cashbooks && cashbooks.length > 0 && (
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: '0.7rem' }}>Target Cashbook</label>
-                      <select
-                        value={formData.cashbook}
-                        onChange={(e) => setFormData(prev => ({ ...prev, cashbook: e.target.value }))}
-                        style={{ ...inputControlStyle, padding: '0.5rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer' }}
-                      >
-                        <option value="">Default Cashbook</option>
-                        {cashbooks.map(cb => (
-                          <option key={cb.id} value={cb.id}>{cb.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Project Name & Responsible Staff (2 columns on desktop) */}
-              <div style={{ display: 'grid', gridTemplateColumns: effectiveIsMobile ? '1fr' : '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={fieldLabelStyle}>Project Name (Optional)</label>
-                  <input
-                    type="text"
-                    value={formData.project_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, project_name: e.target.value }))}
-                    placeholder="e.g. Al-Riyadh Villa Renovation"
-                    style={inputControlStyle}
-                  />
-                </div>
-                <div>
-                  <label style={fieldLabelStyle}>Responsible Staff / Manager</label>
-                  <input
-                    type="text"
-                    value={formData.created_by_staff}
-                    onChange={(e) => setFormData(prev => ({ ...prev, created_by_staff: e.target.value }))}
-                    style={inputControlStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Assign to Admin (Delegation) */}
-              {assignableAdmins && assignableAdmins.length > 0 && (
-                <div style={{
-                  background: isDarkMode ? '#17191d' : '#f8fafc',
-                  padding: '0.85rem',
-                  borderRadius: '12px',
-                  border: `1px solid ${borderColor}`,
-                  marginBottom: '1rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.45rem' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: textPrimary, fontWeight: '700', fontSize: '0.88rem' }}>
-                      <User size={14} style={{ color: '#6366f1' }} />
-                      Assign to Admin (Optional)
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: textMuted, fontWeight: 'normal' }}>Delegates order to Admin for ownership</span>
-                  </div>
-                  <select
-                    value={formData.assigned_to || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, assigned_to: e.target.value }))}
-                    style={{ ...inputControlStyle, cursor: 'pointer', background: isDarkMode ? '#1e2025' : '#ffffff' }}
-                  >
-                    <option value="">-- No Admin Assigned (Keep with creator) --</option>
-                    {assignableAdmins.map(adm => (
-                      <option key={adm.id} value={adm.id}>
-                        {adm.name} ({adm.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Scope of Work / Description */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={fieldLabelStyle}>Scope of Work / Description</label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Details of contract deliverables, tasks, milestones..."
-                  style={{
-                    ...inputControlStyle,
-                    height: 'auto',
-                    padding: '0.65rem 0.95rem',
-                    resize: 'vertical',
-                    minHeight: '70px'
-                  }}
-                />
-              </div>
-
-              {/* Attachment / File Upload Section */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.45rem' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: textPrimary, fontWeight: '700', fontSize: '0.88rem' }}>
-                    <Paperclip size={14} style={{ color: '#6366f1' }} />
-                    Attach File (Image or PDF)
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: textMuted }}>Supports PDF, JPG, PNG up to 10MB</span>
-                </div>
-
-                {!formData.attachment ? (
-                  <label style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '1.25rem',
-                    borderRadius: '12px',
-                    border: `2px dashed ${borderColor}`,
-                    background: isDarkMode ? '#17191d' : '#f8fafc',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    textAlign: 'center',
-                    gap: '0.35rem'
-                  }}>
-                    <input 
-                      type="file" 
-                      accept="image/*,.pdf,application/pdf"
-                      onChange={handleAttachmentChange}
-                      style={{ display: 'none' }}
-                    />
-                    <UploadCloud size={28} style={{ color: '#6366f1', marginBottom: '0.15rem' }} />
-                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: textPrimary }}>
-                      Click to upload document or image
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: textMuted }}>
-                      Signed contract, quotation copy, drawings or work order photo
-                    </div>
-                  </label>
-                ) : (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.75rem 1rem',
-                    borderRadius: '12px',
-                    border: `1px solid ${borderColor}`,
-                    background: isDarkMode ? '#1e2025' : '#f1f5f9',
-                    gap: '0.75rem'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
-                      {formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf') ? (
-                        <FileText size={26} style={{ color: '#ef4444', flexShrink: 0 }} />
-                      ) : (
-                        <img 
-                          src={formData.attachment} 
-                          alt="Preview" 
-                          style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: `1px solid ${borderColor}`, flexShrink: 0 }} 
-                        />
-                      )}
-                      <div style={{ overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: '700', color: textPrimary, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                          {formData.attachment_name || 'Attached File'}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: textMuted }}>
-                          {formData.attachment_type?.includes('pdf') ? 'PDF Document' : 'Image File'}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const w = window.open('')
-                          if (formData.attachment_type?.includes('pdf') || formData.attachment_name?.toLowerCase().endsWith('.pdf')) {
-                            w.document.write(`<iframe src="${formData.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
-                          } else {
-                            w.document.write(`<img src="${formData.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
-                          }
-                        }}
-                        title="Preview File"
-                        style={{
-                          background: isDarkMode ? '#282b30' : '#e2e8f0',
-                          border: 'none',
-                          borderRadius: '6px',
-                          color: '#6366f1',
-                          cursor: 'pointer',
-                          padding: '6px 10px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600'
-                        }}
-                      >
-                        <Eye size={14} /> Preview
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleRemoveAttachment}
-                        title="Remove File"
-                        style={{
-                          background: isDarkMode ? 'rgba(239,68,68,0.15)' : '#fee2e2',
-                          border: 'none',
-                          borderRadius: '6px',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          padding: '6px 10px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600'
-                        }}
-                      >
-                        <Trash2 size={14} /> Remove
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Action Buttons (Sticky at bottom) */}
-              <div style={{
-                flexShrink: 0,
-                position: 'sticky',
-                bottom: 0,
-                background: cardBg,
-                paddingTop: '1rem',
-                paddingBottom: '0.25rem',
-                marginTop: '1.25rem',
-                borderTop: `1px solid ${borderColor}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: '0.65rem',
-                zIndex: 10
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={modalSubmitting}
-                  style={{
-                    background: isDarkMode ? '#1e2025' : '#f1f5f9',
-                    color: textPrimary,
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '0.65rem 1.25rem',
-                    fontWeight: '600',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalSubmitting}
-                  style={{
-                    background: isDarkMode ? '#ffffff' : '#0f172a',
-                    color: isDarkMode ? '#0f172a' : '#ffffff',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '0.65rem 1.5rem',
-                    fontWeight: '700',
-                    fontSize: '0.875rem',
-                    cursor: modalSubmitting ? 'not-allowed' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    boxShadow: isDarkMode ? '0 2px 10px rgba(255,255,255,0.1)' : '0 2px 10px rgba(15,23,42,0.15)'
-                  }}
-                >
-                  {modalSubmitting ? (
-                    <>
-                      <RefreshCw size={14} className="spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <span>{editingJob ? 'Save Changes' : 'Create Job Order'}</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+      <JobOrderModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        editingJob={editingJob}
+        existingJobs={jobOrders || []}
+        onSuccess={(savedJob, isNew) => {
+          if (isNew) {
+            setJobOrders(prev => [savedJob, ...prev])
+          } else {
+            setJobOrders(prev => prev.map(j => j.id === savedJob.id ? { ...j, ...savedJob } : j))
+          }
+          fetchJobOrders()
+          fetchJobSummary()
+        }}
+      />
 
       {/* ========================================================= */}
       {/* RECEIVE CUSTOMER PAYMENT MODAL                            */}
@@ -2430,12 +1782,12 @@ export default function CashbookJobOrders({
             style={{
               background: cardBg,
               colorScheme: isDarkMode ? 'dark' : 'light',
-              border: effectiveIsMobile ? 'none' : `1px solid ${borderColor}`,
-              borderRadius: effectiveIsMobile ? '24px 24px 0 0' : '20px',
+              border: '1px solid var(--border, #E4E4E4)',
+              borderRadius: '24px',
               padding: effectiveIsMobile 
                 ? '0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
                 : '2rem 2.25rem',
-              boxShadow: isDarkMode ? '0 20px 60px rgba(0,0,0,0.6)' : '0 20px 60px rgba(15,23,42,0.18)',
+              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)',
               maxWidth: effectiveIsMobile ? '100%' : '540px',
               width: '100%',
               maxHeight: effectiveIsMobile ? '90vh' : 'calc(100vh - 3.5rem)',
@@ -2682,38 +2034,16 @@ export default function CashbookJobOrders({
               }}>
                 <button
                   type="button"
+                  className="cred-modal-cancel-btn"
                   onClick={() => setIsPaymentModalOpen(false)}
                   disabled={paymentSubmitting}
-                  style={{
-                    background: isDarkMode ? '#1e2025' : '#f1f5f9',
-                    color: textPrimary,
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '0.65rem 1.25rem',
-                    fontWeight: '600',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer'
-                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  className="cred-modal-submit-btn"
                   disabled={paymentSubmitting}
-                  style={{
-                    background: '#10b981',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '0.65rem 1.5rem',
-                    fontWeight: '700',
-                    fontSize: '0.875rem',
-                    cursor: paymentSubmitting ? 'not-allowed' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    boxShadow: '0 2px 10px rgba(16,185,129,0.3)'
-                  }}
                 >
                   {paymentSubmitting ? (
                     <>
@@ -2733,6 +2063,7 @@ export default function CashbookJobOrders({
 
       {/* Quick Customer Creation Modal */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
         title="Add New Customer"

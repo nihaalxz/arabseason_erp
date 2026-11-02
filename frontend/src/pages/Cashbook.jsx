@@ -9801,39 +9801,6 @@ const Cashbook = ({ currentUser = null }) => {
   const renderExpenseModal = () => {
     if (!isExpenseModalOpen || typeof document === "undefined") return null
 
-    const cardBg = isDarkMode ? "#121417" : "#ffffff"
-    const borderColor = isDarkMode ? "#232528" : "#e2e8f0"
-    const textPrimary = isDarkMode ? "#ffffff" : "#000000"
-    const textMuted = isDarkMode ? "#8b9096" : "#64748b"
-    const inputBg = isDarkMode ? "#17191d" : "#ffffff"
-    const inputBorder = isDarkMode ? "#282b32" : "#e2e8f0"
-
-    const fieldLabelStyle = {
-      display: "block",
-      fontSize: "0.88rem",
-      fontWeight: "700",
-      color: textPrimary,
-      marginBottom: "0.45rem",
-      letterSpacing: "-0.01em"
-    }
-
-    const inputControlStyle = {
-      width: "100%",
-      height: "46px",
-      padding: "0 0.95rem",
-      borderRadius: "12px",
-      border: `1px solid ${inputBorder}`,
-      background: inputBg,
-      color: textPrimary,
-      fontSize: "0.92rem",
-      fontFamily: "inherit",
-      outline: "none",
-      boxSizing: "border-box",
-      transition: "border-color 0.15s ease, box-shadow 0.15s ease"
-    }
-
-    const selectArrowBg = 'url("data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E")'
-
     const activeExpenseType = expenseFormData.type || "Project"
     const activeGroupCategories = Array.from(new Set([
       ...(EXPENSE_CATEGORY_GROUPS[activeExpenseType] || EXPENSE_CATEGORY_GROUPS.Other),
@@ -9843,897 +9810,436 @@ const Cashbook = ({ currentUser = null }) => {
 
     const expPills = ["Project", "Salary", "Company", "Venture", "Other"]
 
-    return createPortal(
-          <div
-            className="modal-overlay cb-modal-overlay"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                e.preventDefault()
-                e.stopPropagation()
-              }
-            }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: '100%',
-              height: '100%',
-              background: isDarkMode ? 'rgba(0, 0, 0, 0.75)' : 'rgba(11, 27, 68, 0.50)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              zIndex: 99999,
-              display: 'flex',
-              alignItems: isMobileScreen ? 'flex-end' : 'center',
-              justifyContent: 'center',
-              padding: isMobileScreen ? 0 : '1.5rem',
-              boxSizing: 'border-box',
-              animation: 'mobileBackdropFade 0.2s ease'
-            }}
-          >
-            <div
-              className="cb-expense-modal-sheet"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: cardBg,
-                border: 'none',
-                outline: 'none',
-                borderRadius: isMobileScreen ? '24px 24px 0 0' : '20px',
-                padding: isMobileScreen 
-                  ? '0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
-                  : '1.5rem 2rem',
-                boxShadow: isDarkMode ? '0 24px 64px rgba(0, 0, 0, 0.85)' : '0 20px 50px rgba(15, 23, 42, 0.18)',
-                maxWidth: isMobileScreen ? '100%' : '780px',
-                width: '100%',
-                maxHeight: isMobileScreen ? '90vh' : 'min(88vh, 680px)',
-                overflowX: 'hidden',
-                overflowY: 'auto',
-                WebkitOverflowScrolling: 'touch',
-                position: 'relative',
-                margin: isMobileScreen ? 0 : 'auto',
-                boxSizing: 'border-box',
-                animation: isMobileScreen ? 'mobileSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1)' : 'modalScale 0.22s var(--ease-out)'
-              }}
+    return (
+      <Modal
+        isOpen={isExpenseModalOpen}
+        onClose={() => setIsExpenseModalOpen(false)}
+        className="cred-modal-shell"
+        maxWidth="760px"
+        title={
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em' }}>
+              {'New Expense'}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #8C8C8C)', fontWeight: 400, marginTop: '2px' }}>
+              Record a project or company cost.
+            </div>
+          </div>
+        }
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+            <button
+              type="button"
+              className="cred-modal-cancel-btn"
+              onClick={() => setIsExpenseModalOpen(false)}
+              disabled={expenseSubmitting}
             >
-              {/* Close Button Top Right */}
-              <button
-                type="button"
-                onClick={() => setIsExpenseModalOpen(false)}
-                style={{
-                  position: 'absolute',
-                  top: isMobileScreen ? '0.85rem' : '1.25rem',
-                  right: isMobileScreen ? '0.85rem' : '1.25rem',
-                  background: isDarkMode ? '#1e2025' : '#f1f5f9',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: textMuted,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  zIndex: 10
-                }}
-              >
-                <X size={16} />
-              </button>
-
-              <form onSubmit={handleSaveExpense}>
-                {/* Form Title & Subtitle */}
-                <div style={{
-                  marginBottom: isMobileScreen ? '0.75rem' : '0.85rem',
-                  marginTop: isMobileScreen ? '0.25rem' : 0,
-                  paddingRight: isMobileScreen ? '2.5rem' : 0
-                }}>
-                  <h2 style={{
-                    fontSize: isMobileScreen ? '1.3rem' : '1.45rem',
-                    fontWeight: '800',
-                    color: textPrimary,
-                    margin: '0 0 0.15rem 0',
-                    letterSpacing: '-0.02em'
-                  }}>
-                    New expense
-                  </h2>
-                  <p style={{
-                    fontSize: isMobileScreen ? '0.8rem' : '0.85rem',
-                    color: textMuted,
-                    margin: 0,
-                    fontWeight: '500'
-                  }}>
-                    Record a project or company cost.
-                  </p>
-                </div>
-
-                {/* Type Pills Selector: [Project] [Salary] [Company] [Venture] [Other] */}
-                <div style={{
-                  display: 'flex',
-                  gap: '0.45rem',
-                  marginBottom: '0.95rem',
-                  overflowX: 'auto',
-                  paddingBottom: '2px',
-                  scrollbarWidth: 'none'
-                }}>
-                  {expPills.map(pill => {
-                    const isSelected = (expenseFormData.type || 'Project').toLowerCase() === pill.toLowerCase()
-                    return (
-                      <button
-                        key={pill}
-                        type="button"
-                        onClick={() => {
-                          const groupCats = EXPENSE_CATEGORY_GROUPS[pill] || ['Other']
-                          setExpenseFormData(prev => ({
-                            ...prev,
-                            type: pill,
-                            category: groupCats[0]
-                          }))
-                        }}
-                        style={{
-                          padding: '0.42rem 1rem',
-                          borderRadius: '10px',
-                          border: isSelected 
-                            ? `1px solid ${isDarkMode ? '#ffffff' : '#000000'}`
-                            : `1px solid ${borderColor}`,
-                          background: isSelected 
-                            ? (isDarkMode ? '#ffffff' : '#000000')
-                            : (isDarkMode ? '#17191d' : '#ffffff'),
-                          color: isSelected 
-                            ? (isDarkMode ? '#000000' : '#ffffff')
-                            : (isDarkMode ? '#a1a7b0' : '#1e293b'),
-                          fontSize: '0.82rem',
-                          fontWeight: isSelected ? '700' : '600',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isSelected 
-                            ? (isDarkMode ? '0 2px 8px rgba(255,255,255,0.18)' : '0 2px 8px rgba(0,0,0,0.15)')
-                            : 'none'
-                        }}
-                      >
-                        {pill}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Row 1: Category * | Date * */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Category *</label>
-                      {!isAddingExpenseCategory && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAddingExpenseCategory(true)
-                            setNewExpenseCategoryInput('')
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: isDarkMode ? '#ffffff' : '#0f172a',
-                            fontSize: '0.78rem',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            padding: 0
-                          }}
-                        >
-                          <Plus size={13} strokeWidth={2.5} /> Add Category
-                        </button>
-                      )}
-                    </div>
-
-                    {isAddingExpenseCategory ? (
-                      <div style={{
-                        background: isDarkMode ? '#16181b' : '#f8fafc',
-                        border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
-                        borderRadius: '12px',
-                        padding: '0.65rem 0.75rem',
-                        marginBottom: '0.5rem'
-                      }}>
-                        <div style={{ fontSize: '0.74rem', fontWeight: '700', color: textPrimary, marginBottom: '0.35rem' }}>
-                          Add New Category
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                          <input
-                            type="text"
-                            value={newExpenseCategoryInput}
-                            onChange={(e) => setNewExpenseCategoryInput(e.target.value)}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                handleAddCustomExpenseCategory()
-                              } else if (e.key === 'Escape') {
-                                setIsAddingExpenseCategory(false)
-                                setNewExpenseCategoryInput('')
-                              }
-                            }}
-                            style={{ ...inputControlStyle, flex: 1, minWidth: 0, height: '38px', fontSize: '0.82rem' }}
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddCustomExpenseCategory}
-                            disabled={!newExpenseCategoryInput.trim()}
-                            style={{
-                              background: isDarkMode ? '#ffffff' : '#000000',
-                              color: isDarkMode ? '#000000' : '#ffffff',
-                              border: 'none',
-                              borderRadius: '8px',
-                              padding: '0 0.8rem',
-                              height: '38px',
-                              fontSize: '0.8rem',
-                              fontWeight: '700',
-                              cursor: newExpenseCategoryInput.trim() ? 'pointer' : 'not-allowed',
-                              opacity: newExpenseCategoryInput.trim() ? 1 : 0.6,
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingExpenseCategory(false)
-                              setNewExpenseCategoryInput('')
-                            }}
-                            style={{
-                              background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                              color: textMuted,
-                              border: `1px solid ${borderColor}`,
-                              borderRadius: '8px',
-                              padding: '0 0.6rem',
-                              height: '38px',
-                              fontSize: '0.8rem',
-                              fontWeight: '600',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <select
-                        value={expenseFormData.category}
-                        onChange={(e) => {
-                          if (e.target.value === '__add_new_cat__') {
-                            setIsAddingExpenseCategory(true)
-                            setNewExpenseCategoryInput('')
-                          } else {
-                            setExpenseFormData(prev => ({ ...prev, category: e.target.value }))
-                          }
-                        }}
-                        style={{
-                          ...inputControlStyle,
-                          appearance: 'none',
-                          backgroundImage: selectArrowBg,
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'right 14px center',
-                          paddingRight: '2.5rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {activeGroupCategories.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                        <option value="__add_new_cat__" style={{ fontWeight: '700' }}>
-                          + Add New Category...
-                        </option>
-                      </select>
-                    )}
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Date *</label>
-                    <input
-                      type="date"
-                      value={expenseFormData.date}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, date: e.target.value }))}
-                      style={inputControlStyle}
-                    />
-                  </div>
-                </div>
-
-
-                {/* Row 2: Vendor / Payee & Project (Job Order) Structured like Customers */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Vendor / Payee</label>
-                      {expenseFormData.vendor && (
-                        <button
-                          type="button"
-                          onClick={() => setExpenseFormData(prev => ({ ...prev, vendor: '', payee: '' }))}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: isDarkMode ? '#94a3b8' : '#64748b',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            padding: 0
-                          }}
-                        >
-                          ✕ Clear
-                        </button>
-                      )}
-                    </div>
-                    <VendorCombobox
-                      value={expenseFormData.payee}
-                      onChange={(name) => {
-                        const qName = (name || '').trim().toLowerCase()
-                        const matchedVen = vendors.find(v => (v.name || '').trim().toLowerCase() === qName)
-                        const vId = matchedVen ? String(matchedVen.id) : ''
-                        
-                        const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
-                        const matchingJobs = allJobList.filter(j => {
-                          if (vId && (String(j.vendor) === vId || String(j.vendor_id) === vId)) return true
-                          if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (matchedVen?.name || qName)) return true
-                          return false
-                        })
-
-                        setExpenseFormData(prev => ({
-                          ...prev,
-                          payee: name,
-                          vendor: matchedVen ? matchedVen.id : '',
-                          project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (
-                            matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : ''
-                          )
-                        }))
-                      }}
-                      onSelectVendor={(v) => {
-                        if (v) {
-                          const vId = String(v.id)
-                          const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
-                          const matchingJobs = allJobList.filter(j => {
-                            if (String(j.vendor) === vId || String(j.vendor_id) === vId) return true
-                            if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (v.name || '').trim().toLowerCase()) return true
-                            return false
-                          })
-
-                          setExpenseFormData(prev => ({
-                            ...prev,
-                            payee: v.name,
-                            vendor: v.id,
-                            project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (
-                              matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : ''
-                            )
-                          }))
-                        }
-                      }}
-                      vendors={vendors}
-                      isDarkMode={isDarkMode}
-                      compact={true}
-                      showPayable={false}
-                    />
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Project / Job Order</label>
-                      {expenseFormData.project && (
-                        <button
-                          type="button"
-                          onClick={() => setExpenseFormData(prev => ({ ...prev, project: '' }))}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: isDarkMode ? '#94a3b8' : '#64748b',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            padding: 0
-                          }}
-                        >
-                          ✕ Clear link
-                        </button>
-                      )}
-                    </div>
-                    <CashbookSelect
-                      value={expenseFormData.project || ''}
-                      onChange={(val) => setExpenseFormData(prev => ({ ...prev, project: val }))}
-                      options={
-                        (expenseFormData.vendor || expenseFormData.payee?.trim()) ? [
-                          { 
-                            id: '', 
-                            label: expenseVendorJobOrders.length > 0 
-                              ? '-- Select Project / Job Order --' 
-                              : `No job orders assigned to ${expenseFormData.payee || 'this vendor'}` 
-                          },
-                          ...expenseVendorJobOrders.map(job => {
-                            const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
-                            return {
-                              id: String(job.id),
-                              label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}`
-                            }
-                          })
-                        ] : [
-                          { id: '', label: 'Select project (optional)' },
-                          ...(jobOrdersList.length > 0 ? jobOrdersList : jobOrders).map(job => {
-                            const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
-                            return {
-                              id: String(job.id),
-                              label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}`
-                            }
-                          })
-                        ]
-                      }
-                      variant="modal-field"
-                      isDark={isDarkMode}
-                      clearable={true}
-                    />
-
-                    {/* Inline Job Order summary text (keeps vertical height constant) */}
-                    {(() => {
-                      const currentJobId = expenseFormData.project
-                      if (!currentJobId) return null
-                      const allJobs = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
-                      const selectedJob = allJobs.find(j => String(j.id) === String(currentJobId))
-                      if (!selectedJob) return null
-                      const totalAmt = parseFloat(selectedJob.total_amount) || 0
-                      const vendorCosts = parseFloat(selectedJob.vendor_labor_costs || 0)
-                      const purchaseCosts = parseFloat(selectedJob.purchase_expenses || 0)
-                      const directCosts = vendorCosts + purchaseCosts
-                      return (
-                        <div style={{
-                          fontSize: '0.71rem',
-                          color: textMuted,
-                          marginTop: '3px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          Total: <strong style={{ color: textPrimary }}>SAR {safeFormatAmount(totalAmt)}</strong> • Direct Costs: <strong style={{ color: textPrimary }}>SAR {safeFormatAmount(directCosts)}</strong>
-                          {selectedJob.status && <span> • {selectedJob.status}</span>}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
-
-                {/* Row 3: Invoice / receipt | Recurring? */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Invoice / receipt</label>
-                      <button
-                        type="button"
-                        onClick={() => setIsManualInvoiceInput(prev => !prev)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: isDarkMode ? '#ffffff' : '#0f172a',
-                          fontSize: '0.78rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        {isManualInvoiceInput ? 'Choose from list' : '+ Enter manual #'}
-                      </button>
-                    </div>
-
-                    {isManualInvoiceInput ? (
-                      <input
-                        type="text"
-                        value={expenseFormData.invoice_number}
-                        onChange={(e) => setExpenseFormData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                        style={inputControlStyle}
-                        autoFocus
-                      />
-                    ) : (
-                      <CashbookSelect
-                        value={expenseFormData.invoice_number || ''}
-                        onChange={(val) => {
-                          if (val === '__enter_manual__') {
-                            setIsManualInvoiceInput(true)
-                          } else {
-                            const invObj = invoicesList.find(i => String(i.invoice_number) === String(val))
-                            setExpenseFormData(prev => ({
-                              ...prev,
-                              invoice_number: val,
-                              ...(invObj?.job_order && !prev.project ? { project: String(invObj.job_order) } : {}),
-                              ...(invObj?.customer_name && !prev.payee ? { payee: invObj.customer_name } : {})
-                            }))
-                          }
-                        }}
-                        options={[
-                          { id: '', label: 'Select invoice (optional)' },
-                          ...invoicesList.map(inv => {
-                            const clientPart = inv.customer_name || inv.customer?.name || ''
-                            const totalPart = inv.total_amount ? ` (${safeFormatAmount(inv.total_amount)} SAR)` : ''
-                            return {
-                              id: inv.invoice_number,
-                              label: `${inv.invoice_number}${clientPart ? ` - ${clientPart}` : ''}${totalPart}`
-                            }
-                          }),
-                          { id: '__enter_manual__', label: '+ Enter manual / custom invoice #' }
-                        ]}
-                        variant="modal-field"
-                        isDark={isDarkMode}
-                        clearable={true}
-                      />
-                    )}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Recurring?</label>
-                    <CashbookSelect
-                      value={expenseFormData.recurring || 'No'}
-                      onChange={(val) => setExpenseFormData(prev => ({ ...prev, recurring: val }))}
-                      options={[
-                        { id: 'No', label: 'No' },
-                        { id: 'Yes - Weekly', label: 'Yes - Weekly' },
-                        { id: 'Yes - Monthly', label: 'Yes - Monthly' },
-                        { id: 'Yes - Quarterly', label: 'Yes - Quarterly' },
-                        { id: 'Yes - Yearly', label: 'Yes - Yearly' }
-                      ]}
-                      variant="modal-field"
-                      isDark={isDarkMode}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 4: Description | Notes */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Description</label>
-                    <input
-                      type="text"
-                      placeholder="Optional brief description"
-                      value={expenseFormData.description}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, description: e.target.value }))}
-                      style={inputControlStyle}
-                    />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={fieldLabelStyle}>Notes</label>
-                    <input
-                      type="text"
-                      placeholder="Optional remarks / memo"
-                      value={expenseFormData.notes}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, notes: e.target.value }))}
-                      style={inputControlStyle}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 4: Payment method (Column 1) & Bank / Petty Cash Account Selector (Column 2) */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobileScreen ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: '0.85rem',
-                  marginBottom: '0.85rem'
-                }}>
-                  <div style={{
-                    minWidth: 0,
-                    gridColumn: (expenseFormData.payment_method === 'Petty Cash' || expenseFormData.payment_method === 'Bank Transfer')
-                      ? (isMobileScreen ? '1' : '1')
-                      : (isMobileScreen ? '1' : '1 / -1')
-                  }}>
-                    <label style={fieldLabelStyle}>Payment method</label>
-                    <select
-                      value={expenseFormData.payment_method}
-                      onChange={(e) => {
-                        const mode = e.target.value
-                        setExpenseFormData(prev => ({
-                          ...prev,
-                          payment_method: mode,
-                          ...(mode === 'Bank Transfer' ? {
-                            bank_account: prev.bank_account || (banks.length > 0 ? banks[0].id : ''),
-                            bank_account_name: prev.bank_account_name || (banks.length > 0 ? banks[0].bank_name : '')
-                          } : {
-                            bank_account: '',
-                            bank_account_name: ''
-                          }),
-                          ...(mode === 'Petty Cash' ? {
-                            petty_cash_account: prev.petty_cash_account || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].id : ''),
-                            petty_cash_account_name: prev.petty_cash_account_name || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].name : '')
-                          } : {
-                            petty_cash_account: '',
-                            petty_cash_account_name: ''
-                          })
-                        }))
-                      }}
-                      style={{
-                        ...inputControlStyle,
-                        appearance: 'none',
-                        backgroundImage: selectArrowBg,
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'right 14px center',
-                        paddingRight: '2.5rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {PAYMENT_MODES.filter(m => m !== 'All').map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Conditional Sub-flow: Bank Transfer -> Select Bank */}
-                  {expenseFormData.payment_method === 'Bank Transfer' && (
-                    <div style={{ minWidth: 0 }}>
-                      <label style={fieldLabelStyle}>Select Bank *</label>
-                      {banks.length === 0 ? (
-                        <div style={{ fontSize: '0.78rem', color: '#ef4444', padding: '0.45rem 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <AlertTriangle size={15} />
-                          <span>No active banks found in Banks module.</span>
-                        </div>
-                      ) : (
-                        <select
-                          value={expenseFormData.bank_account || ''}
-                          onChange={(e) => {
-                            const selectedId = e.target.value
-                            const bObj = banks.find(b => String(b.id) === String(selectedId))
-                            setExpenseFormData(prev => ({
-                              ...prev,
-                              bank_account: selectedId,
-                              bank_account_name: bObj?.bank_name || ''
-                            }))
-                          }}
-                          style={{
-                            ...inputControlStyle,
-                            appearance: 'none',
-                            backgroundImage: selectArrowBg,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 14px center',
-                            paddingRight: '2.5rem',
-                            cursor: 'pointer'
-                          }}
-                          required
-                        >
-                          <option value="">-- Select Bank Account --</option>
-                          {banks.map(b => (
-                            <option key={b.id} value={b.id}>
-                              {b.bank_name} {b.account_number ? `(${b.account_number})` : ''} - Balance: {safeFormatAmount(b.current_balance ?? b.balance ?? 0)} SAR
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Conditional Sub-flow: Petty Cash -> Whose Petty Cash Account? */}
-                  {expenseFormData.payment_method === 'Petty Cash' && (
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                        <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Petty Cash</label>
-                        {!isAddingPettyCashAccount && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingPettyCashAccount(true)
-                              setNewPettyCashAccountName('')
-                              setNewPettyCashAccountHolder('')
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: isDarkMode ? '#ffffff' : '#0f172a',
-                              fontSize: '0.76rem',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: 0
-                            }}
-                          >
-                            <Plus size={12} strokeWidth={2.5} /> Add
-                          </button>
-                        )}
-                      </div>
-
-                      {isAddingPettyCashAccount ? (
-                        <div style={{
-                          background: isDarkMode ? '#16181b' : '#f8fafc',
-                          border: isDarkMode ? '1px solid #282a2e' : '1px solid #cbd5e1',
-                          borderRadius: '12px',
-                          padding: '0.65rem 0.75rem',
-                          marginBottom: '0.5rem'
-                        }}>
-                          <div style={{ fontSize: '0.74rem', fontWeight: '700', color: textPrimary, marginBottom: '0.35rem' }}>
-                            Add Dedicated Petty Cash Account
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <input
-                              type="text"
-                              value={newPettyCashAccountName}
-                              onChange={(e) => setNewPettyCashAccountName(e.target.value)}
-                              placeholder="Account name (e.g. Nizam PC)"
-                              style={{ ...inputControlStyle, flex: 1, minWidth: '130px', height: '38px', fontSize: '0.8rem' }}
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault()
-                                  handleCreatePettyCashAccountInline()
-                                } else if (e.key === 'Escape') {
-                                  setIsAddingPettyCashAccount(false)
-                                  setNewPettyCashAccountName('')
-                                  setNewPettyCashAccountHolder('')
-                                }
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={handleCreatePettyCashAccountInline}
-                              disabled={savingPettyCashAccount || !newPettyCashAccountName.trim()}
-                              style={{
-                                background: isDarkMode ? '#ffffff' : '#0f172a',
-                                color: isDarkMode ? '#0f172a' : '#ffffff',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '0 0.8rem',
-                                height: '38px',
-                                fontSize: '0.8rem',
-                                fontWeight: '700',
-                                cursor: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 'pointer' : 'not-allowed',
-                                opacity: newPettyCashAccountName.trim() && !savingPettyCashAccount ? 1 : 0.6,
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {savingPettyCashAccount ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAddingPettyCashAccount(false)
-                                setNewPettyCashAccountName('')
-                                setNewPettyCashAccountHolder('')
-                              }}
-                              style={{
-                                background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                                color: textMuted,
-                                border: `1px solid ${borderColor}`,
-                                borderRadius: '8px',
-                                padding: '0 0.6rem',
-                                height: '38px',
-                                fontSize: '0.8rem',
-                                fontWeight: '600',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <select
-                          value={expenseFormData.petty_cash_account || selectedPettyCashAccountId || ''}
-                          onChange={(e) => {
-                            if (e.target.value === '__add_new__') {
-                              setIsAddingPettyCashAccount(true)
-                              setNewPettyCashAccountName('')
-                              setNewPettyCashAccountHolder('')
-                            } else {
-                              const pId = e.target.value
-                              const pObj = pettyCashAccounts.find(p => String(p.id) === String(pId))
-                              setSelectedPettyCashAccountId(pId)
-                              setExpenseFormData(prev => ({
-                                ...prev,
-                                petty_cash_account: pId,
-                                petty_cash_account_name: pObj?.name || ''
-                              }))
-                            }
-                          }}
-                          style={{
-                            ...inputControlStyle,
-                            appearance: 'none',
-                            backgroundImage: selectArrowBg,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 14px center',
-                            paddingRight: '2.5rem',
-                            cursor: 'pointer'
-                          }}
-                          required
-                        >
-                          <option value="">-- Select Petty Cash Account / Person --</option>
-                          {userPettyCashAccounts.map(a => (
-                            <option key={a.id} value={a.id}>
-                              {a.name} ({safeFormatAmount(a.balance || 0)} SAR)
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Row 5: Amount * (directly below Payment method!) */}
-                <div style={{ marginBottom: '1.05rem' }}>
-                  <label style={fieldLabelStyle}>Amount *</label>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{
-                      position: 'absolute',
-                      left: '14px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      fontSize: '0.85rem',
-                      fontWeight: '800',
-                      color: isDarkMode ? '#94a3b8' : '#64748b',
-                      pointerEvents: 'none'
-                    }}>
-                      SAR
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={expenseFormData.amount}
-                      onChange={(e) => setExpenseFormData(prev => ({ ...prev, amount: e.target.value }))}
-                      placeholder="0.00"
-                      style={{
-                        ...inputControlStyle,
-                        paddingLeft: '3.1rem',
-                        fontWeight: '800',
-                        fontSize: '1.05rem',
-                        letterSpacing: '0.01em'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Action Button: Save expense */}
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="expense-modal-form"
+              className="cred-modal-submit-btn"
+              disabled={expenseSubmitting}
+            >
+              {expenseSubmitting ? 'Saving...' : 'Save Expense'}
+            </button>
+          </div>
+        }
+      >
+        <form id="expense-modal-form" onSubmit={handleSaveExpense}>
+          {/* Type Pills */}
+          <div style={{ display: 'flex', gap: '0.45rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+            {expPills.map(pill => {
+              const isSelected = (expenseFormData.type || 'Project').toLowerCase() === pill.toLowerCase()
+              return (
                 <button
-                  type="submit"
-                  id="btn-save-expense"
-                  disabled={expenseSubmitting}
+                  key={pill}
+                  type="button"
+                  onClick={() => {
+                    const groupCats = EXPENSE_CATEGORY_GROUPS[pill] || ['Other']
+                    setExpenseFormData(prev => ({ ...prev, type: pill, category: groupCats[0] }))
+                  }}
                   style={{
-                    width: '100%',
-                    height: '46px',
-                    borderRadius: '12px',
-                    background: isDarkMode ? '#ffffff' : '#000000',
-                    color: isDarkMode ? '#000000' : '#ffffff',
-                    border: 'none',
-                    fontSize: '0.94rem',
-                    fontWeight: '700',
-                    cursor: expenseSubmitting ? 'not-allowed' : 'pointer',
-                    opacity: expenseSubmitting ? 0.7 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: isDarkMode ? '0 4px 18px rgba(255,255,255,0.15)' : '0 4px 18px rgba(0,0,0,0.22)',
-                    transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
+                    padding: '0.42rem 1rem',
+                    borderRadius: '9999px',
+                    border: isSelected ? '1.5px solid var(--text, #111)' : '1px solid var(--border, #E4E4E4)',
+                    background: isSelected ? 'var(--text, #111)' : 'transparent',
+                    color: isSelected ? '#fff' : 'var(--text-muted, #8C8C8C)',
+                    fontSize: '0.82rem',
+                    fontWeight: isSelected ? '700' : '500',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease'
                   }}
                 >
-                  {expenseSubmitting ? (
-                    <>
-                      <RefreshCw size={18} className="animate-spin" />
-                      <span>Saving expense...</span>
-                    </>
-                  ) : (
-                    <span>Save expense</span>
-                  )}
+                  {pill}
                 </button>
-              </form>
+              )
+            })}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px' }}>
+            {/* Category */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="cred-form-label" style={{ marginBottom: 0 }}>
+                  Category <span className="cred-required-dot" />
+                </label>
+                {!isAddingExpenseCategory && (
+                  <button type="button" onClick={() => { setIsAddingExpenseCategory(true); setNewExpenseCategoryInput('') }}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent, #0066FF)', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Plus size={13} strokeWidth={2.5} /> Add Category
+                  </button>
+                )}
+              </div>
+              {isAddingExpenseCategory ? (
+                <div style={{ background: 'var(--fill-ghost-hover, #F4F4F4)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '12px', padding: '0.65rem 0.75rem' }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: '600', color: 'var(--text, #111)', marginBottom: '0.35rem' }}>Add New Category</div>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="cred-input"
+                      value={newExpenseCategoryInput}
+                      onChange={(e) => setNewExpenseCategoryInput(e.target.value)}
+                      autoFocus
+                      style={{ flex: 1, minWidth: 0, height: '36px' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); handleAddCustomExpenseCategory() }
+                        else if (e.key === 'Escape') { setIsAddingExpenseCategory(false); setNewExpenseCategoryInput('') }
+                      }}
+                    />
+                    <button type="button" onClick={handleAddCustomExpenseCategory} disabled={!newExpenseCategoryInput.trim()}
+                      className="cred-modal-submit-btn" style={{ height: '36px', padding: '0 0.8rem', fontSize: '0.8rem' }}>Save</button>
+                    <button type="button" onClick={() => { setIsAddingExpenseCategory(false); setNewExpenseCategoryInput('') }}
+                      className="cred-modal-cancel-btn" style={{ height: '36px', padding: '0 0.6rem', fontSize: '0.8rem' }}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                <select className="cred-select"
+                  value={expenseFormData.category}
+                  onChange={(e) => {
+                    if (e.target.value === '__add_new_cat__') { setIsAddingExpenseCategory(true); setNewExpenseCategoryInput('') }
+                    else setExpenseFormData(prev => ({ ...prev, category: e.target.value }))
+                  }}
+                >
+                  {activeGroupCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  <option value="__add_new_cat__" style={{ fontWeight: '700' }}>+ Add New Category...</option>
+                </select>
+              )}
             </div>
-          </div>,
-      document.body
+
+            {/* Date */}
+            <div>
+              <label className="cred-form-label">Date <span className="cred-required-dot" /></label>
+              <input type="date" className="cred-input"
+                value={expenseFormData.date}
+                onChange={(e) => setExpenseFormData(prev => ({ ...prev, date: e.target.value }))} />
+            </div>
+
+            {/* Vendor / Payee */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="cred-form-label" style={{ marginBottom: 0 }}>Vendor / Payee</label>
+                {expenseFormData.vendor && (
+                  <button type="button" onClick={() => setExpenseFormData(prev => ({ ...prev, vendor: '', payee: '' }))}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted, #8C8C8C)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
+                    ✕ Clear
+                  </button>
+                )}
+              </div>
+              <VendorCombobox
+                value={expenseFormData.payee}
+                onChange={(name) => {
+                  const qName = (name || '').trim().toLowerCase()
+                  const matchedVen = vendors.find(v => (v.name || '').trim().toLowerCase() === qName)
+                  const vId = matchedVen ? String(matchedVen.id) : ''
+                  const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
+                  const matchingJobs = allJobList.filter(j => {
+                    if (vId && (String(j.vendor) === vId || String(j.vendor_id) === vId)) return true
+                    if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (matchedVen?.name || qName)) return true
+                    return false
+                  })
+                  setExpenseFormData(prev => ({
+                    ...prev,
+                    payee: name,
+                    vendor: matchedVen ? matchedVen.id : '',
+                    project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : '')
+                  }))
+                }}
+                onSelectVendor={(v) => {
+                  if (v) {
+                    const vId = String(v.id)
+                    const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
+                    const matchingJobs = allJobList.filter(j => {
+                      if (String(j.vendor) === vId || String(j.vendor_id) === vId) return true
+                      if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (v.name || '').trim().toLowerCase()) return true
+                      return false
+                    })
+                    setExpenseFormData(prev => ({
+                      ...prev,
+                      payee: v.name,
+                      vendor: v.id,
+                      project: matchingJobs.length === 1 ? String(matchingJobs[0].id) : (matchingJobs.some(j => String(j.id) === String(prev.project)) ? prev.project : '')
+                    }))
+                  }
+                }}
+                vendors={vendors}
+                isDarkMode={isDarkMode}
+                compact={true}
+                showPayable={false}
+              />
+            </div>
+
+            {/* Project / Job Order */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="cred-form-label" style={{ marginBottom: 0 }}>Project / Job Order</label>
+                {expenseFormData.project && (
+                  <button type="button" onClick={() => setExpenseFormData(prev => ({ ...prev, project: '' }))}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted, #8C8C8C)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
+                    ✕ Clear link
+                  </button>
+                )}
+              </div>
+              <CashbookSelect
+                value={expenseFormData.project || ''}
+                onChange={(val) => setExpenseFormData(prev => ({ ...prev, project: val }))}
+                options={
+                  (expenseFormData.vendor || expenseFormData.payee?.trim()) ? [
+                    { id: '', label: expenseVendorJobOrders.length > 0 ? '-- Select Project / Job Order --' : `No job orders assigned to ${expenseFormData.payee || 'this vendor'}` },
+                    ...expenseVendorJobOrders.map(job => {
+                      const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
+                      return { id: String(job.id), label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}` }
+                    })
+                  ] : [
+                    { id: '', label: 'Select project (optional)' },
+                    ...(jobOrdersList.length > 0 ? jobOrdersList : jobOrders).map(job => {
+                      const orderNum = String(job.order_id || job.id || '').replace(/^#+/, '')
+                      return { id: String(job.id), label: `#${orderNum} — ${job.title || 'Job #' + job.id}${job.customer_name ? ` (Client: ${job.customer_name})` : ''}` }
+                    })
+                  ]
+                }
+                variant="modal-field"
+                isDark={isDarkMode}
+                clearable={true}
+              />
+              {(() => {
+                const currentJobId = expenseFormData.project
+                if (!currentJobId) return null
+                const allJobs = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
+                const selectedJob = allJobs.find(j => String(j.id) === String(currentJobId))
+                if (!selectedJob) return null
+                const totalAmt = parseFloat(selectedJob.total_amount) || 0
+                const vendorCosts = parseFloat(selectedJob.vendor_labor_costs || 0)
+                const purchaseCosts = parseFloat(selectedJob.purchase_expenses || 0)
+                const directCosts = vendorCosts + purchaseCosts
+                return (
+                  <div style={{ fontSize: '0.71rem', color: 'var(--text-muted, #8C8C8C)', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    Total: <strong style={{ color: 'var(--text, #111)' }}>SAR {safeFormatAmount(totalAmt)}</strong> • Direct Costs: <strong style={{ color: 'var(--text, #111)' }}>SAR {safeFormatAmount(directCosts)}</strong>
+                    {selectedJob.status && <span> • {selectedJob.status}</span>}
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Invoice / receipt */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="cred-form-label" style={{ marginBottom: 0 }}>Invoice / receipt</label>
+                <button type="button" onClick={() => setIsManualInvoiceInput(prev => !prev)}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent, #0066FF)', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', padding: 0 }}>
+                  {isManualInvoiceInput ? 'Choose from list' : '+ Enter manual #'}
+                </button>
+              </div>
+              {isManualInvoiceInput ? (
+                <input type="text" className="cred-input"
+                  value={expenseFormData.invoice_number}
+                  onChange={(e) => setExpenseFormData(prev => ({ ...prev, invoice_number: e.target.value }))}
+                  autoFocus />
+              ) : (
+                <CashbookSelect
+                  value={expenseFormData.invoice_number || ''}
+                  onChange={(val) => {
+                    if (val === '__enter_manual__') { setIsManualInvoiceInput(true) }
+                    else {
+                      const invObj = invoicesList.find(i => String(i.invoice_number) === String(val))
+                      setExpenseFormData(prev => ({
+                        ...prev,
+                        invoice_number: val,
+                        ...(invObj?.job_order && !prev.project ? { project: String(invObj.job_order) } : {}),
+                        ...(invObj?.customer_name && !prev.payee ? { payee: invObj.customer_name } : {})
+                      }))
+                    }
+                  }}
+                  options={[
+                    { id: '', label: 'Select invoice (optional)' },
+                    ...invoicesList.map(inv => {
+                      const clientPart = inv.customer_name || inv.customer?.name || ''
+                      const totalPart = inv.total_amount ? ` (${safeFormatAmount(inv.total_amount)} SAR)` : ''
+                      return { id: inv.invoice_number, label: `${inv.invoice_number}${clientPart ? ` - ${clientPart}` : ''}${totalPart}` }
+                    }),
+                    { id: '__enter_manual__', label: '+ Enter manual / custom invoice #' }
+                  ]}
+                  variant="modal-field"
+                  isDark={isDarkMode}
+                  clearable={true}
+                />
+              )}
+            </div>
+
+            {/* Recurring? */}
+            <div>
+              <label className="cred-form-label">Recurring?</label>
+              <CashbookSelect
+                value={expenseFormData.recurring || 'No'}
+                onChange={(val) => setExpenseFormData(prev => ({ ...prev, recurring: val }))}
+                options={[
+                  { id: 'No', label: 'No' },
+                  { id: 'Yes - Weekly', label: 'Yes - Weekly' },
+                  { id: 'Yes - Monthly', label: 'Yes - Monthly' },
+                  { id: 'Yes - Quarterly', label: 'Yes - Quarterly' },
+                  { id: 'Yes - Yearly', label: 'Yes - Yearly' }
+                ]}
+                variant="modal-field"
+                isDark={isDarkMode}
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="cred-form-label">Description</label>
+              <input type="text" className="cred-input" placeholder="Optional brief description"
+                value={expenseFormData.description}
+                onChange={(e) => setExpenseFormData(prev => ({ ...prev, description: e.target.value }))} />
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="cred-form-label">Notes</label>
+              <input type="text" className="cred-input" placeholder="Optional remarks / memo"
+                value={expenseFormData.notes}
+                onChange={(e) => setExpenseFormData(prev => ({ ...prev, notes: e.target.value }))} />
+            </div>
+
+            {/* Payment method */}
+            <div style={{
+              gridColumn: (expenseFormData.payment_method === 'Petty Cash' || expenseFormData.payment_method === 'Bank Transfer') ? '1' : '1 / -1'
+            }}>
+              <label className="cred-form-label">Payment method</label>
+              <select className="cred-select"
+                value={expenseFormData.payment_method}
+                onChange={(e) => {
+                  const mode = e.target.value
+                  setExpenseFormData(prev => ({
+                    ...prev,
+                    payment_method: mode,
+                    ...(mode === 'Bank Transfer' ? {
+                      bank_account: prev.bank_account || (banks.length > 0 ? banks[0].id : ''),
+                      bank_account_name: prev.bank_account_name || (banks.length > 0 ? banks[0].bank_name : '')
+                    } : { bank_account: '', bank_account_name: '' }),
+                    ...(mode === 'Petty Cash' ? {
+                      petty_cash_account: prev.petty_cash_account || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].id : ''),
+                      petty_cash_account_name: prev.petty_cash_account_name || (pettyCashAccounts.length > 0 ? pettyCashAccounts[0].name : '')
+                    } : { petty_cash_account: '', petty_cash_account_name: '' })
+                  }))
+                }}
+              >
+                {PAYMENT_MODES.filter(m => m !== 'All').map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            {/* Bank account (conditional) */}
+            {expenseFormData.payment_method === 'Bank Transfer' && (
+              <div>
+                <label className="cred-form-label">Select Bank <span className="cred-required-dot" /></label>
+                {banks.length === 0 ? (
+                  <div style={{ fontSize: '0.78rem', color: '#ef4444', padding: '0.45rem 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertTriangle size={15} /><span>No active banks found in Banks module.</span>
+                  </div>
+                ) : (
+                  <select className="cred-select" required
+                    value={expenseFormData.bank_account || ''}
+                    onChange={(e) => {
+                      const selectedId = e.target.value
+                      const bObj = banks.find(b => String(b.id) === String(selectedId))
+                      setExpenseFormData(prev => ({ ...prev, bank_account: selectedId, bank_account_name: bObj?.bank_name || '' }))
+                    }}>
+                    <option value="">-- Select Bank Account --</option>
+                    {banks.map(b => <option key={b.id} value={b.id}>{b.bank_name} {b.account_number ? `(${b.account_number})` : ''} - Balance: {safeFormatAmount(b.current_balance ?? b.balance ?? 0)} SAR</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Petty Cash account (conditional) */}
+            {expenseFormData.payment_method === 'Petty Cash' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="cred-form-label" style={{ marginBottom: 0 }}>Petty Cash <span className="cred-required-dot" /></label>
+                  {!isAddingPettyCashAccount && (
+                    <button type="button" onClick={() => { setIsAddingPettyCashAccount(true); setNewPettyCashAccountName(''); setNewPettyCashAccountHolder('') }}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent, #0066FF)', fontSize: '0.76rem', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
+                      <Plus size={12} strokeWidth={2.5} /> Add
+                    </button>
+                  )}
+                </div>
+                {isAddingPettyCashAccount ? (
+                  <div style={{ background: 'var(--fill-ghost-hover, #F4F4F4)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '12px', padding: '0.65rem 0.75rem' }}>
+                    <div style={{ fontSize: '0.74rem', fontWeight: '600', color: 'var(--text, #111)', marginBottom: '0.35rem' }}>Add Dedicated Petty Cash Account</div>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input type="text" className="cred-input"
+                        value={newPettyCashAccountName}
+                        onChange={(e) => setNewPettyCashAccountName(e.target.value)}
+                        placeholder="Account name (e.g. Nizam PC)"
+                        style={{ flex: 1, minWidth: '130px', height: '36px' }}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); handleCreatePettyCashAccountInline() }
+                          else if (e.key === 'Escape') { setIsAddingPettyCashAccount(false); setNewPettyCashAccountName(''); setNewPettyCashAccountHolder('') }
+                        }} />
+                      <button type="button" onClick={handleCreatePettyCashAccountInline} disabled={savingPettyCashAccount || !newPettyCashAccountName.trim()}
+                        className="cred-modal-submit-btn" style={{ height: '36px', padding: '0 0.8rem', fontSize: '0.8rem' }}>
+                        {savingPettyCashAccount ? 'Saving...' : 'Save'}
+                      </button>
+                      <button type="button" onClick={() => { setIsAddingPettyCashAccount(false); setNewPettyCashAccountName(''); setNewPettyCashAccountHolder('') }}
+                        className="cred-modal-cancel-btn" style={{ height: '36px', padding: '0 0.6rem', fontSize: '0.8rem' }}>✕</button>
+                    </div>
+                  </div>
+                ) : (
+                  <select className="cred-select" required
+                    value={expenseFormData.petty_cash_account || selectedPettyCashAccountId || ''}
+                    onChange={(e) => {
+                      if (e.target.value === '__add_new__') { setIsAddingPettyCashAccount(true); setNewPettyCashAccountName(''); setNewPettyCashAccountHolder('') }
+                      else {
+                        const pId = e.target.value
+                        const pObj = pettyCashAccounts.find(p => String(p.id) === String(pId))
+                        setSelectedPettyCashAccountId(pId)
+                        setExpenseFormData(prev => ({ ...prev, petty_cash_account: pId, petty_cash_account_name: pObj?.name || '' }))
+                      }
+                    }}>
+                    <option value="">-- Select Petty Cash Account / Person --</option>
+                    {userPettyCashAccounts.map(a => <option key={a.id} value={a.id}>{a.name} ({safeFormatAmount(a.balance || 0)} SAR)</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Amount */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="cred-form-label">Amount <span className="cred-required-dot" /></label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted, #8C8C8C)', pointerEvents: 'none' }}>SAR</span>
+                <input type="text" required className="cred-input"
+                  value={expenseFormData.amount}
+                  onChange={(e) => setExpenseFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="0.00"
+                  style={{ paddingLeft: '3.1rem', fontWeight: '700', fontSize: '1rem' }} />
+              </div>
+            </div>
+          </div>
+        </form>
+      </Modal>
     )
   }
 
@@ -11762,11 +11268,12 @@ const Cashbook = ({ currentUser = null }) => {
     const inputBorder = isDarkMode ? '#282b32' : '#cbd5e1'
 
     const fieldLabelStyle = {
-      display: 'block',
-      fontSize: '0.88rem',
-      fontWeight: '700',
-      color: textPrimary,
-      marginBottom: '0.45rem',
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '12px',
+      fontWeight: '500',
+      color: 'var(--text-muted, #8C8C8C)',
+      marginBottom: '6px',
       letterSpacing: '-0.01em'
     }
 
@@ -11821,15 +11328,13 @@ const Cashbook = ({ currentUser = null }) => {
               style={{
                 background: cardBg,
                 colorScheme: isDarkMode ? 'dark' : 'light',
-                border: isMobileScreen ? 'none' : `1px solid ${borderColor}`,
+                border: '1px solid var(--border, #E4E4E4)',
                 borderTop: isMobileScreen ? (isDarkMode ? '1px solid #282a2e' : '1px solid #E8ECF5') : undefined,
-                borderRadius: isMobileScreen ? '24px 24px 0 0' : '20px',
+                borderRadius: '24px',
                 padding: isMobileScreen 
                   ? '0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
                   : '2rem',
-                boxShadow: isMobileScreen 
-                  ? (isDarkMode ? '0 -8px 40px rgba(0, 0, 0, 0.8)' : '0 -8px 32px rgba(11, 27, 68, 0.25)')
-                  : (isDarkMode ? '0 20px 60px rgba(0,0,0,0.6)' : '0 20px 60px rgba(15,23,42,0.18)'),
+                boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)',
                 maxWidth: isMobileScreen ? '100%' : '520px',
                 width: '100%',
                 maxHeight: isMobileScreen ? '90vh' : 'min(90vh, 720px)',
@@ -12056,35 +11561,14 @@ const Cashbook = ({ currentUser = null }) => {
                 <button
                   type="submit"
                   disabled={vendorSubmitting}
+                  className="cred-modal-submit-btn"
                   style={{
                     width: '100%',
-                    height: '48px',
-                    borderRadius: '12px',
-                    background: isDarkMode ? '#ffffff' : '#0f172a',
-                    color: isDarkMode ? '#0c0d0e' : '#ffffff',
-                    border: 'none',
-                    fontSize: '0.92rem',
-                    fontWeight: '700',
-                    cursor: vendorSubmitting ? 'not-allowed' : 'pointer',
-                    opacity: vendorSubmitting ? 0.7 : 1,
+                    height: '42px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: isDarkMode ? '0 4px 18px rgba(255,255,255,0.12)' : '0 4px 18px rgba(15,23,42,0.18)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!vendorSubmitting) {
-                      e.currentTarget.style.opacity = '0.92'
-                      e.currentTarget.style.transform = 'translateY(-1px)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!vendorSubmitting) {
-                      e.currentTarget.style.opacity = '1'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                    }
+                    gap: '0.5rem'
                   }}
                 >
                   {vendorSubmitting ? (
@@ -12136,11 +11620,12 @@ const Cashbook = ({ currentUser = null }) => {
     const inputBorder = isDarkMode ? '#282b32' : '#cbd5e1'
 
     const fieldLabelStyle = {
-      display: 'block',
-      fontSize: '0.88rem',
-      fontWeight: '700',
-      color: textPrimary,
-      marginBottom: '0.45rem',
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '12px',
+      fontWeight: '500',
+      color: 'var(--text-muted, #8C8C8C)',
+      marginBottom: '6px',
       letterSpacing: '-0.01em'
     }
 
@@ -12195,15 +11680,13 @@ const Cashbook = ({ currentUser = null }) => {
               style={{
                 background: cardBg,
                 colorScheme: isDarkMode ? 'dark' : 'light',
-                border: isMobileScreen ? 'none' : `1px solid ${borderColor}`,
+                border: '1px solid var(--border, #E4E4E4)',
                 borderTop: isMobileScreen ? (isDarkMode ? '1px solid #282a2e' : '1px solid #E8ECF5') : undefined,
-                borderRadius: isMobileScreen ? '24px 24px 0 0' : '20px',
+                borderRadius: '24px',
                 padding: isMobileScreen 
                   ? '0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px)) 1.25rem' 
                   : '2rem',
-                boxShadow: isMobileScreen 
-                  ? (isDarkMode ? '0 -8px 40px rgba(0, 0, 0, 0.8)' : '0 -8px 32px rgba(11, 27, 68, 0.25)')
-                  : (isDarkMode ? '0 20px 60px rgba(0,0,0,0.6)' : '0 20px 60px rgba(15,23,42,0.18)'),
+                boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)',
                 maxWidth: isMobileScreen ? '100%' : '520px',
                 width: '100%',
                 maxHeight: isMobileScreen ? '90vh' : 'min(90vh, 720px)',
@@ -12434,35 +11917,14 @@ const Cashbook = ({ currentUser = null }) => {
                 <button
                   type="submit"
                   disabled={customerSubmitting}
+                  className="cred-modal-submit-btn"
                   style={{
                     width: '100%',
-                    height: '48px',
-                    borderRadius: '12px',
-                    background: isDarkMode ? '#ffffff' : '#0f172a',
-                    color: isDarkMode ? '#0c0d0e' : '#ffffff',
-                    border: 'none',
-                    fontSize: '0.92rem',
-                    fontWeight: '700',
-                    cursor: customerSubmitting ? 'not-allowed' : 'pointer',
-                    opacity: customerSubmitting ? 0.7 : 1,
+                    height: '42px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: isDarkMode ? '0 4px 18px rgba(255,255,255,0.12)' : '0 4px 18px rgba(15,23,42,0.18)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!customerSubmitting) {
-                      e.currentTarget.style.opacity = '0.92'
-                      e.currentTarget.style.transform = 'translateY(-1px)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!customerSubmitting) {
-                      e.currentTarget.style.opacity = '1'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                    }
+                    gap: '0.5rem'
                   }}
                 >
                   {customerSubmitting ? (
@@ -17593,9 +17055,16 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL: MOBILE BOOK ACTIONS / OPTIONS                      */}
       {/* ========================================================= */}
       <Modal 
+        className="cred-modal-shell"
         isOpen={mobileBookActionOpen} 
         onClose={() => { setMobileBookActionOpen(false); setSelectedBookForAction(null); }}
         title={selectedBookForAction?.name || selectedBook?.name || 'Book Options'}
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem 0' }}>
           <button
@@ -17674,6 +17143,7 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 1: RECORD CASH IN / CASH OUT                         */}
       {/* ========================================================= */}
       <Modal 
+        className="cred-modal-shell"
         isOpen={isEntryModalOpen} 
         onClose={() => { setIsEntryModalOpen(false); setIsAddingLabourer(false); }} 
         title={editingEntry ? `Edit Entry` : `Add Transaction`}
@@ -17850,7 +17320,7 @@ const Cashbook = ({ currentUser = null }) => {
               <>
                 {/* Row 1: Customer Name * (Full width) */}
                 <div className="form-group col-span-2">
-                  <label style={{ display: 'block', fontWeight: '700', fontSize: '0.74rem', marginBottom: '4px', minHeight: '20px', lineHeight: '20px', color: isDarkMode ? '#cbd5e1' : '#475569' }}>
+                  <label className="cred-form-label" style={{ display: 'block', marginBottom: '4px', minHeight: '20px', lineHeight: '20px' }}>
                     Customer Name *
                   </label>
                   <CustomerCombobox
@@ -17920,7 +17390,7 @@ const Cashbook = ({ currentUser = null }) => {
                     {/* Row 2: Job Order (Col 1) | Job Order Title * (Col 2) */}
                     <div className="form-group">
                       <div style={{ height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <label style={{ margin: 0, fontSize: '0.74rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569' }}>
+                        <label className="cred-form-label" style={{ margin: 0 }}>
                           Job Order
                         </label>
                         <button
@@ -17990,14 +17460,14 @@ const Cashbook = ({ currentUser = null }) => {
 
                     <div className="form-group">
                       <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ margin: 0, fontSize: '0.74rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 1 }}>
+                        <label className="cred-form-label" style={{ margin: 0 }}>
                           Job Order Title *
                         </label>
                       </div>
                       <input
                         type="text"
                         placeholder="e.g. Villa Renovation, Office Signboard"
-                        className="input-field"
+                        className="cred-input"
                         value={entryFormData.rough_job_title || ''}
                         onChange={(e) => setEntryFormData(prev => ({
                           ...prev,
@@ -18012,14 +17482,14 @@ const Cashbook = ({ currentUser = null }) => {
                     {/* Row 3: Description (Col 1) | Attachment (Col 2) */}
                     <div className="form-group">
                       <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ margin: 0, fontSize: '0.74rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 1 }}>
+                        <label className="cred-form-label" style={{ margin: 0 }}>
                           Description
                         </label>
                       </div>
                       <input
                         type="text"
                         placeholder="Optional job scope notes..."
-                        className="input-field"
+                        className="cred-input"
                         value={entryFormData.rough_job_description || ''}
                         onChange={(e) => setEntryFormData(prev => ({ ...prev, rough_job_description: e.target.value }))}
                         style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
@@ -18186,7 +17656,7 @@ const Cashbook = ({ currentUser = null }) => {
                     {/* Row 4: Category * (Col 1) | Remark / Description * (Col 2) */}
                     <div className="form-group">
                       <div style={{ height: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ margin: 0, fontWeight: '700', fontSize: '0.74rem', color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 1 }}>
+                        <label className="cred-form-label" style={{ margin: 0 }}>
                           Category *
                         </label>
                         {!isAddingCategory && (
@@ -18233,7 +17703,7 @@ const Cashbook = ({ currentUser = null }) => {
                         <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', height: '38px' }}>
                           <input
                             type="text"
-                            className="input-field"
+                            className="cred-input"
                             value={newCategoryInput}
                             onChange={(e) => setNewCategoryInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -18299,7 +17769,7 @@ const Cashbook = ({ currentUser = null }) => {
                       </div>
                       <input 
                         type="text" 
-                        className="input-field" 
+                        className="cred-input" 
                         placeholder="Optional internal notes..."
                         value={entryFormData.remark} 
                         onChange={(e) => setEntryFormData({...entryFormData, remark: e.target.value})}
@@ -18320,7 +17790,7 @@ const Cashbook = ({ currentUser = null }) => {
                         step="0.01"
                         min="0"
                         placeholder="e.g. 85000"
-                        className="input-field"
+                        className="cred-input"
                         value={entryFormData.rough_job_estimated_amount || ''}
                         onChange={(e) => setEntryFormData(prev => ({ ...prev, rough_job_estimated_amount: e.target.value }))}
                         required
@@ -18370,7 +17840,7 @@ const Cashbook = ({ currentUser = null }) => {
                       <input 
                         type="number" 
                         step="0.01" 
-                        className="input-field" 
+                        className="cred-input" 
                         placeholder="e.g. 5000"
                         value={entryFormData.amount} 
                         onChange={(e) => setEntryFormData({...entryFormData, amount: e.target.value})}
@@ -18439,7 +17909,7 @@ const Cashbook = ({ currentUser = null }) => {
                             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                               <input
                                 type="text"
-                                className="input-field"
+                                className="cred-input"
                                 placeholder="Account Name"
                                 value={newPettyCashAccountName}
                                 onChange={(e) => setNewPettyCashAccountName(e.target.value)}
@@ -18458,7 +17928,7 @@ const Cashbook = ({ currentUser = null }) => {
                               />
                               <input
                                 type="text"
-                                className="input-field"
+                                className="cred-input"
                                 placeholder="Holder Name"
                                 value={newPettyCashAccountHolder}
                                 onChange={(e) => setNewPettyCashAccountHolder(e.target.value)}
@@ -18588,7 +18058,7 @@ const Cashbook = ({ currentUser = null }) => {
                     {/* Mode 2: Standard/Existing Job Order – Row 2: Job Order (Col 1) | Category * (Col 2) */}
                     <div className="form-group">
                       <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ margin: 0, fontSize: '0.74rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#475569' }}>
+                        <label className="cred-form-label" style={{ margin: 0 }}>
                           Job Order
                         </label>
                       </div>
@@ -18690,7 +18160,7 @@ const Cashbook = ({ currentUser = null }) => {
                         <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', height: '38px' }}>
                           <input
                             type="text"
-                            className="input-field"
+                            className="cred-input"
                             value={newCategoryInput}
                             onChange={(e) => setNewCategoryInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -18757,7 +18227,7 @@ const Cashbook = ({ currentUser = null }) => {
                       </div>
                       <input 
                         type="text" 
-                        className="input-field" 
+                        className="cred-input" 
                         placeholder="Optional internal notes..."
                         value={entryFormData.remark} 
                         onChange={(e) => setEntryFormData({...entryFormData, remark: e.target.value})}
@@ -18776,7 +18246,7 @@ const Cashbook = ({ currentUser = null }) => {
                       <input 
                         type="number" 
                         step="0.01" 
-                        className="input-field" 
+                        className="cred-input" 
                         placeholder="e.g. 5000"
                         value={entryFormData.amount} 
                         onChange={(e) => setEntryFormData({...entryFormData, amount: e.target.value})}
@@ -18876,7 +18346,7 @@ const Cashbook = ({ currentUser = null }) => {
                             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                               <input
                                 type="text"
-                                className="input-field"
+                                className="cred-input"
                                 placeholder="Account Name"
                                 value={newPettyCashAccountName}
                                 onChange={(e) => setNewPettyCashAccountName(e.target.value)}
@@ -18895,7 +18365,7 @@ const Cashbook = ({ currentUser = null }) => {
                               />
                               <input
                                 type="text"
-                                className="input-field"
+                                className="cred-input"
                                 placeholder="Holder Name"
                                 value={newPettyCashAccountHolder}
                                 onChange={(e) => setNewPettyCashAccountHolder(e.target.value)}
@@ -19210,7 +18680,7 @@ const Cashbook = ({ currentUser = null }) => {
                             </label>
                             <input
                               type="text"
-                              className="input-field"
+                              className="cred-input"
                               value={entryFormData.rough_job_title || ''}
                               onChange={(e) => setEntryFormData(prev => ({
                                 ...prev,
@@ -19226,7 +18696,7 @@ const Cashbook = ({ currentUser = null }) => {
                             </label>
                             <input
                               type="text"
-                              className="input-field"
+                              className="cred-input"
                               value={entryFormData.rough_job_description || ''}
                               onChange={(e) => setEntryFormData(prev => ({ ...prev, rough_job_description: e.target.value }))}
                               style={{ height: '34px', fontSize: '0.8rem' }}
@@ -19389,7 +18859,7 @@ const Cashbook = ({ currentUser = null }) => {
                             </label>
                             <input
                               type="text"
-                              className="input-field"
+                              className="cred-input"
                               value={newLabourerName}
                               onChange={(e) => setNewLabourerName(e.target.value)}
                               style={{ height: '34px', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box' }}
@@ -19412,7 +18882,7 @@ const Cashbook = ({ currentUser = null }) => {
                             </label>
                             <input
                               type="text"
-                              className="input-field"
+                              className="cred-input"
                               value={newLabourerPhone}
                               onChange={(e) => setNewLabourerPhone(e.target.value)}
                               style={{ height: '34px', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box' }}
@@ -19621,7 +19091,7 @@ const Cashbook = ({ currentUser = null }) => {
                 </label>
                 <input
                   type="text"
-                  className="input-field"
+                  className="cred-input"
                   placeholder="e.g. Office supplies vendor, utility company..."
                   value={entryFormData.party_name}
                   onChange={(e) => setEntryFormData(prev => ({ ...prev, party_name: e.target.value }))}
@@ -19684,7 +19154,7 @@ const Cashbook = ({ currentUser = null }) => {
                     <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                       <input
                         type="text"
-                        className="input-field"
+                        className="cred-input"
                         value={newCategoryInput}
                         onChange={(e) => setNewCategoryInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -19749,7 +19219,7 @@ const Cashbook = ({ currentUser = null }) => {
                   </label>
                   <input 
                     type="text" 
-                    className="input-field" 
+                    className="cred-input" 
                     placeholder={entryFormData.debit_type === 'CUSTOMER' ? "e.g. Refund payout, deposit return, etc." : "e.g. Office supplies, tea snacks, etc."}
                     value={entryFormData.remark} 
                     onChange={(e) => setEntryFormData({...entryFormData, remark: e.target.value})}
@@ -19771,7 +19241,7 @@ const Cashbook = ({ currentUser = null }) => {
                       step="0.01"
                       min="0"
                       placeholder="e.g. 85000"
-                      className="input-field"
+                      className="cred-input"
                       value={entryFormData.rough_job_estimated_amount || ''}
                       onChange={(e) => setEntryFormData(prev => ({ ...prev, rough_job_estimated_amount: e.target.value }))}
                       required
@@ -19790,7 +19260,7 @@ const Cashbook = ({ currentUser = null }) => {
                   <input 
                     type="number" 
                     step="0.01" 
-                    className="input-field" 
+                    className="cred-input" 
                     placeholder="e.g. 500"
                     value={entryFormData.amount} 
                     onChange={(e) => setEntryFormData({...entryFormData, amount: e.target.value})}
@@ -20049,65 +19519,6 @@ const Cashbook = ({ currentUser = null }) => {
               />
             </div>
 
-            <div className="col-span-2 modal-form-footer" style={{ 
-              display: 'flex', 
-              justifyContent: 'flex-end', 
-              gap: '0.65rem', 
-              marginTop: '0.75rem',
-              paddingTop: '0.35rem',
-              background: 'transparent',
-              border: 'none',
-              borderTop: 'none',
-              boxShadow: 'none',
-              width: '100%',
-              maxWidth: '100%',
-              minWidth: 0,
-              boxSizing: 'border-box'
-            }}>
-              <button 
-                type="button" 
-                className="btn" 
-                onClick={() => {
-                  setIsEntryModalOpen(false)
-                  setIsAddingLabourer(false)
-                }}
-                style={{
-                  background: '#ffffff',
-                  color: '#0f172a',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  padding: '0.5rem 1.25rem',
-                  fontSize: '0.86rem',
-                  height: '40px',
-                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                className={`btn btn-primary ${entryType === 'in' ? 'btn-credit-submit' : 'btn-debit-submit'}`} 
-                style={{ 
-                  background: entryType === 'in' ? '#16a34a' : '#dc2626', 
-                  color: '#ffffff', 
-                  fontWeight: '800',
-                  padding: '0.5rem 1.5rem',
-                  borderRadius: '12px',
-                  border: 'none',
-                  boxShadow: entryType === 'in' ? '0 4px 16px rgba(22, 163, 74, 0.35)' : '0 4px 16px rgba(220, 38, 38, 0.35)',
-                  cursor: submittingEntry ? 'not-allowed' : 'pointer',
-                  fontSize: '0.86rem',
-                  height: '40px',
-                  transition: 'all 0.15s ease'
-                }}
-                disabled={submittingEntry}
-              >
-                {submittingEntry ? 'Saving...' : (editingEntry ? 'Update Entry' : (entryType === 'in' ? '+ Save Credit (Customer)' : '— Save Debit (Expense)'))}
-              </button>
-            </div>
           </div>
         </form>
       </Modal>
@@ -20116,20 +19527,27 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 2: CREATE / EDIT BOOK                                */}
       {/* ========================================================= */}
       <Modal 
+        className="cred-modal-shell"
         isOpen={isBookModalOpen} 
         onClose={() => setIsBookModalOpen(false)}
         title={editingBook ? `Edit Book: ${editingBook.name}` : 'Create New Book'}
         maxWidth="580px"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <form onSubmit={handleSubmitBook}>
           {bookError && <div className="error-message" style={{ marginBottom: '1rem' }}>{bookError}</div>}
 
           <div className="form-grid cb-book-form-grid">
             <div className="form-group col-span-2">
-              <label>Book Name *</label>
+              <label className="cred-form-label">Book Name <span className="cred-required-dot" /></label>
               <input 
                 type="text" 
-                className="input-field" 
+                className="cred-input" 
                 value={bookFormData.name} 
                 onChange={(e) => setBookFormData({...bookFormData, name: e.target.value})}
                 autoFocus
@@ -20138,18 +19556,18 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
 
             <div className={`form-group ${isMobileScreen ? 'col-span-2' : ''}`}>
-              <label style={{ whiteSpace: isMobileScreen ? 'normal' : 'nowrap' }}>Initial Opening Cash Balance (SAR)</label>
+              <label className="cred-form-label" style={{ whiteSpace: isMobileScreen ? 'normal' : 'nowrap' }}>Initial Opening Cash Balance (SAR)</label>
               <input 
                 type="number" 
                 step="0.01" 
-                className="input-field" 
+                className="cred-input" 
                 value={bookFormData.opening_balance} 
                 onChange={(e) => setBookFormData({...bookFormData, opening_balance: e.target.value})}
               />
             </div>
 
             <div className={`form-group ${isMobileScreen ? 'col-span-2' : ''}`}>
-              <label>Linked Year</label>
+              <label className="cred-form-label">Linked Year</label>
               <CashbookSelect
                 value={bookFormData.linked_year || new Date().getFullYear()}
                 onChange={(val) => setBookFormData({ ...bookFormData, linked_year: parseInt(val, 10) })}
@@ -20279,9 +19697,9 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
 
             <div className="form-group col-span-2">
-              <label>Description (Optional)</label>
+              <label className="cred-form-label">Description (Optional)</label>
               <textarea 
-                className="input-field" 
+                className="cred-textarea" 
                 rows="2"
                 value={bookFormData.description} 
                 onChange={(e) => setBookFormData({...bookFormData, description: e.target.value})}
@@ -20329,33 +19747,15 @@ const Cashbook = ({ currentUser = null }) => {
               <div style={{ display: 'flex', gap: '0.75rem', marginLeft: 'auto' }}>
                 <button 
                   type="button" 
-                  className="btn" 
+                  className="cred-modal-cancel-btn" 
                   onClick={() => setIsBookModalOpen(false)}
-                  style={{
-                    background: isDarkMode ? '#1c1e21' : '#f1f5f9',
-                    color: isDarkMode ? '#cbd5e1' : '#475569',
-                    border: isDarkMode ? '1px solid #282b30' : '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    fontWeight: '600',
-                    padding: '0.5rem 1.15rem'
-                  }}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="btn btn-primary" 
+                  className="cred-modal-submit-btn" 
                   disabled={submittingBook}
-                  style={{
-                    background: isDarkMode ? '#ffffff' : '#0f172a',
-                    color: isDarkMode ? '#0c0d0e' : '#ffffff',
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontWeight: '700',
-                    padding: '0.5rem 1.25rem',
-                    boxShadow: isDarkMode ? 'none' : '0 2px 10px rgba(0,0,0,0.15)',
-                    cursor: 'pointer'
-                  }}
                 >
                   {submittingBook ? 'Saving...' : (editingBook ? 'Update Book' : 'Create Book')}
                 </button>
@@ -20369,9 +19769,16 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 3: BULK ENTRIES                                      */}
       {/* ========================================================= */}
       <Modal 
+        className="cred-modal-shell"
         isOpen={isBulkModalOpen} 
         onClose={() => setIsBulkModalOpen(false)}
         title={`Add Bulk Entries to ${selectedBook?.name}`}
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <div style={{ padding: '0.5rem 0' }}>
           <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
@@ -20394,6 +19801,7 @@ const Cashbook = ({ currentUser = null }) => {
               }}
             >
               <select
+                className="cred-select"
                 value={item.entry_type}
                 onChange={(e) => {
                   const copy = [...bulkEntries]
@@ -20410,6 +19818,7 @@ const Cashbook = ({ currentUser = null }) => {
               </select>
               <input
                 type="number"
+                className="cred-input"
                 placeholder="Amount"
                 value={item.amount}
                 onChange={(e) => {
@@ -20424,6 +19833,7 @@ const Cashbook = ({ currentUser = null }) => {
               />
               <input
                 type="text"
+                className="cred-input"
                 placeholder="Description / Remark"
                 value={item.remark}
                 onChange={(e) => {
@@ -20460,21 +19870,10 @@ const Cashbook = ({ currentUser = null }) => {
           </button>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
-            <button type="button" className="btn" onClick={() => setIsBulkModalOpen(false)}>Cancel</button>
+            <button type="button" className="cred-modal-cancel-btn" onClick={() => setIsBulkModalOpen(false)}>Cancel</button>
             <button
               type="button"
-              className="btn btn-primary"
-              style={{
-                background: isDarkMode ? '#ffffff' : '#0f172a',
-                color: isDarkMode ? '#0f172a' : '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.6rem 1.5rem',
-                fontWeight: '700',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)'
-              }}
+              className="cred-modal-submit-btn"
               onClick={async () => {
                 try {
                   for (const b of bulkEntries) {
@@ -20508,9 +19907,16 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 4: MEMBERS INFO                                      */}
       {/* ========================================================= */}
       <Modal 
+        className="cred-modal-shell"
         isOpen={isMembersModalOpen} 
         onClose={() => setIsMembersModalOpen(false)}
         title={`Members with Access to ${selectedBook?.name}`}
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <div style={{ padding: '0.5rem 0' }}>
           <p style={{ fontSize: '0.85rem', color: isDarkMode ? '#8b9096' : '#64748b', marginBottom: '1rem' }}>
@@ -20539,18 +19945,8 @@ const Cashbook = ({ currentUser = null }) => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
             <button 
               type="button" 
-              className="btn btn-primary" 
+              className="cred-modal-submit-btn" 
               onClick={() => setIsMembersModalOpen(false)}
-              style={{
-                background: isDarkMode ? '#ffffff' : '#0f172a',
-                color: isDarkMode ? '#0f172a' : '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.6rem 1.5rem',
-                fontWeight: '700',
-                fontSize: '0.875rem',
-                boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)'
-              }}
             >
               Close
             </button>
@@ -20562,9 +19958,16 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 5: MONTH QUICK ENTRY                                 */}
       {/* ========================================================= */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isMonthQuickEntryOpen}
         onClose={() => setIsMonthQuickEntryOpen(false)}
         title="Quick Entry — Monthly View"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <form onSubmit={handleSubmitMonthQuickEntry}>
           {/* Entry Type Toggle */}
@@ -20655,7 +20058,7 @@ const Cashbook = ({ currentUser = null }) => {
           <div className="form-grid">
             {/* Amount */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.8rem', color: isDarkMode ? '#cbd5e1' : '#374151', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Amount (SAR) *
               </label>
               <div style={{ position: 'relative' }}>
@@ -20672,7 +20075,7 @@ const Cashbook = ({ currentUser = null }) => {
                   type="number"
                   step="0.01"
                   min="0.01"
-                  className="input-field"
+                  className="cred-input"
                   value={monthQuickEntryData.amount}
                   onChange={e => setMonthQuickEntryData(d => ({ ...d, amount: e.target.value }))}
                   style={{ paddingLeft: '3.25rem', fontSize: '1.1rem', fontWeight: '700', color: isDarkMode ? '#ffffff' : '#0f172a' }}
@@ -20684,12 +20087,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Description */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.8rem', color: isDarkMode ? '#cbd5e1' : '#374151', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Description / Remark
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={monthQuickEntryData.remark}
                 onChange={e => setMonthQuickEntryData(d => ({ ...d, remark: e.target.value }))}
               />
@@ -20697,11 +20100,11 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Payment Mode */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.8rem', color: isDarkMode ? '#cbd5e1' : '#374151', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Payment Mode
               </label>
               <select
-                className="input-field"
+                className="cred-select"
                 value={monthQuickEntryData.payment_mode}
                 onChange={e => setMonthQuickEntryData(d => ({ ...d, payment_mode: e.target.value }))}
               >
@@ -20714,7 +20117,7 @@ const Cashbook = ({ currentUser = null }) => {
             {/* Category */}
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                <label style={{ margin: 0, fontWeight: '700', fontSize: '0.8rem', color: isDarkMode ? '#cbd5e1' : '#374151' }}>
+                <label className="cred-form-label" style={{ margin: 0 }}>
                   Category
                 </label>
                 {!isAddingMonthCategory && (
@@ -20740,7 +20143,7 @@ const Cashbook = ({ currentUser = null }) => {
               </div>
               {!isAddingMonthCategory ? (
                 <select
-                  className="input-field"
+                  className="cred-select"
                   value={monthQuickEntryData.category}
                   onChange={e => {
                     if (e.target.value === '__add_new__') {
@@ -20762,7 +20165,7 @@ const Cashbook = ({ currentUser = null }) => {
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                   <input
                     type="text"
-                    className="input-field"
+                    className="cred-input"
                     value={newMonthCategoryInput}
                     onChange={(e) => setNewMonthCategoryInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -20943,7 +20346,7 @@ const Cashbook = ({ currentUser = null }) => {
                 </div>
               ) : (
                 <select
-                  className="input-field"
+                  className="cred-select"
                   value={monthQuickEntryData.cashbookId ?? ''}
                   onChange={e => setMonthQuickEntryData(d => ({ ...d, cashbookId: parseInt(e.target.value, 10) || e.target.value }))}
                   required
@@ -20964,29 +20367,13 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Actions */}
             <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: isDarkMode ? '1px solid #232528' : '1px solid #e2e8f0' }}>
-              <button type="button" className="btn" onClick={() => setIsMonthQuickEntryOpen(false)}>
+              <button type="button" className="cred-modal-cancel-btn" onClick={() => setIsMonthQuickEntryOpen(false)}>
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="cred-modal-submit-btn"
                 disabled={monthQuickEntrySubmitting || monthQuickEntryData.selectedMonths.length === 0}
-                style={{
-                  background: isDarkMode ? '#ffffff' : '#0f172a',
-                  color: isDarkMode ? '#0f172a' : '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.6rem 1.5rem',
-                  fontWeight: '700',
-                  fontSize: '0.875rem',
-                  cursor: (monthQuickEntrySubmitting || monthQuickEntryData.selectedMonths.length === 0) ? 'not-allowed' : 'pointer',
-                  opacity: (monthQuickEntrySubmitting || monthQuickEntryData.selectedMonths.length === 0) ? 0.7 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)',
-                  transition: 'all 0.2s ease'
-                }}
               >
                 {monthQuickEntrySubmitting ? (
                   <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Saving...</>
@@ -21003,10 +20390,17 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 6: INSTITUTIONAL BANK ACCOUNT (ADD / EDIT)            */}
       {/* ========================================================= */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isBankModalOpen}
         onClose={() => setIsBankModalOpen(false)}
         title={editingBank ? `Edit Bank Account: ${editingBank.bank_name}` : 'Add Institutional Bank Account'}
         maxWidth="640px"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <form onSubmit={handleSubmitBank}>
           {bankFormError && (
@@ -21019,7 +20413,7 @@ const Cashbook = ({ currentUser = null }) => {
           <div className="form-grid">
             {/* Bank Name with Popular Banks shortcuts */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: isDarkMode ? '#cbd5e1' : '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Bank Name *
               </label>
               <BankNameCombobox
@@ -21033,12 +20427,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Account Number */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Account Number *
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={bankFormData.account_number}
                 onChange={(e) => setBankFormData({ ...bankFormData, account_number: e.target.value })}
                 required
@@ -21048,12 +20442,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Account Holder Name */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Account Holder Name
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={bankFormData.account_holder_name}
                 onChange={(e) => setBankFormData({ ...bankFormData, account_holder_name: e.target.value })}
                 style={{ width: '100%' }}
@@ -21062,12 +20456,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* IBAN */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 IBAN
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={bankFormData.iban}
                 onChange={(e) => setBankFormData({ ...bankFormData, iban: e.target.value })}
                 style={{ width: '100%', fontFamily: 'monospace' }}
@@ -21076,12 +20470,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Branch Name */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Branch Name
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={bankFormData.branch_name}
                 onChange={(e) => setBankFormData({ ...bankFormData, branch_name: e.target.value })}
                 style={{ width: '100%' }}
@@ -21090,13 +20484,13 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Opening / Live Balance */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 {editingBank ? 'Current Balance (SAR)' : 'Opening Balance (SAR)'}
               </label>
               <input
                 type="number"
                 step="0.01"
-                className="input-field"
+                className="cred-input"
                 value={bankFormData.balance}
                 onChange={(e) => setBankFormData({ ...bankFormData, balance: e.target.value })}
                 style={{ width: '100%', fontWeight: '700' }}
@@ -21105,11 +20499,11 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Status */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Account Status
               </label>
               <select
-                className="input-field"
+                className="cred-select"
                 value={bankFormData.status}
                 onChange={(e) => setBankFormData({ ...bankFormData, status: e.target.value })}
                 style={{ width: '100%' }}
@@ -21121,11 +20515,11 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Notes */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Notes / Remittance Details
               </label>
               <textarea
-                className="input-field"
+                className="cred-textarea"
                 rows={2}
                 value={bankFormData.notes}
                 onChange={(e) => setBankFormData({ ...bankFormData, notes: e.target.value })}
@@ -21135,29 +20529,13 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Actions */}
             <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-              <button type="button" className="btn" onClick={() => setIsBankModalOpen(false)}>
+              <button type="button" className="cred-modal-cancel-btn" onClick={() => setIsBankModalOpen(false)}>
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="cred-modal-submit-btn"
                 disabled={submittingBank}
-                style={{ 
-                  background: isDarkMode ? '#ffffff' : '#0f172a',
-                  color: isDarkMode ? '#0f172a' : '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.6rem 1.35rem',
-                  fontWeight: '700',
-                  fontSize: '0.875rem',
-                  cursor: submittingBank ? 'not-allowed' : 'pointer',
-                  opacity: submittingBank ? 0.7 : 1,
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.45rem',
-                  boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)',
-                  transition: 'all 0.2s ease'
-                }}
               >
                 {submittingBank ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
                 <span>{editingBank ? 'Save Bank Changes' : 'Create Bank Account'}</span>
@@ -21171,10 +20549,17 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 7: PETTY CASH ACCOUNT (ADD / EDIT)                   */}
       {/* ========================================================= */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isPettyCashAccountModalOpen}
         onClose={() => setIsPettyCashAccountModalOpen(false)}
         title={editingPettyCashAccount ? `Edit Petty Cash Account: ${editingPettyCashAccount.name}` : 'Add Petty Cash Account'}
         maxWidth="540px"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <form onSubmit={handleSubmitPettyCashAccount}>
           {pettyCashAccountFormError && (
@@ -21187,12 +20572,12 @@ const Cashbook = ({ currentUser = null }) => {
           <div className="form-grid">
             {/* Account Name */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Account Name *
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={pettyCashAccountFormData.name}
                 onChange={(e) => setPettyCashAccountFormData({ ...pettyCashAccountFormData, name: e.target.value })}
                 required
@@ -21203,12 +20588,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Custodian / Holder Name */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Custodian / Responsible Person
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={pettyCashAccountFormData.holder_name}
                 onChange={(e) => setPettyCashAccountFormData({ ...pettyCashAccountFormData, holder_name: e.target.value })}
                 style={{ width: '100%' }}
@@ -21217,14 +20602,14 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Link to User (System User) */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>Link to User (System Login)</span>
-                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '500' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #8C8C8C)', fontWeight: '500' }}>
                   Auto-selects and filters when this user logs in
                 </span>
               </label>
               <select
-                className="input-field"
+                className="cred-select"
                 value={pettyCashAccountFormData.linked_user || ''}
                 onChange={(e) => {
                   const val = e.target.value
@@ -21248,13 +20633,13 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Opening / Live Balance */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 {editingPettyCashAccount ? 'Current Balance (SAR)' : 'Opening Balance (SAR)'}
               </label>
               <input
                 type="number"
                 step="0.01"
-                className="input-field"
+                className="cred-input"
                 value={pettyCashAccountFormData.balance}
                 onChange={(e) => setPettyCashAccountFormData({ ...pettyCashAccountFormData, balance: e.target.value })}
                 style={{ width: '100%', fontWeight: '700' }}
@@ -21263,11 +20648,11 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Status */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Account Status
               </label>
               <select
-                className="input-field"
+                className="cred-select"
                 value={pettyCashAccountFormData.status}
                 onChange={(e) => setPettyCashAccountFormData({ ...pettyCashAccountFormData, status: e.target.value })}
                 style={{ width: '100%' }}
@@ -21279,11 +20664,11 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Notes */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Notes / Allocation Scope
               </label>
               <textarea
-                className="input-field"
+                className="cred-textarea"
                 rows={2}
                 value={pettyCashAccountFormData.notes}
                 onChange={(e) => setPettyCashAccountFormData({ ...pettyCashAccountFormData, notes: e.target.value })}
@@ -21293,29 +20678,13 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Actions */}
             <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-              <button type="button" className="btn" onClick={() => setIsPettyCashAccountModalOpen(false)}>
+              <button type="button" className="cred-modal-cancel-btn" onClick={() => setIsPettyCashAccountModalOpen(false)}>
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="cred-modal-submit-btn"
                 disabled={submittingPettyCashAccount}
-                style={{ 
-                  background: isDarkMode ? '#ffffff' : '#0f172a',
-                  color: isDarkMode ? '#0f172a' : '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.6rem 1.35rem',
-                  fontWeight: '700',
-                  fontSize: '0.875rem',
-                  cursor: submittingPettyCashAccount ? 'not-allowed' : 'pointer',
-                  opacity: submittingPettyCashAccount ? 0.7 : 1,
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.45rem',
-                  boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)',
-                  transition: 'all 0.2s ease'
-                }}
               >
                 {submittingPettyCashAccount ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
                 <span>{editingPettyCashAccount ? 'Save Account Changes' : 'Create Petty Cash Account'}</span>
@@ -21329,6 +20698,7 @@ const Cashbook = ({ currentUser = null }) => {
       {/* MODAL 8: TRANSFER FUNDS (PETTY CASH <-> BANK ACCOUNT)      */}
       {/* ========================================================= */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         title={
@@ -21337,11 +20707,11 @@ const Cashbook = ({ currentUser = null }) => {
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              background: isDarkMode ? '#1e293b' : '#eff6ff',
+              background: isDarkMode ? '#1e2025' : '#f1f5f9',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#2563eb'
+              color: isDarkMode ? '#a1a7b2' : '#475569'
             }}>
               <ArrowLeftRight size={18} strokeWidth={2.4} />
             </div>
@@ -21349,6 +20719,12 @@ const Cashbook = ({ currentUser = null }) => {
           </div>
         }
         maxWidth="560px"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <form onSubmit={handleSubmitTransfer}>
           {transferFormError && (
@@ -21497,7 +20873,7 @@ const Cashbook = ({ currentUser = null }) => {
                       <label style={{
                         fontWeight: '700',
                         fontSize: '0.72rem',
-                        color: isDarkMode ? '#93c5fd' : '#2563eb',
+                        color: isDarkMode ? '#a1a7b2' : '#64748b',
                         margin: 0,
                         display: 'flex',
                         alignItems: 'center',
@@ -21515,9 +20891,9 @@ const Cashbook = ({ currentUser = null }) => {
                         fontWeight: '700',
                         padding: '2px 8px',
                         borderRadius: '999px',
-                        background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
-                        color: isDarkMode ? '#93c5fd' : '#1d4ed8',
-                        border: isDarkMode ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe',
+                        background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                        color: isDarkMode ? '#a1a7b2' : '#475569',
+                        border: isDarkMode ? '1px solid #2e3138' : '1px solid #e2e8f0',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px'
@@ -21578,7 +20954,7 @@ const Cashbook = ({ currentUser = null }) => {
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'rotate(180deg) scale(1.08)'
-                        e.currentTarget.style.color = '#2563eb'
+                        e.currentTarget.style.color = isDarkMode ? '#ffffff' : '#111111'
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.transform = 'rotate(0deg) scale(1)'
@@ -21605,7 +20981,7 @@ const Cashbook = ({ currentUser = null }) => {
                       <label style={{
                         fontWeight: '700',
                         fontSize: '0.72rem',
-                        color: isDarkMode ? '#86efac' : '#16a34a',
+                        color: isDarkMode ? '#a1a7b2' : '#64748b',
                         margin: 0,
                         display: 'flex',
                         alignItems: 'center',
@@ -21623,9 +20999,9 @@ const Cashbook = ({ currentUser = null }) => {
                         fontWeight: '700',
                         padding: '2px 8px',
                         borderRadius: '999px',
-                        background: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
-                        color: isDarkMode ? '#86efac' : '#15803d',
-                        border: isDarkMode ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #a7f3d0',
+                        background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                        color: isDarkMode ? '#a1a7b2' : '#475569',
+                        border: isDarkMode ? '1px solid #2e3138' : '1px solid #e2e8f0',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px'
@@ -21668,25 +21044,25 @@ const Cashbook = ({ currentUser = null }) => {
             })()}
             {/* Transfer Amount */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.825rem', color: isDarkMode ? '#cbd5e1' : '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Transfer Amount (SAR) *
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0.01"
-                className="input-field"
+                className="cred-input"
                 value={transferFormData.amount}
                 onChange={(e) => setTransferFormData({ ...transferFormData, amount: e.target.value })}
                 required
-                style={{ width: '100%', fontWeight: '800', fontSize: '1rem', color: '#2563eb' }}
+                style={{ width: '100%', fontWeight: '800', fontSize: '1rem' }}
                 autoFocus
               />
             </div>
 
             {/* Cashbook Ledger Reference */}
             <div className="form-group">
-              <label style={{ fontWeight: '700', fontSize: '0.825rem', color: isDarkMode ? '#cbd5e1' : '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Record In Cashbook *
               </label>
               <CashbookSelect
@@ -21704,12 +21080,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Transfer Date */}
             <div className="form-group" style={{ minWidth: 0 }}>
-              <label style={{ fontWeight: '700', fontSize: '0.825rem', color: isDarkMode ? '#cbd5e1' : '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Date *
               </label>
               <input
                 type="date"
-                className="input-field"
+                className="cred-input"
                 value={transferFormData.date}
                 onChange={(e) => setTransferFormData({ ...transferFormData, date: e.target.value })}
                 required
@@ -21719,12 +21095,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Reference / Cheque / Transaction Number */}
             <div className="form-group" style={{ minWidth: 0 }}>
-              <label style={{ fontWeight: '700', fontSize: '0.825rem', color: isDarkMode ? '#cbd5e1' : '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Reference / Receipt #
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={transferFormData.reference_number}
                 onChange={(e) => setTransferFormData({ ...transferFormData, reference_number: e.target.value })}
                 style={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }}
@@ -21733,12 +21109,12 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Notes / Description */}
             <div className="form-group col-span-2">
-              <label style={{ fontWeight: '700', fontSize: '0.825rem', color: isDarkMode ? '#cbd5e1' : '#1e293b', marginBottom: '0.35rem', display: 'block' }}>
+              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Notes / Narration
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={transferFormData.notes}
                 onChange={(e) => setTransferFormData({ ...transferFormData, notes: e.target.value })}
                 style={{ width: '100%' }}
@@ -21747,29 +21123,13 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Modal Actions */}
             <div className="col-span-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: isDarkMode ? '1px solid #232528' : '1px solid #e2e8f0' }}>
-              <button type="button" className="btn" onClick={() => setIsTransferModalOpen(false)}>
+              <button type="button" className="cred-modal-cancel-btn" onClick={() => setIsTransferModalOpen(false)}>
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="cred-modal-submit-btn"
                 disabled={submittingTransfer}
-                style={{ 
-                  background: '#2563eb',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.6rem 1.45rem',
-                  fontWeight: '700',
-                  fontSize: '0.875rem',
-                  cursor: submittingTransfer ? 'not-allowed' : 'pointer',
-                  opacity: submittingTransfer ? 0.7 : 1,
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem',
-                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
-                  transition: 'all 0.2s ease'
-                }}
               >
                 {submittingTransfer ? <RefreshCw size={15} className="animate-spin" /> : <ArrowLeftRight size={15} />}
                 <span>{submittingTransfer ? 'Processing Transfer...' : 'Complete Transfer'}</span>
@@ -21781,19 +21141,26 @@ const Cashbook = ({ currentUser = null }) => {
 
       {/* Category Management Modal */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
         title="Manage Transaction Categories"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <div style={{ padding: '0.5rem 0' }}>
           <div style={{ marginBottom: '1.25rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#334155', display: 'block', marginBottom: '0.5rem' }}>
+            <label className="cred-form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>
               Add New Category
             </label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <input
                 type="text"
-                className="input-field"
+                className="cred-input"
                 value={newCategoryInput}
                 onChange={(e) => setNewCategoryInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -21808,26 +21175,11 @@ const Cashbook = ({ currentUser = null }) => {
               />
               <button
                 type="button"
-                className="btn btn-primary"
+                className="cred-modal-submit-btn"
                 onClick={() => {
                   if (newCategoryInput.trim()) {
                     handleSaveCategory(newCategoryInput.trim())
                   }
-                }}
-                style={{ 
-                  background: isDarkMode ? '#ffffff' : '#0f172a',
-                  color: isDarkMode ? '#0f172a' : '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.6rem 1.25rem',
-                  fontWeight: '700',
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.4rem',
-                  boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)',
-                  transition: 'all 0.2s ease'
                 }}
               >
                 <Plus size={16} /> Add
@@ -21894,20 +21246,8 @@ const Cashbook = ({ currentUser = null }) => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', paddingTop: '0.75rem', borderTop: isDarkMode ? '1px solid #232528' : '1px solid #e2e8f0' }}>
             <button
               type="button"
-              className="btn"
+              className="cred-modal-submit-btn"
               onClick={() => setIsCategoryModalOpen(false)}
-              style={{
-                background: isDarkMode ? '#ffffff' : '#0f172a',
-                color: isDarkMode ? '#0f172a' : '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.6rem 1.5rem',
-                fontWeight: '700',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.15)',
-                transition: 'all 0.2s ease'
-              }}
             >
               Done
             </button>

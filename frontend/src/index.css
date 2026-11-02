@@ -4214,10 +4214,49 @@ input[type="number"] {
   width: 100%;
 }
 
-/* React-select input reset to eliminate vertical cursor bar and text clipping in dark/light mode */
+/* React-select input reset to eliminate vertical cursor bar, pills, and text clipping in dark/light mode */
 .cred-field-group div[class*="-control"] input,
 div[class*="-control"] input,
-div[class*="-valueContainer"] input {
+div[class*="-valueContainer"] input,
+div[class*="-Input"] input,
+div[class*="__input"] input,
+input[id^="react-select-"],
+.modal-container div[class*="-control"] input,
+.modal-container div[class*="-valueContainer"] input,
+.modal-container div[class*="-Input"] input,
+.modal-container div[class*="__input"] input,
+.modal-container input[id^="react-select-"],
+body[data-cashbook-active="true"] .modal-container div[class*="-control"] input,
+body[data-cashbook-active="true"] .modal-container div[class*="-valueContainer"] input,
+body[data-cashbook-active="true"] .modal-container div[class*="-Input"] input,
+body[data-cashbook-active="true"] .modal-container div[class*="__input"] input,
+body[data-cashbook-active="true"] .modal-container input[id^="react-select-"],
+.cred-field-group div[class*="-control"] input:focus,
+div[class*="-control"] input:focus,
+div[class*="-valueContainer"] input:focus,
+div[class*="-Input"] input:focus,
+div[class*="__input"] input:focus,
+input[id^="react-select-"]:focus,
+.modal-container div[class*="-control"] input:focus,
+.modal-container div[class*="-valueContainer"] input:focus,
+.modal-container div[class*="-Input"] input:focus,
+.modal-container div[class*="__input"] input:focus,
+.modal-container input[id^="react-select-"]:focus,
+body[data-cashbook-active="true"] div[class*="-control"] input:focus,
+body[data-cashbook-active="true"] div[class*="-valueContainer"] input:focus,
+body[data-cashbook-active="true"] div[class*="-Input"] input:focus,
+body[data-cashbook-active="true"] div[class*="__input"] input:focus,
+body[data-cashbook-active="true"] input[id^="react-select-"]:focus,
+body[data-cashbook-active="true"] .modal-container div[class*="-control"] input:focus,
+body[data-cashbook-active="true"] .modal-container div[class*="-valueContainer"] input:focus,
+body[data-cashbook-active="true"] .modal-container div[class*="-Input"] input:focus,
+body[data-cashbook-active="true"] .modal-container div[class*="__input"] input:focus,
+body[data-cashbook-active="true"] .modal-container input[id^="react-select-"]:focus {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  width: auto !important;
+  min-width: 2px !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
@@ -4227,6 +4266,62 @@ div[class*="-valueContainer"] input {
   padding: 0 !important;
   margin: 0 !important;
   box-sizing: content-box !important;
+}
+
+/* ─────────────────────────────────────────────────────
+   CRED MODAL SHELL (1:1 identical parity between /jobs and /cashbook)
+───────────────────────────────────────────────────── */
+.modal-overlay.cred-modal-overlay,
+body[data-cashbook-active="true"] .modal-overlay.cred-modal-overlay {
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: clamp(0.5rem, 3vw, 1.25rem) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+}
+
+.modal-container.cred-modal-shell,
+body[data-cashbook-active="true"] .modal-container.cred-modal-shell {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: min(94vh, 850px) !important;
+  border-radius: 24px !important;
+  border: 1px solid var(--border, #E4E4E4) !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.16) !important;
+  overflow: hidden !important;
+  margin: auto !important;
+  box-sizing: border-box !important;
+}
+
+body.cb-dark-bw .modal-container.cred-modal-shell,
+body[data-theme="dark"] .modal-container.cred-modal-shell {
+  background: #141517 !important;
+  border-color: #232528 !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8) !important;
+}
+
+.modal-container.cred-modal-shell .modal-body,
+body[data-cashbook-active="true"] .modal-container.cred-modal-shell .modal-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex: 1 1 auto !important;
+  max-height: calc(94vh - 135px) !important;
+  box-sizing: border-box !important;
+  touch-action: pan-y !important;
+  overscroll-behavior: contain !important;
+}
+
+.modal-container.cred-modal-shell .modal-header,
+body[data-cashbook-active="true"] .modal-container.cred-modal-shell .modal-header {
+  flex-shrink: 0 !important;
+}
+
+.modal-container.cred-modal-shell .modal-footer,
+body[data-cashbook-active="true"] .modal-container.cred-modal-shell .modal-footer {
+  flex-shrink: 0 !important;
 }
 .cred-select {
   width: 100%;
@@ -4648,4 +4743,16 @@ body.cb-dark-bw .page-header-btn:focus-visible,
 [data-theme='dark'] .cred-enquiry-submit-btn:focus-visible,
 body.cb-dark-bw .cred-enquiry-submit-btn:focus-visible {
   outline: 2px solid #FFFFFF !important;
+}
+
+
+/* ── cred-modal-shell label overrides ── */
+/* Prevent dark-mode generic label rule from overriding cred-form-label styling */
+body.cb-dark-bw .modal-container.cred-modal-shell .cred-form-label,
+.cb-dark-bw .modal-container.cred-modal-shell .cred-form-label,
+body[data-cashbook-active="true"] .modal-container.cred-modal-shell .cred-form-label,
+body[data-theme="dark"] .modal-container.cred-modal-shell .cred-form-label {
+  color: #8C8C8C !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
 }

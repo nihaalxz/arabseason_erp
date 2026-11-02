@@ -679,15 +679,15 @@ body.cb-dark-bw .cb-dock-plus-btn,
 }
 
 /* ── 8. PART B: ALL FORM FIELDS, INPUTS, TEXTAREAS & SELECTS (Modals & Form Grids Only) ── */
-[data-theme-scope="cashbook-pill"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-body[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-[data-theme-scope="cashbook-pill"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-body[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-[data-theme-scope="cashbook-pill"] .modal-container select,
-[data-cashbook-active="true"] .modal-container select,
-body[data-cashbook-active="true"] .modal-container select,
+[data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+[data-theme-scope="cashbook-pill"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+body[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+[data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell) select,
+[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) select,
+body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) select,
 [data-theme-scope="cashbook-pill"] .form-grid select,
 [data-cashbook-active="true"] .form-grid select,
 body[data-cashbook-active="true"] .form-grid select {
@@ -705,15 +705,15 @@ body[data-cashbook-active="true"] .form-grid select {
   box-sizing: border-box !important;
 }
 
-[data-theme-scope="cashbook-pill"] .modal-container input:focus,
-[data-cashbook-active="true"] .modal-container input:focus,
-body[data-cashbook-active="true"] .modal-container input:focus,
-[data-theme-scope="cashbook-pill"] .form-grid input:focus,
-[data-cashbook-active="true"] .form-grid input:focus,
-body[data-cashbook-active="true"] .form-grid input:focus,
-[data-theme-scope="cashbook-pill"] .modal-container select:focus,
-[data-cashbook-active="true"] .modal-container select:focus,
-body[data-cashbook-active="true"] .modal-container select:focus,
+[data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell) input:not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) input:not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) input:not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+[data-theme-scope="cashbook-pill"] .form-grid input:not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+[data-cashbook-active="true"] .form-grid input:not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+body[data-cashbook-active="true"] .form-grid input:not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+[data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell) select:focus,
+[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) select:focus,
+body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) select:focus,
 [data-theme-scope="cashbook-pill"] .form-grid select:focus,
 [data-cashbook-active="true"] .form-grid select:focus,
 body[data-cashbook-active="true"] .form-grid select:focus {
@@ -795,9 +795,9 @@ body[data-cashbook-active="true"]:not(.cb-dark-bw) textarea {
 }
 
 /* Hover state: border #C9D3EA */
-[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:hover:not(:disabled),
-.theme-cashbook-pill:not(.cb-dark-bw) input:hover:not(:disabled),
-body[data-cashbook-active="true"]:not(.cb-dark-bw) input:hover:not(:disabled),
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:not(.cred-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):hover:not(:disabled),
+.theme-cashbook-pill:not(.cb-dark-bw) input:not(.cred-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):hover:not(:disabled),
+body[data-cashbook-active="true"]:not(.cb-dark-bw) input:not(.cred-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):hover:not(:disabled),
 [data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) select:hover:not(:disabled),
 .theme-cashbook-pill:not(.cb-dark-bw) select:hover:not(:disabled),
 body[data-cashbook-active="true"]:not(.cb-dark-bw) select:hover:not(:disabled),
@@ -808,9 +808,9 @@ body[data-cashbook-active="true"]:not(.cb-dark-bw) textarea:hover:not(:disabled)
 }
 
 /* Focus-visible state: white fill, 2px solid blue border plus 4px blue ring at 15% opacity (Light Mode) */
-[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:not(.cred-search-input):focus,
-.theme-cashbook-pill:not(.cb-dark-bw) input:not(.cred-search-input):focus,
-body[data-cashbook-active="true"]:not(.cb-dark-bw) input:not(.cred-search-input):focus,
+[data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) input:not(.cred-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+.theme-cashbook-pill:not(.cb-dark-bw) input:not(.cred-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
+body[data-cashbook-active="true"]:not(.cb-dark-bw) input:not(.cred-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):focus,
 [data-theme-scope="cashbook-pill"]:not(.cb-dark-bw) select:focus,
 .theme-cashbook-pill:not(.cb-dark-bw) select:focus,
 body[data-cashbook-active="true"]:not(.cb-dark-bw) select:focus,
@@ -1123,12 +1123,12 @@ body[data-cashbook-active="true"] .file-upload-area:hover {
 }
 
 /* ── 9. BUTTONS IN FORMS & MODALS (Clean Monochrome Primary / Secondary / Destructive) ── */
-[data-theme-scope="cashbook-pill"] .modal-container button[type="submit"],
-[data-cashbook-active="true"] .modal-container button[type="submit"],
-body[data-cashbook-active="true"] .modal-container button[type="submit"],
-[data-theme-scope="cashbook-pill"] .modal-container .btn-primary,
-[data-cashbook-active="true"] .modal-container .btn-primary,
-body[data-cashbook-active="true"] .modal-container .btn-primary,
+[data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell) button[type="submit"],
+[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) button[type="submit"],
+body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) button[type="submit"],
+[data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell) .btn-primary,
+[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) .btn-primary,
+body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) .btn-primary,
 [data-theme-scope="cashbook-pill"] .form-grid .btn-primary,
 [data-cashbook-active="true"] .form-grid .btn-primary,
 body[data-cashbook-active="true"] .form-grid .btn-primary {
@@ -1264,7 +1264,7 @@ body[data-cashbook-active="true"] .modal-overlay {
   background: rgba(11, 27, 68, 0.50) !important;
   backdrop-filter: blur(4px) !important;
   -webkit-backdrop-filter: blur(4px) !important;
-  z-index: 1000 !important;
+  z-index: 99999 !important;
   overscroll-behavior: contain !important;
   touch-action: pan-y !important;
   overflow-y: auto !important;
@@ -1272,10 +1272,10 @@ body[data-cashbook-active="true"] .modal-overlay {
 }
 
 /* Modal containers scroll independently — no chaining to page */
-[data-theme-scope="cashbook-pill"] .modal-container,
-.theme-cashbook-pill .modal-container,
-[data-cashbook-active="true"] .modal-container,
-body[data-cashbook-active="true"] .modal-container,
+[data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell),
+.theme-cashbook-pill .modal-container:not(.cred-modal-shell),
+[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell),
+body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell),
 .cb-expense-modal-sheet {
   overscroll-behavior: contain !important;
   touch-action: pan-y !important;
@@ -1295,10 +1295,10 @@ body[data-cashbook-active="true"] .modal-body {
 
 /* Desktop Modal: Centered dialog, 16px radius, max-width min(640px, 92vw) */
 @media (min-width: 769px) {
-  [data-theme-scope="cashbook-pill"] .modal-container,
-  .theme-cashbook-pill .modal-container,
-  [data-cashbook-active="true"] .modal-container,
-  body[data-cashbook-active="true"] .modal-container,
+  [data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell),
+  .theme-cashbook-pill .modal-container:not(.cred-modal-shell),
+  [data-cashbook-active="true"] .modal-container:not(.cred-modal-shell),
+  body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell),
   .cb-expense-modal-sheet {
     border-radius: 16px !important;
     border: none !important;
@@ -1842,16 +1842,16 @@ body[data-cashbook-active="true"] .form-group {
 }
 
 @media (max-width: 768px) {
-  [data-theme-scope="cashbook-pill"] .modal-overlay,
-  [data-cashbook-active="true"] .modal-overlay,
-  body[data-cashbook-active="true"] .modal-overlay {
+  [data-theme-scope="cashbook-pill"] .modal-overlay:not(.cred-modal-overlay),
+  [data-cashbook-active="true"] .modal-overlay:not(.cred-modal-overlay),
+  body[data-cashbook-active="true"] .modal-overlay:not(.cred-modal-overlay) {
     align-items: flex-end !important;
     padding: 0 !important;
   }
 
-  [data-theme-scope="cashbook-pill"] .modal-container,
-  [data-cashbook-active="true"] .modal-container,
-  body[data-cashbook-active="true"] .modal-container {
+  [data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell),
+  [data-cashbook-active="true"] .modal-container:not(.cred-modal-shell),
+  body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) {
     border-radius: 20px 20px 0 0 !important;
     max-height: 92vh !important;
     max-height: min(92vh, 92dvh) !important;
@@ -1940,9 +1940,9 @@ body[data-cashbook-active="true"] .form-group {
   }
 
   /* Mobile compact touch-target sizing for modal controls */
-  [data-theme-scope="cashbook-pill"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-  [data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
-  body[data-cashbook-active="true"] .modal-container input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
+  [data-theme-scope="cashbook-pill"] .modal-container:not(.cred-modal-shell) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+  [data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
+  body[data-cashbook-active="true"] .modal-container:not(.cred-modal-shell) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]),
   [data-theme-scope="cashbook-pill"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
   [data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),
   body[data-cashbook-active="true"] .form-grid input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.cb-desktop-search-input),

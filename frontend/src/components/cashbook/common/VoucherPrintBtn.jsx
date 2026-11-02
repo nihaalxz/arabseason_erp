@@ -1,5 +1,5 @@
 import React from 'react';
-import { Receipt, Printer } from 'lucide-react';
+import { Printer } from 'lucide-react';
 
 export default function VoucherPrintBtn({
   onClick,
@@ -45,7 +45,7 @@ export default function VoucherPrintBtn({
           e.currentTarget.style.background = isDarkMode ? '#27272a' : '#f8fafc';
         }}
       >
-        <Receipt size={13} style={{ flexShrink: 0 }} />
+        <Printer size={13} style={{ flexShrink: 0 }} />
         <span>{label}</span>
       </button>
     );
@@ -64,9 +64,9 @@ export default function VoucherPrintBtn({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: isDarkMode ? 'rgba(251, 191, 36, 0.12)' : '#fef3c7',
-        border: isDarkMode ? '1px solid rgba(251, 191, 36, 0.25)' : '1px solid #fde68a',
-        color: isDarkMode ? '#fbbf24' : '#b45309',
+        background: 'transparent',
+        border: '1px solid transparent',
+        color: isDarkMode ? '#a1a1aa' : '#6b7280',
         cursor: 'pointer',
         transition: 'all 0.15s ease',
         padding: 0,
@@ -74,14 +74,14 @@ export default function VoucherPrintBtn({
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'scale(1.08)';
-        e.currentTarget.style.background = isDarkMode ? 'rgba(251, 191, 36, 0.22)' : '#fde68a';
+        e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'scale(1)';
-        e.currentTarget.style.background = isDarkMode ? 'rgba(251, 191, 36, 0.12)' : '#fef3c7';
+        e.currentTarget.style.background = 'transparent';
       }}
     >
-      <Receipt size={14} />
+      <Printer size={14} />
     </button>
   );
 }

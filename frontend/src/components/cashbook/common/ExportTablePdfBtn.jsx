@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { exportTableToPdf } from '../../../utils/cashbookPdfGenerator';
 
 export default function ExportTablePdfBtn({
@@ -12,13 +12,15 @@ export default function ExportTablePdfBtn({
   orientation = 'portrait',
   columnStyles,
   isDarkMode = false,
-  label = 'Export PDF',
+  label = 'export pdf',
+  onClick,
   className = '',
   style = {}
 }) {
   const handleExport = (e) => {
     e?.stopPropagation?.();
     e?.preventDefault?.();
+    if (onClick) { onClick(e); return; }
     if (!columns || !columns.length || !rows) {
       alert('No data available to export.');
       return;
@@ -40,6 +42,9 @@ export default function ExportTablePdfBtn({
     }
   };
 
+  const mutedColor = isDarkMode ? '#71717a' : '#8c8c8c';
+  const hoverColor = isDarkMode ? '#e4e4e7' : '#0a0a0a';
+
   return (
     <button
       type="button"
@@ -50,29 +55,27 @@ export default function ExportTablePdfBtn({
         display: 'inline-flex',
         alignItems: 'center',
         gap: '6px',
-        padding: '6px 12px',
-        borderRadius: '8px',
-        fontSize: '12px',
-        fontWeight: '600',
-        border: isDarkMode ? '1px solid #27272a' : '1px solid #e2e8f0',
-        background: isDarkMode ? '#18181b' : '#ffffff',
-        color: isDarkMode ? '#f4f4f5' : '#0f172a',
-        boxShadow: isDarkMode ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        fontSize: '13px',
+        fontWeight: '500',
+        color: mutedColor,
         cursor: 'pointer',
-        transition: 'all 0.15s ease',
+        textTransform: 'lowercase',
+        transition: 'color 0.15s ease',
+        outline: 'none',
         whiteSpace: 'nowrap',
         ...style
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = isDarkMode ? '#52525b' : '#cbd5e1';
-        e.currentTarget.style.background = isDarkMode ? '#27272a' : '#f8fafc';
+        e.currentTarget.style.color = hoverColor;
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = isDarkMode ? '#27272a' : '#e2e8f0';
-        e.currentTarget.style.background = isDarkMode ? '#18181b' : '#ffffff';
+        e.currentTarget.style.color = mutedColor;
       }}
     >
-      <FileText size={14} style={{ color: '#ef4444', flexShrink: 0 }} />
+      <Printer size={16} style={{ flexShrink: 0 }} />
       <span>{label}</span>
     </button>
   );

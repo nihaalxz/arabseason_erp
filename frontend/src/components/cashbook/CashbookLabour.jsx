@@ -2058,10 +2058,17 @@ export default function CashbookLabour({
 
       {/* MODAL: CREATE / EDIT LABOUR ENTRY */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingEntry ? 'Edit Labour Entry' : (formData.name ? `Assign Job to ${formData.name}` : 'Create Labour Entry')}
         maxWidth="620px"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         <form onSubmit={handleSaveEntry} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           {modalError && (
@@ -2084,9 +2091,7 @@ export default function CashbookLabour({
           <div style={{ display: 'grid', gridTemplateColumns: effectiveIsMobile ? '1fr' : 'repeat(2, 1fr)', gap: '0.75rem' }}>
             {/* Labourer Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: textPrimary, marginBottom: '0.25rem' }}>
-                Labourer Name *
-              </label>
+              <label className="cred-form-label"><span>Labourer Name</span><span className="cred-required-dot" /></label>
               <input
                 type="text"
                 list="labourer-suggestions"
@@ -2113,9 +2118,7 @@ export default function CashbookLabour({
 
             {/* Phone */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: textPrimary, marginBottom: '0.25rem' }}>
-                Contact Phone
-              </label>
+              <label className="cred-form-label"><span>Contact Phone</span></label>
               <input
                 type="text"
                 value={formData.phone}
@@ -2159,9 +2162,7 @@ export default function CashbookLabour({
           <div style={{ display: 'grid', gridTemplateColumns: effectiveIsMobile ? '1fr' : 'repeat(2, 1fr)', gap: '0.75rem' }}>
             {/* Date of Work */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: textPrimary, marginBottom: '0.25rem' }}>
-                Date of Work *
-              </label>
+              <label className="cred-form-label"><span>Date of Work</span><span className="cred-required-dot" /></label>
               <input
                 type="date"
                 required
@@ -2209,9 +2210,7 @@ export default function CashbookLabour({
 
           {/* Work Description */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: textPrimary, marginBottom: '0.25rem' }}>
-              Work Done / Scope Description *
-            </label>
+            <label className="cred-form-label"><span>Work Done / Scope Description</span><span className="cred-required-dot" /></label>
             <textarea
               required
               rows={2}
@@ -2235,9 +2234,7 @@ export default function CashbookLabour({
           <div style={{ display: 'grid', gridTemplateColumns: effectiveIsMobile ? '1fr' : 'repeat(2, 1fr)', gap: '0.75rem' }}>
             {/* Agreed Total Amount */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: textPrimary, marginBottom: '0.25rem' }}>
-                Total Agreed Amount (SAR) *
-              </label>
+              <label className="cred-form-label"><span>Total Agreed Amount (SAR)</span><span className="cred-required-dot" /></label>
               <input
                 type="number"
                 step="0.01"
@@ -2315,30 +2312,25 @@ export default function CashbookLabour({
 
           {/* Action buttons */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={modalSubmitting}
-            >
-              {modalSubmitting ? 'Saving...' : (editingEntry ? 'Update Entry' : 'Save Labour Entry')}
-            </button>
+            <button type="button" className="cred-modal-cancel-btn" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="cred-modal-submit-btn" disabled={modalSubmitting}>{modalSubmitting ? "Saving..." : (editingEntry ? "Update Entry" : "Save Labour Entry")}</button>
           </div>
         </form>
       </Modal>
 
       {/* MODAL: RECORD PAYMENT */}
       <Modal
+        className="cred-modal-shell"
         isOpen={isPayModalOpen}
         onClose={() => setIsPayModalOpen(false)}
         title="Record Labour Payment"
         maxWidth="460px"
+        style={{
+          borderRadius: '24px',
+          background: 'var(--card-bg, #FFFFFF)',
+          border: '1px solid var(--border, #E4E4E4)',
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+        }}
       >
         {payingEntry && (
           <form onSubmit={handleSubmitPayment} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -2373,9 +2365,7 @@ export default function CashbookLabour({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: textPrimary, marginBottom: '0.25rem' }}>
-                Payment Amount (SAR) *
-              </label>
+              <label className="cred-form-label"><span>Payment Amount (SAR)</span><span className="cred-required-dot" /></label>
               <input
                 type="number"
                 step="0.01"
@@ -2400,21 +2390,8 @@ export default function CashbookLabour({
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setIsPayModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={paySubmitting}
-                style={{ background: '#16a34a', borderColor: '#15803d' }}
-              >
-                {paySubmitting ? 'Recording...' : 'Confirm Payment'}
-              </button>
+              <button type="button" className="cred-modal-cancel-btn" onClick={() => setIsPayModalOpen(false)}>Cancel</button>
+              <button type="submit" className="cred-modal-submit-btn" disabled={paySubmitting}>{paySubmitting ? "Recording..." : "Confirm Payment"}</button>
             </div>
           </form>
         )}
@@ -2423,10 +2400,17 @@ export default function CashbookLabour({
       {/* MODAL: LABOURER STATEMENT / LEDGER */}
       {statementLabourer && (
         <Modal
-          isOpen={!!statementLabourer}
+          className="cred-modal-shell"
+        isOpen={!!statementLabourer}
           onClose={() => setStatementLabourer(null)}
           title={`Labour Ledger: ${statementLabourer.name}`}
           maxWidth="780px"
+          style={{
+            borderRadius: '24px',
+            background: 'var(--card-bg, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+          }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Header info */}
@@ -2561,13 +2545,7 @@ export default function CashbookLabour({
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setStatementLabourer(null)}
-              >
-                Close
-              </button>
+              <button type="button" className="cred-modal-cancel-btn" onClick={() => setStatementLabourer(null)}>Close</button>
             </div>
           </div>
         </Modal>
