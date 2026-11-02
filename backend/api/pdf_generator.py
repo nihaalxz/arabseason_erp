@@ -149,6 +149,7 @@ def _init_pdf_fonts():
 
 FONTS = _init_pdf_fonts()
 UNICODE_FONT = FONTS.get('AppFont', 'Helvetica')
+ENABLE_ZATCA_QR = False  # Disabled by default per project requirements; set True to re-enable ZATCA Phase 1 QR codes
 
 def format_doc_date(dt_val):
     """Format any date into clean reference style: '15 Oct 2026'"""
@@ -251,8 +252,9 @@ class NumberedCanvas(canvas.Canvas):
     def draw_page_number(self, page_count):
         self.saveState()
         page_w, page_h = getattr(self, '_pagesize', A4)
+        is_landscape = (page_w > page_h)
         rule_x0 = 39.60
-        rule_x1 = 566.63
+        rule_x1 = (page_w - 34.79) if is_landscape else 566.63
         footer_y = 50.03  # 841.69 - 791.66 pt
 
         # Footer divider line
@@ -270,7 +272,10 @@ class NumberedCanvas(canvas.Canvas):
             page_str = f"Page {self._pageNumber} of {page_count}"
             self.drawRightString(rule_x1, footer_y - 16.02, page_str)
         else:
-            self.drawString(558.34, footer_y - 16.02, str(self._pageNumber))
+            if is_landscape:
+                self.drawRightString(rule_x1, footer_y - 16.02, "1")
+            else:
+                self.drawString(558.34, footer_y - 16.02, str(self._pageNumber))
 
         # Left: Only for report-type PDFs
         if getattr(self, 'is_report', False):
@@ -385,6 +390,90 @@ class UniversalPDFGenerator:
             if os.path.exists(norm):
                 return norm
         return None
+
+    def _build_zatca_qr_drawing(self, seller_name, vat_number, invoice_time, total_amount, vat_amount, size=65):
+        """Generates a ZATCA Phase 1 compliant Base64 TLV QR Code as a ReportLab Drawing."""
+        import base64
+        from reportlab.graphics.barcode.qr import QrCodeWidget
+        from reportlab.graphics.shapes import Drawing
+
+        tags = [
+            (1, str(seller_name).encode('utf-8')),
+            (2, str(vat_number).encode('utf-8')),
+            (3, str(invoice_time).encode('utf-8')),
+            (4, f"{float(total_amount):.2f}".encode('utf-8')),
+            (5, f"{float(vat_amount):.2f}".encode('utf-8'))
+        ]
+        tlv = bytearray()
+        for tag, val in tags:
+            tlv.append(tag)
+            tlv.append(len(val))
+            tlv.extend(val)
+        b64_str = base64.b64encode(tlv).decode('ascii')
+
+        qr = QrCodeWidget(b64_str)
+        bounds = qr.getBounds()
+        w = bounds[2] - bounds[0]
+        h = bounds[3] - bounds[1]
+        d = Drawing(size, size, transform=[size/w, 0, 0, size/h, 0, 0])
+        d.add(qr)
+        return d
+
+    def build_reference_summary_stack(self, doc_width, summary_items):
+        """
+        A clean, quiet summary stack above report tables to replace legacy KPI cards.
+        summary_items: list of tuples [('Label', 'Value'), ...] or list of dicts [{'label': '...', 'value': '...'}]
+        Renders as a 2-column or 3-column borderless, unboxed table with bold values.
+        """
+        if not summary_items:
+            return Spacer(1, 1)
+
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
+
+        pairs = []
+        for itm in summary_items:
+            if isinstance(itm, dict):
+                lbl = itm.get('label') or itm.get('name') or itm.get('title')
+                val = itm.get('value')
+            elif isinstance(itm, (list, tuple)) and len(itm) >= 2:
+                lbl, val = itm[0], itm[1]
+            else:
+                continue
+            if val is None or str(val).strip() in ('', '-', 'None', 'null'):
+                continue
+            pairs.append((str(lbl), str(val)))
+
+        if not pairs:
+            return Spacer(1, 1)
+
+        cols = 3 if doc_width > 600 or len(pairs) >= 6 else 2
+        col_w = doc_width / cols
+
+        rows = []
+        curr_row = []
+        lbl_style = ParagraphStyle('SSLbl', fontName=font_reg, fontSize=8.5, leading=11, textColor=colors.HexColor('#555555'))
+
+        for lbl, val in pairs:
+            cell_p = Paragraph(f"{lbl}: <b>{val}</b>", lbl_style)
+            curr_row.append(cell_p)
+            if len(curr_row) == cols:
+                rows.append(curr_row)
+                curr_row = []
+        if curr_row:
+            while len(curr_row) < cols:
+                curr_row.append(Paragraph("", lbl_style))
+            rows.append(curr_row)
+
+        t = Table(rows, colWidths=[col_w] * cols)
+        t.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ]))
+        return t
 
     def _setup_styles(self):
         """Build standardized ParagraphStyle hierarchy."""
@@ -615,7 +704,8 @@ class UniversalPDFGenerator:
     def build_reference_party_and_meta(self, doc_width, party_label, party_name, party_subtext=None, meta_pairs=None):
         """
         Unboxed party on left; unboxed label-value pairs on right.
-        Omit any meta row or party row if value is empty or '-'.
+        Strict empty-field rule: Omit any row, line, or subtext if value is empty, '-', 'None', or 'N/A'.
+        Never displays raw hyphens or empty labels to user.
         """
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
@@ -626,8 +716,17 @@ class UniversalPDFGenerator:
         if party_name and str(party_name).strip() not in ('', '-', 'None', 'null', 'N/A'):
             party_lines.append(f'<font name="{font_bold}" size="9"><b>{party_name}</b></font>')
         if party_subtext and str(party_subtext).strip() not in ('', '-', 'None', 'null', 'N/A'):
-            clean_sub = str(party_subtext).replace('\n', '<br/>')
-            party_lines.append(f"<font size=9 color='#727272'>{clean_sub}</font>")
+            # Filter individual subtext lines so no line is '-' or 'Tel: -'
+            sub_raw = str(party_subtext).split('\n')
+            clean_lines = []
+            for sl in sub_raw:
+                s = sl.strip()
+                if not s or s in ('-', 'None', 'null', 'N/A', 'Tel: -', 'Contact: -', 'Tel: - | Email: -'):
+                    continue
+                clean_lines.append(s)
+            if clean_lines:
+                clean_sub = '<br/>'.join(clean_lines)
+                party_lines.append(f"<font size=9 color='#727272'>{clean_sub}</font>")
 
         party_p = Paragraph("<br/>".join(party_lines) if party_lines else "", ParagraphStyle('PRef', fontName=font_reg, fontSize=10, leading=11.31, textColor=colors.HexColor('#333333')))
         party_cell = [Spacer(1, 16.70), party_p]
@@ -635,11 +734,14 @@ class UniversalPDFGenerator:
         meta_rows = []
         if meta_pairs:
             for lbl, val in meta_pairs:
-                if not val or str(val).strip() in ('', '-', 'None', 'null', 'N/A'):
+                if not val:
+                    continue
+                v_str = str(val).strip()
+                if v_str in ('', '-', 'None', 'null', 'N/A', 'Tel: -', 'Contact: -'):
                     continue
                 meta_rows.append([
                     Paragraph(f"{lbl} :", ParagraphStyle('ML', fontName=font_reg, fontSize=10, leading=10, alignment=2, textColor=colors.HexColor('#727272'))),
-                    Paragraph(str(val), ParagraphStyle('MV', fontName=font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#333333')))
+                    Paragraph(v_str, ParagraphStyle('MV', fontName=font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#333333')))
                 ])
 
         if meta_rows:
@@ -659,14 +761,14 @@ class UniversalPDFGenerator:
         party_meta_table = Table([[party_cell, meta_cell]], colWidths=[265.03, doc_width - 265.03])
         party_meta_table.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('LEFTPADDING', (0,0), (-1,-1), 0.75),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
             ('TOPPADDING', (0,0), (-1,-1), 0),
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ]))
         return party_meta_table
 
-    def build_reference_items_table(self, doc_width, columns, rows, col_widths=None):
+    def build_reference_items_table(self, doc_width, columns, rows, col_widths=None, row_padding=None):
         """
         Charcoal header #3c3d3a, white text, clean rows with thin bottom divider #adadad,
         comfortable padding, repeatRows=1, never splits a row.
@@ -713,8 +815,8 @@ class UniversalPDFGenerator:
             ('RIGHTPADDING', (1,0), (1,-1), 6.0),
             ('LEFTPADDING', (2,0), (-1,-1), 4.0),
             ('RIGHTPADDING', (2,0), (-1,-1), 6.5),
-            ('TOPPADDING', (0,1), (-1,-1), 8.83),
-            ('BOTTOMPADDING', (0,1), (-1,-1), 6.57),
+            ('TOPPADDING', (0,1), (-1,-1), row_padding[0] if row_padding else 8.83),
+            ('BOTTOMPADDING', (0,1), (-1,-1), row_padding[1] if row_padding else 6.57),
             ('LINEBELOW', (0,1), (-1,-1), 0.75, colors.HexColor('#adadad')),
         ]
         items_table.setStyle(TableStyle(t_style))
@@ -848,6 +950,26 @@ class UniversalPDFGenerator:
                 ('BOTTOMPADDING', (0,0), (-1,-1), 0),
             ]))
             flowables.append(sig_table)
+        elif signature_style == 'internal':
+            flowables.append(Paragraph('<font name="' + font_reg + '" size="8" color="#727272"><b>INTERNAL CONFIDENTIAL RECORD</b> • For company administrative & audit review only.</font>', ParagraphStyle('IntConf', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#727272'))))
+            flowables.append(Spacer(1, 10))
+            sig_line = HRFlowable(width=160, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
+            sig_data = [
+                [
+                    Paragraph("Approved By (Management)", ParagraphStyle('SigLInt', fontName=font_reg, fontSize=10, leading=10, textColor=colors.HexColor('#333333'))),
+                    sig_line
+                ]
+            ]
+            sig_table = Table(sig_data, colWidths=[140, 165], hAlign='LEFT')
+            sig_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('TOPPADDING', (0,0), (0,0), 0),
+                ('TOPPADDING', (1,0), (1,0), 7.41),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ]))
+            flowables.append(sig_table)
         elif signature_style == 'double':
             sig_line1 = HRFlowable(width=120, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
             sig_line2 = HRFlowable(width=120, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
@@ -927,1486 +1049,590 @@ class UniversalPDFGenerator:
             result += f" and {_convert_below_thousand(halalas)} Halalas"
         return result
 
-    def build_doc_title_banner(self, doc_width, title, ref_number=None, period_text=None):
+
+
+    def generate_universal_table_pdf(self, title, columns, rows, kpis=None, ref_number=None, period_text=None, totals=None, filename_prefix='report', orientation='portrait'):
         """
-        Build the standardized dark document title banner with document name and period.
+        Universal corporate report PDF matching reference DC-00002 design standard.
+        Charcoal header, thin #adadad row dividers, quiet summary stack, no alternating colors,
+        footer timestamp and page count.
         """
-        left_content = Paragraph(f"<b>{title.upper()}</b>", self.styles['DocTitle'])
-        
-        right_lines = []
-        if ref_number:
-            right_lines.append(f"REF: {ref_number}")
-        if period_text:
-            right_lines.append(f"Period: {period_text}")
-        right_lines.append(f"Date: {datetime.now().strftime('%d/%m/%Y')}")
+        from reportlab.lib.pagesizes import A4, landscape
+        buffer = BytesIO()
+        is_landscape = (orientation == 'landscape' or len(columns) > 6)
+        psize = landscape(A4) if is_landscape else A4
+        page_w, page_h = psize
 
-        right_content = Paragraph("<br/>".join(right_lines), self.styles['DocSubTitle'])
+        left_m = 45.60
+        right_m = 34.79
+        top_m = 55.15
+        bot_m = 50.03
+        doc_w = page_w - left_m - right_m
+        doc_h = page_h - top_m - bot_m
 
-        banner_table = Table(
-            [[left_content, right_content]],
-            colWidths=[doc_width * 0.55, doc_width * 0.45]
-        )
-        banner_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 7),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-        ]))
-
-        return banner_table
-
-    def build_kpi_cards_flowable(self, doc_width, kpis):
-        """
-        Render a 5-card financial KPI summary block.
-        kpis: list of dicts [{'label': 'Opening Balance', 'value': '10,000 SAR', 'color': '#0f172a'}, ...]
-        """
-        num_cards = len(kpis)
-        card_w = doc_width / num_cards
-
-        row_content = []
-        for item in kpis:
-            val_style = ParagraphStyle(
-                f'KpiVal_{item.get("label")}',
-                parent=self.styles['KpiValue'],
-                textColor=item.get('color', self.COLOR_PRIMARY)
-            )
-            card_cells = [
-                Paragraph(item.get('label', '').upper(), self.styles['KpiLabel']),
-                Spacer(1, 1.5 * mm),
-                Paragraph(item.get('value', '0.00'), val_style)
-            ]
-            row_content.append(card_cells)
-
-        kpi_table = Table([row_content], colWidths=[card_w] * num_cards)
-        kpi_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), self.COLOR_ROW_ALT),
-            ('BOX', (0, 0), (-1, -1), 1, self.COLOR_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.75, self.COLOR_BORDER),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        return kpi_table
-
-    def build_signatures_flowable(self, doc_width, labels=None):
-        """
-        Standardized 3-column verification and signature block.
-        """
-        if not labels:
-            labels = [
-                'Prepared By (Accountant)', 
-                'Verified By (Finance Director)', 
-                'Official Corporate Seal'
-            ]
-        col_w = doc_width / len(labels)
-        
-        sig_cells = []
-        for label in labels:
-            sig_cells.append([
-                Spacer(1, 14 * mm),
-                HRFlowable(width="80%", thickness=0.8, color=self.COLOR_MUTED, spaceBefore=0, spaceAfter=3),
-                Paragraph(f"<b>{label}</b>", ParagraphStyle('SigLbl', parent=self.styles['MetaLabel'], alignment=1))
-            ])
-
-        sig_table = Table([sig_cells], colWidths=[col_w] * len(labels))
-        sig_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ]))
-        return KeepTogether([sig_table])
-
-    # =========================================================================
-    # DOCUMENT BUILDER: BANK ACCOUNT STATEMENT
-    # =========================================================================
-    def generate_bank_statement_pdf(self, bank, summary, transactions, filters=None):
-        """
-        Generates a publication-grade server-side Bank Statement PDF.
-        """
-        buffer = io.BytesIO()
-        margin = 12 * mm
-        bank_name = getattr(bank, 'bank_name', str(bank))
-        s_date = filters.get('start_date') if filters else None
-        e_date = filters.get('end_date') if filters else None
-        doc_title = format_dynamic_filename('bank_statement', bank_name, s_date, 'to' if s_date and e_date else None, e_date, ext='')
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=margin,
-            rightMargin=margin,
-            topMargin=margin,
-            bottomMargin=margin + 8 * mm,
-            title=doc_title,
-            author=self.settings.get('company_name', 'Arab Season')
-        )
-
-        doc_width = A4[0] - (2 * margin)
+        doc = BaseDocTemplate(buffer, pagesize=psize, leftMargin=left_m, rightMargin=right_m, topMargin=top_m, bottomMargin=bot_m)
+        frame = Frame(left_m, bot_m, doc_w, doc_h, id='normal', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        # 1. Standard Header
-        elements.extend(self.build_header_flowable(doc_width))
+        # 1. Header
+        ref = ref_number or f"Report# {datetime.now().strftime('%Y%m%d')}"
+        elements.append(self.build_reference_header(doc_w, title.upper(), ref))
+        elements.append(Spacer(1, 15.00))
 
-        # 2. Document Title Banner
-        period_str = "All Historical Time"
-        if filters:
-            s_date = filters.get('start_date')
-            e_date = filters.get('end_date')
-            if s_date and e_date:
-                period_str = f"{s_date} to {e_date}"
-            elif s_date:
-                period_str = f"From {s_date} onward"
-            elif e_date:
-                period_str = f"Up to {e_date}"
+        # 2. Summary Stack (Replacing KPI cards)
+        summary_items = []
+        if period_text:
+            summary_items.append(("Report Period", str(period_text)))
+        if kpis:
+            if isinstance(kpis, list):
+                summary_items.extend(kpis)
+            elif isinstance(kpis, dict):
+                summary_items.extend(kpis.items())
 
-        banner = self.build_doc_title_banner(
-            doc_width,
-            title="OFFICIAL BANK ACCOUNT STATEMENT",
-            ref_number=f"STMT-B{bank.id}-{datetime.now().strftime('%Y%m%d')}",
-            period_text=period_str
-        )
-        elements.append(banner)
-        elements.append(Spacer(1, 3.5 * mm))
+        if summary_items:
+            elements.append(self.build_reference_summary_stack(doc_w, summary_items))
+            elements.append(Spacer(1, 12.00))
 
-        # 3. Bank & Metadata Information Box (2 Columns)
-        left_meta = [
-            Paragraph("<b>BANKING INSTITUTION & ACCOUNT</b>", self.styles['MetaLabel']),
-            Spacer(1, 1 * mm),
-            Paragraph(f"<b>Bank Name:</b> {bank.bank_name}", self.styles['MetaValue']),
-            Paragraph(f"<b>Account Number:</b> {bank.account_number}", self.styles['MetaValue']),
-            Paragraph(f"<b>IBAN:</b> {bank.iban or 'N/A'}", self.styles['MetaValue']),
-            Paragraph(f"<b>Branch:</b> {bank.branch_name or 'Head Office'}", self.styles['MetaValue']),
-        ]
+        # 3. Table
+        # Columns format
+        cols_formatted = []
+        col_w = doc_w / len(columns) if columns else doc_w
+        for c in columns:
+            c_name = c if isinstance(c, str) else (c.get('header') or c.get('title') or c.get('name') or 'Column')
+            align = 'right' if any(k in c_name.lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar']) else 'left'
+            cols_formatted.append((c_name, align))
 
-        right_meta = [
-            Paragraph("<b>STATEMENT PARAMETERS</b>", self.styles['MetaLabel']),
-            Spacer(1, 1 * mm),
-            Paragraph(f"<b>Account Holder:</b> {bank.account_holder_name or self.settings['company_name']}", self.styles['MetaValue']),
-            Paragraph(f"<b>Currency:</b> {bank.currency or 'SAR'} (Saudi Riyal)", self.styles['MetaValue']),
-            Paragraph(f"<b>Account Status:</b> {bank.status}", self.styles['MetaValue']),
-            Paragraph(f"<b>Statement Period:</b> {period_str}", self.styles['MetaValue']),
-        ]
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        table_rows = []
+        for r in rows:
+            row_cells = []
+            for idx, c in enumerate(columns):
+                val = r[idx] if isinstance(r, (list, tuple)) and idx < len(r) else (r.get(c) if isinstance(r, dict) else (r.get(c.get('key')) if isinstance(c, dict) else ''))
+                val_str = str(val) if val is not None else ''
+                align = cols_formatted[idx][1]
+                p_align = 2 if align == 'right' else 0
+                row_cells.append(Paragraph(val_str, ParagraphStyle('TRow', fontName=font_reg, fontSize=8.0 if is_landscape else 8.5, leading=10.5, alignment=p_align, textColor=colors.HexColor('#333333'))))
+            table_rows.append(row_cells)
 
-        info_table = Table([[left_meta, right_meta]], colWidths=[doc_width * 0.50, doc_width * 0.50])
-        info_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), self.COLOR_ROW_ALT),
-            ('BOX', (0, 0), (-1, -1), 1, self.COLOR_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, self.COLOR_BORDER),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        elements.append(info_table)
-        elements.append(Spacer(1, 3.5 * mm))
+        items_table = self.build_reference_items_table(doc_w, cols_formatted, table_rows, col_widths=[col_w] * len(columns))
+        elements.append(items_table)
 
-        # 4. Financial KPI Cards (Opening, Credits, Debits, Net, Closing)
-        net_val = Decimal(str(summary.get('net_change', 0)))
-        kpis = [
-            {
-                'label': 'Opening Balance',
-                'value': self._format_currency(summary.get('opening_balance', 0), bank.currency),
-                'color': self.COLOR_SECONDARY
-            },
-            {
-                'label': 'Total Credits (+)',
-                'value': f"+{self._format_currency(summary.get('total_credits', 0), bank.currency)}",
-                'color': self.COLOR_CREDIT
-            },
-            {
-                'label': 'Total Debits (-)',
-                'value': f"-{self._format_currency(summary.get('total_debits', 0), bank.currency)}",
-                'color': self.COLOR_DEBIT
-            },
-            {
-                'label': 'Net Movement',
-                'value': f"{'+' if net_val >= 0 else ''}{self._format_currency(net_val, bank.currency)}",
-                'color': self.COLOR_CREDIT if net_val >= 0 else self.COLOR_DEBIT
-            },
-            {
-                'label': 'Closing Balance',
-                'value': self._format_currency(summary.get('closing_balance', 0), bank.currency),
-                'color': colors.HexColor("#065f46")
-            }
-        ]
-        elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-        elements.append(Spacer(1, 4 * mm))
-
-        # 5. Tabular Statement Ledger
-        # Columns: Date (45), Ref # (52), Description (145), Party (80), Category (60), Credit (65), Debit (65), Balance (70)
-        col_w = [
-            doc_width * 0.10,  # Date
-            doc_width * 0.11,  # Ref
-            doc_width * 0.28,  # Description
-            doc_width * 0.15,  # Party
-            doc_width * 0.10,  # Category
-            doc_width * 0.13,  # Credit
-            doc_width * 0.13,  # Debit
-        ]
-        # Adjust total width to 100%
-        # Date: 10%, Ref: 11%, Desc: 27%, Party: 14%, Credit: 12%, Debit: 12%, Balance: 14%
-        col_widths = [
-            doc_width * 0.09,
-            doc_width * 0.11,
-            doc_width * 0.28,
-            doc_width * 0.14,
-            doc_width * 0.12,
-            doc_width * 0.12,
-            doc_width * 0.14
-        ]
-
-        table_data = []
-
-        # Table Header Row
-        header_row = [
-            Paragraph("<b>DATE</b>", self.styles['TableHeader']),
-            Paragraph("<b>REF #</b>", self.styles['TableHeader']),
-            Paragraph("<b>DESCRIPTION</b>", self.styles['TableHeader']),
-            Paragraph("<b>COUNTERPARTY</b>", self.styles['TableHeader']),
-            Paragraph("<para align='right'><b>CREDIT (+)</b></para>", self.styles['TableHeader']),
-            Paragraph("<para align='right'><b>DEBIT (-)</b></para>", self.styles['TableHeader']),
-            Paragraph("<para align='right'><b>BALANCE</b></para>", self.styles['TableHeader']),
-        ]
-        table_data.append(header_row)
-
-        # Opening Balance Row
-        op_date = filters.get('start_date') if filters and filters.get('start_date') else 'INCEPTION'
-        op_row = [
-            Paragraph(f"<b>{op_date}</b>", self.styles['TableCellBold']),
-            Paragraph("--", self.styles['TableCell']),
-            Paragraph("<b>PERIOD OPENING BALANCE BROUGHT FORWARD</b>", self.styles['TableCellBold']),
-            Paragraph("--", self.styles['TableCell']),
-            Paragraph("--", self.styles['TableCellNumber']),
-            Paragraph("--", self.styles['TableCellNumber']),
-            Paragraph(self._format_currency(summary.get('opening_balance', 0), bank.currency), self.styles['TableCellNumber']),
-        ]
-        table_data.append(op_row)
-
-        # Transaction Rows
-        for tx in transactions:
-            credit_amt = tx.get('credit', 0)
-            debit_amt = tx.get('debit', 0)
-            run_bal = tx.get('running_balance', 0)
-
-            credit_cell = Paragraph(f"+{Decimal(str(credit_amt)):,.2f}", self.styles['TableCellCredit']) if credit_amt > 0 else Paragraph("-", self.styles['TableCell'])
-            debit_cell = Paragraph(f"-{Decimal(str(debit_amt)):,.2f}", self.styles['TableCellDebit']) if debit_amt > 0 else Paragraph("-", self.styles['TableCell'])
-            bal_cell = Paragraph(f"{Decimal(str(run_bal)):,.2f}", self.styles['TableCellNumber'])
-
-            desc_text = f"<b>{tx.get('remark') or 'Bank Transfer'}</b>"
-            if tx.get('cashbook_name'):
-                desc_text += f"<br/><font size='6.5' color='#64748b'>Book: {tx.get('cashbook_name')} | {tx.get('payment_mode') or 'Bank Transfer'}</font>"
-
-            tx_row = [
-                Paragraph(str(tx.get('date', '')), self.styles['TableCell']),
-                Paragraph(str(tx.get('reference_number', '')), self.styles['TableCell']),
-                Paragraph(desc_text, self.styles['TableCell']),
-                Paragraph(str(tx.get('party_name') or 'Direct Transaction'), self.styles['TableCell']),
-                credit_cell,
-                debit_cell,
-                bal_cell
-            ]
-            table_data.append(tx_row)
-
-        # Closing Summary Row
-        cls_row = [
-            Paragraph("<b>TOTALS</b>", self.styles['TableCellBold']),
-            Paragraph("--", self.styles['TableCell']),
-            Paragraph("<b>PERIOD CLOSING SUMMARY & FINAL BALANCE:</b>", self.styles['TableCellBold']),
-            Paragraph("--", self.styles['TableCell']),
-            Paragraph(f"+{Decimal(str(summary.get('total_credits', 0))):,.2f}", self.styles['TableCellCredit']),
-            Paragraph(f"-{Decimal(str(summary.get('total_debits', 0))):,.2f}", self.styles['TableCellDebit']),
-            Paragraph(self._format_currency(summary.get('closing_balance', 0), bank.currency), self.styles['TableCellNumber']),
-        ]
-        table_data.append(cls_row)
-
-        ledger_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-        
-        table_styles = [
-            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
-            ('TOPPADDING', (0, 0), (-1, -1), 4.5),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-            ('LINEBELOW', (0, 0), (-1, 0), 1.5, self.COLOR_PRIMARY),
-            ('BACKGROUND', (0, 1), (-1, 1), self.COLOR_ROW_ALT), # Opening row background
-            ('LINEBELOW', (0, 1), (-1, 1), 1, self.COLOR_BORDER),
-            ('BACKGROUND', (0, -1), (-1, -1), self.COLOR_ROW_ALT), # Closing row background
-            ('LINEABOVE', (0, -1), (-1, -1), 1.5, self.COLOR_PRIMARY),
-        ]
-
-        # Alternating row colors for transactions
-        for i in range(2, len(table_data) - 1):
-            bg = self.COLOR_WHITE if i % 2 == 0 else self.COLOR_ROW_ALT
-            table_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-            table_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-
-        ledger_table.setStyle(TableStyle(table_styles))
-        elements.append(ledger_table)
-        elements.append(Spacer(1, 6 * mm))
-
-        # 6. Verification & Signatures
-        elements.append(self.build_signatures_flowable(doc_width))
-
-        # Build document with custom canvas
-        def canvas_maker(*args, **kwargs):
+        def report_canvas(*args, **kwargs):
             c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
+            c.is_report = True
             return c
 
-        doc.build(elements, canvasmaker=canvas_maker)
+        doc.build(elements, canvasmaker=report_canvas)
         pdf_bytes = buffer.getvalue()
         buffer.close()
         return pdf_bytes
 
-    # =========================================================================
-    # DOCUMENT BUILDER: SALARY PAYMENT VOUCHER
-    # =========================================================================
-    def generate_salary_voucher_pdf(self, salary, timesheets=None):
+    def generate_cashbook_ledger_pdf(self, book_data, summary, entries, filters=None):
         """
-        Generates an official corporate Payroll Disbursement Voucher PDF
-        strictly adhering to reference DC-00002.pdf design.
-        Includes salary breakdown, monthly attendance summary, and double signature.
+        Generates official Cashbook Statement & Transaction Ledger PDF in landscape.
+        Charcoal table header, thin dividers, summary stack, no alternating rows.
         """
+        from reportlab.lib.pagesizes import A4, landscape
         buffer = BytesIO()
-        doc = BaseDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=45.60,
-            rightMargin=34.79,
-            topMargin=55.15,
-            bottomMargin=50.03
-        )
-        frame = Frame(
-            45.60, 50.03, 515.03, 841.69 - 55.15 - 50.03,
-            id='normal',
-            leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0
-        )
-        template = PageTemplate(id='all_pages', frames=frame)
-        doc.addPageTemplates([template])
-        doc_width = 515.03
+        psize = landscape(A4)
+        page_w, page_h = psize
+        left_m = 45.60
+        right_m = 34.79
+        top_m = 55.15
+        bot_m = 50.03
+        doc_w = page_w - left_m - right_m
+        doc_h = page_h - top_m - bot_m
+
+        doc = BaseDocTemplate(buffer, pagesize=psize, leftMargin=left_m, rightMargin=right_m, topMargin=top_m, bottomMargin=bot_m)
+        frame = Frame(left_m, bot_m, doc_w, doc_h, id='normal', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        staff_name = getattr(salary, 'staff_name', '') if hasattr(salary, 'staff_name') else (salary.get('staff_name', '') if isinstance(salary, dict) else '')
-        paid_month = getattr(salary, 'paid_month', '') or getattr(salary, 'payment_date', '') if hasattr(salary, 'paid_month') else (salary.get('paid_month', '') or salary.get('payment_date', '') if isinstance(salary, dict) else '')
-        sal_id = getattr(salary, 'id', 1) if hasattr(salary, 'id') else (salary.get('id', 1) if isinstance(salary, dict) else 1)
-        pay_date = str(getattr(salary, 'payment_date', '')) if hasattr(salary, 'payment_date') else str(salary.get('payment_date', ''))
-        pay_mode = getattr(salary, 'payment_mode', 'Cash') if hasattr(salary, 'payment_mode') else salary.get('payment_mode', 'Cash')
-        desc = getattr(salary, 'description', '') if hasattr(salary, 'description') else salary.get('description', '')
-
-        # Auto-query timesheets if not provided
-        if timesheets is None:
-            try:
-                from .models import StaffTimesheet
-                from django.db.models import Q
-                dt = None
-                if paid_month:
-                    try:
-                        dt = datetime.strptime(str(paid_month).strip(), '%B %Y')
-                    except Exception:
-                        pass
-                if not dt and pay_date:
-                    try:
-                        dt = datetime.strptime(str(pay_date)[:10], '%Y-%m-%d')
-                    except Exception:
-                        pass
-
-                if dt and staff_name:
-                    timesheets = list(StaffTimesheet.objects.filter(
-                        date__year=dt.year,
-                        date__month=dt.month
-                    ).filter(
-                        Q(staff_name__iexact=staff_name) | Q(staff_name__icontains=staff_name)
-                    ).order_by('date', 'id'))
-                else:
-                    timesheets = []
-            except Exception:
-                timesheets = []
-
-        # 1. Header
-        header = self.build_reference_header(doc_width, "PAYROLL DISBURSEMENT", f"Salary Voucher# VCH-SAL-{sal_id:05d}")
+        book_name = book_data.get('name', 'Main Cashbook') if isinstance(book_data, dict) else getattr(book_data, 'name', 'Main Cashbook')
+        header = self.build_reference_header(doc_w, "CASHBOOK LEDGER REPORT", f"Book# {book_name}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 15.00))
 
-        # 2. Party & Meta
-        designation = getattr(salary, 'designation', None) or (salary.get('designation') if isinstance(salary, dict) else None)
-        meta_pairs = [
-            ("Pay Period", paid_month or "Current Month"),
-            ("Payment Date", format_doc_date(pay_date)),
-            ("Payment Mode", pay_mode or "Cash")
+        # Summary Stack
+        open_b = float(summary.get('opening_balance', 0) if isinstance(summary, dict) else getattr(summary, 'opening_balance', 0))
+        tot_in = float(summary.get('total_inflow', 0) if isinstance(summary, dict) else getattr(summary, 'total_inflow', 0))
+        tot_out = float(summary.get('total_outflow', 0) if isinstance(summary, dict) else getattr(summary, 'total_outflow', 0))
+        close_b = float(summary.get('closing_balance', 0) if isinstance(summary, dict) else getattr(summary, 'closing_balance', 0))
+        net_f = tot_in - tot_out
+
+        s_date = filters.get('start_date') if filters else None
+        e_date = filters.get('end_date') if filters else None
+        p_str = f"{format_doc_date(s_date)} to {format_doc_date(e_date)}" if (s_date and e_date) else f"As of {datetime.now().strftime('%d/%m/%Y')}"
+
+        summary_items = [
+            ("Ledger Period", p_str),
+            ("Opening Balance", f"{open_b:,.2f} SAR"),
+            ("Total Inflow", f"{tot_in:,.2f} SAR"),
+            ("Total Outflow", f"{tot_out:,.2f} SAR"),
+            ("Net Cash Movement", f"{net_f:,.2f} SAR"),
+            ("Closing Book Balance", f"{close_b:,.2f} SAR")
         ]
-        party_meta = self.build_reference_party_and_meta(
-            doc_width,
-            party_label="Employee",
-            party_name=staff_name,
-            party_subtext=designation,
-            meta_pairs=meta_pairs
-        )
-        elements.append(party_meta)
-        elements.append(Spacer(1, 15.10))
+        elements.append(self.build_reference_summary_stack(doc_w, summary_items))
+        elements.append(Spacer(1, 12.00))
 
-        # 3. Items Table (Salary Breakdown)
-        base_sal = Decimal(str(getattr(salary, 'base_salary', 0) or getattr(salary, 'amount', 0) or 0)) if hasattr(salary, 'base_salary') else Decimal(str(salary.get('base_salary', 0) or salary.get('amount', 0) or 0))
-        ot_hrs = getattr(salary, 'overtime_hours', 0) or (salary.get('overtime_hours', 0) if isinstance(salary, dict) else 0) or 0
-        ot_amt = Decimal(str(getattr(salary, 'overtime_amount', 0) or 0)) if hasattr(salary, 'overtime_amount') else Decimal(str(salary.get('overtime_amount', 0) or 0))
-        tot_sal = Decimal(str(getattr(salary, 'total_salary', 0) or (base_sal + ot_amt) or 0)) if hasattr(salary, 'total_salary') else Decimal(str(salary.get('total_salary', 0) or (base_sal + ot_amt) or 0))
-        net_paid = Decimal(str(getattr(salary, 'amount', 0) or tot_sal or 0)) if hasattr(salary, 'amount') else Decimal(str(salary.get('amount', 0) or tot_sal or 0))
-        deductions = tot_sal - net_paid if tot_sal > net_paid else Decimal('0.00')
-
-        columns = [
+        # Ledger Table
+        cols = [
             ("#", "center"),
-            ("Item & Description", "left"),
-            ("Qty", "right"),
-            ("Rate", "right"),
-            ("Amount", "right")
+            ("Date", "center"),
+            ("Ref #", "left"),
+            ("Account / Category", "left"),
+            ("Description / Narration", "left"),
+            ("Inflow (SAR)", "right"),
+            ("Outflow (SAR)", "right"),
+            ("Balance (SAR)", "right")
         ]
-        col_widths = [25.73, 274.80, 56.62, 56.63, 101.25]
-        table_rows = []
+        col_w = [25.00, 70.00, 75.00, 120.00, 231.30, 80.00, 80.00, 80.00]
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        table_rows = []
 
-        # Row 1: Base Salary
-        table_rows.append([
-            "1",
-            Paragraph('<font color="#333333">Base Monthly Salary</font><br/><font color="#727272">Regular monthly payroll allocation</font>', ParagraphStyle('ItmDesc1', fontName=font_reg, fontSize=9, leading=10.39)),
-            "1.00",
-            f"{base_sal:,.2f}",
-            f"{base_sal:,.2f}"
-        ])
+        running = open_b
+        for idx, e in enumerate(entries, 1):
+            e_date = format_doc_date(e.get('date') or e.get('entry_date')) if isinstance(e, dict) else format_doc_date(getattr(e, 'date', ''))
+            e_ref = str(e.get('reference') or e.get('ref_no') or f"EN-{idx:04d}") if isinstance(e, dict) else str(getattr(e, 'reference', f"EN-{idx:04d}"))
+            e_cat = str(e.get('category') or e.get('account') or 'General') if isinstance(e, dict) else str(getattr(e, 'category', 'General'))
+            e_desc = str(e.get('description') or e.get('narration') or 'Cash Transaction') if isinstance(e, dict) else str(getattr(e, 'description', 'Cash Transaction'))
+            e_in = float(e.get('inflow', 0) or e.get('debit', 0)) if isinstance(e, dict) else float(getattr(e, 'inflow', 0) or 0)
+            e_out = float(e.get('outflow', 0) or e.get('credit', 0)) if isinstance(e, dict) else float(getattr(e, 'outflow', 0) or 0)
+            running = running + e_in - e_out
 
-        # Row 2: Overtime (if any)
-        if ot_amt > 0 or float(ot_hrs) > 0:
-            ot_rate = (ot_amt / Decimal(str(ot_hrs))) if float(ot_hrs) > 0 else ot_amt
             table_rows.append([
-                str(len(table_rows) + 1),
-                Paragraph(f'<font color="#333333">Overtime Compensation</font><br/><font color="#727272">{float(ot_hrs):.1f} authorized OT hours</font>', ParagraphStyle('ItmDesc2', fontName=font_reg, fontSize=9, leading=10.39)),
-                f"{float(ot_hrs):.2f}",
-                f"{ot_rate:,.2f}",
-                f"{ot_amt:,.2f}"
+                str(idx),
+                e_date,
+                Paragraph(e_ref, ParagraphStyle('CR', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                Paragraph(e_cat, ParagraphStyle('CC', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                Paragraph(e_desc, ParagraphStyle('CD', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                f"{e_in:,.2f}" if e_in > 0 else "",
+                f"{e_out:,.2f}" if e_out > 0 else "",
+                f"{running:,.2f}"
             ])
 
-        # Row 3: Deductions (if any)
-        if deductions > 0:
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w))
+
+        def report_canvas(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.is_report = True
+            return c
+
+        doc.build(elements, canvasmaker=report_canvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
+    def generate_cashbook_bank_flow_pdf(self, summary, transactions, filters=None):
+        """
+        Generates Consolidated Bank Flow & Transaction Ledger PDF in landscape.
+        """
+        from reportlab.lib.pagesizes import A4, landscape
+        buffer = BytesIO()
+        psize = landscape(A4)
+        page_w, page_h = psize
+        left_m = 45.60
+        right_m = 34.79
+        top_m = 55.15
+        bot_m = 50.03
+        doc_w = page_w - left_m - right_m
+        doc_h = page_h - top_m - bot_m
+
+        doc = BaseDocTemplate(buffer, pagesize=psize, leftMargin=left_m, rightMargin=right_m, topMargin=top_m, bottomMargin=bot_m)
+        frame = Frame(left_m, bot_m, doc_w, doc_h, id='normal', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
+        elements = []
+
+        elements.append(self.build_reference_header(doc_w, "CONSOLIDATED BANK FLOW REPORT", f"Flow# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(Spacer(1, 15.00))
+
+        tot_in = float(summary.get('total_inflow', 0) if isinstance(summary, dict) else getattr(summary, 'total_inflow', 0))
+        tot_out = float(summary.get('total_outflow', 0) if isinstance(summary, dict) else getattr(summary, 'total_outflow', 0))
+        net_m = tot_in - tot_out
+        s_date = filters.get('start_date') if filters else None
+        e_date = filters.get('end_date') if filters else None
+        p_str = f"{format_doc_date(s_date)} to {format_doc_date(e_date)}" if (s_date and e_date) else f"As of {datetime.now().strftime('%d/%m/%Y')}"
+
+        summary_items = [
+            ("Flow Period", p_str),
+            ("Total Inflow Transferred", f"{tot_in:,.2f} SAR"),
+            ("Total Outflow Disbursed", f"{tot_out:,.2f} SAR"),
+            ("Net Inter-Bank Flow", f"{net_m:,.2f} SAR"),
+            ("Total Transactions", str(len(transactions)))
+        ]
+        elements.append(self.build_reference_summary_stack(doc_w, summary_items))
+        elements.append(Spacer(1, 12.00))
+
+        cols = [
+            ("#", "center"),
+            ("Date", "center"),
+            ("From Bank Account", "left"),
+            ("To Bank Account", "left"),
+            ("Description / Purpose", "left"),
+            ("Transfer Amount (SAR)", "right")
+        ]
+        col_w = [25.00, 75.00, 160.00, 160.00, 221.30, 120.00]
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        table_rows = []
+
+        for idx, t in enumerate(transactions, 1):
+            t_date = format_doc_date(t.get('date') if isinstance(t, dict) else getattr(t, 'date', ''))
+            f_bank = str(t.get('from_bank') or t.get('from_account') or 'Main Account') if isinstance(t, dict) else str(getattr(t, 'from_bank', ''))
+            to_bank = str(t.get('to_bank') or t.get('to_account') or 'Beneficiary') if isinstance(t, dict) else str(getattr(t, 'to_bank', ''))
+            desc = str(t.get('description') or t.get('notes') or 'Bank Funds Transfer') if isinstance(t, dict) else str(getattr(t, 'description', ''))
+            amt = float(t.get('amount', 0) if isinstance(t, dict) else getattr(t, 'amount', 0))
+
             table_rows.append([
-                str(len(table_rows) + 1),
-                Paragraph('<font color="#333333">Payroll Deductions / Advances</font><br/><font color="#727272">Authorized statutory or advance deduction</font>', ParagraphStyle('ItmDesc3', fontName=font_reg, fontSize=9, leading=10.39)),
-                "1.00",
-                f"-{deductions:,.2f}",
-                f"-{deductions:,.2f}"
+                str(idx),
+                t_date,
+                Paragraph(f_bank, ParagraphStyle('FB', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                Paragraph(to_bank, ParagraphStyle('TB', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                Paragraph(desc, ParagraphStyle('TD', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                f"{amt:,.2f}"
             ])
 
-        items_table = self.build_reference_items_table(doc_width, columns, table_rows, col_widths=col_widths)
-        elements.append(items_table)
-        elements.append(Spacer(1, 0.75))
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w))
 
-        # 4. Totals Block
-        total_val = float(net_paid)
-        words_text = self.number_to_words(total_val)
-        totals_block = self.build_reference_totals(
-            doc_width,
-            sub_total=float(tot_sal) if tot_sal != net_paid else None,
-            total=total_val,
-            words_text=words_text,
-            show_sar_symbol=True
-        )
-        elements.append(totals_block)
-        elements.append(Spacer(1, 23.00))
+        def report_canvas(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.is_report = True
+            return c
 
-        # 5. Timesheets table (if attached)
-        if timesheets:
-            ts_cols = [
-                ("#", "center"),
-                ("Date", "left"),
-                ("Job / Description", "left"),
-                ("Regular Hrs", "right"),
-                ("OT Hrs", "right")
-            ]
-            ts_widths = [25.73, 85.00, 260.00, 72.00, 72.30]
-            ts_rows = []
-            for t_idx, ts in enumerate(timesheets[:25], 1):
-                t_date = format_doc_date(getattr(ts, 'date', ''))
-                t_job = str(getattr(ts, 'job_description', '') or getattr(ts, 'notes', '') or 'Work Shift')
-                t_reg = float(getattr(ts, 'regular_hours', 8) or 8)
-                t_ot = float(getattr(ts, 'overtime_hours', 0) or 0)
-                ts_rows.append([
-                    str(t_idx),
-                    Paragraph(t_date, ParagraphStyle('TSD', fontName=font_reg, fontSize=8, leading=9)),
-                    Paragraph(t_job, ParagraphStyle('TSJ', fontName=font_reg, fontSize=8, leading=9)),
-                    f"{t_reg:.1f}",
-                    f"{t_ot:.1f}"
-                ])
-            elements.append(Paragraph(f'<font name="{font_reg}" size="9" color="#333333"><b>Attendance & Timesheet Log ({len(timesheets)} Records)</b></font>', ParagraphStyle('TSH', fontName=font_reg, fontSize=9, leading=12)))
-            elements.append(Spacer(1, 6))
-            elements.append(self.build_reference_items_table(doc_width, ts_cols, ts_rows, col_widths=ts_widths))
-            elements.append(Spacer(1, 15))
+        doc.build(elements, canvasmaker=report_canvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
 
-        # 6. Signatures (Double: Authorized + Receiver's Signature)
-        sigs = self.build_reference_signatures_and_notes(
-            doc_width,
-            notes=desc,
-            signature_style='double'
-        )
-        elements.extend(sigs)
+    def generate_bank_statement_pdf(self, bank, summary, transactions, filters=None):
+        """
+        Generates official Bank Statement PDF in portrait layout matching DC-00002.
+        """
+        buffer = BytesIO()
+        doc = BaseDocTemplate(buffer, pagesize=A4, leftMargin=45.60, rightMargin=34.79, topMargin=55.15, bottomMargin=50.03)
+        doc_w = 515.03
+        frame = Frame(45.60, 50.03, doc_w, 841.69 - 55.15 - 50.03, id='normal', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
+        elements = []
 
-        doc.build(elements, canvasmaker=NumberedCanvas)
+        bank_name = getattr(bank, 'bank_name', str(bank))
+        acct_no = getattr(bank, 'account_number', '') or ''
+        iban = getattr(bank, 'iban', '') or ''
+
+        elements.append(self.build_reference_header(doc_w, "BANK STATEMENT", f"Account# {acct_no or 'BANK'}"))
+        elements.append(Spacer(1, 15.00))
+
+        open_b = float(summary.get('opening_balance', 0) if isinstance(summary, dict) else getattr(summary, 'opening_balance', 0))
+        tot_dep = float(summary.get('total_deposits', 0) if isinstance(summary, dict) else getattr(summary, 'total_deposits', 0))
+        tot_wth = float(summary.get('total_withdrawals', 0) if isinstance(summary, dict) else getattr(summary, 'total_withdrawals', 0))
+        close_b = float(summary.get('closing_balance', 0) if isinstance(summary, dict) else getattr(summary, 'closing_balance', 0))
+
+        s_date = filters.get('start_date') if filters else None
+        e_date = filters.get('end_date') if filters else None
+        p_str = f"{format_doc_date(s_date)} to {format_doc_date(e_date)}" if (s_date and e_date) else f"As of {datetime.now().strftime('%d/%m/%Y')}"
+
+        summary_items = [
+            ("Bank & Account", f"{bank_name} • {acct_no}"),
+            ("Statement Period", p_str),
+            ("Opening Balance", f"{open_b:,.2f} SAR"),
+            ("Total Deposits", f"{tot_dep:,.2f} SAR"),
+            ("Total Withdrawals", f"{tot_wth:,.2f} SAR"),
+            ("Closing Book Balance", f"{close_b:,.2f} SAR")
+        ]
+        if iban:
+            summary_items.insert(1, ("IBAN", str(iban)))
+
+        elements.append(self.build_reference_summary_stack(doc_w, summary_items))
+        elements.append(Spacer(1, 12.00))
+
+        cols = [
+            ("Date", "center"),
+            ("Description / Reference", "left"),
+            ("Withdrawal (SAR)", "right"),
+            ("Deposit (SAR)", "right"),
+            ("Balance (SAR)", "right")
+        ]
+        col_w = [70.00, 205.03, 80.00, 80.00, 80.00]
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        table_rows = []
+
+        running = open_b
+        for t in transactions:
+            t_date = format_doc_date(t.get('date') if isinstance(t, dict) else getattr(t, 'date', ''))
+            t_desc = str(t.get('description') or t.get('details') or 'Bank Transaction') if isinstance(t, dict) else str(getattr(t, 'description', ''))
+            deb = float(t.get('withdrawal', 0) or t.get('debit', 0)) if isinstance(t, dict) else float(getattr(t, 'withdrawal', 0) or 0)
+            cred = float(t.get('deposit', 0) or t.get('credit', 0)) if isinstance(t, dict) else float(getattr(t, 'deposit', 0) or 0)
+            running = running + cred - deb
+
+            table_rows.append([
+                Paragraph(t_date, ParagraphStyle('BD', fontName=font_reg, fontSize=8, leading=10, alignment=1, textColor=colors.HexColor('#333333'))),
+                Paragraph(t_desc, ParagraphStyle('BX', fontName=font_reg, fontSize=8, leading=10.5, textColor=colors.HexColor('#333333'))),
+                f"{deb:,.2f}" if deb > 0 else "",
+                f"{cred:,.2f}" if cred > 0 else "",
+                f"{running:,.2f}"
+            ])
+
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w))
+
+        def report_canvas(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.is_report = True
+            return c
+
+        doc.build(elements, canvasmaker=report_canvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
+    def generate_employee_ledger_pdf(self, employee_ledger):
+        """
+        Generates official Employee Payroll Ledger & Balance Statement PDF.
+        """
+        buffer = BytesIO()
+        doc = BaseDocTemplate(buffer, pagesize=A4, leftMargin=45.60, rightMargin=34.79, topMargin=55.15, bottomMargin=50.03)
+        doc_w = 515.03
+        frame = Frame(45.60, 50.03, doc_w, 841.69 - 55.15 - 50.03, id='normal', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
+        elements = []
+
+        staff_name = employee_ledger.get('staff_name', 'Employee') if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'staff_name', 'Employee')
+        elements.append(self.build_reference_header(doc_w, "EMPLOYEE LEDGER", f"Employee# {staff_name}"))
+        elements.append(Spacer(1, 15.00))
+
+        summary = employee_ledger.get('summary', {}) if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'summary', {})
+        tot_earn = float(summary.get('total_earnings', 0))
+        tot_adv = float(summary.get('total_advances', 0))
+        tot_paid = float(summary.get('total_paid', 0))
+        net_bal = float(summary.get('net_balance', 0))
+
+        summary_items = [
+            ("Employee Name", str(staff_name)),
+            ("Total Accrued Earnings", f"{tot_earn:,.2f} SAR"),
+            ("Total Advances / Deductions", f"{tot_adv:,.2f} SAR"),
+            ("Total Disbursed", f"{tot_paid:,.2f} SAR"),
+            ("Net Outstanding Balance", f"{net_bal:,.2f} SAR")
+        ]
+        elements.append(self.build_reference_summary_stack(doc_w, summary_items))
+        elements.append(Spacer(1, 12.00))
+
+        cols = [
+            ("Date", "center"),
+            ("Transaction / Shift Details", "left"),
+            ("Accrued (SAR)", "right"),
+            ("Paid (SAR)", "right"),
+            ("Balance (SAR)", "right")
+        ]
+        col_w = [70.00, 205.03, 80.00, 80.00, 80.00]
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        table_rows = []
+
+        entries = employee_ledger.get('entries', []) if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'entries', [])
+        for e in entries:
+            e_date = format_doc_date(e.get('date'))
+            e_desc = str(e.get('description') or e.get('details') or 'Payroll Item')
+            acc = float(e.get('accrued', 0) or e.get('debit', 0))
+            paid = float(e.get('paid', 0) or e.get('credit', 0))
+            bal = float(e.get('balance', 0))
+
+            table_rows.append([
+                Paragraph(e_date, ParagraphStyle('ED', fontName=font_reg, fontSize=8, leading=10, alignment=1, textColor=colors.HexColor('#333333'))),
+                Paragraph(e_desc, ParagraphStyle('EX', fontName=font_reg, fontSize=8, leading=10.5, textColor=colors.HexColor('#333333'))),
+                f"{acc:,.2f}" if acc > 0 else "",
+                f"{paid:,.2f}" if paid > 0 else "",
+                f"{bal:,.2f}"
+            ])
+
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w))
+
+        def report_canvas(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.is_report = True
+            return c
+
+        doc.build(elements, canvasmaker=report_canvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
+    def generate_timesheet_report_pdf(self, timesheets, filters=None):
+        """
+        Generates official Staff Timesheet and Attendance Audit Report PDF in landscape.
+        """
+        from reportlab.lib.pagesizes import A4, landscape
+        buffer = BytesIO()
+        psize = landscape(A4)
+        page_w, page_h = psize
+        left_m = 45.60
+        right_m = 34.79
+        top_m = 55.15
+        bot_m = 50.03
+        doc_w = page_w - left_m - right_m
+        doc_h = page_h - top_m - bot_m
+
+        doc = BaseDocTemplate(buffer, pagesize=psize, leftMargin=left_m, rightMargin=right_m, topMargin=top_m, bottomMargin=bot_m)
+        frame = Frame(left_m, bot_m, doc_w, doc_h, id='normal', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
+        elements = []
+
+        elements.append(self.build_reference_header(doc_w, "TIMESHEET AUDIT REPORT", f"Audit# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(Spacer(1, 15.00))
+
+        tot_shifts = len(timesheets)
+        tot_reg = sum(float(getattr(t, 'regular_hours', 8) or 8) if not isinstance(t, dict) else float(t.get('regular_hours', 8) or 8) for t in timesheets)
+        tot_ot = sum(float(getattr(t, 'overtime_hours', 0) or 0) if not isinstance(t, dict) else float(t.get('overtime_hours', 0) or 0) for t in timesheets)
+        tot_hrs = tot_reg + tot_ot
+
+        summary_items = [
+            ("Audit Period", (filters.get('month') if filters else None) or f"As of {datetime.now().strftime('%d/%m/%Y')}"),
+            ("Total Shift Records", str(tot_shifts)),
+            ("Total Regular Hours", f"{tot_reg:,.1f} hrs"),
+            ("Total Overtime Hours", f"{tot_ot:,.1f} hrs"),
+            ("Combined Total Hours", f"{tot_hrs:,.1f} hrs")
+        ]
+        elements.append(self.build_reference_summary_stack(doc_w, summary_items))
+        elements.append(Spacer(1, 12.00))
+
+        cols = [
+            ("#", "center"),
+            ("Date", "center"),
+            ("Staff Name", "left"),
+            ("Job Order / Work Shift", "left"),
+            ("Clock In", "center"),
+            ("Clock Out", "center"),
+            ("Reg Hrs", "right"),
+            ("OT Hrs", "right"),
+            ("Total Hrs", "right"),
+            ("Status", "center")
+        ]
+        col_w = [25.00, 65.00, 130.00, 231.30, 60.00, 60.00, 50.00, 50.00, 50.00, 40.00]
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        table_rows = []
+
+        for idx, ts in enumerate(timesheets, 1):
+            t_date = format_doc_date(getattr(ts, 'date', '')) if not isinstance(ts, dict) else format_doc_date(ts.get('date'))
+            s_name = str(getattr(ts, 'staff_name', '')) if not isinstance(ts, dict) else str(ts.get('staff_name', ''))
+            job = str(getattr(ts, 'job_description', '') or getattr(ts, 'notes', '') or 'General Shift') if not isinstance(ts, dict) else str(ts.get('job_description', '') or ts.get('notes', '') or 'General Shift')
+            cin = str(getattr(ts, 'clock_in', '') or '08:00') if not isinstance(ts, dict) else str(ts.get('clock_in', '08:00'))
+            cout = str(getattr(ts, 'clock_out', '') or '17:00') if not isinstance(ts, dict) else str(ts.get('clock_out', '17:00'))
+            r_hrs = float(getattr(ts, 'regular_hours', 8) or 8) if not isinstance(ts, dict) else float(ts.get('regular_hours', 8) or 8)
+            o_hrs = float(getattr(ts, 'overtime_hours', 0) or 0) if not isinstance(ts, dict) else float(ts.get('overtime_hours', 0) or 0)
+            t_sum = r_hrs + o_hrs
+            st = str(getattr(ts, 'status', 'Approved') or 'Approved') if not isinstance(ts, dict) else str(ts.get('status', 'Approved') or 'Approved')
+
+            table_rows.append([
+                str(idx),
+                t_date,
+                Paragraph(s_name, ParagraphStyle('TN', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                Paragraph(job, ParagraphStyle('TJ', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                cin,
+                cout,
+                f"{r_hrs:.1f}",
+                f"{o_hrs:.1f}",
+                f"{t_sum:.1f}",
+                st
+            ])
+
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w))
+
+        def report_canvas(*args, **kwargs):
+            c = NumberedCanvas(*args, **kwargs)
+            c.is_report = True
+            return c
+
+        doc.build(elements, canvasmaker=report_canvas)
         pdf_bytes = buffer.getvalue()
         buffer.close()
         return pdf_bytes
 
     def generate_financial_report_pdf(self, report_type, data, filters=None):
         """
-        Generates uniform corporate Financial Report PDFs for:
-        overview, customers, vendors, jobs, and expenses.
+        Generates uniform corporate Financial Report PDF matching DC-00002 standard.
         """
-        buffer = io.BytesIO()
-        margin = 12 * mm
-        s_date = filters.get('start_date') if filters else None
-        e_date = filters.get('end_date') if filters else None
-        doc_title = format_dynamic_filename('financial_report', report_type, s_date, 'to' if s_date and e_date else None, e_date, ext='')
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=margin,
-            rightMargin=margin,
-            topMargin=margin,
-            bottomMargin=margin + 8 * mm,
-            title=doc_title,
-            author=self.settings.get('company_name', 'Arab Season')
-        )
+        from reportlab.lib.pagesizes import A4, landscape
+        buffer = BytesIO()
+        psize = landscape(A4)
+        page_w, page_h = psize
+        left_m = 45.60
+        right_m = 34.79
+        top_m = 55.15
+        bot_m = 50.03
+        doc_w = page_w - left_m - right_m
+        doc_h = page_h - top_m - bot_m
 
-        doc_width = A4[0] - (2 * margin)
+        doc = BaseDocTemplate(buffer, pagesize=psize, leftMargin=left_m, rightMargin=right_m, topMargin=top_m, bottomMargin=bot_m)
+        frame = Frame(left_m, bot_m, doc_w, doc_h, id='normal', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        # 1. Standard Header
-        elements.extend(self.build_header_flowable(doc_width))
+        rep_title = f"FINANCIAL REPORT ({report_type.upper()})"
+        elements.append(self.build_reference_header(doc_w, rep_title, f"FinReport# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(Spacer(1, 15.00))
 
-        # Determine report metadata
-        titles = {
-            'overview': 'CORPORATE PERFORMANCE OVERVIEW',
-            'customers': 'CUSTOMER ACCOUNT STATEMENT & RECEIVABLES',
-            'vendors': 'VENDOR LEDGER STATEMENT & PAYABLES',
-            'jobs': 'MASTER PROJECT LIST & PERFORMANCE RECORD',
-            'expenses': 'CORPORATE EXPENSE & FINANCIAL STATEMENT'
-        }
-        title = titles.get(report_type, 'FINANCIAL AUDIT REPORT')
+        s_date = filters.get('start_date') if filters else None
+        e_date = filters.get('end_date') if filters else None
+        p_str = f"{format_doc_date(s_date)} to {format_doc_date(e_date)}" if (s_date and e_date) else f"As of {datetime.now().strftime('%d/%m/%Y')}"
 
-        period_str = "Last 12 Months"
-        if filters:
-            s_date = filters.get('start_date')
-            e_date = filters.get('end_date')
-            if s_date and e_date:
-                period_str = f"{s_date} to {e_date}"
+        kpi_list = data.get('kpis', []) if isinstance(data, dict) else []
+        summary_items = [("Reporting Period", p_str)]
+        for k in kpi_list:
+            lbl = k.get('label') or k.get('title') or 'Metric'
+            val = k.get('value')
+            if val is not None:
+                summary_items.append((lbl, str(val)))
 
-        banner = self.build_doc_title_banner(
-            doc_width,
-            title=title,
-            ref_number=f"REP-{report_type[:3].upper()}-{datetime.now().strftime('%Y%m%d')}",
-            period_text=period_str
-        )
-        elements.append(banner)
-        elements.append(Spacer(1, 4 * mm))
+        elements.append(self.build_reference_summary_stack(doc_w, summary_items))
+        elements.append(Spacer(1, 12.00))
 
-        # Render content based on report_type
-        if report_type == 'overview':
-            # Monthly income & expense trends
-            monthly_inc = data.get('monthly_income', [])
-            monthly_exp = data.get('monthly_expenses', [])
-            total_rev = sum(m.get('total', 0) for m in monthly_inc)
-            total_exp = sum(e.get('total', 0) for e in monthly_exp)
-            net_prof = total_rev - total_exp
-            margin_pct = (net_prof / total_rev * 100) if total_rev > 0 else 0
-
-            kpis = [
-                {'label': 'Total Revenue', 'value': self._format_currency(total_rev), 'color': self.COLOR_CREDIT},
-                {'label': 'Total Expenses', 'value': self._format_currency(total_exp), 'color': self.COLOR_DEBIT},
-                {'label': 'Net Profit', 'value': self._format_currency(net_prof), 'color': self.COLOR_CREDIT if net_prof >= 0 else self.COLOR_DEBIT},
-                {'label': 'Profit Margin', 'value': f"{margin_pct:.1f}%", 'color': self.COLOR_ACCENT}
-            ]
-            elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-            elements.append(Spacer(1, 5 * mm))
-
-            # Monthly Breakdown Table
-            # Merge months
-            months = sorted(list(set([m['month'] for m in monthly_inc] + [e['month'] for e in monthly_exp])))
-            inc_map = {m['month']: m['total'] for m in monthly_inc}
-            exp_map = {e['month']: e['total'] for e in monthly_exp}
-
-            table_rows = [
-                [
-                    Paragraph("<b>MONTH</b>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>REVENUE (SAR)</b></para>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>EXPENSE (SAR)</b></para>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>NET PROFIT (SAR)</b></para>", self.styles['TableHeader'])
-                ]
-            ]
-            for mo in months:
-                r = inc_map.get(mo, 0)
-                e = exp_map.get(mo, 0)
-                p = r - e
-                table_rows.append([
-                    Paragraph(str(mo), self.styles['TableCell']),
-                    Paragraph(f"{r:,.2f}", self.styles['TableCellCredit']),
-                    Paragraph(f"{e:,.2f}", self.styles['TableCellDebit']),
-                    Paragraph(f"{p:,.2f}", self.styles['TableCellNumber'])
-                ])
-
-            table_rows.append([
-                Paragraph("<b>TOTALS</b>", self.styles['TableCellBold']),
-                Paragraph(f"<b>+{total_rev:,.2f}</b>", self.styles['TableCellCredit']),
-                Paragraph(f"<b>-{total_exp:,.2f}</b>", self.styles['TableCellDebit']),
-                Paragraph(f"<b>{net_prof:,.2f}</b>", self.styles['TableCellNumber'])
-            ])
-
-            col_w = [doc_width * 0.25, doc_width * 0.25, doc_width * 0.25, doc_width * 0.25]
-            overview_table = Table(table_rows, colWidths=col_w, repeatRows=1)
-            t_styles = [
-                ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 0), (-1, -1), 4.5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
-                ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-                ('BACKGROUND', (0, -1), (-1, -1), self.COLOR_ROW_ALT),
-                ('LINEABOVE', (0, -1), (-1, -1), 1.5, self.COLOR_PRIMARY),
-            ]
-            for i in range(1, len(table_rows) - 1):
-                bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-                t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-                t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-            overview_table.setStyle(TableStyle(t_styles))
-            elements.append(overview_table)
-
-        elif report_type == 'customers':
-            customers = data.get('customers', [])
-            total_rev = sum(c.get('total_revenue', 0) or c.get('rev_sum', 0) for c in customers)
-            total_bal = sum(c.get('balance', 0) for c in customers)
-
-            kpis = [
-                {'label': 'Registered Customers', 'value': str(len(customers)), 'color': self.COLOR_PRIMARY},
-                {'label': 'Total Client Revenue', 'value': self._format_currency(total_rev), 'color': self.COLOR_CREDIT},
-                {'label': 'Outstanding Receivables', 'value': self._format_currency(total_bal), 'color': self.COLOR_DEBIT}
-            ]
-            elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-            elements.append(Spacer(1, 5 * mm))
-
-            table_rows = [
-                [
-                    Paragraph("<b>ID</b>", self.styles['TableHeader']),
-                    Paragraph("<b>CUSTOMER NAME</b>", self.styles['TableHeader']),
-                    Paragraph("<b>PHONE / EMAIL</b>", self.styles['TableHeader']),
-                    Paragraph("<para align='center'><b>JOBS</b></para>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>TOTAL REVENUE</b></para>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>BALANCE (SAR)</b></para>", self.styles['TableHeader'])
-                ]
-            ]
-            for c in customers:
-                rev = c.get('total_revenue', 0) or c.get('rev_sum', 0) or 0
-                bal = c.get('balance', 0) or 0
-                contact = f"{c.get('phone') or ''}<br/><font size='6.5' color='#64748b'>{c.get('email') or ''}</font>"
-                table_rows.append([
-                    Paragraph(f"#C{c.get('id')}", self.styles['TableCell']),
-                    Paragraph(f"<b>{c.get('name')}</b>", self.styles['TableCellBold']),
-                    Paragraph(contact, self.styles['TableCell']),
-                    Paragraph(str(c.get('total_jobs', 0)), ParagraphStyle('Cnt', parent=self.styles['TableCell'], alignment=1)),
-                    Paragraph(f"{Decimal(str(rev)):,.2f}", self.styles['TableCellCredit']),
-                    Paragraph(f"{Decimal(str(bal)):,.2f}", self.styles['TableCellDebit'] if bal > 0 else self.styles['TableCellNumber'])
-                ])
-
-            table_rows.append([
-                Paragraph("<b>TOTALS</b>", self.styles['TableCellBold']),
-                Paragraph(f"<b>{len(customers)} Customers</b>", self.styles['TableCellBold']),
-                Paragraph("--", self.styles['TableCell']),
-                Paragraph("--", self.styles['TableCell']),
-                Paragraph(f"<b>{Decimal(str(total_rev)):,.2f}</b>", self.styles['TableCellCredit']),
-                Paragraph(f"<b>{Decimal(str(total_bal)):,.2f}</b>", self.styles['TableCellDebit'])
-            ])
-
-            col_w = [doc_width * 0.08, doc_width * 0.28, doc_width * 0.24, doc_width * 0.08, doc_width * 0.16, doc_width * 0.16]
-            cust_table = Table(table_rows, colWidths=col_w, repeatRows=1)
-            t_styles = [
-                ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-                ('BACKGROUND', (0, -1), (-1, -1), self.COLOR_ROW_ALT),
-                ('LINEABOVE', (0, -1), (-1, -1), 1.5, self.COLOR_PRIMARY),
-            ]
-            for i in range(1, len(table_rows) - 1):
-                bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-                t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-                t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-            cust_table.setStyle(TableStyle(t_styles))
-            elements.append(cust_table)
-
-        elif report_type == 'vendors':
-            vendors = data.get('vendors', [])
-            total_purch = sum(v.get('purch_sum', 0) or 0 for v in vendors)
-            total_paid = sum(v.get('total_paid', 0) or v.get('paid_sum', 0) or 0 for v in vendors)
-            total_bal = sum(v.get('balance', 0) or 0 for v in vendors)
-
-            kpis = [
-                {'label': 'Total Vendors', 'value': str(len(vendors)), 'color': self.COLOR_PRIMARY},
-                {'label': 'Total Purchases', 'value': self._format_currency(total_purch), 'color': self.COLOR_DEBIT},
-                {'label': 'Total Paid Out', 'value': self._format_currency(total_paid), 'color': self.COLOR_CREDIT},
-                {'label': 'Outstanding Payables', 'value': self._format_currency(total_bal), 'color': self.COLOR_DEBIT}
-            ]
-            elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-            elements.append(Spacer(1, 5 * mm))
-
-            table_rows = [
-                [
-                    Paragraph("<b>ID</b>", self.styles['TableHeader']),
-                    Paragraph("<b>VENDOR NAME</b>", self.styles['TableHeader']),
-                    Paragraph("<b>GROUP / CONTACT</b>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>PURCHASES</b></para>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>TOTAL PAID</b></para>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>PAYABLE BAL</b></para>", self.styles['TableHeader'])
-                ]
-            ]
-            for v in vendors:
-                p_sum = v.get('purch_sum', 0) or 0
-                paid_sum = v.get('total_paid', 0) or v.get('paid_sum', 0) or 0
-                bal = v.get('balance', 0) or 0
-                contact = f"{v.get('business_group') or 'General'}<br/><font size='6.5' color='#64748b'>{v.get('phone') or v.get('email') or ''}</font>"
-                table_rows.append([
-                    Paragraph(f"#V{v.get('id')}", self.styles['TableCell']),
-                    Paragraph(f"<b>{v.get('name')}</b>", self.styles['TableCellBold']),
-                    Paragraph(contact, self.styles['TableCell']),
-                    Paragraph(f"{Decimal(str(p_sum)):,.2f}", self.styles['TableCellDebit']),
-                    Paragraph(f"{Decimal(str(paid_sum)):,.2f}", self.styles['TableCellCredit']),
-                    Paragraph(f"{Decimal(str(bal)):,.2f}", self.styles['TableCellNumber'])
-                ])
-
-            table_rows.append([
-                Paragraph("<b>TOTALS</b>", self.styles['TableCellBold']),
-                Paragraph(f"<b>{len(vendors)} Vendors</b>", self.styles['TableCellBold']),
-                Paragraph("--", self.styles['TableCell']),
-                Paragraph(f"<b>{Decimal(str(total_purch)):,.2f}</b>", self.styles['TableCellDebit']),
-                Paragraph(f"<b>{Decimal(str(total_paid)):,.2f}</b>", self.styles['TableCellCredit']),
-                Paragraph(f"<b>{Decimal(str(total_bal)):,.2f}</b>", self.styles['TableCellNumber'])
-            ])
-
-            col_w = [doc_width * 0.08, doc_width * 0.28, doc_width * 0.24, doc_width * 0.14, doc_width * 0.13, doc_width * 0.13]
-            vend_table = Table(table_rows, colWidths=col_w, repeatRows=1)
-            t_styles = [
-                ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-                ('BACKGROUND', (0, -1), (-1, -1), self.COLOR_ROW_ALT),
-                ('LINEABOVE', (0, -1), (-1, -1), 1.5, self.COLOR_PRIMARY),
-            ]
-            for i in range(1, len(table_rows) - 1):
-                bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-                t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-                t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-            vend_table.setStyle(TableStyle(t_styles))
-            elements.append(vend_table)
-
-        elif report_type == 'jobs':
-            job_pl = data.get('job_pl')
-            if job_pl:
-                # Specific project P&L record
-                prof = job_pl.get('profit', 0)
-                kpis = [
-                    {'label': 'Contract Total', 'value': self._format_currency(job_pl.get('contract_total', 0)), 'color': self.COLOR_PRIMARY},
-                    {'label': 'Revenue Collected', 'value': self._format_currency(job_pl.get('revenue', 0)), 'color': self.COLOR_CREDIT},
-                    {'label': 'Project Expenses', 'value': self._format_currency(job_pl.get('expenses', 0)), 'color': self.COLOR_DEBIT},
-                    {'label': 'Net Profit', 'value': self._format_currency(prof), 'color': self.COLOR_CREDIT if prof >= 0 else self.COLOR_DEBIT}
-                ]
-                elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-                elements.append(Spacer(1, 5 * mm))
-
-                # Project Details Box
-                p_info = [
-                    [
-                        Paragraph(f"<b>Project Title:</b> {job_pl.get('title')}", self.styles['TableCellBold']),
-                        Paragraph(f"<b>Client:</b> {job_pl.get('client_name')}", self.styles['TableCell']),
-                        Paragraph(f"<b>Status:</b> {job_pl.get('status')}", self.styles['TableCell']),
-                    ]
-                ]
-                p_table = Table(p_info, colWidths=[doc_width * 0.40, doc_width * 0.35, doc_width * 0.25])
-                p_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), self.COLOR_ROW_ALT),
-                    ('BOX', (0, 0), (-1, -1), 1, self.COLOR_BORDER),
-                    ('PADDING', (0, 0), (-1, -1), 8),
-                ]))
-                elements.append(p_table)
+        # Records Table
+        records = data.get('records', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+        if records:
+            first = records[0]
+            if isinstance(first, dict):
+                col_keys = list(first.keys())[:7] # take first 7 fields
             else:
-                # Master Job List
-                jobs = data.get('jobs', [])
-                tot_val = sum(Decimal(str(j.get('total_amount', 0) or 0)) for j in jobs)
-                tot_paid = sum(Decimal(str(j.get('paid', 0) or 0)) for j in jobs)
-                tot_bal = sum(Decimal(str(j.get('balance', 0) or 0)) for j in jobs)
+                col_keys = [f"Col {i}" for i in range(len(first))]
+        else:
+            col_keys = ["#", "Item", "Details", "Amount (SAR)"]
 
-                kpis = [
-                    {'label': 'Total Projects', 'value': str(len(jobs)), 'color': self.COLOR_PRIMARY},
-                    {'label': 'Contract Value', 'value': self._format_currency(tot_val), 'color': self.COLOR_PRIMARY},
-                    {'label': 'Total Collected', 'value': self._format_currency(tot_paid), 'color': self.COLOR_CREDIT},
-                    {'label': 'Pending Balance', 'value': self._format_currency(tot_bal), 'color': self.COLOR_DEBIT}
-                ]
-                elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-                elements.append(Spacer(1, 5 * mm))
+        cols = []
+        for k in col_keys:
+            align = 'right' if any(w in k.lower() for w in ['amount', 'total', 'debit', 'credit', 'balance', 'price', 'sar']) else 'left'
+            cols.append((k.replace('_', ' ').title(), align))
 
-                table_rows = [
-                    [
-                        Paragraph("<b>JOB ID</b>", self.styles['TableHeader']),
-                        Paragraph("<b>TITLE & DESCRIPTION</b>", self.styles['TableHeader']),
-                        Paragraph("<b>CLIENT</b>", self.styles['TableHeader']),
-                        Paragraph("<b>STATUS</b>", self.styles['TableHeader']),
-                        Paragraph("<para align='right'><b>TOTAL VALUE</b></para>", self.styles['TableHeader']),
-                        Paragraph("<para align='right'><b>BALANCE</b></para>", self.styles['TableHeader'])
-                    ]
-                ]
-                for j in jobs:
-                    table_rows.append([
-                        Paragraph(str(j.get('order_id')), self.styles['TableCellBold']),
-                        Paragraph(str(j.get('title')), self.styles['TableCell']),
-                        Paragraph(str(j.get('customer__name') or 'Direct Client'), self.styles['TableCell']),
-                        Paragraph(str(j.get('status')), self.styles['TableCell']),
-                        Paragraph(f"{Decimal(str(j.get('total_amount', 0))):,.2f}", self.styles['TableCellNumber']),
-                        Paragraph(f"{Decimal(str(j.get('balance', 0))):,.2f}", self.styles['TableCellDebit'])
-                    ])
+        col_w = doc_w / len(cols) if cols else doc_w
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        table_rows = []
 
-                col_w = [doc_width * 0.12, doc_width * 0.32, doc_width * 0.20, doc_width * 0.12, doc_width * 0.12, doc_width * 0.12]
-                jobs_table = Table(table_rows, colWidths=col_w, repeatRows=1)
-                t_styles = [
-                    ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('PADDING', (0, 0), (-1, -1), 4.5),
-                ]
-                for i in range(1, len(table_rows)):
-                    bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-                    t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-                    t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-                jobs_table.setStyle(TableStyle(t_styles))
-                elements.append(jobs_table)
+        for r in records[:100]:
+            r_cells = []
+            for idx, c in enumerate(col_keys):
+                v = r.get(c) if isinstance(r, dict) else (r[idx] if idx < len(r) else '')
+                v_str = str(v) if v is not None else ''
+                p_align = 2 if cols[idx][1] == 'right' else 0
+                r_cells.append(Paragraph(v_str, ParagraphStyle('FCR', fontName=font_reg, fontSize=8, leading=10, alignment=p_align, textColor=colors.HexColor('#333333'))))
+            table_rows.append(r_cells)
 
-        elif report_type == 'expenses':
-            exp_rep = data.get('expense_report', {})
-            op_bal = exp_rep.get('opening_balance', 0)
-            cls_bal = exp_rep.get('closing_balance', 0)
-            expenses = exp_rep.get('expenses', [])
-            tot_exp = sum(Decimal(str(e.get('amount', 0) or 0)) for e in expenses)
+        if not table_rows:
+            table_rows.append([Paragraph("No records found for specified financial criteria", ParagraphStyle('FCE', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#727272')))] * len(cols))
 
-            kpis = [
-                {'label': 'Opening Reserve', 'value': self._format_currency(op_bal), 'color': self.COLOR_PRIMARY},
-                {'label': 'Total Expenditures', 'value': f"-{self._format_currency(tot_exp)}", 'color': self.COLOR_DEBIT},
-                {'label': 'Closing Balance', 'value': self._format_currency(cls_bal), 'color': colors.HexColor("#065f46")}
-            ]
-            elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-            elements.append(Spacer(1, 5 * mm))
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=[col_w] * len(cols)))
 
-            table_rows = [
-                [
-                    Paragraph("<b>DATE</b>", self.styles['TableHeader']),
-                    Paragraph("<b>DESCRIPTION</b>", self.styles['TableHeader']),
-                    Paragraph("<b>CATEGORY</b>", self.styles['TableHeader']),
-                    Paragraph("<b>TYPE</b>", self.styles['TableHeader']),
-                    Paragraph("<para align='right'><b>AMOUNT (SAR)</b></para>", self.styles['TableHeader'])
-                ]
-            ]
-            for e in expenses:
-                table_rows.append([
-                    Paragraph(str(e.get('date')), self.styles['TableCell']),
-                    Paragraph(str(e.get('description')), self.styles['TableCellBold']),
-                    Paragraph(str(e.get('category') or 'General'), self.styles['TableCell']),
-                    Paragraph(str(e.get('type') or '-'), self.styles['TableCell']),
-                    Paragraph(f"-{Decimal(str(e.get('amount', 0))):,.2f}", self.styles['TableCellDebit'])
-                ])
-
-            table_rows.append([
-                Paragraph("<b>TOTAL</b>", self.styles['TableCellBold']),
-                Paragraph(f"<b>{len(expenses)} Expense Entries</b>", self.styles['TableCellBold']),
-                Paragraph("--", self.styles['TableCell']),
-                Paragraph("--", self.styles['TableCell']),
-                Paragraph(f"<b>-{Decimal(str(tot_exp)):,.2f}</b>", self.styles['TableCellDebit'])
-            ])
-
-            col_w = [doc_width * 0.12, doc_width * 0.38, doc_width * 0.20, doc_width * 0.15, doc_width * 0.15]
-            exp_table = Table(table_rows, colWidths=col_w, repeatRows=1)
-            t_styles = [
-                ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('PADDING', (0, 0), (-1, -1), 4.5),
-                ('BACKGROUND', (0, -1), (-1, -1), self.COLOR_ROW_ALT),
-                ('LINEABOVE', (0, -1), (-1, -1), 1.5, self.COLOR_PRIMARY),
-            ]
-            for i in range(1, len(table_rows) - 1):
-                bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-                t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-                t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-            exp_table.setStyle(TableStyle(t_styles))
-            elements.append(exp_table)
-
-        elements.append(Spacer(1, 8 * mm))
-        elements.append(self.build_signatures_flowable(doc_width))
-
-        def canvas_maker(*args, **kwargs):
+        def report_canvas(*args, **kwargs):
             c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
+            c.is_report = True
             return c
 
-        doc.build(elements, canvasmaker=canvas_maker)
+        doc.build(elements, canvasmaker=report_canvas)
         pdf_bytes = buffer.getvalue()
         buffer.close()
         return pdf_bytes
 
-    # =========================================================================
-    # DOCUMENT BUILDER: STAFF TIMESHEET AUDIT REPORT
-    # =========================================================================
-    def generate_timesheet_report_pdf(self, timesheets, filters=None):
-        """
-        Generates an official Staff Timesheet and Attendance Audit Report PDF.
-        """
-        buffer = io.BytesIO()
-        margin = 12 * mm
-        staff_name = filters.get('staff_name') if filters else None
-        month_or_date = (filters.get('month') if filters else None) or (filters.get('start_date') if filters else None)
-        doc_title = format_dynamic_filename('timesheet', staff_name or 'all_staff', month_or_date, ext='')
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=margin,
-            rightMargin=margin,
-            topMargin=margin,
-            bottomMargin=margin + 8 * mm,
-            title=doc_title,
-            author=self.settings.get('company_name', 'Arab Season')
-        )
-
-        doc_width = A4[0] - (2 * margin)
-        elements = []
-
-        # 1. Standard Header
-        elements.extend(self.build_header_flowable(doc_width))
-
-        # 2. Document Title Banner
-        period_str = "All Recorded Attendance"
-        if filters:
-            s_date = filters.get('start_date')
-            e_date = filters.get('end_date')
-            if s_date and e_date:
-                period_str = f"{s_date} to {e_date}"
-
-        banner = self.build_doc_title_banner(
-            doc_width,
-            title="STAFF ATTENDANCE & TIMESHEET AUDIT REPORT",
-            ref_number=f"TS-{datetime.now().strftime('%Y%m%d')}",
-            period_text=period_str
-        )
-        elements.append(banner)
-        elements.append(Spacer(1, 4 * mm))
-
-        # 3. KPI Summary
-        tot_entries = len(timesheets)
-        tot_ot = sum(float(getattr(t, 'overtime_hours', 0) or (t.get('overtime_hours') if isinstance(t, dict) else 0) or 0) for t in timesheets)
-        off_days = sum(1 for t in timesheets if getattr(t, 'is_off_day', False) or (t.get('is_off_day') if isinstance(t, dict) else False))
-
-        kpis = [
-            {'label': 'Attendance Records', 'value': str(tot_entries), 'color': self.COLOR_PRIMARY},
-            {'label': 'Total Overtime Hours', 'value': f"{tot_ot:.1f} Hrs", 'color': self.COLOR_ACCENT},
-            {'label': 'Regular Working Days', 'value': str(tot_entries - off_days), 'color': self.COLOR_CREDIT},
-            {'label': 'Off / Rest Days', 'value': str(off_days), 'color': self.COLOR_MUTED}
-        ]
-        elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-        elements.append(Spacer(1, 5 * mm))
-
-        # 4. Timesheet Table
-        table_rows = [
-            [
-                Paragraph("<b>DATE</b>", self.styles['TableHeader']),
-                Paragraph("<b>STAFF NAME</b>", self.styles['TableHeader']),
-                Paragraph("<b>IN TIME</b>", self.styles['TableHeader']),
-                Paragraph("<b>LUNCH</b>", self.styles['TableHeader']),
-                Paragraph("<b>OUT TIME</b>", self.styles['TableHeader']),
-                Paragraph("<b>STATUS / OT</b>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>OT HOURS</b></para>", self.styles['TableHeader'])
-            ]
-        ]
-
-        for t in timesheets:
-            dt = str(getattr(t, 'date', '') or (t.get('date') if isinstance(t, dict) else ''))
-            name = str(getattr(t, 'staff_name', '') or (t.get('staff_name') if isinstance(t, dict) else ''))
-            tin = str(getattr(t, 'in_time', '') or (t.get('in_time') if isinstance(t, dict) else ''))
-            tlunch = str(getattr(t, 'lunch_time', '') or (t.get('lunch_time') if isinstance(t, dict) else ''))
-            tout = str(getattr(t, 'out_time', '') or (t.get('out_time') if isinstance(t, dict) else ''))
-            is_off = getattr(t, 'is_off_day', False) or (t.get('is_off_day') if isinstance(t, dict) else False)
-            ot_h = float(getattr(t, 'overtime_hours', 0) or (t.get('overtime_hours') if isinstance(t, dict) else 0) or 0)
-            ot_txt = getattr(t, 'overtime_text', '') or (t.get('overtime_text') if isinstance(t, dict) else '')
-
-            status_desc = "Off Day" if is_off else (ot_txt or "Standard Shift")
-
-            table_rows.append([
-                Paragraph(dt, self.styles['TableCell']),
-                Paragraph(f"<b>{name}</b>", self.styles['TableCellBold']),
-                Paragraph(tin or "--", self.styles['TableCell']),
-                Paragraph(tlunch or "--", self.styles['TableCell']),
-                Paragraph(tout or "--", self.styles['TableCell']),
-                Paragraph(status_desc, self.styles['TableCell']),
-                Paragraph(f"{ot_h:.1f}", self.styles['TableCellNumber'] if ot_h > 0 else self.styles['TableCell'])
-            ])
-
-        col_w = [doc_width * 0.11, doc_width * 0.25, doc_width * 0.12, doc_width * 0.12, doc_width * 0.12, doc_width * 0.18, doc_width * 0.10]
-        ts_table = Table(table_rows, colWidths=col_w, repeatRows=1)
-        t_styles = [
-            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 4),
-        ]
-        for i in range(1, len(table_rows)):
-            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-            t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-            t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-        ts_table.setStyle(TableStyle(t_styles))
-        elements.append(ts_table)
-
-        elements.append(Spacer(1, 8 * mm))
-        elements.append(self.build_signatures_flowable(doc_width))
-
-        def canvas_maker(*args, **kwargs):
-            c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
-            return c
-
-        doc.build(elements, canvasmaker=canvas_maker)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
-
-    # =========================================================================
-    # DOCUMENT BUILDER: EMPLOYEE PAYROLL RUNNING LEDGER STATEMENT
-    # =========================================================================
-    def generate_employee_ledger_pdf(self, employee_ledger):
-        """
-        Generates an official Employee Running Payroll Ledger and Balance Statement PDF.
-        """
-        buffer = io.BytesIO()
-        margin = 12 * mm
-        staff_name = employee_ledger.get('staff_name', 'employee') if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'staff_name', 'employee')
-        doc_title = format_dynamic_filename('employee_ledger', staff_name, datetime.now().strftime('%Y%m%d'), ext='')
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=margin,
-            rightMargin=margin,
-            topMargin=margin,
-            bottomMargin=margin + 8 * mm,
-            title=doc_title,
-            author=self.settings.get('company_name', 'Arab Season')
-        )
-
-        doc_width = A4[0] - (2 * margin)
-        elements = []
-
-        # 1. Standard Header
-        elements.extend(self.build_header_flowable(doc_width))
-
-        # 2. Document Title Banner
-        staff_name = employee_ledger.get('staff_name', 'Employee')
-        pending_bal = employee_ledger.get('current_pending_balance', 0)
-        curr = self.settings['currency']
-
-        banner = self.build_doc_title_banner(
-            doc_width,
-            title=f"EMPLOYEE RUNNING ACCOUNT LEDGER: {staff_name.upper()}",
-            ref_number=f"LEDGER-{datetime.now().strftime('%Y%m%d')}",
-            period_text=f"Total Records: {employee_ledger.get('entries_count', len(employee_ledger.get('entries', [])))} Entries"
-        )
-        elements.append(banner)
-        elements.append(Spacer(1, 4 * mm))
-
-        # 3. KPI Summary
-        kpis = [
-            {'label': 'Total Base Salary', 'value': f"{curr} {employee_ledger.get('total_base_salary', 0):,.2f}", 'color': self.COLOR_PRIMARY},
-            {'label': 'Total Overtime Amt', 'value': f"{curr} {employee_ledger.get('total_overtime_amount', 0):,.2f}", 'color': self.COLOR_ACCENT},
-            {'label': 'Total Salary Owed', 'value': f"{curr} {employee_ledger.get('total_salary_owed', 0):,.2f}", 'color': self.COLOR_PRIMARY},
-            {'label': 'Total Disbursed', 'value': f"{curr} {employee_ledger.get('total_amount_paid', 0):,.2f}", 'color': self.COLOR_CREDIT},
-            {'label': 'Current Pending', 'value': f"{curr} {pending_bal:,.2f}", 'color': self.COLOR_DEBIT if pending_bal > 0 else self.COLOR_CREDIT}
-        ]
-        elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-        elements.append(Spacer(1, 5 * mm))
-
-        # 4. Ledger Entries Table
-        table_rows = [
-            [
-                Paragraph("<b>DATE</b>", self.styles['TableHeader']),
-                Paragraph("<b>PERIOD</b>", self.styles['TableHeader']),
-                Paragraph("<b>DESCRIPTION</b>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>BASE</b></para>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>OT AMT</b></para>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>TOTAL OWED</b></para>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>AMOUNT PAID</b></para>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>RUNNING BAL</b></para>", self.styles['TableHeader'])
-            ]
-        ]
-
-        entries = employee_ledger.get('entries', [])
-        for e in entries:
-            dt = str(e.get('payment_date') or '')
-            m = str(e.get('paid_month') or '')
-            desc = str(e.get('description') or 'Salary Disbursement')
-            base = float(e.get('base_salary') or 0)
-            ot = float(e.get('overtime_amount') or 0)
-            tot = float(e.get('total_salary') or 0)
-            paid = float(e.get('amount_paid') or 0)
-            bal = float(e.get('running_balance') or 0)
-
-            table_rows.append([
-                Paragraph(dt, self.styles['TableCell']),
-                Paragraph(f"<b>{m}</b>", self.styles['TableCellBold']),
-                Paragraph(desc[:30], self.styles['TableCell']),
-                Paragraph(f"{base:,.2f}", self.styles['TableCellNumber']),
-                Paragraph(f"{ot:,.2f}", self.styles['TableCellNumber']),
-                Paragraph(f"<b>{tot:,.2f}</b>", self.styles['TableCellNumber']),
-                Paragraph(f"<b>{paid:,.2f}</b>", self.styles['TableCellCredit']),
-                Paragraph(f"<b>{bal:,.2f}</b>", self.styles['TableCellDebit'] if bal > 0 else self.styles['TableCellCredit'])
-            ])
-
-        col_w = [
-            doc_width * 0.11,
-            doc_width * 0.14,
-            doc_width * 0.21,
-            doc_width * 0.10,
-            doc_width * 0.10,
-            doc_width * 0.11,
-            doc_width * 0.11,
-            doc_width * 0.12
-        ]
-        t = Table(table_rows, colWidths=col_w, repeatRows=1)
-        t_styles = [
-            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 3.5),
-        ]
-        for i in range(1, len(table_rows)):
-            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-            t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-            t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-        t.setStyle(TableStyle(t_styles))
-        elements.append(t)
-
-        elements.append(Spacer(1, 8 * mm))
-        elements.append(self.build_signatures_flowable(doc_width))
-
-        def canvas_maker(*args, **kwargs):
-            c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
-            return c
-
-        doc.build(elements, canvasmaker=canvas_maker)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
-
-    # =========================================================================
-    # DOCUMENT BUILDER: CASHBOOK STATEMENT & LEDGER
-    # =========================================================================
-    def generate_cashbook_ledger_pdf(self, book_data, summary, entries, filters=None):
-        """
-        Generates an official Cashbook Statement & Transaction Ledger PDF.
-        """
-        buffer = io.BytesIO()
-        margin = 12 * mm
-        book_name = book_data.get('name', 'Cashbook')
-        s_date = filters.get('start_date') if filters else None
-        e_date = filters.get('end_date') if filters else None
-        doc_title = format_dynamic_filename('cashbook', book_name, s_date, 'to' if s_date and e_date else None, e_date or datetime.now().strftime('%Y%m%d'), ext='')
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=margin,
-            rightMargin=margin,
-            topMargin=margin,
-            bottomMargin=margin + 8 * mm,
-            title=doc_title,
-            author=self.settings.get('company_name', 'Arab Season')
-        )
-
-        doc_width = A4[0] - (2 * margin)
-        elements = []
-
-        # 1. Standard Header
-        elements.extend(self.build_header_flowable(doc_width))
-
-        # 2. Document Title Banner
-        book_name = book_data.get('name', 'Cashbook')
-        curr = book_data.get('currency') or self.settings['currency']
-
-        period_str = "All Time Activity"
-        if filters:
-            s_date = filters.get('start_date')
-            e_date = filters.get('end_date')
-            if s_date and e_date:
-                period_str = f"{s_date} to {e_date}"
-            elif s_date:
-                period_str = f"From {s_date}"
-            elif e_date:
-                period_str = f"Up to {e_date}"
-
-        banner = self.build_doc_title_banner(
-            doc_width,
-            title=f"CASHBOOK LEDGER STATEMENT: {book_name.upper()}",
-            ref_number=f"CB-{book_data.get('id', 1):03d}-{datetime.now().strftime('%Y%m%d')}",
-            period_text=f"{period_str} • {len(entries)} Transactions"
-        )
-        elements.append(banner)
-        elements.append(Spacer(1, 4 * mm))
-
-        # 3. KPI Summary
-        open_bal = float(summary.get('opening_balance') or book_data.get('opening_balance') or 0)
-        tot_in = float(summary.get('total_in', 0))
-        tot_out = float(summary.get('total_out', 0))
-        net_bal = float(summary.get('net_balance', 0))
-
-        kpis = [
-            {'label': 'Opening Balance', 'value': f"{curr} {open_bal:,.2f}", 'color': self.COLOR_PRIMARY},
-            {'label': 'Total Cash In', 'value': f"+{curr} {tot_in:,.2f}", 'color': self.COLOR_CREDIT},
-            {'label': 'Total Cash Out', 'value': f"-{curr} {tot_out:,.2f}", 'color': self.COLOR_DEBIT},
-            {'label': 'Net Book Balance', 'value': f"{curr} {net_bal:,.2f}", 'color': self.COLOR_PRIMARY if net_bal >= 0 else self.COLOR_DEBIT}
-        ]
-        elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-        elements.append(Spacer(1, 5 * mm))
-
-        # 4. Table
-        table_rows = [
-            [
-                Paragraph("<b>DATE / TIME</b>", self.styles['TableHeader']),
-                Paragraph("<b>REMARK / PARTY</b>", self.styles['TableHeader']),
-                Paragraph("<b>CATEGORY / MODE</b>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>CASH IN (+)</b></para>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>CASH OUT (-)</b></para>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>BALANCE</b></para>", self.styles['TableHeader'])
-            ]
-        ]
-
-        for e in entries:
-            dt = str(e.get('date', ''))
-            tm = str(e.get('time') or '')
-            dt_tm = f"{dt}<br/><font size='6.5' color='#64748b'>{tm}</font>" if tm else dt
-
-            remark = str(e.get('remark') or '')
-            party = str(e.get('party_name') or '')
-            desc_text = f"<b>{remark}</b>" if remark else "Transaction"
-            if party:
-                desc_text += f"<br/><font size='6.5' color='#64748b'>Party: {party}</font>"
-
-            cat = str(e.get('category') or 'General')
-            mode = str(e.get('payment_mode') or 'Cash')
-            cat_mode = f"{cat}<br/><font size='6.5' color='#2563eb'>{mode}</font>"
-
-            is_in = e.get('entry_type') == 'in'
-            amt = float(e.get('amount') or 0)
-            bal = float(e.get('running_balance') or 0)
-
-            cash_in = f"<b>+{amt:,.2f}</b>" if is_in else "--"
-            cash_out = f"<b>-{amt:,.2f}</b>" if not is_in else "--"
-
-            table_rows.append([
-                Paragraph(dt_tm, self.styles['TableCell']),
-                Paragraph(desc_text, self.styles['TableCell']),
-                Paragraph(cat_mode, self.styles['TableCell']),
-                Paragraph(cash_in, self.styles['TableCellCredit'] if is_in else self.styles['TableCell']),
-                Paragraph(cash_out, self.styles['TableCellDebit'] if not is_in else self.styles['TableCell']),
-                Paragraph(f"<b>{bal:,.2f}</b>", self.styles['TableCellBold'] if bal >= 0 else self.styles['TableCellDebit'])
-            ])
-
-        col_w = [
-            doc_width * 0.15,
-            doc_width * 0.31,
-            doc_width * 0.18,
-            doc_width * 0.12,
-            doc_width * 0.12,
-            doc_width * 0.12
-        ]
-        t = Table(table_rows, colWidths=col_w, repeatRows=1)
-        t_styles = [
-            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 3.5),
-        ]
-        for i in range(1, len(table_rows)):
-            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-            t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-            t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-        t.setStyle(TableStyle(t_styles))
-        elements.append(t)
-
-        elements.append(Spacer(1, 8 * mm))
-        elements.append(self.build_signatures_flowable(doc_width))
-
-        def canvas_maker(*args, **kwargs):
-            c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
-            return c
-
-        doc.build(elements, canvasmaker=canvas_maker)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
-
-    # =========================================================================
-    # DOCUMENT BUILDER: CASHBOOK BANK FLOW & TRANSACTION LEDGER
-    # =========================================================================
-    def generate_cashbook_bank_flow_pdf(self, summary, transactions, filters=None):
-        """
-        Generates an official Consolidated Bank Flow & Transaction Ledger PDF.
-        """
-        buffer = io.BytesIO()
-        margin = 12 * mm
-        s_date = filters.get('start_date') if filters else None
-        e_date = filters.get('end_date') if filters else None
-        doc_title = format_dynamic_filename('cashbook_bank_flow', s_date, 'to' if s_date and e_date else None, e_date or datetime.now().strftime('%Y%m%d'), ext='')
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=margin,
-            rightMargin=margin,
-            topMargin=margin,
-            bottomMargin=margin + 8 * mm,
-            title=doc_title,
-            author=self.settings.get('company_name', 'Arab Season')
-        )
-
-        doc_width = A4[0] - (2 * margin)
-        elements = []
-
-        # 1. Standard Header
-        elements.extend(self.build_header_flowable(doc_width))
-
-        # 2. Document Title Banner
-        curr = self.settings['currency']
-        period_str = "All Bank Transactions"
-        if filters:
-            s_date = filters.get('start_date')
-            e_date = filters.get('end_date')
-            if s_date and e_date:
-                period_str = f"{s_date} to {e_date}"
-            elif s_date:
-                period_str = f"From {s_date}"
-            elif e_date:
-                period_str = f"Up to {e_date}"
-
-        banner = self.build_doc_title_banner(
-            doc_width,
-            title="CONSOLIDATED BANK FLOW & TRANSACTION LEDGER",
-            ref_number=f"BF-{datetime.now().strftime('%Y%m%d')}",
-            period_text=f"{period_str} • {len(transactions)} Records"
-        )
-        elements.append(banner)
-        elements.append(Spacer(1, 4 * mm))
-
-        # 3. KPI Summary
-        tot_in = float(summary.get('total_inflows', 0))
-        tot_out = float(summary.get('total_outflows', 0))
-        net_flow = float(summary.get('net_flow', 0))
-        tot_count = int(summary.get('total_transactions', len(transactions)))
-
-        kpis = [
-            {'label': 'Total Bank Deposits', 'value': f"+{curr} {tot_in:,.2f}", 'color': self.COLOR_CREDIT},
-            {'label': 'Total Bank Withdrawals', 'value': f"-{curr} {tot_out:,.2f}", 'color': self.COLOR_DEBIT},
-            {'label': 'Net Bank Flow', 'value': f"{curr} {net_flow:,.2f}", 'color': self.COLOR_CREDIT if net_flow >= 0 else self.COLOR_DEBIT},
-            {'label': 'Total Transactions', 'value': str(tot_count), 'color': self.COLOR_PRIMARY}
-        ]
-        elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-        elements.append(Spacer(1, 5 * mm))
-
-        # 4. Table
-        table_rows = [
-            [
-                Paragraph("<b>DATE / TIME</b>", self.styles['TableHeader']),
-                Paragraph("<b>CASHBOOK</b>", self.styles['TableHeader']),
-                Paragraph("<b>BANK ACCOUNT</b>", self.styles['TableHeader']),
-                Paragraph("<b>CATEGORY & REMARK</b>", self.styles['TableHeader']),
-                Paragraph("<b>FLOW DIRECTION</b>", self.styles['TableHeader']),
-                Paragraph("<para align='right'><b>AMOUNT</b></para>", self.styles['TableHeader'])
-            ]
-        ]
-
-        for tx in transactions:
-            dt = str(tx.get('date', ''))
-            tm = str(tx.get('time') or '')
-            dt_tm = f"{dt}<br/><font size='6.5' color='#64748b'>{tm}</font>" if tm else dt
-
-            cb_name = str(tx.get('cashbook_name') or 'Cashbook')
-            b_name = str(tx.get('bank_account_name') or 'Bank')
-            b_num = str(tx.get('bank_account_number') or '')
-            bank_desc = f"<b>{b_name}</b>"
-            if b_num:
-                bank_desc += f"<br/><font size='6.5' color='#64748b'>{b_num[-8:]}</font>"
-
-            rem = str(tx.get('remark') or '')
-            cat = str(tx.get('category') or '')
-            pty = str(tx.get('party_name') or '')
-            detail_text = f"<b>{cat}</b>: {rem}" if rem else cat
-            if pty:
-                detail_text += f"<br/><font size='6.5' color='#64748b'>Party: {pty}</font>"
-
-            flow = str(tx.get('flow_direction') or '')
-            amt = float(tx.get('amount') or 0)
-            is_in = 'in' in flow.lower() or 'deposit' in flow.lower()
-
-            flow_para = Paragraph(f"<font color='{'#047857' if is_in else '#dc2626'}'><b>{flow}</b></font>", self.styles['TableCell'])
-            amt_para = Paragraph(f"<b>{'+' if is_in else '-'}{curr} {amt:,.2f}</b>", self.styles['TableCellCredit'] if is_in else self.styles['TableCellDebit'])
-
-            table_rows.append([
-                Paragraph(dt_tm, self.styles['TableCell']),
-                Paragraph(cb_name, self.styles['TableCell']),
-                Paragraph(bank_desc, self.styles['TableCell']),
-                Paragraph(detail_text, self.styles['TableCell']),
-                flow_para,
-                amt_para
-            ])
-
-        col_w = [
-            doc_width * 0.14,
-            doc_width * 0.14,
-            doc_width * 0.18,
-            doc_width * 0.28,
-            doc_width * 0.13,
-            doc_width * 0.13
-        ]
-        t = Table(table_rows, colWidths=col_w, repeatRows=1)
-        t_styles = [
-            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 3.5),
-        ]
-        for i in range(1, len(table_rows)):
-            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-            t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-            t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-        t.setStyle(TableStyle(t_styles))
-        elements.append(t)
-
-        elements.append(Spacer(1, 8 * mm))
-        elements.append(self.build_signatures_flowable(doc_width))
-
-        def canvas_maker(*args, **kwargs):
-            c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
-            return c
-
-        doc.build(elements, canvasmaker=canvas_maker)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
 
     def generate_tax_invoice_pdf(self, invoice):
         """
         Generates an official corporate Tax Invoice PDF strictly adhering to reference DC-00002.pdf design.
-        Compliant with Saudi standard VAT fields, itemized table, quiet single signature.
+        Includes bilingual Arabic/English headers, ZATCA Phase 1 Vector QR code, seller/buyer TRN,
+        taxable amount, VAT breakdown, and single authorized signature.
         """
         buffer = BytesIO()
         doc = BaseDocTemplate(
@@ -2427,25 +1653,25 @@ class UniversalPDFGenerator:
         doc_width = 515.03
         elements = []
 
-        # 1. Header
+        # 1. Header (Bilingual invoice title)
         doc_num = invoice.invoice_number or f"INV-{invoice.id:05d}"
-        header = self.build_reference_header(doc_width, "TAX INVOICE", f"Invoice# {doc_num}")
+        header = self.build_reference_header(doc_width, "TAX INVOICE / فاتورة ضريبية", f"Invoice# {doc_num}")
         elements.append(header)
         elements.append(Spacer(1, 23.20))
 
-        # 2. Party & Meta
+        # 2. Party & Meta (Buyer details with VAT/TRN)
         cust = invoice.customer
-        cust_name = cust.name if cust else "N/A"
+        cust_name = cust.name if cust else "Valued Client"
         cust_tax = invoice.customer_tax_number or getattr(cust, 'tax_number', '') or ''
         cust_address = invoice.billing_address or getattr(cust, 'address', '') or ''
         cust_phone = getattr(cust, 'phone', '') or ''
 
         sub_parts = []
-        if cust_tax and cust_tax != 'N/A':
-            sub_parts.append(f"VAT / TRN: {cust_tax}")
-        if cust_address and cust_address != 'N/A':
+        if cust_tax and cust_tax not in ('-', 'None', 'null', 'N/A'):
+            sub_parts.append(f"Buyer TRN / الرقم الضريبي: {cust_tax}")
+        if cust_address and cust_address not in ('-', 'None', 'null', 'N/A'):
             sub_parts.append(cust_address)
-        if cust_phone and cust_phone != 'N/A':
+        if cust_phone and cust_phone not in ('-', 'None', 'null', 'N/A'):
             sub_parts.append(f"Tel: {cust_phone}")
         party_sub = '\n'.join(sub_parts) if sub_parts else None
 
@@ -2466,7 +1692,7 @@ class UniversalPDFGenerator:
 
         party_meta = self.build_reference_party_and_meta(
             doc_width,
-            party_label="Bill To",
+            party_label="Bill To / العميل",
             party_name=cust_name,
             party_subtext=party_sub,
             meta_pairs=meta_pairs
@@ -2474,18 +1700,22 @@ class UniversalPDFGenerator:
         elements.append(party_meta)
         elements.append(Spacer(1, 15.10))
 
-        # 3. Items Table
-        items = list(invoice.items.all())
+        # 3. Items Table (Bilingual headers, Taxable Amount, VAT rate & amount)
+        items = getattr(invoice, 'items_list', None)
+        if items is None:
+            try:
+                items = list(invoice.items.all())
+            except Exception:
+                items = []
         columns = [
             ("#", "center"),
-            ("Item & Description", "left"),
+            ("Description / الوصف", "left"),
             ("Qty", "right"),
-            ("Unit Price", "right"),
+            ("Price", "right"),
             ("VAT %", "right"),
-            ("VAT Amount", "right"),
-            ("Total", "right")
+            ("VAT Amt", "right"),
+            ("Total (SAR)", "right")
         ]
-        # Sum of col_widths must be 515.03 pt
         col_widths = [25.73, 194.30, 45.00, 65.00, 45.00, 55.00, 85.00]
         table_rows = []
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
@@ -2499,13 +1729,13 @@ class UniversalPDFGenerator:
                 tot = float(itm.total or 0)
 
                 desc_text = str(itm.description or '').strip()
-                desc_parts = [p.strip() for p in desc_text.split('\n') if p.strip()]
+                desc_parts = [p.strip() for p in desc_text.split('\n') if p.strip() and p.strip() != '-']
                 if len(desc_parts) > 1:
                     desc_html = f'<font color="#333333">{desc_parts[0]}</font><br/><font color="#727272">{desc_parts[1]}</font>'
                 elif desc_parts:
                     desc_html = f'<font color="#333333">{desc_parts[0]}</font>'
                 else:
-                    desc_html = '<font color="#727272">-</font>'
+                    desc_html = '<font color="#333333">Item</font>'
 
                 table_rows.append([
                     str(idx),
@@ -2527,11 +1757,12 @@ class UniversalPDFGenerator:
                 f"{float(invoice.total_amount):,.2f}"
             ])
 
-        items_table = self.build_reference_items_table(doc_width, columns, table_rows, col_widths=col_widths)
+        row_pad = (5.0, 4.0) if len(table_rows) >= 20 else None
+        items_table = self.build_reference_items_table(doc_width, columns, table_rows, col_widths=col_widths, row_padding=row_pad)
         elements.append(items_table)
         elements.append(Spacer(1, 0.75))
 
-        # 4. Totals Block
+        # 4. Totals Block (Taxable Amount, VAT, Net Total with SAR glyph, Total in Words)
         sub_total = float(invoice.subtotal)
         total_val = float(invoice.total_amount)
         vat_amt = float(invoice.tax_amount)
@@ -2548,23 +1779,68 @@ class UniversalPDFGenerator:
             extra_lines=extra_lines,
             show_sar_symbol=True
         )
-        elements.append(totals_block)
-        elements.append(Spacer(1, 23.00))
 
-        # 5. Bank / Remittance info + Signatures
+        # 5. Bottom Remittance Details & Vector ZATCA QR Code
         bank = getattr(invoice, 'bank_account', None)
-        notes_parts = []
+        remittance_lines = []
         if bank:
-            notes_parts.append(f"Remittance Account: {bank.bank_name} | Account Name: {bank.account_name} | IBAN: {bank.iban}")
-        if invoice.notes:
-            notes_parts.append(invoice.notes)
-        if invoice.terms:
-            notes_parts.append(invoice.terms)
-        notes_full = ' • '.join(notes_parts) if notes_parts else None
+            remittance_lines.append(f"<b>Remittance Bank:</b> {bank.bank_name}")
+            remittance_lines.append(f"<b>Account Name:</b> {bank.account_name}")
+            remittance_lines.append(f"<b>IBAN:</b> {bank.iban}")
+        inv_notes = getattr(invoice, 'notes', None)
+        if inv_notes:
+            remittance_lines.append(f"<b>Notes:</b> {inv_notes}")
+        inv_terms = getattr(invoice, 'terms', None)
+        if inv_terms:
+            remittance_lines.append(f"<b>Terms:</b> {inv_terms}")
+
+        remittance_p = Paragraph("<br/>".join(remittance_lines) if remittance_lines else "", ParagraphStyle('RemP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
+
+        # 5. Remittance Notes & Optional QR (Default OFF per project requirements)
+        concluding_flowables = [totals_block, Spacer(1, 14.00)]
+
+        use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
+        if use_qr:
+            settings_data = self._get_site_settings()
+            seller_name = settings_data.get('legal_name', 'ALI MOHAMMED MOTAH Establishment For Contracting')
+            seller_trn = settings_data.get('tax_number', '301374966800003')
+            inv_iso_time = f"{invoice.invoice_date}T12:00:00Z" if invoice.invoice_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+            qr_drawing = self._build_zatca_qr_drawing(
+                seller_name=seller_name,
+                vat_number=seller_trn,
+                invoice_time=inv_iso_time,
+                total_amount=total_val,
+                vat_amount=vat_amt,
+                size=65
+            )
+            remit_table = Table([[remittance_p, qr_drawing]], colWidths=[doc_width - 80, 80])
+            remit_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('ALIGN', (1,0), (1,0), 'RIGHT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ]))
+            concluding_flowables.append(remit_table)
+            concluding_flowables.append(Spacer(1, 14.00))
+        elif remittance_lines:
+            # Clean full-width reflow with no empty QR gap
+            concluding_flowables.append(remittance_p)
+            concluding_flowables.append(Spacer(1, 14.00))
+
+        totals_block.keepWithNext = True
+        elements.append(totals_block)
+        elements.append(Spacer(1, 14.00))
+
+        if remittance_lines:
+            remittance_p.keepWithNext = True
+            elements.append(remittance_p)
+            elements.append(Spacer(1, 14.00))
 
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=notes_full,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -2680,6 +1956,7 @@ class UniversalPDFGenerator:
         """
         Generates an internal Admin Material Pricing & Margin Analysis PDF
         strictly adhering to reference DC-00002.pdf design.
+        Marked INTERNAL CONFIDENTIAL with no customer signature.
         """
         buffer = BytesIO()
         doc = BaseDocTemplate(
@@ -2712,7 +1989,7 @@ class UniversalPDFGenerator:
 
         meta_pairs = [
             ("Date", c_date),
-            ("Status", estimation.status or "Draft"),
+            ("Classification", "INTERNAL USE ONLY"),
             ("Project", estimation.title or "Estimate")
         ]
         party_meta = self.build_reference_party_and_meta(
@@ -2726,7 +2003,12 @@ class UniversalPDFGenerator:
         elements.append(Spacer(1, 15.10))
 
         # 3. Items Table
-        items = list(estimation.items.all().order_by('sort_order', 'id'))
+        items = getattr(estimation, 'items_list', None)
+        if items is None:
+            try:
+                items = list(estimation.items.all().order_by('sort_order', 'id'))
+            except Exception:
+                items = []
         columns = [
             ("#", "center"),
             ("Item & Specs", "left"),
@@ -2741,15 +2023,15 @@ class UniversalPDFGenerator:
         tot_cost = Decimal('0.00')
 
         for idx, itm in enumerate(items, 1):
-            desc = itm.item_name or 'Material Item'
-            sub = itm.supplier_shop or itm.specifications or ''
-            qty = float(itm.quantity or 1)
-            cost_u = float(itm.unit_cost or 0)
-            c_tot = float(itm.total_cost or (qty * cost_u))
-            q_price = float(itm.selling_price or 0)
+            desc = getattr(itm, 'item_name', None) or getattr(itm, 'description', 'Material Item')
+            sub = getattr(itm, 'supplier_shop', None) or getattr(itm, 'selected_shop_name', None) or getattr(itm, 'specifications', None) or getattr(itm, 'notes', '')
+            qty = float(getattr(itm, 'quantity', 1) or 1)
+            cost_u = float(getattr(itm, 'unit_cost', 0) or 0)
+            c_tot = float(getattr(itm, 'total_cost', 0) or (qty * cost_u))
+            q_price = float(getattr(itm, 'selling_price', None) or getattr(itm, 'unit_price', 0) or 0)
             tot_cost += Decimal(str(c_tot))
 
-            if sub:
+            if sub and sub not in ('-', 'None', 'null'):
                 desc_html = f'<font color="#333333">{desc}</font><br/><font color="#727272">{sub}</font>'
             else:
                 desc_html = f'<font color="#333333">{desc}</font>'
@@ -2767,7 +2049,7 @@ class UniversalPDFGenerator:
         elements.append(items_table)
         elements.append(Spacer(1, 0.75))
 
-        # 4. Totals Block
+        # 4. Totals Block (Margin analysis)
         total_val = float(estimation.total_price)
         sub_total = float(tot_cost)
         margin_amt = total_val - sub_total
@@ -2785,14 +2067,14 @@ class UniversalPDFGenerator:
             extra_lines=extra_lines,
             show_sar_symbol=True
         )
+        totals_block.keepWithNext = True
         elements.append(totals_block)
         elements.append(Spacer(1, 23.00))
 
-        # 5. Signatures
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
             notes=estimation.notes or estimation.scope_of_work,
-            signature_style='single'
+            signature_style='internal'
         )
         elements.extend(sigs)
 
@@ -2869,7 +2151,12 @@ class UniversalPDFGenerator:
         elements.append(Spacer(1, 15.10))
 
         # 3. Items Table
-        items = list(quotation.items.all())
+        items = getattr(quotation, 'items_list', None)
+        if items is None:
+            try:
+                items = list(quotation.items.all())
+            except Exception:
+                items = []
         columns = [
             ("#", "center"),
             ("Item & Description", "left"),
@@ -2941,6 +2228,8 @@ class UniversalPDFGenerator:
             extra_lines=extra_lines,
             show_sar_symbol=True
         )
+
+        totals_block.keepWithNext = True
         elements.append(totals_block)
         elements.append(Spacer(1, 23.00))
 
@@ -2962,6 +2251,8 @@ class UniversalPDFGenerator:
         """
         Generates an official corporate Credit Note PDF
         strictly adhering to reference DC-00002.pdf design.
+        Includes bilingual Arabic/English title, original invoice reference,
+        credit reason, vector ZATCA QR code, and single authorized signature.
         """
         buffer = BytesIO()
         doc = BaseDocTemplate(
@@ -2982,22 +2273,22 @@ class UniversalPDFGenerator:
         doc_width = 515.03
         elements = []
 
-        # 1. Header
+        # 1. Header (Bilingual Credit Note title)
         doc_num = credit_note.credit_note_number or f"CN-{credit_note.id:05d}"
-        header = self.build_reference_header(doc_width, "CREDIT NOTE", f"Credit Note# {doc_num}")
+        header = self.build_reference_header(doc_width, "CREDIT NOTE / إشعار دائن", f"Credit Note# {doc_num}")
         elements.append(header)
         elements.append(Spacer(1, 23.20))
 
         # 2. Party & Meta
         cust = credit_note.customer
-        cust_name = cust.name if cust else (getattr(credit_note, 'client_name', '') or 'Customer')
+        cust_name = cust.name if cust else (getattr(credit_note, 'client_name', '') or 'Valued Client')
         cust_tax = credit_note.customer_tax_number or getattr(cust, 'tax_number', '') or ''
         cust_address = credit_note.billing_address or getattr(cust, 'address', '') or ''
 
         sub_parts = []
-        if cust_tax and cust_tax != 'N/A':
-            sub_parts.append(f"VAT / TRN: {cust_tax}")
-        if cust_address and cust_address != 'N/A':
+        if cust_tax and cust_tax not in ('-', 'None', 'null', 'N/A'):
+            sub_parts.append(f"Buyer TRN / الرقم الضريبي: {cust_tax}")
+        if cust_address and cust_address not in ('-', 'None', 'null', 'N/A'):
             sub_parts.append(cust_address)
         party_sub = '\n'.join(sub_parts) if sub_parts else None
 
@@ -3007,12 +2298,13 @@ class UniversalPDFGenerator:
         ]
         if credit_note.invoice:
             meta_pairs.append(("Original Invoice", credit_note.invoice.invoice_number))
-        if credit_note.reason:
+        cn_reason = getattr(credit_note, 'reason', None)
+        if cn_reason and str(cn_reason).strip() not in ('-', 'None', 'null'):
             meta_pairs.append(("Credit Reason", credit_note.reason))
 
         party_meta = self.build_reference_party_and_meta(
             doc_width,
-            party_label="Credited To",
+            party_label="Credited To / إشعار دائن إلى",
             party_name=cust_name,
             party_subtext=party_sub,
             meta_pairs=meta_pairs
@@ -3021,15 +2313,20 @@ class UniversalPDFGenerator:
         elements.append(Spacer(1, 15.10))
 
         # 3. Items Table
-        items = list(credit_note.items.all())
+        items = getattr(credit_note, 'items_list', None)
+        if items is None:
+            try:
+                items = list(credit_note.items.all())
+            except Exception:
+                items = []
         columns = [
             ("#", "center"),
-            ("Item & Description", "left"),
+            ("Description / الوصف", "left"),
             ("Qty", "right"),
-            ("Unit Price", "right"),
+            ("Price", "right"),
             ("VAT %", "right"),
-            ("VAT Amount", "right"),
-            ("Total", "right")
+            ("VAT Amt", "right"),
+            ("Total (SAR)", "right")
         ]
         col_widths = [25.73, 194.30, 45.00, 65.00, 45.00, 55.00, 85.00]
         table_rows = []
@@ -3044,13 +2341,13 @@ class UniversalPDFGenerator:
                 tot = float(itm.total or 0)
 
                 desc_text = str(itm.description or '').strip()
-                desc_parts = [p.strip() for p in desc_text.split('\n') if p.strip()]
+                desc_parts = [p.strip() for p in desc_text.split('\n') if p.strip() and p.strip() != '-']
                 if len(desc_parts) > 1:
                     desc_html = f'<font color="#333333">{desc_parts[0]}</font><br/><font color="#727272">{desc_parts[1]}</font>'
                 elif desc_parts:
                     desc_html = f'<font color="#333333">{desc_parts[0]}</font>'
                 else:
-                    desc_html = '<font color="#727272">-</font>'
+                    desc_html = '<font color="#333333">Item</font>'
 
                 table_rows.append([
                     str(idx),
@@ -3093,13 +2390,52 @@ class UniversalPDFGenerator:
             extra_lines=extra_lines,
             show_sar_symbol=True
         )
-        elements.append(totals_block)
-        elements.append(Spacer(1, 23.00))
 
-        # 5. Signatures and Notes
+        # 5. Notes & Optional QR (Default OFF per project requirements)
+        concluding_flowables = [totals_block, Spacer(1, 14.00)]
+        use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
+        if use_qr:
+            settings_data = self._get_site_settings()
+            seller_name = settings_data.get('legal_name', 'ALI MOHAMMED MOTAH Establishment For Contracting')
+            seller_trn = settings_data.get('tax_number', '301374966800003')
+            cn_iso_time = f"{credit_note.credit_note_date}T12:00:00Z" if credit_note.credit_note_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+            qr_drawing = self._build_zatca_qr_drawing(
+                seller_name=seller_name,
+                vat_number=seller_trn,
+                invoice_time=cn_iso_time,
+                total_amount=total_val,
+                vat_amount=vat_amt,
+                size=65
+            )
+            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}" if credit_note.notes else "", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
+            qr_table = Table([[notes_p, qr_drawing]], colWidths=[doc_width - 80, 80])
+            qr_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('ALIGN', (1,0), (1,0), 'RIGHT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ]))
+            concluding_flowables.append(qr_table)
+            concluding_flowables.append(Spacer(1, 14.00))
+        elif credit_note.notes:
+            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
+            concluding_flowables.append(notes_p)
+            concluding_flowables.append(Spacer(1, 14.00))
+
+        totals_block.keepWithNext = True
+        elements.append(totals_block)
+        elements.append(Spacer(1, 14.00))
+
+        if credit_note.notes:
+            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
+            notes_p.keepWithNext = True
+            elements.append(notes_p)
+            elements.append(Spacer(1, 14.00))
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=credit_note.notes,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -3162,7 +2498,12 @@ class UniversalPDFGenerator:
         elements.append(Spacer(1, 15.10))
 
         # 3. Items Table
-        items = list(delivery_note.items.all().order_by('sort_order', 'id'))
+        items = getattr(delivery_note, 'items_list', None)
+        if items is None:
+            try:
+                items = list(delivery_note.items.all().order_by('sort_order', 'id'))
+            except Exception:
+                items = []
         col_widths = [25.73, 274.80, 56.62, 56.63, 101.25]
         columns = [
             ("#", "center"),
@@ -3213,6 +2554,8 @@ class UniversalPDFGenerator:
             words_text=words_text,
             show_sar_symbol=True
         )
+
+        totals_block.keepWithNext = True
         elements.append(totals_block)
         elements.append(Spacer(1, 23.00))
 
@@ -3233,8 +2576,14 @@ class UniversalPDFGenerator:
         """
         Generates an official corporate Payment / Receipt / Agreement Voucher PDF
         strictly adhering to reference DC-00002.pdf design.
-        Handles: Customer Work Order (CWO), Vendor Price Agreement (VPA),
-        Customer/Vendor Account Statements, Payment Vouchers, Receipt Vouchers.
+        Handles:
+        1. Statements (Customer Account Statement, Vendor Account Statement):
+           Uses specialized ledger table (Date / Description / Debit / Credit / Balance)
+           with summary stack, running balances, and repeatRows=1.
+        2. Transactional Vouchers (CWO, VPA, Payment Voucher, Receipt Voucher):
+           Uses clean itemized particulars table, single signature on CWO/VPA,
+           double signature on Payment/Receipt vouchers.
+        Strictly enforces: no '-' fields, voucher number once, date once, total once.
         """
         buffer = BytesIO()
         doc = BaseDocTemplate(
@@ -3258,6 +2607,8 @@ class UniversalPDFGenerator:
         v_type = voucher_data.get('voucherType') or 'Payment Voucher'
         v_no = voucher_data.get('voucherNo') or f"VCH-{datetime.now().strftime('%Y%m%d%H%M')}"
         v_date = voucher_data.get('date') or datetime.now().strftime('%Y-%m-%d')
+        v_type_upper = v_type.upper()
+        is_statement = ('STATEMENT' in v_type_upper)
 
         # 1. Header
         title_clean = v_type.upper()
@@ -3272,7 +2623,7 @@ class UniversalPDFGenerator:
             voucher_data.get('partyName') or 
             voucher_data.get('customer_name') or 
             voucher_data.get('vendor_name') or 
-            'N/A'
+            'Valued Client'
         )
         payee_role = voucher_data.get('payeeRole') or ''
         payee_phone = voucher_data.get('payeePhone') or ''
@@ -3280,9 +2631,8 @@ class UniversalPDFGenerator:
         pay_mode = voucher_data.get('paymentMode') or ''
         category = voucher_data.get('category') or ''
 
-        v_type_upper = v_type.upper()
         if 'CUSTOMER' in v_type_upper or 'CWO' in v_type_upper:
-            party_label = "Bill To"
+            party_label = "Bill To" if not is_statement else "Customer"
         elif 'VENDOR' in v_type_upper or 'VPA' in v_type_upper:
             party_label = "Vendor"
         elif 'RECEIPT' in v_type_upper:
@@ -3293,25 +2643,30 @@ class UniversalPDFGenerator:
             party_label = "Beneficiary"
 
         subtext_parts = []
-        if payee_role and payee_role not in ('-', 'Beneficiary / Recipient', 'Customer / Client', 'Vendor / Supplier'):
+        if payee_role and payee_role not in ('-', 'Beneficiary / Recipient', 'Customer / Client', 'Vendor / Supplier', 'Customer', 'Vendor'):
             subtext_parts.append(payee_role)
-        if payee_phone and payee_phone != '-':
+        if payee_phone and payee_phone not in ('-', 'None', 'null', 'N/A'):
             subtext_parts.append(f"Tel: {payee_phone}")
-        if voucher_data.get('payeeAddress') and voucher_data.get('payeeAddress') != '-':
-            subtext_parts.append(voucher_data.get('payeeAddress'))
+        addr_val = voucher_data.get('payeeAddress')
+        if addr_val and str(addr_val).strip() not in ('-', 'None', 'null', 'N/A'):
+            subtext_parts.append(str(addr_val).strip())
         party_subtext = '\n'.join(subtext_parts) if subtext_parts else None
 
         meta_pairs = [
             ("Date", format_doc_date(v_date))
         ]
-        if pay_mode and pay_mode not in ('-', 'None'):
+        period_val = voucher_data.get('period') or voucher_data.get('period_text')
+        if is_statement and period_val:
+            meta_pairs.append(("Period", str(period_val)))
+        if pay_mode and pay_mode not in ('-', 'None', 'null', 'ACCOUNT BALANCE', 'VENDOR BALANCE'):
             meta_pairs.append(("Payment Mode", pay_mode))
-        if category and category not in ('-', 'General', 'None'):
+        if category and category not in ('-', 'General', 'None', 'null', 'Customer Statement', 'Supplier Balance', 'Statement Settlement'):
             meta_pairs.append(("Category", category))
-        if account_name and account_name not in ('-', 'None'):
+        if account_name and account_name not in ('-', 'None', 'null', 'Main Cash Ledger', 'Accounts Receivable', 'Accounts Payable'):
             meta_pairs.append(("Account", account_name))
-        if voucher_data.get('reference') and str(voucher_data.get('reference')).strip() not in ('', '-'):
-            meta_pairs.append(("Reference", str(voucher_data.get('reference'))))
+        ref_val = voucher_data.get('reference')
+        if ref_val and str(ref_val).strip() not in ('', '-', 'None', 'null'):
+            meta_pairs.append(("Reference", str(ref_val).strip()))
 
         party_meta = self.build_reference_party_and_meta(
             doc_width,
@@ -3323,95 +2678,219 @@ class UniversalPDFGenerator:
         elements.append(party_meta)
         elements.append(Spacer(1, 15.10))
 
-        # 3. Items / Particulars Table
-        raw_amt = voucher_data.get('amount', 0)
-        try:
-            amt = float(str(raw_amt).replace(',', '').replace('SAR', '').strip())
-        except (ValueError, TypeError):
-            amt = 0.0
-
-        particulars = voucher_data.get('particulars') or []
-        if not particulars:
-            desc = voucher_data.get('description') or voucher_data.get('narration') or f"{v_type} Settlement"
-            particulars = [{'item': desc, 'qty': '1.00', 'rate': f"{amt:,.2f}", 'amount': f"{amt:,.2f}"}]
-
-        columns = [
-            ("#", "center"),
-            ("Item & Description", "left"),
-            ("Qty", "right"),
-            ("Rate", "right"),
-            ("Amount", "right")
-        ]
-        col_widths = [25.73, 274.80, 56.62, 56.63, 101.25]
-        table_rows = []
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
-        computed_subtotal = Decimal('0.00')
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
 
-        for idx, p in enumerate(particulars, 1):
-            item_desc = p.get('item') or p.get('description') or '-'
-            qty_raw = p.get('qty', 1)
-            rate_raw = p.get('rate', amt)
-            amt_raw = p.get('amount', amt)
+        # =========================================================================
+        # 3A. STATEMENT CASE: LEDGER TABLE WITH SUMMARY STACK
+        # =========================================================================
+        if is_statement:
+            opening_bal = float(voucher_data.get('openingBalance') or 0.0)
+            transactions = voucher_data.get('transactions') or voucher_data.get('particulars') or []
 
+            # 3A.1 Summary Stack Above Ledger Table
+            tot_debits = Decimal('0.00')
+            tot_credits = Decimal('0.00')
+            curr_running = Decimal(str(opening_bal))
+
+            # Pre-compute totals and build ledger rows
+            ledger_rows = []
+            for t in transactions:
+                t_date = format_doc_date(t.get('date') or v_date)
+                t_desc = t.get('description') or t.get('item') or t.get('details') or 'Transaction Entry'
+                raw_deb = t.get('debit', 0)
+                raw_cred = t.get('credit', 0)
+                try:
+                    deb_val = Decimal(str(raw_deb).replace(',', '').replace('SAR', '').strip() or '0')
+                except Exception:
+                    deb_val = Decimal('0.00')
+                try:
+                    cred_val = Decimal(str(raw_cred).replace(',', '').replace('SAR', '').strip() or '0')
+                except Exception:
+                    cred_val = Decimal('0.00')
+
+                # In case caller passed line-item amount
+                if deb_val == 0 and cred_val == 0 and 'amount' in t:
+                    amt_t = Decimal(str(t.get('amount', 0)).replace(',', '').replace('SAR', '').strip() or '0')
+                    if amt_t >= 0:
+                        deb_val = amt_t
+                    else:
+                        cred_val = abs(amt_t)
+
+                tot_debits += deb_val
+                tot_credits += cred_val
+                curr_running = curr_running + deb_val - cred_val
+
+                desc_parts = [prt.strip() for prt in str(t_desc).split('\n') if prt.strip() and prt.strip() != '-']
+                if len(desc_parts) > 1:
+                    desc_html = f'<font color="#333333">{desc_parts[0]}</font><br/><font color="#727272">{desc_parts[1]}</font>'
+                elif desc_parts:
+                    desc_html = f'<font color="#333333">{desc_parts[0]}</font>'
+                else:
+                    desc_html = '<font color="#333333">Transaction Record</font>'
+
+                deb_str = f"{deb_val:,.2f}" if deb_val > 0 else ""
+                cred_str = f"{cred_val:,.2f}" if cred_val > 0 else ""
+                bal_str = f"{curr_running:,.2f}"
+
+                ledger_rows.append([
+                    Paragraph(t_date, ParagraphStyle('LD', fontName=font_reg, fontSize=8.5, leading=10, alignment=1, textColor=colors.HexColor('#333333'))),
+                    Paragraph(desc_html, ParagraphStyle('LX', fontName=font_reg, fontSize=8.5, leading=10.5, textColor=colors.HexColor('#333333'))),
+                    deb_str,
+                    cred_str,
+                    bal_str
+                ])
+
+            closing_bal = float(voucher_data.get('closingBalance') or voucher_data.get('amount') or curr_running)
+
+            # Render Summary Stack
+            summary_p = ParagraphStyle('SSP', fontName=font_reg, fontSize=8.5, leading=11, textColor=colors.HexColor('#333333'))
+            summary_b = ParagraphStyle('SSB', fontName=font_bold, fontSize=8.5, leading=11, textColor=colors.HexColor('#000000'))
+            period_display = period_val or f"As of {format_doc_date(v_date)}"
+
+            stack_data = [
+                [
+                    Paragraph(f"<b>Statement Period:</b> {period_display}", summary_p),
+                    Paragraph(f"<b>Opening Balance:</b> {opening_bal:,.2f} SAR", summary_p)
+                ],
+                [
+                    Paragraph(f"<b>Total Debits:</b> {float(tot_debits):,.2f} SAR  •  <b>Total Credits:</b> {float(tot_credits):,.2f} SAR", summary_p),
+                    Paragraph(f"<b>Net Outstanding Balance:</b> {closing_bal:,.2f} SAR", summary_b)
+                ]
+            ]
+            stack_table = Table(stack_data, colWidths=[270, 245.03])
+            stack_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ]))
+            elements.append(stack_table)
+            elements.append(Spacer(1, 10.00))
+
+            # 3A.2 Ledger Table (repeatRows=1)
+            ledger_cols = [
+                ("Date", "center"),
+                ("Transaction Details", "left"),
+                ("Debit (SAR)", "right"),
+                ("Credit (SAR)", "right"),
+                ("Balance (SAR)", "right")
+            ]
+            ledger_widths = [70.00, 205.03, 80.00, 80.00, 80.00]
+            ledger_table = self.build_reference_items_table(doc_width, ledger_cols, ledger_rows, col_widths=ledger_widths)
+            elements.append(ledger_table)
+            elements.append(Spacer(1, 0.75))
+
+            # 3A.3 Closing Totals Block
+            words_text = self.number_to_words(closing_bal)
+            totals_block = self.build_reference_totals(
+                doc_width,
+                sub_total=None,
+                total=closing_bal,
+                words_text=words_text,
+                show_sar_symbol=True
+            )
+
+            totals_block.keepWithNext = True
+            elements.append(totals_block)
+            elements.append(Spacer(1, 23.00))
+
+            notes_text = voucher_data.get('notes') or voucher_data.get('narration')
+            sigs = self.build_reference_signatures_and_notes(doc_width, notes=notes_text, signature_style='single')
+            elements.extend(sigs)
+
+        # =========================================================================
+        # 3B. TRANSACTIONAL CASE: CWO, VPA, PAYMENT VOUCHER, RECEIPT VOUCHER
+        # =========================================================================
+        else:
+            raw_amt = voucher_data.get('amount', 0)
             try:
-                qty_val = float(str(qty_raw).replace(',', ''))
+                amt = float(str(raw_amt).replace(',', '').replace('SAR', '').strip())
             except (ValueError, TypeError):
-                qty_val = 1.0
+                amt = 0.0
 
-            try:
-                rate_val = float(str(rate_raw).replace(',', '').replace('SAR', '').strip())
-            except (ValueError, TypeError):
-                rate_val = amt
+            particulars = voucher_data.get('particulars') or []
+            if not particulars:
+                desc = voucher_data.get('description') or voucher_data.get('narration') or f"{v_type} Settlement"
+                particulars = [{'item': desc, 'qty': '1.00', 'rate': f"{amt:,.2f}", 'amount': f"{amt:,.2f}"}]
 
-            try:
-                line_amt = float(str(amt_raw).replace(',', '').replace('SAR', '').strip())
-            except (ValueError, TypeError):
-                line_amt = qty_val * rate_val
+            columns = [
+                ("#", "center"),
+                ("Item & Description", "left"),
+                ("Qty", "right"),
+                ("Rate", "right"),
+                ("Amount", "right")
+            ]
+            col_widths = [25.73, 274.80, 56.62, 56.63, 101.25]
+            table_rows = []
+            computed_subtotal = Decimal('0.00')
 
-            computed_subtotal += Decimal(str(line_amt))
+            for idx, p in enumerate(particulars, 1):
+                item_desc = p.get('item') or p.get('description') or 'Item'
+                qty_raw = p.get('qty', 1)
+                rate_raw = p.get('rate', amt)
+                amt_raw = p.get('amount', amt)
 
-            desc_parts = [prt.strip() for prt in str(item_desc).split('\n') if prt.strip()]
-            if len(desc_parts) > 1:
-                desc_html = f'<font color="#333333">{desc_parts[0]}</font><br/><font color="#727272">{desc_parts[1]}</font>'
-            elif desc_parts:
-                desc_html = f'<font color="#333333">{desc_parts[0]}</font>'
-            else:
-                desc_html = '<font color="#727272">-</font>'
+                try:
+                    qty_val = float(str(qty_raw).replace(',', ''))
+                except (ValueError, TypeError):
+                    qty_val = 1.0
 
-            table_rows.append([
-                str(idx),
-                Paragraph(desc_html, ParagraphStyle('PDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
-                f"{qty_val:.2f}",
-                f"{rate_val:,.2f}",
-                f"{line_amt:,.2f}"
-            ])
+                try:
+                    rate_val = float(str(rate_raw).replace(',', '').replace('SAR', '').strip())
+                except (ValueError, TypeError):
+                    rate_val = amt
 
-        items_table = self.build_reference_items_table(doc_width, columns, table_rows, col_widths=col_widths)
-        elements.append(items_table)
-        elements.append(Spacer(1, 0.75))
+                try:
+                    line_amt = float(str(amt_raw).replace(',', '').replace('SAR', '').strip())
+                except (ValueError, TypeError):
+                    line_amt = qty_val * rate_val
 
-        # 4. Totals Block
-        total_val = float(amt) if amt > 0 else float(computed_subtotal)
-        words_text = voucher_data.get('amountWords') or self.number_to_words(total_val)
-        totals_block = self.build_reference_totals(
-            doc_width,
-            sub_total=float(computed_subtotal),
-            total=total_val,
-            words_text=words_text,
-            show_sar_symbol=True
-        )
-        elements.append(totals_block)
-        elements.append(Spacer(1, 23.00))
+                computed_subtotal += Decimal(str(line_amt))
 
-        # 5. Signatures and Notes
-        sig_style = 'double' if any(k in v_type_upper for k in ['PAYMENT', 'RECEIPT']) else 'single'
-        notes_text = voucher_data.get('notes') or voucher_data.get('narration') or voucher_data.get('terms')
-        sigs = self.build_reference_signatures_and_notes(
-            doc_width,
-            notes=notes_text,
-            signature_style=sig_style
-        )
-        elements.extend(sigs)
+                desc_parts = [prt.strip() for prt in str(item_desc).split('\n') if prt.strip() and prt.strip() != '-']
+                if len(desc_parts) > 1:
+                    desc_html = f'<font color="#333333">{desc_parts[0]}</font><br/><font color="#727272">{desc_parts[1]}</font>'
+                elif desc_parts:
+                    desc_html = f'<font color="#333333">{desc_parts[0]}</font>'
+                else:
+                    desc_html = '<font color="#333333">Item</font>'
+
+                table_rows.append([
+                    str(idx),
+                    Paragraph(desc_html, ParagraphStyle('PDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                    f"{qty_val:.2f}",
+                    f"{rate_val:,.2f}",
+                    f"{line_amt:,.2f}"
+                ])
+
+            items_table = self.build_reference_items_table(doc_width, columns, table_rows, col_widths=col_widths)
+            elements.append(items_table)
+            elements.append(Spacer(1, 0.75))
+
+            # 4. Totals Block (Total amount appears ONCE in totals area)
+            total_val = float(amt) if amt > 0 else float(computed_subtotal)
+            words_text = voucher_data.get('amountWords') or self.number_to_words(total_val)
+            totals_block = self.build_reference_totals(
+                doc_width,
+                sub_total=float(computed_subtotal),
+                total=total_val,
+                words_text=words_text,
+                show_sar_symbol=True
+            )
+            totals_block.keepWithNext = True
+            elements.append(totals_block)
+            elements.append(Spacer(1, 23.00))
+
+            sig_style = 'double' if any(k in v_type_upper for k in ['PAYMENT', 'RECEIPT', 'SALARY']) else 'single'
+            notes_text = voucher_data.get('notes') or voucher_data.get('narration') or voucher_data.get('terms')
+            sigs = self.build_reference_signatures_and_notes(
+                doc_width,
+                notes=notes_text,
+                signature_style=sig_style
+            )
+            elements.extend(sigs)
 
         doc.build(elements, canvasmaker=NumberedCanvas)
         pdf_bytes = buffer.getvalue()
