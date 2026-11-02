@@ -34,6 +34,8 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { ModuleProvider } from './contexts/ModuleContext'
 import { WorkspaceProvider } from './contexts/WorkspaceContext'
 import ErrorBoundary from './components/common/ErrorBoundary'
+import RouteGuard from './components/common/RouteGuard'
+import { canAccessPermission, isUserAdmin } from './constants/permissions'
 
 // Legacy ERP route redirector: preserves full path and query string with replace
 const RedirectToAccounting = () => {
@@ -48,6 +50,13 @@ function App() {
 
   useEffect(() => {
     checkAuth()
+    const handleRefresh = () => checkAuth()
+    window.addEventListener('app:refresh', handleRefresh)
+    window.addEventListener('storage', handleRefresh)
+    return () => {
+      window.removeEventListener('app:refresh', handleRefresh)
+      window.removeEventListener('storage', handleRefresh)
+    }
   }, [])
 
   const checkAuth = async () => {
@@ -194,62 +203,185 @@ function App() {
                 )
               }
             >
-              <Route index element={<Dashboard />} />
-              <Route path="accounting" element={(canAccess('invoices') || canAccess('expenses') || canAccess('cashbook') || isAdmin) ? <AccountingDashboard /> : <Navigate to="/" />} />
-              
-              {/* Accounting & Books Section-Aware Routes */}
-              <Route path="accounting/customers" element={canAccess('customers') ? <Customers /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/vendors" element={canAccess('vendors') ? <Vendors /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/estimations" element={canAccess('estimations') ? <Estimations /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/estimations/new" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/estimations/:id/edit" element={canAccess('estimations') ? <EstimateBuilder /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/quotations" element={canAccess('quotations') ? <Quotations /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/quotations/new" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
-              <Route path="accounting/quotations/:id/edit" element={canAccess('quotations') ? <QuotationBuilder /> : <Navigate to="/accounting" />} />
+              <Route index element={
+                <RouteGuard permission="dashboard" currentUser={currentUser}>
+                  <Dashboard />
+                </RouteGuard>
+              } />
+
+              {/* Accounting Module Root & Sections */}
+              <Route path="accounting" element={
+                <RouteGuard moduleId="accounting" permission="accounting" currentUser={currentUser}>
+                  <AccountingDashboard />
+                </RouteGuard>
+              } />
+              <Route path="accounting/customers" element={
+                <RouteGuard permission="customers" currentUser={currentUser}>
+                  <Customers />
+                </RouteGuard>
+              } />
+              <Route path="accounting/vendors" element={
+                <RouteGuard permission="vendors" currentUser={currentUser}>
+                  <Vendors />
+                </RouteGuard>
+              } />
+              <Route path="accounting/estimations" element={
+                <RouteGuard permission="estimations" currentUser={currentUser}>
+                  <Estimations />
+                </RouteGuard>
+              } />
+              <Route path="accounting/estimations/new" element={
+                <RouteGuard permission="estimations" currentUser={currentUser}>
+                  <EstimateBuilder />
+                </RouteGuard>
+              } />
+              <Route path="accounting/estimations/:id/edit" element={
+                <RouteGuard permission="estimations" currentUser={currentUser}>
+                  <EstimateBuilder />
+                </RouteGuard>
+              } />
+              <Route path="accounting/quotations" element={
+                <RouteGuard permission="quotations" currentUser={currentUser}>
+                  <Quotations />
+                </RouteGuard>
+              } />
+              <Route path="accounting/quotations/new" element={
+                <RouteGuard permission="quotations" currentUser={currentUser}>
+                  <QuotationBuilder />
+                </RouteGuard>
+              } />
+              <Route path="accounting/quotations/:id/edit" element={
+                <RouteGuard permission="quotations" currentUser={currentUser}>
+                  <QuotationBuilder />
+                </RouteGuard>
+              } />
               <Route path="accounting/banks" element={<Navigate to="/cashbook?tab=bank_accounts" replace />} />
-              <Route path="accounting/settings" element={canAccess('settings') ? <Settings mode="accounting" /> : <Navigate to="/accounting" />} />
-              <Route path="enquiries" element={<Enquiries currentUser={currentUser} />} />
+              <Route path="accounting/settings" element={
+                <RouteGuard permission="accounting_settings" currentUser={currentUser}>
+                  <Settings mode="accounting" />
+                </RouteGuard>
+              } />
+
+              {/* ERP Operations Routes */}
+              <Route path="enquiries" element={
+                <RouteGuard permission="enquiries" currentUser={currentUser}>
+                  <Enquiries currentUser={currentUser} />
+                </RouteGuard>
+              } />
+              <Route path="jobs" element={
+                <RouteGuard permission={['jobs', 'planning']} currentUser={currentUser}>
+                  <JobOrders currentUser={currentUser} />
+                </RouteGuard>
+              } />
+
+              {/* Invoices */}
+              <Route path="invoices" element={
+                <RouteGuard permission="invoices" currentUser={currentUser}>
+                  <Invoices />
+                </RouteGuard>
+              } />
+              <Route path="invoices/new" element={
+                <RouteGuard permission="invoices" currentUser={currentUser}>
+                  <InvoiceBuilder />
+                </RouteGuard>
+              } />
+              <Route path="invoices/:id/edit" element={
+                <RouteGuard permission="invoices" currentUser={currentUser}>
+                  <InvoiceBuilder />
+                </RouteGuard>
+              } />
+
+              {/* Credit Notes */}
+              <Route path="credit-notes" element={
+                <RouteGuard permission="credit_notes" currentUser={currentUser}>
+                  <CreditNotes />
+                </RouteGuard>
+              } />
+              <Route path="credit-notes/new" element={
+                <RouteGuard permission="credit_notes" currentUser={currentUser}>
+                  <CreditNoteBuilder />
+                </RouteGuard>
+              } />
+              <Route path="credit-notes/:id/edit" element={
+                <RouteGuard permission="credit_notes" currentUser={currentUser}>
+                  <CreditNoteBuilder />
+                </RouteGuard>
+              } />
+
+              {/* Delivery Notes */}
+              <Route path="delivery-notes" element={
+                <RouteGuard permission="delivery_notes" currentUser={currentUser}>
+                  <DeliveryNotes />
+                </RouteGuard>
+              } />
+              <Route path="delivery-notes/new" element={
+                <RouteGuard permission="delivery_notes" currentUser={currentUser}>
+                  <DeliveryNoteBuilder />
+                </RouteGuard>
+              } />
+              <Route path="delivery-notes/:id/edit" element={
+                <RouteGuard permission="delivery_notes" currentUser={currentUser}>
+                  <DeliveryNoteBuilder />
+                </RouteGuard>
+              } />
+
+              {/* Cashbook Module */}
+              <Route path="cashbook" element={
+                <RouteGuard moduleId="cashbook" permission="cashbook" currentUser={currentUser}>
+                  <Cashbook currentUser={currentUser} />
+                </RouteGuard>
+              } />
+
+              {/* Financial Reports & Payroll */}
+              <Route path="reports" element={
+                <RouteGuard permission="reports" currentUser={currentUser}>
+                  <Reports />
+                </RouteGuard>
+              } />
+              <Route path="salary" element={
+                <RouteGuard permission="salary" currentUser={currentUser}>
+                  <Salary />
+                </RouteGuard>
+              } />
+
+              {/* System & Administration */}
+              <Route path="settings" element={
+                <RouteGuard permission="settings" currentUser={currentUser}>
+                  <Settings mode="erp" />
+                </RouteGuard>
+              } />
+              <Route path="users" element={
+                <RouteGuard adminOnly currentUser={currentUser}>
+                  <UserManagement />
+                </RouteGuard>
+              } />
+              <Route path="search" element={
+                <RouteGuard currentUser={currentUser}>
+                  <SearchResults />
+                </RouteGuard>
+              } />
+              <Route path="recycle-bin" element={
+                <RouteGuard permission={['cashbook', 'recycle_bin']} currentUser={currentUser}>
+                  <Navigate to="/cashbook?tab=recycle_bin" replace />
+                </RouteGuard>
+              } />
+
               {/* Legacy ERP Route Redirects to Accounting */}
               <Route path="customers" element={<RedirectToAccounting />} />
               <Route path="vendors" element={<RedirectToAccounting />} />
-              <Route path="jobs" element={(canAccess('jobs') || canAccess('planning')) ? <JobOrders /> : <Navigate to="/" />} />
-              
-              {/* Invoices */}
-              <Route path="invoices" element={canAccess('invoices') ? <Invoices /> : <Navigate to="/" />} />
-              <Route path="invoices/new" element={canAccess('invoices') ? <InvoiceBuilder /> : <Navigate to="/" />} />
-              <Route path="invoices/:id/edit" element={canAccess('invoices') ? <InvoiceBuilder /> : <Navigate to="/" />} />
-
-              {/* Legacy Quotations Redirects */}
               <Route path="quotations" element={<RedirectToAccounting />} />
               <Route path="quotations/new" element={<RedirectToAccounting />} />
               <Route path="quotations/:id/edit" element={<RedirectToAccounting />} />
-
-              {/* Credit Notes */}
-              <Route path="credit-notes" element={canAccess('credit_notes') ? <CreditNotes /> : <Navigate to="/" />} />
-              <Route path="credit-notes/new" element={canAccess('credit_notes') ? <CreditNoteBuilder /> : <Navigate to="/" />} />
-              <Route path="credit-notes/:id/edit" element={canAccess('credit_notes') ? <CreditNoteBuilder /> : <Navigate to="/" />} />
-
-              {/* Delivery Notes */}
-              <Route path="delivery-notes" element={canAccess('delivery_notes') ? <DeliveryNotes /> : <Navigate to="/" />} />
-              <Route path="delivery-notes/new" element={canAccess('delivery_notes') ? <DeliveryNoteBuilder /> : <Navigate to="/" />} />
-              <Route path="delivery-notes/:id/edit" element={canAccess('delivery_notes') ? <DeliveryNoteBuilder /> : <Navigate to="/" />} />
-
-              <Route path="payments" element={<Navigate to="/accounting" replace />} />
-              <Route path="payment-requests" element={<Navigate to="/accounting" replace />} />
-              {/* Legacy Estimations Redirects */}
               <Route path="estimations" element={<RedirectToAccounting />} />
               <Route path="estimations/new" element={<RedirectToAccounting />} />
               <Route path="estimations/:id/edit" element={<RedirectToAccounting />} />
+              <Route path="payments" element={<Navigate to="/accounting" replace />} />
+              <Route path="payment-requests" element={<Navigate to="/accounting" replace />} />
               <Route path="expenses" element={<Navigate to="/accounting" replace />} />
               <Route path="banks" element={<Navigate to="/cashbook?tab=bank_accounts" replace />} />
-              <Route path="cashbook" element={(isAdmin || canAccess('cashbook')) ? <Cashbook /> : <Navigate to="/" replace />} />
-              <Route path="reports" element={canAccess('reports') ? <Reports /> : <Navigate to="/" />} />
-              <Route path="salary" element={canAccess('salary') ? <Salary /> : <Navigate to="/" />} />
-              <Route path="settings" element={canAccess('settings') ? <Settings mode="erp" /> : <Navigate to="/" />} />
-              <Route path="recycle-bin" element={(isAdmin || canAccess('cashbook')) ? <Navigate to="/cashbook?tab=recycle_bin" replace /> : <RecycleBin />} />
-              <Route path="users" element={isAdmin ? <UserManagement /> : <Navigate to="/" />} />
-              <Route path="search" element={<SearchResults />} />
-              <Route path="*" element={<Dashboard />} />
+
+              {/* Wildcard Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
         </Router>

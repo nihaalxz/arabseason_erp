@@ -9,19 +9,11 @@ import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm, showError, showToast } from '../utils/swal'
 
-const ALL_MODULES = [
-  { key: 'customers', label: 'Customers' },
-  { key: 'vendors', label: 'Vendors' },
-  { key: 'jobs', label: 'Job Orders' },
-  { key: 'planning', label: 'Project Planning' },
-  { key: 'estimations', label: 'Estimations' },
-  { key: 'expenses', label: 'Expenses' },
-  { key: 'banks', label: 'Banks' },
-  { key: 'cashbook', label: 'Cashbook' },
-  { key: 'salary', label: 'Salary & Payroll' },
-  { key: 'reports', label: 'Reports' },
-  { key: 'settings', label: 'Settings' },
-]
+import { MODULE_PERMISSION_GROUPS, ROLE_PRESETS } from '../constants/permissions'
+
+const ALL_MODULES_FLAT = MODULE_PERMISSION_GROUPS.flatMap(g => g.permissions)
+const ALL_MODULES = ALL_MODULES_FLAT
+
 
 const EMPTY_FORM = {
   username: '',
@@ -149,6 +141,13 @@ const UserManagement = () => {
       if (editingUser) {
         const res = await api.put(`accounts/users/${editingUser.id}/`, payload)
         setUsers(users.map(u => u.id === editingUser.id ? res.data : u))
+        try {
+          const currentStored = JSON.parse(localStorage.getItem('user') || '{}')
+          if (currentStored.id === editingUser.id) {
+            localStorage.setItem('user', JSON.stringify(res.data))
+            window.dispatchEvent(new Event('app:refresh'))
+          }
+        } catch (e) {}
         showToast('User updated successfully', 'success')
       } else {
         const res = await api.post('accounts/users/', payload)
@@ -195,9 +194,41 @@ const UserManagement = () => {
   }
 
   const toggleAllModules = () => {
-    const allKeys = ALL_MODULES.map(m => m.key)
+    const allKeys = ALL_MODULES_FLAT.map(m => m.key)
     const allSelected = allKeys.every(k => formData.access_list.includes(k))
     setFormData(prev => ({ ...prev, access_list: allSelected ? [] : allKeys }))
+  }
+
+  const toggleGroupModules = (groupId) => {
+    const group = MODULE_PERMISSION_GROUPS.find(g => g.moduleId === groupId)
+    if (!group) return
+    const groupKeys = group.permissions.map(p => p.key)
+    const allGroupSelected = groupKeys.every(k => formData.access_list.includes(k))
+    setFormData(prev => ({
+      ...prev,
+      access_list: allGroupSelected
+        ? prev.access_list.filter(k => !groupKeys.includes(k))
+        : Array.from(new Set([...prev.access_list, ...groupKeys]))
+    }))
+  }
+
+  const applyRolePreset = (presetKey) => {
+    if (presetKey === 'Admin') {
+      setFormData(prev => ({
+        ...prev,
+        role: 'Admin',
+        access_list: ALL_MODULES_FLAT.map(p => p.key)
+      }))
+    } else {
+      const preset = ROLE_PRESETS[presetKey]
+      if (preset) {
+        setFormData(prev => ({
+          ...prev,
+          role: 'User',
+          access_list: [...preset.permissions]
+        }))
+      }
+    }
   }
 
   // Render Module Access Helper
@@ -541,7 +572,7 @@ const UserManagement = () => {
         onClose={() => setIsModalOpen(false)}
         title={editingUser ? 'Edit User' : 'Add User'}
         footer={modalFooter}
-        maxWidth="640px"
+        maxWidth="760px"
       >
         <form id="user-management-modal-form" onSubmit={handleSubmit} style={{ padding: '4px 0' }}>
           {formError && (
@@ -748,105 +779,196 @@ const UserManagement = () => {
             </label>
           </div>
 
-          {/* Module Access (3-column checkbox list) */}
+          {/* Module Access (Grouped Cards by Module) */}
           <div style={{
             borderTop: '1px solid var(--border, #E4E4E4)',
-            paddingTop: '16px',
+            paddingTop: '18px',
             opacity: formData.role === 'Admin' ? 0.45 : 1,
             pointerEvents: formData.role === 'Admin' ? 'none' : 'auto',
             transition: 'opacity 0.15s ease'
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '10px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text, #111111)' }}>
-                  Module Access
+            {/* Quick Role Presets */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #71717A)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Quick Role Presets
                 </span>
-                {formData.role === 'Admin' && (
-                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted, #8C8C8C)', fontWeight: 400 }}>
-                    (Admins have full access automatically)
-                  </span>
+                {formData.role !== 'Admin' && (
+                  <button
+                    type="button"
+                    onClick={toggleAllModules}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: 'var(--text, #0A0A0A)',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                    onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                  >
+                    {ALL_MODULES_FLAT.every(m => formData.access_list.includes(m.key)) ? 'Clear all permissions' : 'Select all permissions'}
+                  </button>
                 )}
               </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {Object.entries(ROLE_PRESETS).map(([key, preset]) => {
+                  const isCurrent = (key === 'Admin' && formData.role === 'Admin') ||
+                    (formData.role !== 'Admin' && key !== 'Custom' && Array.isArray(preset.permissions) &&
+                      preset.permissions.length === formData.access_list.length &&
+                      preset.permissions.every(p => formData.access_list.includes(p)))
 
-              {formData.role !== 'Admin' && (
-                <button
-                  type="button"
-                  onClick={toggleAllModules}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: 'var(--text, #0A0A0A)',
-                    cursor: 'pointer',
-                    textDecoration: 'none'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                  onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                >
-                  {ALL_MODULES.every(m => formData.access_list.includes(m.key)) ? 'Clear all' : 'Select All'}
-                </button>
-              )}
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => applyRolePreset(key)}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        border: isCurrent ? '1px solid var(--black, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
+                        backgroundColor: isCurrent ? 'var(--black, #0A0A0A)' : 'var(--card-bg, #FFFFFF)',
+                        color: isCurrent ? '#FFFFFF' : 'var(--text, #111111)',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={preset.description}
+                    >
+                      {preset.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
-            {/* 3-Column List */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '4px 8px'
-            }}>
-              {ALL_MODULES.map(mod => {
-                const checked = formData.role === 'Admin' || formData.access_list.includes(mod.key)
+            {/* Categorized Cards (ERP, Accounting, Cashbook) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {MODULE_PERMISSION_GROUPS.map(group => {
+                const groupKeys = group.permissions.map(p => p.key)
+                const allSelected = formData.role === 'Admin' || groupKeys.every(k => formData.access_list.includes(k))
+                const someSelected = groupKeys.some(k => formData.access_list.includes(k))
+
                 return (
                   <div
-                    key={mod.key}
-                    onClick={() => toggleModule(mod.key)}
+                    key={group.moduleId}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 8px',
-                      borderRadius: '4px',
-                      cursor: formData.role === 'Admin' ? 'default' : 'pointer',
-                      transition: 'background-color 0.1s ease',
-                      userSelect: 'none'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (formData.role !== 'Admin') {
-                        e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent'
+                      border: '1px solid var(--border, #E4E4E4)',
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      backgroundColor: 'var(--card-bg, #FFFFFF)'
                     }}
                   >
-                    <NeutralCheckbox
-                      checked={checked}
-                      onChange={() => toggleModule(mod.key)}
-                      disabled={formData.role === 'Admin'}
-                    />
-                    <span style={{
-                      fontSize: '12.5px',
-                      color: 'var(--text, #111111)',
-                      fontWeight: 400,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
+                    {/* Group Header */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '10px',
+                      paddingBottom: '8px',
+                      borderBottom: '1px solid var(--border, #F0F0F0)'
                     }}>
-                      {mod.label}
-                    </span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text, #111111)' }}>
+                          {group.title}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted, #71717A)', marginTop: '2px' }}>
+                          {group.description}
+                        </div>
+                      </div>
+
+                      {formData.role !== 'Admin' && (
+                        <button
+                          type="button"
+                          onClick={() => toggleGroupModules(group.moduleId)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '2px 6px',
+                            fontSize: '11.5px',
+                            fontWeight: 500,
+                            color: 'var(--text, #0A0A0A)',
+                            cursor: 'pointer'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                          onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                        >
+                          {allSelected ? 'Deselect group' : 'Select group'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Permissions Grid */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '6px 12px'
+                    }}>
+                      {group.permissions.map(perm => {
+                        const checked = formData.role === 'Admin' || formData.access_list.includes(perm.key)
+                        return (
+                          <div
+                            key={perm.key}
+                            onClick={() => toggleModule(perm.key)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '8px',
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              cursor: formData.role === 'Admin' ? 'default' : 'pointer',
+                              transition: 'background-color 0.1s ease',
+                              userSelect: 'none'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (formData.role !== 'Admin') {
+                                e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                            }}
+                          >
+                            <div style={{ marginTop: '2px' }}>
+                              <NeutralCheckbox
+                                checked={checked}
+                                onChange={() => toggleModule(perm.key)}
+                                disabled={formData.role === 'Admin'}
+                              />
+                            </div>
+                            <div style={{ overflow: 'hidden' }}>
+                              <div style={{
+                                fontSize: '12.5px',
+                                color: 'var(--text, #111111)',
+                                fontWeight: 500,
+                                lineHeight: 1.2
+                              }}>
+                                {perm.label}
+                              </div>
+                              <div style={{
+                                fontSize: '11px',
+                                color: 'var(--text-muted, #71717A)',
+                                marginTop: '2px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                {perm.description}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )
               })}
             </div>
           </div>
-        </form>
+          </form>
       </Modal>
 
       {/* Scoped Neutral Styles for User Management */}

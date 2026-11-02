@@ -28,6 +28,8 @@ import {
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import SearchBar from '../components/common/SearchBar'
 import ProjectPlanning from '../components/planning/ProjectPlanning'
+import { canAccessPermission, isUserAdmin } from '../constants/permissions'
+import AccessDenied from '../components/common/AccessDenied'
 import DynamicCustomFields from '../components/common/DynamicCustomFields'
 import { showConfirm, showAlert, showSuccess, showError, showWarning, showToast } from '../utils/swal'
 
@@ -47,7 +49,7 @@ const getLinkedProjectTitle = (job) => {
   return ''
 }
 
-const JobOrders = ({ embedded = false }) => {
+const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) => {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -66,11 +68,13 @@ const JobOrders = ({ embedded = false }) => {
   const [jobSummary, setJobSummary] = useState({ total_value: 0, total_paid: 0, total_balance: 0, count: 0, by_client: [] })
 
   // Current user & role detection
-  const currentUser = (() => {
+  const currentUser = currentUserProp || (() => {
     try { return JSON.parse(localStorage.getItem('user')) || {} }
     catch (e) { return {} }
   })()
-  const isAdmin = currentUser?.role === 'Admin' || currentUser?.is_admin || currentUser?.is_superuser
+  const isAdmin = isUserAdmin(currentUser)
+  const hasJobsAccess = isAdmin || canAccessPermission(currentUser, 'jobs')
+  const hasPlanningAccess = isAdmin || canAccessPermission(currentUser, 'planning')
 
   // Admin Job Order Tabs & Staff Delegation
   const [adminTab, setAdminTab] = useState('my') // 'my' | 'assigned'
@@ -100,21 +104,44 @@ const JobOrders = ({ embedded = false }) => {
   const currentTabParam = searchParams.get('tab')
   const subtabParam = searchParams.get('subtab')
   const [embeddedSection, setEmbeddedSection] = useState(() => {
-    return (subtabParam === 'planning' || subtabParam === 'pending') ? subtabParam : 'orders'
+    return (subtabParam === 'planning' && hasPlanningAccess) ? 'planning' : (subtabParam === 'pending' ? 'pending' : 'orders')
   })
 
   useEffect(() => {
     if (embedded) {
       const st = searchParams.get('subtab')
-      if (st === 'planning' || st === 'pending' || st === 'orders') {
+      if (st === 'planning' && hasPlanningAccess) {
+        setEmbeddedSection('planning')
+      } else if (st === 'pending' || st === 'orders') {
         setEmbeddedSection(st)
+      } else if (st === 'planning' && !hasPlanningAccess) {
+        setEmbeddedSection('orders')
+        setSearchParams(p => {
+          const next = new URLSearchParams(p)
+          next.delete('subtab')
+          return next
+        }, { replace: true })
+      }
+    } else {
+      if (currentTabParam === 'planning' && !hasPlanningAccess) {
+        setSearchParams(p => {
+          const next = new URLSearchParams(p)
+          next.delete('tab')
+          return next
+        }, { replace: true })
+      } else if (currentTabParam !== 'planning' && !hasJobsAccess && hasPlanningAccess) {
+        setSearchParams(p => {
+          const next = new URLSearchParams(p)
+          next.set('tab', 'planning')
+          return next
+        }, { replace: true })
       }
     }
-  }, [embedded, searchParams])
+  }, [embedded, searchParams, hasPlanningAccess, hasJobsAccess, currentTabParam, setSearchParams])
 
   const activeSection = embedded 
-    ? embeddedSection 
-    : (currentTabParam === 'planning' ? 'planning' : (currentTabParam === 'pending' ? 'pending' : 'orders'))
+    ? (embeddedSection === 'planning' && !hasPlanningAccess ? 'orders' : embeddedSection)
+    : (currentTabParam === 'planning' && hasPlanningAccess ? 'planning' : (currentTabParam === 'pending' ? 'pending' : (hasJobsAccess ? 'orders' : (hasPlanningAccess ? 'planning' : 'orders'))))
 
   // Pending Job Orders State
   const [pendingJobOrders, setPendingJobOrders] = useState([])
@@ -1506,6 +1533,18 @@ const JobOrders = ({ embedded = false }) => {
     window.addEventListener('app:refresh', handleAppRefresh)
     return () => window.removeEventListener('app:refresh', handleAppRefresh)
   }, [page, filterStatus, filterPayment, debouncedSearch, sortField, sortDirection, selectedClientBook, adminTab, assignedStaffFilter, isAdmin, fetchAssignedCount, fetchPendingJobOrders])
+
+  if (!hasJobsAccess && !hasPlanningAccess) {
+    return <AccessDenied currentUser={currentUser} requiredPermission="jobs" />
+  }
+
+  if (activeSection === 'planning' && !hasPlanningAccess) {
+    return <AccessDenied currentUser={currentUser} requiredPermission="planning" />
+  }
+
+  if (activeSection !== 'planning' && !hasJobsAccess) {
+    return <AccessDenied currentUser={currentUser} requiredPermission="jobs" />
+  }
 
   return (
     <div className={`jobs-page erp-page-container ${embedded ? 'embedded-job-orders' : ''}`} style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box', padding: embedded ? '0' : undefined }}>

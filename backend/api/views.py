@@ -106,8 +106,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
             advance_paid=Coalesce(Subquery(adv_sub), Decimal('0'), output_field=DecimalField())
         ).select_related('created_by').order_by('name').distinct()
 
-        if not is_admin_user(self.request.user):
-            qs = qs.filter(created_by=self.request.user)
+        # Customers are company-wide; visible to all authenticated users
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(
@@ -134,11 +133,11 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        is_admin = is_admin_user(request.user)
-        job_qs = JobOrder.objects.exclude(status='Cancelled') if is_admin else JobOrder.objects.filter(customer__created_by=request.user).exclude(status='Cancelled')
-        inv_qs = Invoice.objects.filter(job_order__isnull=True) if is_admin else Invoice.objects.filter(customer__created_by=request.user, job_order__isnull=True)
-        cn_qs = CreditNote.objects.exclude(status__in=['Draft', 'Cancelled']) if is_admin else CreditNote.objects.filter(customer__created_by=request.user).exclude(status__in=['Draft', 'Cancelled'])
-        pay_qs = CustomerPayment.objects.all() if is_admin else CustomerPayment.objects.filter(customer__created_by=request.user)
+        # Company-wide customer summary metrics
+        job_qs = JobOrder.objects.exclude(status='Cancelled')
+        inv_qs = Invoice.objects.filter(job_order__isnull=True)
+        cn_qs = CreditNote.objects.exclude(status__in=['Draft', 'Cancelled'])
+        pay_qs = CustomerPayment.objects.all()
 
         job_total = float(job_qs.aggregate(Sum('total_amount'))['total_amount__sum'] or 0)
         inv_total = float(inv_qs.aggregate(Sum('total_amount'))['total_amount__sum'] or 0)
@@ -149,7 +148,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         total_paid = pay_in - pay_refund
         pending_balance = total_billed - total_paid
 
-        cust_qs = Customer.objects.all() if is_admin else Customer.objects.filter(created_by=request.user)
+        cust_qs = Customer.objects.all()
         total_count = cust_qs.count()
 
         jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).exclude(status='Cancelled').values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
@@ -790,10 +789,8 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         )['tot']
         cancelled_count = cancelled_qs.count()
 
-        # Build client breakdown
+        # Build client breakdown (common across all users)
         customers = Customer.objects.all()
-        if not is_admin_user(request.user):
-            customers = customers.filter(created_by=request.user)
         
         client_breakdown = []
         for cust in customers:
@@ -1030,15 +1027,14 @@ class CustomerPaymentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = CustomerPayment.objects.all().select_related('customer', 'job_order', 'invoice', 'created_by').order_by('-payment_date')
-        if not is_admin_user(self.request.user):
-            queryset = queryset.filter(
-                Q(created_by=self.request.user) |
-                Q(job_order__created_by=self.request.user) |
-                Q(customer__created_by=self.request.user)
-            )
         customer_id = self.request.query_params.get('customer')
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)
+        elif not is_admin_user(self.request.user):
+            queryset = queryset.filter(
+                Q(created_by=self.request.user) |
+                Q(job_order__created_by=self.request.user)
+            )
         job_order_id = self.request.query_params.get('job_order')
         if job_order_id:
             queryset = queryset.filter(job_order_id=job_order_id)
@@ -1461,7 +1457,7 @@ class DashboardAPIView(views.APIView):
         
         is_admin = is_admin_user(request.user)
         
-        cust_qs = Customer.objects.all() if is_admin else Customer.objects.filter(created_by=request.user)
+        cust_qs = Customer.objects.all()
         job_qs = JobOrder.objects.all() if is_admin else JobOrder.objects.filter(created_by=request.user)
         cust_pay_qs = CustomerPayment.objects.all() if is_admin else CustomerPayment.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))
         exp_qs = (Expense.objects.all() if is_admin else Expense.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))).exclude(
@@ -1588,7 +1584,7 @@ class ReportAPIView(views.APIView):
 
             # Scoped base querysets
             job_base = JobOrder.objects.all() if is_admin else JobOrder.objects.filter(created_by=request.user)
-            cust_base = Customer.objects.all() if is_admin else Customer.objects.filter(created_by=request.user)
+            cust_base = Customer.objects.all()
             vend_base = Vendor.objects.all() if is_admin else Vendor.objects.filter(created_by=request.user)
             cust_pay_base = CustomerPayment.objects.all() if is_admin else CustomerPayment.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))
             exp_base = (Expense.objects.all() if is_admin else Expense.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))).exclude(
@@ -4112,7 +4108,7 @@ class EstimationViewSet(viewsets.ModelViewSet):
             customer = estimation.customer
             if not customer:
                 c_name = (estimation.client_name or '').strip() or 'Client'
-                cust_qs = Customer.objects.all() if is_admin_user(request.user) else Customer.objects.filter(created_by=request.user)
+                cust_qs = Customer.objects.all()
                 customer = cust_qs.filter(name__iexact=c_name).first()
                 if not customer:
                     customer = Customer.objects.create(name=c_name, created_by=request.user)

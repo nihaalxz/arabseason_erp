@@ -9,6 +9,7 @@ import { Truck, RotateCcw, HardHat, MessageSquareQuote, PanelLeftClose, PanelLef
 import { useModule } from '../../contexts/ModuleContext'
 import { useWorkspace } from '../../contexts/WorkspaceContext'
 import api from '../../api'
+import { canAccessPermission, isUserAdmin } from '../../constants/permissions'
 
 const MODULE_KEY_MAP = {
   '/accounting': 'payments',
@@ -119,73 +120,63 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
   let allNavItems = []
 
   if (activeModule === 'cashbook') {
-    allNavItems = (isAdmin || (currentUser?.access_list || []).includes('cashbook')) ? [
-      { name: 'Cash Books (Shelf)', path: '/cashbook', icon: BookOpen },
-      { name: 'Vendors', path: '/cashbook?tab=vendors', icon: Building2 },
-      { name: 'Labour', path: '/cashbook?tab=labour', icon: HardHat },
-      { name: 'Job Orders', path: '/cashbook?tab=job_orders', icon: Briefcase },
-      { name: 'Bank & Petty Cash', path: '/cashbook?tab=bank_accounts', icon: Landmark },
+    allNavItems = [
+      { name: 'Cash Books (Shelf)', path: '/cashbook', icon: BookOpen, permission: 'cashbook' },
+      { name: 'Vendors', path: '/cashbook?tab=vendors', icon: Building2, permission: 'vendors' },
+      { name: 'Labour', path: '/cashbook?tab=labour', icon: HardHat, permission: 'labour' },
+      { name: 'Job Orders', path: '/cashbook?tab=job_orders', icon: Briefcase, permission: 'jobs' },
+      { name: 'Bank & Petty Cash', path: '/cashbook?tab=bank_accounts', icon: Landmark, permission: 'banks' },
       { type: 'divider', label: 'ADMINISTRATION' },
-      { name: 'Settings', path: '/settings', icon: Settings },
-      { name: 'Recycle Bin', path: '/cashbook?tab=recycle_bin', icon: Trash2 },
-    ] : [
-      { name: 'ERP Dashboard', path: '/', icon: LayoutDashboard },
+      { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings' },
+      { name: 'Recycle Bin', path: '/cashbook?tab=recycle_bin', icon: Trash2, permission: 'recycle_bin' },
     ]
   } else if (activeModule === 'accounting') {
     allNavItems = [
-      { name: 'Accounting Dashboard', path: '/accounting', icon: LayoutDashboard },
+      { name: 'Accounting Dashboard', path: '/accounting', icon: LayoutDashboard, permission: 'accounting' },
       { type: 'divider', label: 'SALES' },
-      { name: 'Customers', path: '/accounting/customers', icon: Users },
-      { name: 'Estimations', path: '/accounting/estimations', icon: FileSpreadsheet },
-      { name: 'Quotations', path: '/accounting/quotations', icon: FileText },
-      { name: 'Invoices', path: '/invoices', icon: Receipt },
-      { name: 'Credit Notes', path: '/credit-notes', icon: RotateCcw },
+      { name: 'Customers', path: '/accounting/customers', icon: Users, permission: 'customers' },
+      { name: 'Estimations', path: '/accounting/estimations', icon: FileSpreadsheet, permission: 'estimations' },
+      { name: 'Quotations', path: '/accounting/quotations', icon: FileText, permission: 'quotations' },
+      { name: 'Invoices', path: '/invoices', icon: Receipt, permission: 'invoices' },
+      { name: 'Credit Notes', path: '/credit-notes', icon: RotateCcw, permission: 'credit_notes' },
       { type: 'divider', label: 'PURCHASES' },
-      { name: 'Vendors', path: '/accounting/vendors', icon: Building2 },
-      { name: 'Salary & Payroll', path: '/salary', icon: Banknote },
+      { name: 'Vendors', path: '/accounting/vendors', icon: Building2, permission: 'vendors' },
+      { name: 'Salary & Payroll', path: '/salary', icon: Banknote, permission: 'salary' },
       { type: 'divider', label: 'REPORTS' },
-      { name: 'Financial Reports', path: '/reports', icon: FileBarChart },
-      { name: 'Settings', path: '/accounting/settings', icon: Settings },
-      ...(isAdmin ? [{ name: 'User Management', path: '/users', icon: UserCog }] : []),
+      { name: 'Financial Reports', path: '/reports', icon: FileBarChart, permission: 'reports' },
+      { name: 'Settings', path: '/accounting/settings', icon: Settings, permission: 'accounting_settings' },
+      ...(isAdmin ? [{ name: 'User Management', path: '/users', icon: UserCog, adminOnly: true }] : []),
     ]
   } else {
     // Default: 'erp' (ERP Operations)
     allNavItems = [
-      { name: 'ERP Dashboard', path: '/', icon: LayoutDashboard },
+      { name: 'ERP Dashboard', path: '/', icon: LayoutDashboard, permission: 'dashboard' },
       { type: 'divider', label: 'CRM' },
-      { name: 'Enquiries', path: '/enquiries', icon: MessageSquareQuote },
+      { name: 'Enquiries', path: '/enquiries', icon: MessageSquareQuote, permission: 'enquiries' },
       { type: 'divider', label: 'OPERATIONS' },
-      { name: 'Job Orders', path: '/jobs', icon: Briefcase },
-      { name: 'Project Planning', path: '/jobs?tab=planning', icon: Layers },
-      { name: 'Delivery Notes', path: '/delivery-notes', icon: Truck },
-      { name: 'Settings', path: '/settings', icon: Settings },
-      ...(isAdmin ? [{ name: 'User Management', path: '/users', icon: UserCog }] : []),
+      { name: 'Job Orders', path: '/jobs', icon: Briefcase, permission: 'jobs' },
+      { name: 'Project Planning', path: '/jobs?tab=planning', icon: Layers, permission: 'planning' },
+      { name: 'Delivery Notes', path: '/delivery-notes', icon: Truck, permission: 'delivery_notes' },
+      { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings' },
+      ...(isAdmin ? [{ name: 'User Management', path: '/users', icon: UserCog, adminOnly: true }] : []),
     ]
   }
 
   const rawNavItems = allNavItems.filter(item => {
-    if (!item.path) return true // dividers
-    if (item.path === '/' || item.path === '/accounting' || item.path === '/settings' || item.path === '/accounting/settings' || item.path === '/recycle-bin' || item.path.startsWith('/cashbook')) return true
-
-    // Check workspace feature visibility
-    const moduleKey = MODULE_KEY_MAP[item.path]
-    if (moduleKey && !isFeatureVisible(moduleKey)) {
-      return false
-    }
-
+    if (item.type === 'divider') return true
     if (isAdmin) return true
-    if (!moduleKey) return true
-    const accessList = currentUser?.access_list || []
-    if (['/credit-notes', '/delivery-notes', '/accounting/quotations'].includes(item.path)) {
-      return accessList.includes(moduleKey) || accessList.includes('invoices')
+    if (item.adminOnly) return false
+
+    if (item.permission) {
+      return canAccessPermission(currentUser, item.permission)
     }
-    if (item.path === '/jobs?tab=planning') {
-      return accessList.includes('planning') || accessList.includes('jobs')
+
+    const moduleKey = MODULE_KEY_MAP[item.path]
+    if (moduleKey) {
+      return canAccessPermission(currentUser, moduleKey)
     }
-    if (item.path === '/salary' || item.path === '/reports?tab=salary') {
-      return accessList.includes('salary') || accessList.includes('reports')
-    }
-    return accessList.includes(moduleKey)
+
+    return true
   })
 
   // Remove orphan or consecutive empty dividers

@@ -48,6 +48,7 @@ import BankNameCombobox from '../components/common/BankNameCombobox'
 import { handlePdfResponse } from '../utils/pdfDownload'
 import { showConfirm, showError, showToast, showWarning } from '../utils/swal'
 import RecycleBin from './RecycleBin'
+import { canAccessPermission, hasModuleAccess, isUserAdmin } from '../constants/permissions'
 import CashbookJobOrders from '../components/cashbook/CashbookJobOrders'
 import CashbookLabour from '../components/cashbook/CashbookLabour'
 import PersonalCashLedger from '../components/cashbook/PersonalCashLedger'
@@ -509,8 +510,8 @@ const Cashbook = ({ currentUser = null }) => {
       return {}
     }
   })()
-  const isAdmin = user?.role === 'Admin' || user?.is_admin || user?.is_superuser
-  const hasAccess = isAdmin || (user?.access_list || []).includes('cashbook')
+  const isAdmin = isUserAdmin(user)
+  const hasAccess = isAdmin || hasModuleAccess(user, 'cashbook')
 
   if (!hasAccess) {
     return <Navigate to="/" replace />
@@ -548,18 +549,52 @@ const Cashbook = ({ currentUser = null }) => {
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
 
+  const getPermittedTab = useCallback((reqTab) => {
+    if (isAdmin) return reqTab || 'ledger'
+    const tabMap = {
+      expenses: 'expenses',
+      labour: 'labour',
+      bank_accounts: 'banks',
+      recycle_bin: 'recycle_bin',
+      vendors: 'vendors',
+      job_orders: 'jobs',
+      ledger: 'cashbook',
+      books: 'cashbook',
+      book: 'cashbook',
+      cash_ledger: 'cashbook',
+      more: 'cashbook'
+    }
+    const perm = tabMap[reqTab]
+    if (perm && canAccessPermission(user, perm)) {
+      return reqTab
+    }
+    if (canAccessPermission(user, 'cashbook')) return 'ledger'
+    if (canAccessPermission(user, 'expenses')) return 'expenses'
+    if (canAccessPermission(user, 'labour')) return 'labour'
+    if (canAccessPermission(user, 'banks')) return 'bank_accounts'
+    if (canAccessPermission(user, 'vendors')) return 'vendors'
+    if (canAccessPermission(user, 'jobs')) return 'job_orders'
+    return 'ledger'
+  }, [isAdmin, user])
+
   // View mode tab: 'bank_dashboard' | 'ledger' | 'books' | 'more' | 'cash_ledger' | list views
   const [activeTab, setActiveTab] = useState(() => {
     const t = searchParams.get('tab')
-    return t || 'ledger'
+    return getPermittedTab(t)
   })
 
   useEffect(() => {
     const t = searchParams.get('tab')
-    if (t && t !== activeTab) {
-      setActiveTab(t)
+    const valid = getPermittedTab(t)
+    if (t && valid !== t) {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        next.set('tab', valid)
+        return next
+      }, { replace: true })
     }
-  }, [searchParams])
+    setActiveTab(valid)
+  }, [searchParams, getPermittedTab])
 
   // Bank Flow Dashboard State
   const [bankFlowData, setBankFlowData] = useState(null)

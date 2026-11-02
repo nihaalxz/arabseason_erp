@@ -8,6 +8,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useModule } from '../../contexts/ModuleContext'
 import { useWorkspace } from '../../contexts/WorkspaceContext'
 import api from '../../api'
+import { hasModuleAccess, getFirstAccessibleRoute } from '../../constants/permissions'
 
 const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSheet, isCashbook: isCashbookProp }) => {
   const [showDropdown, setShowDropdown] = useState(false)
@@ -52,12 +53,12 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
   const isModuleActiveInWorkspace = (modKey) => {
     const k = modKey.toLowerCase()
     if (k === 'cashbook') {
-      return isFeatureVisible('cashbook') && (isAdmin || (currentUser?.access_list || []).includes('cashbook'))
+      return isFeatureVisible('cashbook') && hasModuleAccess(currentUser, 'cashbook')
     }
     if (k === 'accounting') {
-      return isFeatureVisible('payments') || isFeatureVisible('expenses') || isFeatureVisible('banks') || isFeatureVisible('reports') || isFeatureVisible('salary')
+      return hasModuleAccess(currentUser, 'accounting')
     }
-    return isFeatureVisible('customers') || isFeatureVisible('vendors') || isFeatureVisible('jobs') || isFeatureVisible('estimations')
+    return hasModuleAccess(currentUser, 'erp')
   }
 
   useEffect(() => {
@@ -73,7 +74,8 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
     const mod = MODULES[modKey]
     if (!mod) return
     setActiveModule(mod.id)
-    navigate(mod.defaultRoute)
+    const targetRoute = getFirstAccessibleRoute(currentUser, mod.id) || mod.defaultRoute
+    navigate(targetRoute)
   }
 
   useEffect(() => {
