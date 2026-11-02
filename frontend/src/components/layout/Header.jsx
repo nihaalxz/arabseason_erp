@@ -53,7 +53,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
   const isModuleActiveInWorkspace = (modKey) => {
     const k = modKey.toLowerCase()
     if (k === 'cashbook') {
-      return isFeatureVisible('cashbook') && hasModuleAccess(currentUser, 'cashbook')
+      return isUserAdmin(currentUser) && isFeatureVisible('cashbook')
     }
     if (k === 'accounting') {
       return hasModuleAccess(currentUser, 'accounting')

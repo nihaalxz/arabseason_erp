@@ -325,9 +325,9 @@ function App() {
                 </RouteGuard>
               } />
 
-              {/* Cashbook Module */}
+              {/* Cashbook Module (Admin only) */}
               <Route path="cashbook" element={
-                <RouteGuard moduleId="cashbook" permission="cashbook" currentUser={currentUser}>
+                <RouteGuard adminOnly currentUser={currentUser}>
                   <Cashbook currentUser={currentUser} />
                 </RouteGuard>
               } />
@@ -361,7 +361,7 @@ function App() {
                 </RouteGuard>
               } />
               <Route path="recycle-bin" element={
-                <RouteGuard permission={['cashbook', 'recycle_bin']} currentUser={currentUser}>
+                <RouteGuard adminOnly currentUser={currentUser}>
                   <Navigate to="/cashbook?tab=recycle_bin" replace />
                 </RouteGuard>
               } />

@@ -9,7 +9,7 @@ import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm, showError, showToast } from '../utils/swal'
 
-import { MODULE_PERMISSION_GROUPS, ROLE_PRESETS } from '../constants/permissions'
+import { MODULE_PERMISSION_GROUPS } from '../constants/permissions'
 
 const ALL_MODULES_FLAT = MODULE_PERMISSION_GROUPS.flatMap(g => g.permissions)
 const ALL_MODULES = ALL_MODULES_FLAT
@@ -212,24 +212,7 @@ const UserManagement = () => {
     }))
   }
 
-  const applyRolePreset = (presetKey) => {
-    if (presetKey === 'Admin') {
-      setFormData(prev => ({
-        ...prev,
-        role: 'Admin',
-        access_list: ALL_MODULES_FLAT.map(p => p.key)
-      }))
-    } else {
-      const preset = ROLE_PRESETS[presetKey]
-      if (preset) {
-        setFormData(prev => ({
-          ...prev,
-          role: 'User',
-          access_list: [...preset.permissions]
-        }))
-      }
-    }
-  }
+
 
   // Render Module Access Helper
   const renderModuleAccess = (user) => {
@@ -787,70 +770,37 @@ const UserManagement = () => {
             pointerEvents: formData.role === 'Admin' ? 'none' : 'auto',
             transition: 'opacity 0.15s ease'
           }}>
-            {/* Quick Role Presets */}
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #71717A)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Quick Role Presets
-                </span>
-                {formData.role !== 'Admin' && (
-                  <button
-                    type="button"
-                    onClick={toggleAllModules}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: 'var(--text, #0A0A0A)',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                    onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                  >
-                    {ALL_MODULES_FLAT.every(m => formData.access_list.includes(m.key)) ? 'Clear all permissions' : 'Select all permissions'}
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {Object.entries(ROLE_PRESETS).map(([key, preset]) => {
-                  const isCurrent = (key === 'Admin' && formData.role === 'Admin') ||
-                    (formData.role !== 'Admin' && key !== 'Custom' && Array.isArray(preset.permissions) &&
-                      preset.permissions.length === formData.access_list.length &&
-                      preset.permissions.every(p => formData.access_list.includes(p)))
-
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => applyRolePreset(key)}
-                      style={{
-                        padding: '5px 12px',
-                        borderRadius: '20px',
-                        border: isCurrent ? '1px solid var(--black, #0A0A0A)' : '1px solid var(--border, #E4E4E4)',
-                        backgroundColor: isCurrent ? 'var(--black, #0A0A0A)' : 'var(--card-bg, #FFFFFF)',
-                        color: isCurrent ? '#FFFFFF' : 'var(--text, #111111)',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                      title={preset.description}
-                    >
-                      {preset.label}
-                    </button>
-                  )
-                })}
-              </div>
+            {/* Module Permissions Header with Select All */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #71717A)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Module Permissions
+              </span>
+              {formData.role !== 'Admin' && (
+                <button
+                  type="button"
+                  onClick={toggleAllModules}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: 'var(--text, #0A0A0A)',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                  onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                >
+                  {ALL_MODULES_FLAT.every(m => formData.access_list.includes(m.key)) ? 'Clear all permissions' : 'Select all permissions'}
+                </button>
+              )}
             </div>
 
-            {/* Categorized Cards (ERP, Accounting, Cashbook) */}
+            {/* Categorized Cards (ERP Operations & Accounting) */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {MODULE_PERMISSION_GROUPS.map(group => {
                 const groupKeys = group.permissions.map(p => p.key)
                 const allSelected = formData.role === 'Admin' || groupKeys.every(k => formData.access_list.includes(k))
-                const someSelected = groupKeys.some(k => formData.access_list.includes(k))
 
                 return (
                   <div
@@ -871,13 +821,8 @@ const UserManagement = () => {
                       paddingBottom: '8px',
                       borderBottom: '1px solid var(--border, #F0F0F0)'
                     }}>
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text, #111111)' }}>
-                          {group.title}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted, #71717A)', marginTop: '2px' }}>
-                          {group.description}
-                        </div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text, #111111)' }}>
+                        {group.title}
                       </div>
 
                       {formData.role !== 'Admin' && (
@@ -901,11 +846,11 @@ const UserManagement = () => {
                       )}
                     </div>
 
-                    {/* Permissions Grid */}
+                    {/* Permissions Grid without descriptions */}
                     <div style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(2, 1fr)',
-                      gap: '6px 12px'
+                      gap: '4px 12px'
                     }}>
                       {group.permissions.map(perm => {
                         const checked = formData.role === 'Admin' || formData.access_list.includes(perm.key)
@@ -915,7 +860,7 @@ const UserManagement = () => {
                             onClick={() => toggleModule(perm.key)}
                             style={{
                               display: 'flex',
-                              alignItems: 'flex-start',
+                              alignItems: 'center',
                               gap: '8px',
                               padding: '6px 8px',
                               borderRadius: '6px',
@@ -932,33 +877,19 @@ const UserManagement = () => {
                               e.currentTarget.style.backgroundColor = 'transparent'
                             }}
                           >
-                            <div style={{ marginTop: '2px' }}>
-                              <NeutralCheckbox
-                                checked={checked}
-                                onChange={() => toggleModule(perm.key)}
-                                disabled={formData.role === 'Admin'}
-                              />
-                            </div>
-                            <div style={{ overflow: 'hidden' }}>
-                              <div style={{
-                                fontSize: '12.5px',
-                                color: 'var(--text, #111111)',
-                                fontWeight: 500,
-                                lineHeight: 1.2
-                              }}>
-                                {perm.label}
-                              </div>
-                              <div style={{
-                                fontSize: '11px',
-                                color: 'var(--text-muted, #71717A)',
-                                marginTop: '2px',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}>
-                                {perm.description}
-                              </div>
-                            </div>
+                            <NeutralCheckbox
+                              checked={checked}
+                              onChange={() => toggleModule(perm.key)}
+                              disabled={formData.role === 'Admin'}
+                            />
+                            <span style={{
+                              fontSize: '12.5px',
+                              color: 'var(--text, #111111)',
+                              fontWeight: 500,
+                              lineHeight: 1.2
+                            }}>
+                              {perm.label}
+                            </span>
                           </div>
                         )
                       })}

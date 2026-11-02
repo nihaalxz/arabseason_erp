@@ -61,18 +61,6 @@ export const MODULE_PERMISSION_GROUPS = [
       { key: 'reports', label: 'Financial Reports', description: 'Ledgers, trial balances, statements and cash flows', defaultRoute: '/reports' },
       { key: 'accounting_settings', label: 'Accounting Settings', description: 'Tax configurations, bank accounts and currency', defaultRoute: '/accounting/settings' },
     ]
-  },
-  {
-    moduleId: 'cashbook',
-    title: 'Cashbook & Ledgers',
-    description: 'Petty Cash, Cash Registers, Labour & Expense Tracking',
-    permissions: [
-      { key: 'cashbook', label: 'Cash Books (Shelf)', description: 'View cashbook accounts and running ledger balances', defaultRoute: '/cashbook' },
-      { key: 'expenses', label: 'Expenses', description: 'Record company and project expense entries', defaultRoute: '/cashbook?tab=expenses' },
-      { key: 'labour', label: 'Labour & Contractors', description: 'Track daily site labour and contractor disbursements', defaultRoute: '/cashbook?tab=labour' },
-      { key: 'banks', label: 'Bank & Petty Cash', description: 'Manage bank accounts, petty cash drawers & transfers', defaultRoute: '/cashbook?tab=bank_accounts' },
-      { key: 'recycle_bin', label: 'Recycle Bin', description: 'Audit and restore deleted cashbook entries', defaultRoute: '/cashbook?tab=recycle_bin' },
-    ]
   }
 ]
 
@@ -145,6 +133,7 @@ export const canAccessPermission = (user, permissionKey) => {
 export const hasModuleAccess = (user, moduleId) => {
   if (!user) return false
   if (isUserAdmin(user)) return true
+  if (moduleId && moduleId.toLowerCase() === 'cashbook') return false
 
   const group = MODULE_PERMISSION_GROUPS.find(g => g.moduleId.toLowerCase() === moduleId.toLowerCase())
   if (!group) return false
@@ -157,6 +146,9 @@ export const hasModuleAccess = (user, moduleId) => {
  */
 export const getFirstAccessibleRoute = (user, moduleId) => {
   if (!user) return '/login'
+  if (moduleId && moduleId.toLowerCase() === 'cashbook') {
+    return isUserAdmin(user) ? '/cashbook' : '/'
+  }
   const group = MODULE_PERMISSION_GROUPS.find(g => g.moduleId.toLowerCase() === moduleId.toLowerCase())
   if (!group) return '/'
 
