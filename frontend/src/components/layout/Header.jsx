@@ -8,7 +8,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useModule } from '../../contexts/ModuleContext'
 import { useWorkspace } from '../../contexts/WorkspaceContext'
 import api from '../../api'
-import { hasModuleAccess, getFirstAccessibleRoute } from '../../constants/permissions'
+import { hasModuleAccess, getFirstAccessibleRoute, isUserAdmin } from '../../constants/permissions'
 
 const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSheet, isCashbook: isCashbookProp }) => {
   const [showDropdown, setShowDropdown] = useState(false)
@@ -26,7 +26,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
     ? isCashbookProp 
     : (location.pathname === '/cashbook' || location.pathname.startsWith('/cashbook/'))
   const { isFeatureVisible } = useWorkspace()
-  const isAdmin = currentUser?.role === 'Admin' || currentUser?.is_admin || currentUser?.is_superuser
+  const isAdmin = isUserAdmin(currentUser)
 
   const unreadCount = notifications.filter(n => !n.is_read).length
 
@@ -53,7 +53,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
   const isModuleActiveInWorkspace = (modKey) => {
     const k = modKey.toLowerCase()
     if (k === 'cashbook') {
-      return isUserAdmin(currentUser) && isFeatureVisible('cashbook')
+      return isAdmin && isFeatureVisible('cashbook')
     }
     if (k === 'accounting') {
       return hasModuleAccess(currentUser, 'accounting')
