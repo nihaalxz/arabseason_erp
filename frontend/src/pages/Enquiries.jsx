@@ -7,6 +7,7 @@ const getTodayStr = () => {
 }
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { GooeyMenu } from '../components/cashbook/cred/GooeyMenu'
 import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
 import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
@@ -122,6 +123,20 @@ export default function Enquiries({ currentUser }) {
   const [isSalespersonModalOpen, setIsSalespersonModalOpen] = useState(false)
   const [selectedEnquiry, setSelectedEnquiry] = useState(null)
   const [previewMediaUrl, setPreviewMediaUrl] = useState(null)
+
+  // Escape key handler for full photo/document preview lightbox
+  useEffect(() => {
+    if (!previewMediaUrl) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        setPreviewMediaUrl(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
+  }, [previewMediaUrl])
 
   // Form State for Quick Salesperson Creation
   const [newSalespersonForm, setNewSalespersonForm] = useState({ name: '', phone: '', email: '' })
@@ -917,7 +932,28 @@ export default function Enquiries({ currentUser }) {
                 </div>
 
                 {/* Footer action */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid var(--border, #f1f5f9)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border, #f1f5f9)' }}>
+                  {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedChannel('all')
+                        setSalespersonFilter('all')
+                        setOutcomeFilter('all')
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        padding: '4px 0',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Reset all
+                    </button>
+                  ) : <div />}
                   <button
                     type="button"
                     onClick={() => setIsFilterMenuOpen(false)}
@@ -939,113 +975,7 @@ export default function Enquiries({ currentUser }) {
             )}
           </div>
 
-          {/* Active Filter Chips */}
-          {(selectedChannel !== 'all' || salespersonFilter !== 'all' || outcomeFilter !== 'all') && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              {selectedChannel !== 'all' && (
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    background: 'var(--fill-ghost-hover, #F4F4F4)',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    padding: '3px 10px',
-                    borderRadius: '9999px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: 'var(--text, #111111)'
-                  }}
-                >
-                  <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Channel:</span> {CHANNEL_CONFIG[selectedChannel]?.label || selectedChannel}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedChannel('all')}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-muted)' }}
-                    title="Remove filter"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              )}
 
-              {salespersonFilter !== 'all' && (
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    background: 'var(--fill-ghost-hover, #F4F4F4)',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    padding: '3px 10px',
-                    borderRadius: '9999px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: 'var(--text, #111111)'
-                  }}
-                >
-                  <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Salesperson:</span> {salespersons.find(s => String(s.id) === String(salespersonFilter))?.name || 'Selected'}
-                  <button
-                    type="button"
-                    onClick={() => setSalespersonFilter('all')}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-muted)' }}
-                    title="Remove filter"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              )}
-
-              {outcomeFilter !== 'all' && (
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    background: 'var(--fill-ghost-hover, #F4F4F4)',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    padding: '3px 10px',
-                    borderRadius: '9999px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: 'var(--text, #111111)'
-                  }}
-                >
-                  <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Outcome:</span> {outcomeFilter === 'no_calls' ? 'No Calls Yet' : (OUTCOME_CONFIG[outcomeFilter]?.label || outcomeFilter)}
-                  <button
-                    type="button"
-                    onClick={() => setOutcomeFilter('all')}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-muted)' }}
-                    title="Remove filter"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedChannel('all')
-                  setSalespersonFilter('all')
-                  setOutcomeFilter('all')
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted, #8C8C8C)',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  padding: '2px 4px'
-                }}
-                title="Clear all filters"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -2251,53 +2181,93 @@ export default function Enquiries({ currentUser }) {
         </form>
       </ModalShell>
 
-      {/* ── 10. FULL PHOTO PREVIEW MODAL ── */}
-      {previewMediaUrl && (
+      {/* ── 10. FULL PHOTO / DOCUMENT PREVIEW LIGHTBOX (Portaled directly to document.body) ── */}
+      {previewMediaUrl && createPortal(
         <div
           onClick={() => setPreviewMediaUrl(null)}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(5px)',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0, 0, 0, 0.90)',
+            backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 2000,
+            zIndex: 10000000,
             padding: '1.5rem',
+            boxSizing: 'border-box',
             cursor: 'zoom-out'
           }}
         >
-          <div style={{ maxWidth: '90vw', maxHeight: '90vh', position: 'relative' }} onClick={e => e.stopPropagation()}>
-            <img
-              src={previewMediaUrl}
-              alt="Reference Preview"
-              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '10px', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}
-            />
+          <div
+            style={{
+              maxWidth: '92vw',
+              maxHeight: '92vh',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {previewMediaUrl.startsWith('data:application/pdf') || previewMediaUrl.toLowerCase().endsWith('.pdf') ? (
+              <iframe
+                src={previewMediaUrl}
+                title="Document Preview"
+                style={{
+                  width: '85vw',
+                  height: '85vh',
+                  borderRadius: '12px',
+                  border: 'none',
+                  boxShadow: '0 25px 50px rgba(0,0,0,0.6)'
+                }}
+              />
+            ) : (
+              <img
+                src={previewMediaUrl}
+                alt="Reference Preview"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '88vh',
+                  objectFit: 'contain',
+                  borderRadius: '12px',
+                  boxShadow: '0 25px 60px rgba(0,0,0,0.7)'
+                }}
+              />
+            )}
             <button
               type="button"
               onClick={() => setPreviewMediaUrl(null)}
               style={{
                 position: 'absolute',
-                top: '-12px',
-                right: '-12px',
+                top: '-14px',
+                right: '-14px',
                 background: '#ffffff',
                 color: '#0f172a',
                 border: 'none',
                 borderRadius: '50%',
-                width: '32px',
-                height: '32px',
+                width: '36px',
+                height: '36px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                zIndex: 10
               }}
+              title="Close Preview (Esc)"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 

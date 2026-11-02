@@ -388,7 +388,7 @@
 }
 
 /* ── 8. FORM INPUTS & SELECTS ── */
-[data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]):not(.cred-search-input):not(.cb-desktop-search-input),
+[data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="hidden"]):not(.cred-search-input):not(.cb-desktop-search-input):not(.cred-input-prefixed):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):not([class*="react-select"]):not(.cred-input-wrap input):not(div[class*="-control"] input):not(div[class*="-valueContainer"] input),
 [data-theme-scope="soft-fintech"] select,
 [data-theme-scope="soft-fintech"] textarea {
   border-radius: 12px !important;
@@ -401,9 +401,10 @@
   font-variant-numeric: tabular-nums !important;
   transition: border-color 0.15s ease !important;
   box-shadow: none !important;
+  box-sizing: border-box !important;
 }
 
-[data-theme-scope="soft-fintech"] input:not(.cred-search-input):not(.cb-desktop-search-input):focus,
+[data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="hidden"]):not(.cred-search-input):not(.cb-desktop-search-input):not(.cred-input-prefixed):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):not([class*="react-select"]):not(.cred-input-wrap input):not(div[class*="-control"] input):not(div[class*="-valueContainer"] input):focus,
 [data-theme-scope="soft-fintech"] select:focus,
 [data-theme-scope="soft-fintech"] textarea:focus {
   border-color: var(--text, #0A0A0A) !important;
@@ -503,11 +504,11 @@ body.cb-dark-bw [data-theme-scope="soft-fintech"] .btn-secondary:hover,
   border-color: #FFFFFF !important;
 }
 
-body.cb-dark-bw [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]),
+body.cb-dark-bw [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="hidden"]):not(.cred-search-input):not(.cb-desktop-search-input):not(.cred-input-prefixed):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):not([class*="react-select"]):not(.cred-input-wrap input):not(div[class*="-control"] input):not(div[class*="-valueContainer"] input),
 body.cb-dark-bw [data-theme-scope="soft-fintech"] select,
 body.cb-dark-bw [data-theme-scope="soft-fintech"] textarea,
 body.cb-dark-bw .input-field,
-[data-theme="dark"] [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="hidden"]):not(.cred-search-input):not(.cb-desktop-search-input):not(.cred-input-prefixed):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):not([class*="react-select"]):not(.cred-input-wrap input):not(div[class*="-control"] input):not(div[class*="-valueContainer"] input),
 [data-theme="dark"] [data-theme-scope="soft-fintech"] select,
 [data-theme="dark"] [data-theme-scope="soft-fintech"] textarea,
 [data-theme="dark"] .input-field {
@@ -532,10 +533,10 @@ body.cb-dark-bw .form-group label,
   color: #A1A7B2 !important;
 }
 
-body.cb-dark-bw [data-theme-scope="soft-fintech"] input:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="hidden"]):not(.cred-search-input):not(.cb-desktop-search-input):not(.cred-input-prefixed):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):not([class*="react-select"]):not(.cred-input-wrap input):not(div[class*="-control"] input):not(div[class*="-valueContainer"] input):focus,
 body.cb-dark-bw [data-theme-scope="soft-fintech"] select:focus,
 body.cb-dark-bw [data-theme-scope="soft-fintech"] textarea:focus,
-[data-theme="dark"] [data-theme-scope="soft-fintech"] input:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="hidden"]):not(.cred-search-input):not(.cb-desktop-search-input):not(.cred-input-prefixed):not([id^="react-select"]):not([class*="__input"]):not([class*="-Input"]):not([class*="react-select"]):not(.cred-input-wrap input):not(div[class*="-control"] input):not(div[class*="-valueContainer"] input):focus,
 [data-theme="dark"] [data-theme-scope="soft-fintech"] select:focus,
 [data-theme="dark"] [data-theme-scope="soft-fintech"] textarea:focus {
   border-color: #F5F5F5 !important;
@@ -551,6 +552,92 @@ body.cb-dark-bw [data-theme-scope="soft-fintech"] textarea:focus,
   box-shadow: none !important;
   background: transparent !important;
   padding-left: 0 !important;
+}
+
+/* ── PREVENT DUPLICATE BOXES: RESET INNER INPUTS (PREFIXED / WRAPPED INPUTS & REACT-SELECT) ── */
+.cred-input-wrap input,
+.cred-input-prefixed,
+[data-theme-scope="soft-fintech"] .cred-input-wrap input,
+[data-theme-scope="soft-fintech"] .cred-input-prefixed,
+[data-theme-scope="soft-fintech"] .cred-input-wrap .cred-input-prefixed,
+[data-theme-scope="soft-fintech"] div[class*="-control"] input,
+[data-theme-scope="soft-fintech"] div[class*="-valueContainer"] input,
+[data-theme-scope="soft-fintech"] div[class*="-Input"] input,
+[data-theme-scope="soft-fintech"] div[class*="__input"] input,
+[data-theme-scope="soft-fintech"] input[id^="react-select-"],
+[data-theme-scope="soft-fintech"] input[class*="react-select"],
+.modal-container .cred-input-wrap input,
+.modal-container .cred-input-prefixed,
+.modal-container div[class*="-control"] input,
+.modal-container div[class*="-valueContainer"] input,
+.modal-container div[class*="-Input"] input,
+.modal-container div[class*="__input"] input,
+.modal-container input[id^="react-select-"],
+.modal-container input[class*="react-select"],
+body.cb-dark-bw [data-theme-scope="soft-fintech"] .cred-input-wrap input,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] .cred-input-prefixed,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="-control"] input,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="-valueContainer"] input,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="-Input"] input,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="__input"] input,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] input[id^="react-select-"],
+[data-theme="dark"] [data-theme-scope="soft-fintech"] .cred-input-wrap input,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] .cred-input-prefixed,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="-control"] input,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="-valueContainer"] input,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="-Input"] input,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="__input"] input,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] input[id^="react-select-"] {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+}
+
+.cred-input-wrap input:focus,
+.cred-input-prefixed:focus,
+[data-theme-scope="soft-fintech"] .cred-input-wrap input:focus,
+[data-theme-scope="soft-fintech"] .cred-input-prefixed:focus,
+[data-theme-scope="soft-fintech"] .cred-input-wrap .cred-input-prefixed:focus,
+[data-theme-scope="soft-fintech"] div[class*="-control"] input:focus,
+[data-theme-scope="soft-fintech"] div[class*="-valueContainer"] input:focus,
+[data-theme-scope="soft-fintech"] div[class*="-Input"] input:focus,
+[data-theme-scope="soft-fintech"] div[class*="__input"] input:focus,
+[data-theme-scope="soft-fintech"] input[id^="react-select-"]:focus,
+[data-theme-scope="soft-fintech"] input[class*="react-select"]:focus,
+.modal-container .cred-input-wrap input:focus,
+.modal-container .cred-input-prefixed:focus,
+.modal-container div[class*="-control"] input:focus,
+.modal-container div[class*="-valueContainer"] input:focus,
+.modal-container div[class*="-Input"] input:focus,
+.modal-container div[class*="__input"] input:focus,
+.modal-container input[id^="react-select-"]:focus,
+.modal-container input[class*="react-select"]:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] .cred-input-wrap input:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] .cred-input-prefixed:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="-control"] input:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="-valueContainer"] input:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="-Input"] input:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] div[class*="__input"] input:focus,
+body.cb-dark-bw [data-theme-scope="soft-fintech"] input[id^="react-select-"]:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] .cred-input-wrap input:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] .cred-input-prefixed:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="-control"] input:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="-valueContainer"] input:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="-Input"] input:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] div[class*="__input"] input:focus,
+[data-theme="dark"] [data-theme-scope="soft-fintech"] input[id^="react-select-"]:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* ── DEFAULT PLAIN SELECT STYLE FOR ALL MODALS IN ERP & ACCOUNTING ── */

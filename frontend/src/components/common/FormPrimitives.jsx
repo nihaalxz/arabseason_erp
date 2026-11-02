@@ -46,7 +46,9 @@ export const credSelectStyles = {
     border: 'none',
     outline: 'none',
     boxShadow: 'none',
-    background: 'transparent'
+    background: 'transparent',
+    backgroundColor: 'transparent',
+    borderRadius: 0
   }),
   placeholder: (base) => ({
     ...base,
@@ -322,6 +324,16 @@ export const TextInput = ({
         <input
           type={type}
           className="cred-input-prefixed"
+          style={{
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            backgroundColor: 'transparent',
+            boxShadow: 'none',
+            borderRadius: 0,
+            padding: 0,
+            ...(props.style || {})
+          }}
           {...props}
         />
         {suffix && <span className="cred-input-suffix">{suffix}</span>}
@@ -365,6 +377,16 @@ export const NumberInput = ({
           step={step}
           className="cred-input-prefixed"
           onWheel={handleWheel}
+          style={{
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            backgroundColor: 'transparent',
+            boxShadow: 'none',
+            borderRadius: 0,
+            padding: 0,
+            ...(props.style || {})
+          }}
           {...props}
         />
       </div>

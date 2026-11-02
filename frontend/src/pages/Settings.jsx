@@ -5,7 +5,8 @@ import { useWorkspace } from '../contexts/WorkspaceContext'
 import { 
   Shield, Globe, Save, LogOut, 
   AlertCircle, CheckCircle, User, Sliders, Check, 
-  RotateCcw, CheckCircle2, Landmark, Lock
+  RotateCcw, CheckCircle2, Landmark, Lock,
+  Eye, EyeOff
 } from '../components/icons'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -62,6 +63,9 @@ const Settings = ({ mode }) => {
     new_password: '',
     confirm_password: ''
   })
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const [profileData, setProfileData] = useState({
     username: '',
@@ -274,7 +278,7 @@ const Settings = ({ mode }) => {
               borderRadius: '9999px',
               border: '1px solid var(--border, #E4E4E4)',
               background: 'var(--card-bg, #FFFFFF)',
-              color: 'var(--text, #18181B)',
+              color: 'var(--danger, #DC2626)',
               fontSize: '13px',
               fontWeight: 500,
               display: 'inline-flex',
@@ -284,15 +288,15 @@ const Settings = ({ mode }) => {
               transition: 'all 0.15s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F5)'
-              e.currentTarget.style.borderColor = 'var(--border-strong, #D4D4D8)'
+              e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'
+              e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.35)'
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'var(--card-bg, #FFFFFF)'
               e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
             }}
           >
-            <LogOut size={14} /> Exit / Log Out
+            <LogOut size={14} /> Logout
           </button>
         </div>
       </div>
@@ -414,8 +418,8 @@ const Settings = ({ mode }) => {
 
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
-                    gap: '12px'
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                    gap: '8px'
                   }}>
                     {cat.items.map((item) => {
                       const isEnabled = Boolean(features[item.key])
@@ -424,85 +428,72 @@ const Settings = ({ mode }) => {
                           key={item.key}
                           onClick={() => toggleFeature(item.key)}
                           style={{
-                            background: isEnabled ? 'var(--bg-subtle, #FAFAFA)' : 'transparent',
-                            border: `1px solid ${isEnabled ? 'var(--text, #0A0A0A)' : 'var(--border, #E4E4E4)'}`,
-                            borderRadius: '16px',
-                            padding: '16px 18px',
+                            background: isEnabled ? 'var(--fill-ghost, #F7F7F7)' : 'transparent',
+                            border: 'none',
+                            borderRadius: '12px',
+                            padding: '8px 14px',
                             display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '14px',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease',
-                            opacity: isEnabled ? 1 : 0.65,
-                            boxShadow: isEnabled ? '0 1px 4px rgba(0,0,0,0.04)' : 'none'
+                            opacity: isEnabled ? 1 : 0.6,
+                            userSelect: 'none'
                           }}
                           onMouseEnter={(e) => {
-                            if (!isEnabled) {
-                              e.currentTarget.style.background = 'var(--fill-ghost-hover, #F4F4F4)'
-                            } else {
-                              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'
-                            }
+                            e.currentTarget.style.background = 'var(--fill-ghost-hover, #F0F0F0)'
                           }}
                           onMouseLeave={(e) => {
-                            if (!isEnabled) {
-                              e.currentTarget.style.background = 'transparent'
-                            } else {
-                              e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
-                            }
+                            e.currentTarget.style.background = isEnabled ? 'var(--fill-ghost, #F7F7F7)' : 'transparent'
                           }}
                         >
-                          {/* Toggle Switch */}
-                          <div style={{
-                            marginTop: '2px',
-                            width: '36px',
-                            height: '20px',
-                            borderRadius: '9999px',
-                            background: isEnabled ? 'var(--text, #0A0A0A)' : 'var(--border-strong, #D4D4D8)',
-                            position: 'relative',
-                            flexShrink: 0,
-                            transition: 'background-color 0.2s ease'
-                          }}>
+                          {/* Toggle Switch + Label */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                             <div style={{
-                              width: '14px',
-                              height: '14px',
-                              borderRadius: '50%',
-                              background: isEnabled ? 'var(--card-bg, #FFFFFF)' : '#FFFFFF',
-                              position: 'absolute',
-                              top: '3px',
-                              left: isEnabled ? '19px' : '3px',
-                              transition: 'left 0.2s ease',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                            }} />
+                              width: '32px',
+                              height: '18px',
+                              borderRadius: '9999px',
+                              background: isEnabled ? 'var(--text, #0A0A0A)' : 'var(--border-strong, #D4D4D8)',
+                              position: 'relative',
+                              flexShrink: 0,
+                              transition: 'background-color 0.2s ease'
+                            }}>
+                              <div style={{
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '50%',
+                                background: isEnabled ? 'var(--card-bg, #FFFFFF)' : '#FFFFFF',
+                                position: 'absolute',
+                                top: '3px',
+                                left: isEnabled ? '17px' : '3px',
+                                transition: 'left 0.2s ease',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.15)'
+                              }} />
+                            </div>
+
+                            <span style={{
+                              fontSize: '13px',
+                              fontWeight: 500,
+                              color: 'var(--text, #0A0A0A)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {item.label}
+                            </span>
                           </div>
 
-                          {/* Info */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
-                                {item.label}
-                              </span>
-                              <span style={{
-                                fontSize: '10.5px',
-                                fontWeight: 600,
-                                padding: '2px 8px',
-                                borderRadius: '9999px',
-                                background: isEnabled ? 'var(--fill-ghost, #F4F4F5)' : 'transparent',
-                                color: isEnabled ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
-                                border: '1px solid var(--border, #E4E4E7)',
-                                letterSpacing: '0.04em'
-                              }}>
-                                {isEnabled ? 'VISIBLE' : 'HIDDEN'}
-                              </span>
-                            </div>
-                            <p style={{
-                              fontSize: '12px',
-                              color: 'var(--text-muted, #8C8C8C)',
-                              lineHeight: '1.45',
-                              margin: 0
-                            }}>
-                              {item.description}
-                            </p>
-                          </div>
+                          {/* Minimal Status without boundaries */}
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: isEnabled ? 'var(--text, #18181B)' : 'var(--text-muted, #71717A)',
+                            letterSpacing: '0.04em',
+                            flexShrink: 0
+                          }}>
+                            {isEnabled ? 'VISIBLE' : 'HIDDEN'}
+                          </span>
                         </div>
                       )
                     })}
@@ -847,75 +838,147 @@ const Settings = ({ mode }) => {
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
                     Current Secure Password
                   </label>
-                  <input
-                    type="password"
-                    value={passwordData.current_password}
-                    onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                    placeholder="••••••••"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '40px',
-                      padding: '0 14px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--card-bg, #FFFFFF)',
-                      color: 'var(--text, #0A0A0A)',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={passwordData.current_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                      placeholder="••••••••"
+                      required
+                      style={{
+                        width: '100%',
+                        height: '40px',
+                        padding: '0 40px 0 14px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        background: 'var(--card-bg, #FFFFFF)',
+                        color: 'var(--text, #0A0A0A)',
+                        fontSize: '13.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(prev => !prev)}
+                      title={showCurrentPassword ? "Hide password" : "Show password"}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        background: 'none',
+                        border: 'none',
+                        padding: '4px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        transition: 'color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text, #0A0A0A)'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'}
+                    >
+                      {showCurrentPassword ? <EyeOff size={16} strokeWidth={2} /> : <Eye size={16} strokeWidth={2} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
                     New Password
                   </label>
-                  <input
-                    type="password"
-                    value={passwordData.new_password}
-                    onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                    placeholder="At least 8 characters"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '40px',
-                      padding: '0 14px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--card-bg, #FFFFFF)',
-                      color: 'var(--text, #0A0A0A)',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.new_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                      placeholder="At least 8 characters"
+                      required
+                      style={{
+                        width: '100%',
+                        height: '40px',
+                        padding: '0 40px 0 14px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        background: 'var(--card-bg, #FFFFFF)',
+                        color: 'var(--text, #0A0A0A)',
+                        fontSize: '13.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(prev => !prev)}
+                      title={showNewPassword ? "Hide password" : "Show password"}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        background: 'none',
+                        border: 'none',
+                        padding: '4px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        transition: 'color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text, #0A0A0A)'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'}
+                    >
+                      {showNewPassword ? <EyeOff size={16} strokeWidth={2} /> : <Eye size={16} strokeWidth={2} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
                     Verify New Password
                   </label>
-                  <input
-                    type="password"
-                    value={passwordData.confirm_password}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                    placeholder="Repeat new password"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '40px',
-                      padding: '0 14px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border, #E4E4E4)',
-                      background: 'var(--card-bg, #FFFFFF)',
-                      color: 'var(--text, #0A0A0A)',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={passwordData.confirm_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                      placeholder="Repeat new password"
+                      required
+                      style={{
+                        width: '100%',
+                        height: '40px',
+                        padding: '0 40px 0 14px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border, #E4E4E4)',
+                        background: 'var(--card-bg, #FFFFFF)',
+                        color: 'var(--text, #0A0A0A)',
+                        fontSize: '13.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      title={showConfirmPassword ? "Hide password" : "Show password"}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        background: 'none',
+                        border: 'none',
+                        padding: '4px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        transition: 'color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text, #0A0A0A)'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} strokeWidth={2} /> : <Eye size={16} strokeWidth={2} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

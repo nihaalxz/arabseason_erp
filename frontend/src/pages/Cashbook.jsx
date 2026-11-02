@@ -12358,6 +12358,7 @@ const Cashbook = ({ currentUser = null }) => {
           <CredAccountsView
             isMobile={isMobileScreen}
             isDarkMode={isDarkMode}
+            onNavigate={(tab, params) => navigateToTab(tab, params)}
             banks={banks}
             pettyCashAccounts={pettyCashAccounts}
             accountsFilterTab={accountsFilterTab}

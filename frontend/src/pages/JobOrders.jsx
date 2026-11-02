@@ -2679,6 +2679,7 @@ const JobOrders = ({ embedded = false }) => {
                   formatCreateLabel={(val) => `+ Use "${val}"`}
                   components={{ Option: CustomTitleOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select or type job title..."
@@ -2698,6 +2699,7 @@ const JobOrders = ({ embedded = false }) => {
                   formatCreateLabel={(val) => `+ Link to Project "${val}"`}
                   components={{ Option: CredOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select or link a project..."
@@ -2738,6 +2740,7 @@ const JobOrders = ({ embedded = false }) => {
                   noOptionsMessage={() => 'No customers found'}
                   components={{ Option: CredOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select customer..."
@@ -2782,6 +2785,7 @@ const JobOrders = ({ embedded = false }) => {
                   noOptionsMessage={() => 'No vendors found'}
                   components={{ Option: CredOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select vendor..."

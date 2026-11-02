@@ -762,6 +762,7 @@ export default function JobOrderModal({
                   formatCreateLabel={(val) => `+ Use "${val}"`}
                   components={{ Option: CustomTitleOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select or type job title..."
@@ -781,6 +782,7 @@ export default function JobOrderModal({
                   formatCreateLabel={(val) => `+ Link to Project "${val}"`}
                   components={{ Option: CredOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select or link a project..."
@@ -821,6 +823,7 @@ export default function JobOrderModal({
                   noOptionsMessage={() => 'No customers found'}
                   components={{ Option: CredOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select customer..."
@@ -865,6 +868,7 @@ export default function JobOrderModal({
                   noOptionsMessage={() => 'No vendors found'}
                   components={{ Option: CredOption }}
                   styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
                   menuPosition="fixed"
                   menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                   placeholder="Select vendor..."
