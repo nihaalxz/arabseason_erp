@@ -87,7 +87,7 @@ const DeliveryNotes = () => {
   const [statusFilter, setStatusFilter] = useState('All')
   const [customerFilter, setCustomerFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [dateRange, setDateRange] = useState({ start: '', end: '' })
+  const [dateFilter, setDateFilter] = useState('')
 
   const fetchLookups = async () => {
     try {
@@ -104,8 +104,7 @@ const DeliveryNotes = () => {
       let url = 'delivery-notes/?page_size=1000'
       if (statusFilter && statusFilter !== 'All') url += `&status=${encodeURIComponent(statusFilter)}`
       if (customerFilter) url += `&customer=${customerFilter}`
-      if (dateRange.start) url += `&start_date=${dateRange.start}`
-      if (dateRange.end) url += `&end_date=${dateRange.end}`
+      if (dateFilter) url += `&start_date=${dateFilter}&end_date=${dateFilter}`
       if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`
 
       const res = await api.get(url)
@@ -137,7 +136,7 @@ const DeliveryNotes = () => {
       fetchDeliveryNotes()
     }, 250)
     return () => clearTimeout(timer)
-  }, [statusFilter, customerFilter, dateRange.start, dateRange.end, searchQuery])
+  }, [statusFilter, customerFilter, dateFilter, searchQuery])
 
   // PDF Download
   const handleDownloadPdf = async (dn) => {
@@ -322,45 +321,53 @@ const DeliveryNotes = () => {
             minWidth={150}
           />
 
-          {/* From Date */}
+          {/* Date Filter */}
           <input
             type="date"
-            aria-label="From Date"
-            title="From Date"
-            value={dateRange.start}
-            onChange={(e) => setDateRange(p => ({ ...p, start: e.target.value }))}
+            aria-label="Filter by date"
+            title="Filter by date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
             style={{
               height: '38px',
               borderRadius: '10px',
               border: '1px solid var(--border, #E4E4E4)',
               background: 'var(--card-bg, #FFFFFF)',
               color: 'var(--text, #111111)',
-              padding: '0 10px',
+              padding: '0 12px',
               fontSize: '13px',
               outline: 'none',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              width: '145px',
+              flex: '0 0 auto',
+              cursor: 'pointer'
             }}
           />
-
-          {/* To Date */}
-          <input
-            type="date"
-            aria-label="To Date"
-            title="To Date"
-            value={dateRange.end}
-            onChange={(e) => setDateRange(p => ({ ...p, end: e.target.value }))}
-            style={{
-              height: '38px',
-              borderRadius: '10px',
-              border: '1px solid var(--border, #E4E4E4)',
-              background: 'var(--card-bg, #FFFFFF)',
-              color: 'var(--text, #111111)',
-              padding: '0 10px',
-              fontSize: '13px',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
-          />
+          {dateFilter && (
+            <button
+              type="button"
+              onClick={() => setDateFilter('')}
+              title="Clear date filter"
+              aria-label="Clear date filter"
+              style={{
+                height: '38px',
+                padding: '0 10px',
+                borderRadius: '10px',
+                border: '1px solid var(--border, #E4E4E4)',
+                background: 'var(--card-bg, #FFFFFF)',
+                color: 'var(--text-muted, #8C8C8C)',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                flex: '0 0 auto'
+              }}
+            >
+              ✕ Clear
+            </button>
+          )}
         </div>
       </div>
 

@@ -4323,14 +4323,19 @@ input[type="number"] {
   outline: none !important;
   box-shadow: none !important;
 }
-.cred-input-prefixed {
+.cred-input-prefixed,
+.cred-input-wrap input,
+.cred-input-wrap input:focus,
+.cred-input-wrap .cred-input-prefixed,
+.cred-input-wrap .cred-input-prefixed:focus {
   flex: 1;
-  height: 100%;
+  height: 100% !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
   background: transparent !important;
   background-color: transparent !important;
+  border-radius: 0 !important;
   padding: 0 !important;
   font-size: 13.5px;
   color: var(--text, #111111);

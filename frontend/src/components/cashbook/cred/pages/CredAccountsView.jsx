@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
+  ArrowLeft,
   Landmark, 
   Wallet, 
   Coins, 
@@ -12,14 +13,20 @@ import {
   Calendar,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowDownLeft,
   TrendingUp,
-  Folder
+  Folder,
+  Users,
+  Building2,
+  HardHat,
+  Receipt
 } from 'lucide-react';
 import CredAnimatedTabs from '../CredAnimatedTabs';
 import GooeyMenu from '../GooeyMenu';
 import CredPagination from '../CredPagination';
 import CredCardCarousel from '../CredCardCarousel';
 import MoneyCard from '../MoneyCard';
+import Money from '../Money';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst, formatJobRef } from '../usePagination';
 import ExportTablePdfBtn from '../../common/ExportTablePdfBtn';
 import VoucherPrintBtn from '../../common/VoucherPrintBtn';
@@ -37,6 +44,7 @@ const PERIOD_OPTIONS = [
 const CredAccountsView = ({
   isMobile = false,
   isDarkMode = false,
+  onNavigate,
   banks = [],
   pettyCashAccounts = [],
   selectedAccountForStatement = null,
@@ -212,26 +220,57 @@ const CredAccountsView = ({
       padding: isMobile ? '0.5rem 0.5rem 4rem' : '0.5rem 0 3rem'
     }}>
       {/* ── 2. COMMAND BAR (TITLE & TOP ACTION BUTTONS) ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: isMobile ? 'wrap' : 'nowrap',
-        gap: '0.75rem',
-        marginBottom: '1rem'
-      }}>
-        <h1 style={{
-          margin: 0,
-          fontSize: isMobile ? '1.25rem' : '1.5rem',
-          fontWeight: '800',
-          color: textPrimary,
-          letterSpacing: '-0.02em'
+      {isMobile ? (
+        <div style={{ marginBottom: '16px' }}>
+          <button
+            type="button"
+            onClick={() => onNavigate && onNavigate('more')}
+            aria-label="Back to More"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '4px 0',
+              marginBottom: '10px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text, #0A0A0A)',
+              outline: 'none',
+              width: 'fit-content'
+            }}
+          >
+            <ArrowLeft size={20} strokeWidth={2} />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', textTransform: 'lowercase' }}>
+              accounts
+            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDarkMode} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'nowrap',
+          gap: '0.75rem',
+          marginBottom: '1rem'
         }}>
-          Accounts
-        </h1>
+          <h1 style={{
+            margin: 0,
+            fontSize: '1.5rem',
+            fontWeight: '800',
+            color: textPrimary,
+            letterSpacing: '-0.02em'
+          }}>
+            Accounts
+          </h1>
 
-        {/* Transfer Funds Button - Desktop only; mobile already has it in the floating plus button */}
-        {!isMobile && (
+          {/* Transfer Funds Button - Desktop only; mobile already has it in the floating plus button */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -256,8 +295,8 @@ const CredAccountsView = ({
               <span>Transfer Funds</span>
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── 3. TOOLBAR: BANKS/PETTY TABS (CRED ANIMATED) + GOOEY ACCOUNT SELECTOR ── */}
       <div style={{
@@ -469,170 +508,394 @@ const CredAccountsView = ({
         </div>
       </div>
 
-      {/* ── 6. STATEMENT TRANSACTIONS TABLE CARD (COMPATIBLE, NO SIDE-SCROLL) ── */}
-      <div style={{
-        background: cardBg,
-        border: `1px solid ${borderColor}`,
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
-        width: '100%',
-        boxSizing: 'border-box'
-      }}>
-        {/* Table Top Action Bar */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.75rem 1rem',
-          background: isDarkMode ? '#141517' : '#f8fafc',
-          borderBottom: `1px solid ${borderColor}`,
-          flexWrap: 'wrap',
-          gap: '0.5rem'
-        }}>
-          <span style={{ fontSize: '0.74rem', fontWeight: '800', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            {activeAccName} STATEMENT TRANSACTIONS
-          </span>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
-            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
-            <button
-              type="button"
-              className="cred-quiet-btn"
-              onClick={onExportStatementCSV}
-              title="Export CSV"
-            >
-              <Download size={16} />
-              <span>export csv</span>
-            </button>
-          </div>
+      {/* ── 6. STATEMENT TRANSACTIONS TABLE / CARD SECTION ── */}
+      {statementLoading ? (
+        <div 
+          style={{
+            background: 'var(--bg, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '16px',
+            padding: '48px 24px',
+            textAlign: 'center',
+            color: 'var(--text-muted, #8C8C8C)'
+          }}
+        >
+          <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px', display: 'block' }} />
+          <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading statement ledger...</div>
         </div>
+      ) : sortedTransactions.length === 0 ? (
+        <div 
+          style={{
+            background: 'var(--bg, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '16px',
+            padding: '54px 24px',
+            textAlign: 'center'
+          }}
+        >
+          <div 
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              background: 'var(--bg-panel, #f1f5f9)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 14px',
+              color: 'var(--text-muted, #8C8C8C)'
+            }}
+          >
+            <Coins size={22} />
+          </div>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text, #0A0A0A)', margin: '0 0 6px' }}>
+            No Statement Transactions Recorded
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted, #8C8C8C)', margin: '0 0 16px' }}>
+            {statementSearchQuery || statementFlowFilter !== 'all' 
+              ? 'No results match your search query or flow filter.' 
+              : `No entries recorded for ${activeAccName}.`}
+          </p>
+        </div>
+      ) : isMobile ? (
+        /* MOBILE VIEW: Cards data arrangement (time, date, balance) matching tab=ledger */
+        <div className="cred-ledger-table-wrap cred-mobile-tx-list" style={{ marginBottom: '20px' }}>
+          {pagedTransactions.map((tx, idx) => {
+            const isCredit = (parseFloat(tx.credit) || 0) > 0;
+            const isDebit = (parseFloat(tx.debit) || 0) > 0;
+            const amount = isCredit ? tx.credit : isDebit ? tx.debit : (tx.amount || 0);
+            const dateStr = formatDateDisplay(tx.date);
+            const timeStr = tx.time ? formatTimeDisplay(tx.time) : '';
 
-        {/* Proportional Table */}
-        <div style={{ width: '100%', overflowX: isMobile ? 'auto' : 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'auto' }}>
-            <thead>
-              <tr style={{
-                borderBottom: `1px solid ${borderColor}`,
-                background: isDarkMode ? '#141517' : '#f8fafc'
-              }}>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '13%' }}>DATE & TIME</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '12%' }}>REF # / VOUCHER</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '21%' }}>DESCRIPTION</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '14%' }}>PARTY / BENEFICIARY</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '10%' }}>CATEGORY</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>MONEY OUT</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>MONEY IN</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textPrimary, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>RUNNING BALANCE</th>
-                <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', whiteSpace: 'nowrap', width: '3%' }}>SLIP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {statementLoading ? (
-                <tr>
-                  <td colSpan={9} style={{ padding: '3rem', textAlign: 'center' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: textMuted, fontSize: '0.85rem' }}>
-                      <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                      <span>Loading statement ledger...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : pagedTransactions.length > 0 ? (
-                pagedTransactions.map((tx, idx) => {
-                  return (
-                    <tr
-                      key={tx.id || idx}
-                      className="cred-table-row"
-                      style={{
-                        borderBottom: `1px solid ${borderColor}`
-                      }}
-                    >
-                      <td style={{ padding: '8px 8px', fontSize: '0.8rem', color: textPrimary, verticalAlign: 'middle' }}>
-                        <div style={{ fontWeight: '600' }}>{formatDateDisplay(tx.date)}</div>
-                        {tx.time && (
-                          <div style={{ fontSize: '0.68rem', color: textMuted }}>
-                            {formatTimeDisplay(tx.time)}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 8px', fontSize: '0.74rem', fontFamily: 'monospace', color: textMuted, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                        {tx.reference_number || `TX-${tx.id}`}
-                      </td>
-                      <td style={{ padding: '8px 8px', fontSize: '0.825rem', fontWeight: '600', color: textPrimary, verticalAlign: 'middle', maxWidth: '180px' }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.remark || 'Transaction'}>
-                          {tx.remark || 'Transaction'}
-                        </div>
-                        {tx.cashbook_name && (
-                          <div style={{ fontSize: '0.68rem', color: textMuted, fontWeight: '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            Via: {tx.cashbook_name}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 8px', fontSize: '0.8rem', color: textPrimary, verticalAlign: 'middle', maxWidth: '130px' }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.party_name}>
-                          {tx.party_name || '—'}
-                        </div>
-                      </td>
-                      {/* Category: plain muted text, no chip */}
-                      <td style={{ padding: '8px 8px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          color: 'var(--text-muted, #8C8C8C)',
-                          fontSize: '12px',
-                          fontWeight: 500
-                        }}>
-                          {tx.category || 'General'}
-                        </span>
-                      </td>
-                      {/* Flow columns: Money Out / Money In colors stay untouched */}
-                      <td style={{ padding: '8px 8px', fontSize: '0.825rem', fontWeight: '700', textAlign: 'right', color: tx.debit > 0 ? '#dc2626' : textMuted, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                        {tx.debit > 0 ? `-${safeFormatAmount(tx.debit)}` : '—'}
-                      </td>
-                      <td style={{ padding: '8px 8px', fontSize: '0.825rem', fontWeight: '700', textAlign: 'right', color: tx.credit > 0 ? '#16a34a' : textMuted, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                        {tx.credit > 0 ? `+${safeFormatAmount(tx.credit)}` : '—'}
-                      </td>
-                      <td style={{ padding: '8px 8px', fontSize: '0.84rem', fontWeight: '800', textAlign: 'right', color: textPrimary, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                        {safeFormatAmount(tx.running_balance)} <span style={{ fontSize: '0.7rem', fontWeight: '600', color: textMuted }}>SAR</span>
-                      </td>
-                      <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                        <VoucherPrintBtn
-                          onClick={() => printPaymentVoucher(mapTxToVoucher(tx))}
-                          title={`Print Voucher for ${tx.remark || tx.reference_number || 'Transaction'}`}
-                          isDarkMode={isDarkMode}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={9} style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: isDarkMode ? '#1e2024' : '#f1f5f9',
-                      border: `1px solid ${borderColor}`,
-                      color: textMuted,
+            // Icon resolution matching ledger
+            const cat = (tx.category || '').toLowerCase();
+            const EntityIcon = cat.includes('customer') 
+              ? Users 
+              : cat.includes('vendor') 
+              ? Building2 
+              : (cat.includes('salary') || cat.includes('labour')) 
+              ? HardHat 
+              : cat.includes('expense') 
+              ? Receipt 
+              : isBanksTab 
+              ? Landmark 
+              : Wallet;
+
+            const title = tx.party_name || tx.remark || (isCredit ? 'Deposit / Cash In' : 'Disbursement / Cash Out');
+
+            const descParts = [];
+            if (tx.party_name && tx.party_name !== title) descParts.push(tx.party_name);
+            if (tx.remark && tx.remark !== title && !descParts.includes(tx.remark)) descParts.push(tx.remark);
+            if (tx.category && tx.category !== 'General' && !descParts.includes(tx.category)) descParts.push(tx.category);
+            if (tx.reference_number) descParts.push(`ref: ${tx.reference_number}`);
+            if (tx.cashbook_name) descParts.push(`via: ${tx.cashbook_name}`);
+            const descriptionText = descParts.join('  ·  ');
+
+            return (
+              <div 
+                key={tx.id || idx} 
+                className="cred-ledger-table-row cred-mobile-tx-card is-inert"
+                style={{
+                  background: isDarkMode ? 'var(--bg-panel, #141414)' : 'var(--bg-panel, #F7F7F7)',
+                  borderRadius: '20px',
+                  padding: '14px 16px',
+                  marginBottom: '12px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <div className="cred-table-mobile-card" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  {/* Row 1 (Top Metadata): Date & Time (left) and Running Balance / Slip (right, muted) */}
+                  <div 
+                    className="cred-mobile-card-top" 
+                    style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 0.75rem'
-                    }}>
-                      <Coins size={20} />
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      width: '100%',
+                      lineHeight: 1.2
+                    }}
+                  >
+                    <span 
+                      className="cred-mobile-card-datetime" 
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 400,
+                        color: 'var(--text-muted, #8C8C8C)',
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {dateStr}{timeStr ? `, ${timeStr}` : ''}
+                    </span>
+
+                    <div 
+                      className="cred-mobile-card-top-right" 
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexShrink: 0
+                      }}
+                    >
+                      <span 
+                        className="cred-mobile-card-balance" 
+                        style={{
+                          fontSize: '11.5px',
+                          color: 'var(--text-muted, #8C8C8C)',
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        bal: <Money value={tx.running_balance} />
+                      </span>
+                      <VoucherPrintBtn
+                        onClick={() => printPaymentVoucher(mapTxToVoucher(tx))}
+                        title={`Print Voucher for ${tx.remark || tx.reference_number || 'Transaction'}`}
+                        isDarkMode={isDarkMode}
+                      />
                     </div>
-                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: textPrimary, marginBottom: '0.25rem' }}>
-                      No Statement Transactions Recorded
+                  </div>
+
+                  {/* Row 2 (Middle/Main Row): Avatar + Title (left) and Amount (right) */}
+                  <div 
+                    className="cred-mobile-card-main" 
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      width: '100%'
+                    }}
+                  >
+                    <div 
+                      className="cred-mobile-card-entity" 
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        minWidth: 0,
+                        flex: 1
+                      }}
+                    >
+                      <div 
+                        className="cred-particulars-icon"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: isDarkMode ? '#1e2024' : '#f1f5f9',
+                          border: `1px solid ${borderColor}`,
+                          color: textPrimary,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          flexShrink: 0
+                        }}
+                      >
+                        <EntityIcon size={16} strokeWidth={1.7} />
+                        <div
+                          className="cred-direction-badge"
+                          style={{
+                            position: 'absolute',
+                            right: '-2px',
+                            bottom: '-2px',
+                            width: '14px',
+                            height: '14px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            background: isCredit ? '#19B25B' : isDebit ? '#E5482E' : '#8C8C8C',
+                            boxShadow: '0 0 0 1.5px var(--card-bg, #ffffff)'
+                          }}
+                        >
+                          {isCredit ? (
+                            <ArrowDownLeft size={9} strokeWidth={2.5} />
+                          ) : isDebit ? (
+                            <ArrowUpRight size={9} strokeWidth={2.5} />
+                          ) : (
+                            <ArrowLeftRight size={8} strokeWidth={2.5} />
+                          )}
+                        </div>
+                      </div>
+
+                      <div 
+                        className="cred-mobile-card-title" 
+                        style={{
+                          fontSize: '15px',
+                          fontWeight: 600,
+                          color: 'var(--text, #0A0A0A)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          lineHeight: 1.25
+                        }}
+                      >
+                        {title}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: textMuted }}>
-                      {statementSearchQuery || statementFlowFilter !== 'all' ? 'Try adjusting your search query or flow filter.' : `No entries recorded for ${activeAccName}.`}
+
+                    <div 
+                      className="cred-mobile-card-amount"
+                      style={{
+                        fontSize: '15.5px',
+                        fontWeight: 600,
+                        textAlign: 'right',
+                        flexShrink: 0,
+                        fontVariantNumeric: 'tabular-nums',
+                        color: isCredit ? 'var(--positive, #19B25B)' : isDebit ? 'var(--danger, #E5482E)' : 'var(--text, #0A0A0A)'
+                      }}
+                    >
+                      <span style={{ marginRight: '1px' }}>{isCredit ? '+' : isDebit ? '-' : ''}</span>
+                      <Money value={amount} />
                     </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  </div>
+
+                  {/* Row 3 (Bottom Row): Dedicated Description Space (wrapping naturally, no truncation) */}
+                  {descriptionText && (
+                    <div 
+                      className="cred-mobile-card-bottom" 
+                      style={{
+                        paddingLeft: '42px',
+                        fontSize: '12px',
+                        lineHeight: 1.45,
+                        color: 'var(--text-muted, #737373)',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        overflow: 'visible'
+                      }}
+                    >
+                      {descriptionText}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
+      ) : (
+        /* DESKTOP TABLE VIEW */
+        <div style={{
+          background: cardBg,
+          border: `1px solid ${borderColor}`,
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
+          width: '100%',
+          boxSizing: 'border-box'
+        }}>
+          {/* Table Top Action Bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.75rem 1rem',
+            background: isDarkMode ? '#141517' : '#f8fafc',
+            borderBottom: `1px solid ${borderColor}`,
+            flexWrap: 'wrap',
+            gap: '0.5rem'
+          }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: '800', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {activeAccName} STATEMENT TRANSACTIONS
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+              <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDarkMode} />
+              <button
+                type="button"
+                className="cred-quiet-btn"
+                onClick={onExportStatementCSV}
+                title="Export CSV"
+              >
+                <Download size={16} />
+                <span>export csv</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Proportional Table */}
+          <div style={{ width: '100%', overflowX: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'auto' }}>
+              <thead>
+                <tr style={{
+                  borderBottom: `1px solid ${borderColor}`,
+                  background: isDarkMode ? '#141517' : '#f8fafc'
+                }}>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '13%' }}>DATE & TIME</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '12%' }}>REF # / VOUCHER</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '21%' }}>DESCRIPTION</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '14%' }}>PARTY / BENEFICIARY</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', width: '10%' }}>CATEGORY</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>MONEY OUT</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>MONEY IN</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textPrimary, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>RUNNING BALANCE</th>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', whiteSpace: 'nowrap', width: '3%' }}>SLIP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedTransactions.map((tx, idx) => (
+                  <tr
+                    key={tx.id || idx}
+                    className="cred-table-row"
+                    style={{ borderBottom: `1px solid ${borderColor}` }}
+                  >
+                    <td style={{ padding: '8px 8px', fontSize: '0.8rem', color: textPrimary, verticalAlign: 'middle' }}>
+                      <div style={{ fontWeight: '600' }}>{formatDateDisplay(tx.date)}</div>
+                      {tx.time && (
+                        <div style={{ fontSize: '0.68rem', color: textMuted }}>
+                          {formatTimeDisplay(tx.time)}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 8px', fontSize: '0.74rem', fontFamily: 'monospace', color: textMuted, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      {tx.reference_number || `TX-${tx.id}`}
+                    </td>
+                    <td style={{ padding: '8px 8px', fontSize: '0.825rem', fontWeight: '600', color: textPrimary, verticalAlign: 'middle', maxWidth: '180px' }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.remark || 'Transaction'}>
+                        {tx.remark || 'Transaction'}
+                      </div>
+                      {tx.cashbook_name && (
+                        <div style={{ fontSize: '0.68rem', color: textMuted, fontWeight: '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          Via: {tx.cashbook_name}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 8px', fontSize: '0.8rem', color: textPrimary, verticalAlign: 'middle', maxWidth: '130px' }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.party_name}>
+                        {tx.party_name || '—'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px 8px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12px', fontWeight: 500 }}>
+                        {tx.category || 'General'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '8px 8px', fontSize: '0.825rem', fontWeight: '700', textAlign: 'right', color: tx.debit > 0 ? '#dc2626' : textMuted, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      {tx.debit > 0 ? `-${safeFormatAmount(tx.debit)}` : '—'}
+                    </td>
+                    <td style={{ padding: '8px 8px', fontSize: '0.825rem', fontWeight: '700', textAlign: 'right', color: tx.credit > 0 ? '#16a34a' : textMuted, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      {tx.credit > 0 ? `+${safeFormatAmount(tx.credit)}` : '—'}
+                    </td>
+                    <td style={{ padding: '8px 8px', fontSize: '0.84rem', fontWeight: '800', textAlign: 'right', color: textPrimary, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      {safeFormatAmount(tx.running_balance)} <span style={{ fontSize: '0.7rem', fontWeight: '600', color: textMuted }}>SAR</span>
+                    </td>
+                    <td style={{ padding: '8px 8px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      <VoucherPrintBtn
+                        onClick={() => printPaymentVoucher(mapTxToVoucher(tx))}
+                        title={`Print Voucher for ${tx.remark || tx.reference_number || 'Transaction'}`}
+                        isDarkMode={isDarkMode}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* 7. PAGINATION (Directly below table card, 16px gap, outside table card) */}
       <CredPagination
