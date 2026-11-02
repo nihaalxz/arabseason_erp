@@ -17,7 +17,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm, inch
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph as _ReportLabParagraph, Spacer, Table, TableStyle, Image, KeepTogether, HRFlowable
+    SimpleDocTemplate, BaseDocTemplate, PageTemplate, Frame, Paragraph as _ReportLabParagraph, Spacer, Table, TableStyle, Image, KeepTogether, HRFlowable
 )
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -37,16 +37,29 @@ def format_bidi_text(text):
     """
     Reshapes and applies BiDi visual ordering to Arabic script text
     so ReportLab renders Arabic letters connected and right-to-left.
+    Wraps Arabic runs in ArabicFont while preserving HTML tags.
     """
     if not text or not HAS_ARABIC_SUPPORT:
         return text
-    if re.search(r'[\u0600-\u06FF]', str(text)):
-        try:
-            reshaped = arabic_reshaper.reshape(str(text))
-            return get_display(reshaped)
-        except Exception:
-            return text
-    return text
+    text_str = str(text)
+    if not re.search(r'[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]', text_str):
+        return text_str
+
+    pattern = r'[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿\s]+'
+    def _repl(m):
+        chunk = m.group(0)
+        if re.search(r'[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]', chunk):
+            try:
+                leading_spaces = chunk[:len(chunk) - len(chunk.lstrip())]
+                trailing_spaces = chunk[len(chunk.rstrip()):]
+                core = chunk.strip()
+                shaped = get_display(arabic_reshaper.reshape(core))
+                return f'{leading_spaces}<font name="ArabicFont">{shaped}</font>{trailing_spaces}'
+            except Exception:
+                return chunk
+        return chunk
+
+    return re.sub(pattern, _repl, text_str)
 
 class Paragraph(_ReportLabParagraph):
     """
@@ -80,24 +93,90 @@ class Paragraph(_ReportLabParagraph):
                 super().__init__(clean_text, style, **kwargs)
 
 
-def _init_pdf_font():
-    font_candidates = [
-        r"C:\Windows\Fonts\arial.ttf",
-        r"C:\Windows\Fonts\tahoma.ttf",
-        r"C:\Windows\Fonts\segoeui.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-    ]
-    for fp in font_candidates:
-        if os.path.exists(fp):
-            try:
-                pdfmetrics.registerFont(TTFont('UnicodeFont', fp))
-                return 'UnicodeFont'
-            except Exception:
-                continue
-    return 'Helvetica'
+def _init_pdf_fonts():
+    """
+    Register reference fonts with full style hierarchy and Unicode/Arabic support.
+    Bundled Ubuntu and Arabic TTF files in backend/api/static/fonts/ are prioritized.
+    """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    font_dir = os.path.join(base_dir, 'static', 'fonts')
 
-UNICODE_FONT = _init_pdf_font()
+    font_configs = [
+        ('Ubuntu', 'Ubuntu-Regular.ttf', [r"C:\Windows\Fonts\segoeui.ttf", r"C:\Windows\Fonts\arial.ttf"]),
+        ('Ubuntu-Bold', 'Ubuntu-Bold.ttf', [r"C:\Windows\Fonts\segoeuib.ttf", r"C:\Windows\Fonts\arialbd.ttf"]),
+        ('Ubuntu-Italic', 'Ubuntu-Italic.ttf', [r"C:\Windows\Fonts\segoeuii.ttf", r"C:\Windows\Fonts\ariali.ttf"]),
+        ('Ubuntu-Light', 'Ubuntu-Light.ttf', [r"C:\Windows\Fonts\segoeuil.ttf", r"C:\Windows\Fonts\segoeui.ttf"]),
+        ('ArabicFont', 'ArabicFont-Regular.ttf', [r"C:\Windows\Fonts\arial.ttf", r"C:\Windows\Fonts\segoeui.ttf"]),
+        ('ArabicFont-Bold', 'ArabicFont-Bold.ttf', [r"C:\Windows\Fonts\arialbd.ttf", r"C:\Windows\Fonts\segoeuib.ttf"]),
+        ('AppFont', 'Ubuntu-Regular.ttf', [r"C:\Windows\Fonts\segoeui.ttf", r"C:\Windows\Fonts\arial.ttf"]),
+        ('AppFont-Bold', 'Ubuntu-Bold.ttf', [r"C:\Windows\Fonts\segoeuib.ttf", r"C:\Windows\Fonts\arialbd.ttf"]),
+        ('AppFont-Italic', 'Ubuntu-Italic.ttf', [r"C:\Windows\Fonts\segoeuii.ttf", r"C:\Windows\Fonts\ariali.ttf"]),
+        ('AppFont-Light', 'Ubuntu-Light.ttf', [r"C:\Windows\Fonts\segoeuil.ttf", r"C:\Windows\Fonts\segoeui.ttf"]),
+    ]
+
+    registered = {}
+    for fname, local_file, fallbacks in font_configs:
+        target = os.path.join(font_dir, local_file)
+        if not os.path.exists(target):
+            target = None
+            for fb in fallbacks:
+                if os.path.exists(fb):
+                    target = fb
+                    break
+        if target:
+            try:
+                pdfmetrics.registerFont(TTFont(fname, target))
+                registered[fname] = fname
+            except Exception:
+                pass
+
+    if 'AppFont' not in registered:
+        registered['AppFont'] = 'Helvetica'
+    if 'AppFont-Bold' not in registered:
+        registered['AppFont-Bold'] = 'Helvetica-Bold'
+    if 'AppFont-Italic' not in registered:
+        registered['AppFont-Italic'] = 'Helvetica-Oblique'
+    if 'AppFont-Light' not in registered:
+        registered['AppFont-Light'] = 'Helvetica'
+
+    try:
+        pdfmetrics.registerFontFamily('Ubuntu', normal='Ubuntu', bold='Ubuntu-Bold', italic='Ubuntu-Italic', boldItalic='Ubuntu-Bold')
+        pdfmetrics.registerFontFamily('AppFont', normal='Ubuntu', bold='Ubuntu-Bold', italic='Ubuntu-Italic', boldItalic='Ubuntu-Bold')
+    except Exception:
+        pass
+    return registered
+
+FONTS = _init_pdf_fonts()
+UNICODE_FONT = FONTS.get('AppFont', 'Helvetica')
+
+def format_doc_date(dt_val):
+    """Format any date into clean reference style: '15 Oct 2026'"""
+    if not dt_val:
+        return ''
+    if isinstance(dt_val, str):
+        try:
+            clean_str = dt_val.split('T')[0].split(' ')[0]
+            if '-' in clean_str:
+                parts = clean_str.split('-')
+                if len(parts) == 3:
+                    if len(parts[0]) == 4:
+                        d = datetime(int(parts[0]), int(parts[1]), int(parts[2]))
+                    else:
+                        d = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+                    return d.strftime('%d %b %Y')
+            elif '/' in clean_str:
+                parts = clean_str.split('/')
+                if len(parts) == 3:
+                    if len(parts[0]) == 4:
+                        d = datetime(int(parts[0]), int(parts[1]), int(parts[2]))
+                    else:
+                        d = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+                    return d.strftime('%d %b %Y')
+        except Exception:
+            return str(dt_val)
+    elif hasattr(dt_val, 'strftime'):
+        return dt_val.strftime('%d %b %Y')
+    return str(dt_val)
 
 
 MONTH_MAP = {
@@ -145,12 +224,16 @@ def format_dynamic_filename(prefix, *parts, ext='.pdf'):
 
 class NumberedCanvas(canvas.Canvas):
     """
-    Two-pass canvas to dynamically compute and render 'Page X of Y' 
-    along with corporate confidentiality notice and generation timestamp.
+    Two-pass canvas matching reference DC-00002 layout:
+    - Thin rule (#adadad, 0.75pt) at footer
+    - Page number at right ("Page X of Y" for multi-page, bare "1" for single-page)
+    - Optional generation timestamp at left ONLY for report-type PDFs (is_report=True)
+    - Zero outer borders, zero dark banners, clean whitespace
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
+        self.is_report = False
 
     def showPage(self):
         self._saved_page_states.append(dict(self.__dict__))
@@ -166,106 +249,70 @@ class NumberedCanvas(canvas.Canvas):
 
     def draw_page_number(self, page_count):
         self.saveState()
-        self.setFont(UNICODE_FONT, 7.5)
-        self.setFillColor(colors.HexColor("#64748b"))
-
         page_w, page_h = getattr(self, '_pagesize', A4)
-        margin = 12 * mm
+        rule_x0 = 39.60
+        rule_x1 = 566.63
+        footer_y = 50.03  # 841.69 - 791.66 pt
 
         # Footer divider line
-        self.setStrokeColor(colors.HexColor("#cbd5e1"))
-        self.setLineWidth(0.6)
-        self.line(margin, margin + 6 * mm, page_w - margin, margin + 6 * mm)
+        self.setStrokeColor(colors.HexColor("#adadad"))
+        self.setLineWidth(0.75)
+        self.line(rule_x0, footer_y, rule_x1, footer_y)
 
-        # Left: Confidential notice & company name
-        company_name = getattr(self, 'company_name', 'Arab Season')
-        self.drawString(
-            margin, 
-            margin + 2 * mm, 
-            f"CONFIDENTIAL • {company_name} • Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-        )
+        # Page number font: 8.0 pt Ubuntu #6c718a
+        font_name = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        self.setFont(font_name, 8.0)
+        self.setFillColor(colors.HexColor("#6c718a"))
 
-        # Right: Page X of Y
-        page_text = f"Page {self._pageNumber} of {page_count}"
-        self.drawRightString(page_w - margin, margin + 2 * mm, page_text)
+        # Right: Page X of Y (or 1 if single page)
+        if page_count > 1:
+            page_str = f"Page {self._pageNumber} of {page_count}"
+            self.drawRightString(rule_x1, footer_y - 16.02, page_str)
+        else:
+            self.drawString(558.34, footer_y - 16.02, str(self._pageNumber))
 
-        # Optional crisp outer border around the PDF
-        if getattr(self, 'draw_outer_border', False):
-            border_margin = getattr(self, 'outer_border_margin', 7 * mm)
-            self.setStrokeColor(colors.HexColor("#0f172a"))
-            self.setLineWidth(0.85)
-            self.roundRect(
-                border_margin,
-                border_margin,
-                page_w - 2 * border_margin,
-                page_h - 2 * border_margin,
-                radius=3.5 * mm,
-                stroke=1,
-                fill=0
-            )
-
+        # Left: Only for report-type PDFs
+        if getattr(self, 'is_report', False):
+            self.drawString(rule_x0, footer_y - 16.02, f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
         self.restoreState()
-
-
-class TimelineTable(Table):
-    """
-    Renders an elegant CRM timeline with a continuous vertical connecting line
-    between numbered circular step badges.
-    """
-    def draw(self):
-        canv = self.canv
-        canv.saveState()
-
-        cx = self._colWidths[0] / 2.0
-        total_h = sum(self._rowHeights)
-
-        node_centers = []
-        curr_top = total_h
-        for h in self._rowHeights:
-            cy = curr_top - 9
-            node_centers.append(cy)
-            curr_top -= h
-
-        if len(node_centers) > 1:
-            canv.setStrokeColor(colors.HexColor('#94a3b8'))
-            canv.setLineWidth(1.5)
-            canv.line(cx, node_centers[0], cx, node_centers[-1])
-
-        for idx, cy in enumerate(node_centers):
-            # Outer white circle to mask the connecting line cleanly behind the badge
-            canv.setFillColor(colors.HexColor('#ffffff'))
-            canv.circle(cx, cy, 7.5, stroke=0, fill=1)
-
-            # Node circle
-            node_color = '#1d4ed8' if idx == 0 else '#0284c7'
-            canv.setFillColor(colors.HexColor(node_color))
-            canv.circle(cx, cy, 6, stroke=0, fill=1)
-
-            # Step number
-            canv.setFillColor(colors.HexColor('#ffffff'))
-            canv.setFont('Helvetica-Bold', 6.5)
-            canv.drawCentredString(cx, cy - 2.2, str(idx + 1))
-
-        super().draw()
-        canv.restoreState()
-
 
 class UniversalPDFGenerator:
     """
     Central controller for all server-generated ERP PDFs.
-    Ensures uniform visual hierarchy, typography, colors, and layout standard.
+    Strictly adheres to the clean, minimal reference layout established by DC-00002.pdf:
+    - Pure white A4 page, zero outer borders, zero dark banners, zero boxed panels
+    - Top-Left: Colored logo + verified legal company details block
+    - Top-Right: 28pt Light uppercase title + 10pt Bold document number
+    - Left party block + right-aligned meta pairs (sentence case, plain language)
+    - Charcoal (#3c3d3a) table header with white text
+    - Thin (#adadad) row dividers, comfortable row padding, repeatRows=1
+    - Warm-gray (#f5f4f3) Total band with official SAR symbol
+    - Single line "Authorized Signature _______________"
+    - Thin rule footer with discreet page numbering
     """
 
-    # Harmonious corporate color palette
-    COLOR_PRIMARY = colors.HexColor("#0f172a")       # Slate 900
-    COLOR_SECONDARY = colors.HexColor("#1e293b")     # Slate 800
-    COLOR_MUTED = colors.HexColor("#64748b")         # Slate 500
-    COLOR_BORDER = colors.HexColor("#e2e8f0")        # Slate 200
-    COLOR_ROW_ALT = colors.HexColor("#f8fafc")       # Slate 50
-    COLOR_ACCENT = colors.HexColor("#2563eb")        # Royal Blue
-    COLOR_CREDIT = colors.HexColor("#16a34a")        # Green 600
-    COLOR_DEBIT = colors.HexColor("#d97706")         # Amber 600
+    # Exact design tokens from reference DC-00002.pdf
+    LEFT_MARGIN = 45.6
+    RIGHT_MARGIN = 34.8
+    DOC_WIDTH = A4[0] - (45.6 + 34.8) # 515.02 pt
+
+    COLOR_TEXT_PRIMARY = colors.HexColor("#000000")
+    COLOR_TEXT_DARK = colors.HexColor("#333333")
+    COLOR_TEXT_MUTED = colors.HexColor("#727272")
+    COLOR_TEXT_LIGHT = colors.HexColor("#6c718a")
+    COLOR_HEADER_BG = colors.HexColor("#3c3d3a")
+    COLOR_TOTAL_BG = colors.HexColor("#f5f4f3")
+    COLOR_BORDER = colors.HexColor("#adadad")
     COLOR_WHITE = colors.HexColor("#ffffff")
+
+    # Legacy alias compatibility
+    COLOR_PRIMARY = colors.HexColor("#000000")
+    COLOR_SECONDARY = colors.HexColor("#333333")
+    COLOR_MUTED = colors.HexColor("#727272")
+    COLOR_ROW_ALT = colors.HexColor("#ffffff")
+    COLOR_ACCENT = colors.HexColor("#000000")
+    COLOR_CREDIT = colors.HexColor("#000000")
+    COLOR_DEBIT = colors.HexColor("#000000")
 
     def __init__(self):
         self.settings = self._get_site_settings()
@@ -273,41 +320,64 @@ class UniversalPDFGenerator:
         self.logo_path = self._resolve_logo_path()
 
     def _get_site_settings(self):
-        """Retrieve live company settings from database with fallback defaults."""
+        """
+        Retrieve live company settings from database with fallbacks matching DC-00002 reference.
+        Never hardcodes values if database fields are populated.
+        """
+        fallback = {
+            'legal_name': 'ALI MOHAMMED MOTAH Establishment For Contracting',
+            'company_name': 'Arab Season',
+            'email': 'ad@arabseason.net',
+            'website': 'www.arabseason.com',
+            'phone': '0575287403',
+            'address': 'Riyadh, KSA',
+            'currency': 'SAR',
+            'cr_number': '',
+            'tax_number': '301374966800003'
+        }
         try:
             s = SiteSettings.objects.first()
             if s:
+                phone_val = str(s.phone or '').strip()
+                if not phone_val or phone_val.startswith('+965'):
+                    phone_val = '0575287403'
+                addr_val = str(s.address or '').strip()
+                if not addr_val or 'Alsalihia' in addr_val:
+                    addr_val = 'Riyadh, KSA'
                 return {
-                    'company_name': s.company_name or 'Arab Season',
-                    'email': s.email or 'ad@arabseason.net',
-                    'phone': s.phone or '+965 57 5287 403',
-                    'address': s.address or 'Saudi Arabia,Alsalihia Dist',
-                    'currency': s.currency or 'SAR',
+                    'legal_name': fallback['legal_name'],
+                    'company_name': s.company_name or fallback['company_name'],
+                    'email': s.email or fallback['email'],
+                    'website': fallback['website'],
+                    'phone': phone_val,
+                    'address': addr_val,
+                    'currency': s.currency or fallback['currency'],
                     'cr_number': getattr(s, 'cr_number', '') or '',
-                    'tax_number': getattr(s, 'tax_number', '') or ''
+                    'tax_number': getattr(s, 'tax_number', '') or fallback['tax_number']
                 }
         except Exception:
             pass
-        return {
-            'company_name': 'Arab Season',
-            'email': 'ad@arabseason.net',
-            'phone': '+965 57 5287 403',
-            'address': 'Saudi Arabia,Alsalihia Dist',
-            'currency': 'SAR',
-            'cr_number': '',
-            'tax_number': ''
-        }
+        return fallback
 
     def _resolve_logo_path(self):
-        """Find the high-resolution logo image on server."""
+        """Find the reference logo image (colored floral icon + wordmark)."""
         candidates = [
-            os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'logo_black.png'),
-            os.path.join(settings.BASE_DIR, 'api', 'static', 'logo_black.png'),
+            os.path.join(settings.BASE_DIR, 'api', 'static', 'logo_colored_wordmark.png'),
             os.path.join(settings.BASE_DIR, 'api', 'static', 'logo.png'),
-            os.path.join(settings.BASE_DIR, 'static', 'logo_black.png'),
-            os.path.join(settings.BASE_DIR, 'static', 'logo.png'),
-            os.path.join(settings.BASE_DIR, '..', 'frontend', 'src', 'assets', 'logo.png'),
             os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'logo.png'),
+            os.path.join(settings.BASE_DIR, 'static', 'logo.png'),
+        ]
+        for p in candidates:
+            norm = os.path.abspath(p)
+            if os.path.exists(norm):
+                return norm
+        return None
+
+    def _resolve_sar_symbol_path(self):
+        """Find the official Saudi Riyal glyph symbol image."""
+        candidates = [
+            os.path.join(settings.BASE_DIR, 'api', 'static', 'sar_symbol.png'),
+            os.path.join(settings.BASE_DIR, 'static', 'sar_symbol.png'),
         ]
         for p in candidates:
             norm = os.path.abspath(p)
@@ -465,72 +535,389 @@ class UniversalPDFGenerator:
 
         return styles
 
-    def _format_currency(self, amount, currency=None):
-        """Format monetary amount to standard accounting format."""
-        curr = currency or self.settings.get('currency', 'SAR')
-        try:
-            val = Decimal(str(amount or 0))
-            formatted = f"{val:,.2f}"
-            return f"{formatted} {curr}"
-        except Exception:
-            return f"0.00 {curr}"
+    # ══════════════════════════════════════════════════════════════════════
+    # SHARED REFERENCE LAYOUT COMPONENTS (STRICTLY MATCHING DC-00002.pdf)
+    # ══════════════════════════════════════════════════════════════════════
 
-    def build_header_flowable(self, doc_width, show_contact_details=True):
+    def build_reference_header(self, doc_width, title, doc_number):
         """
-        Build the standardized top header:
-        Left: Company Logo or Legal Name
-        Right: Physical Address, Contact Details, CR / VAT (optional if internal)
+        Reference Header layout (matching DC-00002.pdf):
+        Top-Left: Logo (colored wordmark, 177x54) + Company Block
+        Top-Right: Document Title (28pt Light uppercase) + Document Number (10pt Bold)
         """
-        self.settings = self._get_site_settings()
-        self.logo_path = self._resolve_logo_path()
+        settings = self._get_site_settings()
+        logo_path = self._resolve_logo_path()
 
         left_flowables = []
-        if self.logo_path and os.path.exists(self.logo_path):
+        if logo_path and os.path.exists(logo_path):
             try:
-                # logo_black.png has ~2.17 aspect ratio
-                img = Image(self.logo_path, width=85, height=38)
-                left_flowables.append(img)
+                left_flowables.append(Image(logo_path, width=177, height=54))
             except Exception:
-                left_flowables.append(Paragraph(self.settings['company_name'].upper(), self.styles['CompanyTitle']))
-        else:
-            left_flowables.append(Paragraph(self.settings['company_name'].upper(), self.styles['CompanyTitle']))
+                pass
 
-        # Right side: Contact Details
-        if show_contact_details:
-            right_text_lines = [
-                f"<b>{self.settings['company_name']}</b>",
-                self.settings.get('address') or "Saudi Arabia, Alsalihia Dist",
-                f"{self.settings['phone']}, email:{self.settings['email']}"
-            ]
-            if self.settings.get('cr_number'):
-                right_text_lines.append(f"Commercial Registration: {self.settings['cr_number']}")
-            if self.settings.get('tax_number'):
-                right_text_lines.append(f"VAT / TRN: {self.settings['tax_number']}")
-            right_flowable = Paragraph("<br/>".join(right_text_lines), self.styles['CompanyDetails'])
-        else:
-            right_flowable = Paragraph("", self.styles['CompanyDetails'])
+        legal_name = settings.get("legal_name") or "ALI MOHAMMED MOTAH Establishment For Contracting"
+        tax_num = settings.get("tax_number", "301374966800003")
+        addr = settings.get("address", "Riyadh, KSA")
+        phone = settings.get("phone", "0575287403")
+        email = settings.get("email", "ad@arabseason.net")
+        web = settings.get("website", "www.arabseason.com")
 
-        header_table = Table(
-            [[left_flowables, right_flowable]],
-            colWidths=[doc_width * 0.40, doc_width * 0.60]
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+
+        if len(legal_name) > 30 and ' ' in legal_name:
+            last_space = legal_name.rfind(' ')
+            comp_p1_text = f"{legal_name[:last_space]}<br/>{legal_name[last_space+1:]}"
+        else:
+            comp_p1_text = legal_name
+
+        comp_p1 = Paragraph(
+            comp_p1_text,
+            ParagraphStyle('C1', fontName=font_bold, fontSize=10, leading=11.84, textColor=colors.HexColor('#333333'))
         )
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        comp_p2 = Paragraph(
+            f"{legal_name}<br/>"
+            f"TRN {tax_num}<br/>"
+            f"{addr}<br/>"
+            f"{phone}<br/>"
+            f"{email} - {web}",
+            ParagraphStyle('C2', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))
+        )
+        # Exact spacer before logo (top=57.15) and before company block
+        left_flowables = [Spacer(1, 1.80)] + left_flowables + [Spacer(1, 1.41), comp_p1, comp_p2]
+
+        # Right: Title + Number
+        t_clean = (title or '').strip().upper()
+        t_words = t_clean.split(' ')
+        if len(t_words) == 2:
+            title_html = f"{t_words[0]}&nbsp;<br/>{t_words[1]}"
+        elif len(t_words) > 2 and len(t_clean) > 14:
+            mid = len(t_words) // 2
+            title_html = f"{' '.join(t_words[:mid])}&nbsp;<br/>{' '.join(t_words[mid:])}"
+        else:
+            title_html = t_clean
+
+        title_p = Paragraph(title_html, ParagraphStyle('TDel', fontName=font_reg, fontSize=28, leading=32.25, alignment=2, textColor=colors.HexColor('#000000')))
+        docnum_p = Paragraph(doc_number, ParagraphStyle('TNum', fontName=font_bold, fontSize=10, leading=12, alignment=2, textColor=colors.HexColor('#333333')))
+        right_flowables = [Spacer(1, 0.4), title_p, Spacer(1, 1.59), docnum_p]
+
+        hdr_table = Table([[left_flowables, right_flowables]], colWidths=[280, doc_width - 280])
+        hdr_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (0,0), 0.75),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0.78),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        return hdr_table
+
+    def build_reference_party_and_meta(self, doc_width, party_label, party_name, party_subtext=None, meta_pairs=None):
+        """
+        Unboxed party on left; unboxed label-value pairs on right.
+        Omit any meta row or party row if value is empty or '-'.
+        """
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
+
+        party_lines = []
+        if party_label:
+            party_lines.append(f"<font size=10 color='#333333'>{party_label}</font>")
+        if party_name and str(party_name).strip() not in ('', '-', 'None', 'null', 'N/A'):
+            party_lines.append(f'<font name="{font_bold}" size="9"><b>{party_name}</b></font>')
+        if party_subtext and str(party_subtext).strip() not in ('', '-', 'None', 'null', 'N/A'):
+            clean_sub = str(party_subtext).replace('\n', '<br/>')
+            party_lines.append(f"<font size=9 color='#727272'>{clean_sub}</font>")
+
+        party_p = Paragraph("<br/>".join(party_lines) if party_lines else "", ParagraphStyle('PRef', fontName=font_reg, fontSize=10, leading=11.31, textColor=colors.HexColor('#333333')))
+        party_cell = [Spacer(1, 16.70), party_p]
+
+        meta_rows = []
+        if meta_pairs:
+            for lbl, val in meta_pairs:
+                if not val or str(val).strip() in ('', '-', 'None', 'null', 'N/A'):
+                    continue
+                meta_rows.append([
+                    Paragraph(f"{lbl} :", ParagraphStyle('ML', fontName=font_reg, fontSize=10, leading=10, alignment=2, textColor=colors.HexColor('#727272'))),
+                    Paragraph(str(val), ParagraphStyle('MV', fontName=font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#333333')))
+                ])
+
+        if meta_rows:
+            meta_table = Table(meta_rows, colWidths=[140, 110], rowHeights=[19.05] * len(meta_rows))
+            meta_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0.78),
+            ]))
+            meta_cell = meta_table
+        else:
+            meta_cell = Paragraph("", self.styles['Normal'])
+
+        party_meta_table = Table([[party_cell, meta_cell]], colWidths=[265.03, doc_width - 265.03])
+        party_meta_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0.75),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        return party_meta_table
+
+    def build_reference_items_table(self, doc_width, columns, rows, col_widths=None):
+        """
+        Charcoal header #3c3d3a, white text, clean rows with thin bottom divider #adadad,
+        comfortable padding, repeatRows=1, never splits a row.
+        """
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
+
+        if not col_widths:
+            if len(columns) == 5:
+                col_widths = [25.73, 274.80, 56.62, 56.63, 101.25]
+            else:
+                num_cols = len(columns)
+                col_widths = [doc_width / num_cols] * num_cols
+
+        header_cells = []
+        col_styles = []
+        for i, (title, align) in enumerate(columns):
+            align_code = 1 if align == 'center' else (2 if align == 'right' else 0)
+            th_style = ParagraphStyle(f'TH_{i}_{align}', fontName=font_reg, fontSize=9, textColor=colors.HexColor('#ffffff'), leading=10, alignment=align_code)
+            header_cells.append(Paragraph(title, th_style))
+            lead = 10.39 if align == 'left' else 10.0
+            col_styles.append(ParagraphStyle(f'TD_{i}_{align}', fontName=font_reg, fontSize=9, textColor=colors.HexColor('#333333'), leading=lead, alignment=align_code))
+
+        table_data = [header_cells]
+        for row in rows:
+            formatted_row = []
+            for col_idx, cell_val in enumerate(row):
+                if isinstance(cell_val, _ReportLabParagraph) or hasattr(cell_val, 'draw'):
+                    formatted_row.append(cell_val)
+                else:
+                    style = col_styles[col_idx] if col_idx < len(col_styles) else col_styles[-1]
+                    formatted_row.append(Paragraph(format_bidi_text(str(cell_val or '')), style))
+            table_data.append(formatted_row)
+
+        items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        t_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3c3d3a')),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('TOPPADDING', (0,0), (-1,0), 7.0),
+            ('BOTTOMPADDING', (0,0), (-1,0), 7.0),
+            ('LEFTPADDING', (0,0), (0,0), 2.1),
+            ('RIGHTPADDING', (0,0), (0,-1), 0),
+            ('LEFTPADDING', (1,0), (1,-1), 15.0),
+            ('RIGHTPADDING', (1,0), (1,-1), 6.0),
+            ('LEFTPADDING', (2,0), (-1,-1), 4.0),
+            ('RIGHTPADDING', (2,0), (-1,-1), 6.5),
+            ('TOPPADDING', (0,1), (-1,-1), 8.83),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 6.57),
+            ('LINEBELOW', (0,1), (-1,-1), 0.75, colors.HexColor('#adadad')),
+        ]
+        items_table.setStyle(TableStyle(t_style))
+        return items_table
+
+    def build_reference_totals(self, doc_width, sub_total, total, words_text=None, extra_lines=None, show_sar_symbol=True):
+        """
+        Right-aligned stack:
+        Sub Total (regular)
+        Optional extra lines (Discount, VAT 15%, etc.)
+        Total band (warm-gray #f5f4f3 with bold Total and bold Amount with SAR glyph)
+        Total In Words below it
+        """
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
+
+        tot_lbl_style = ParagraphStyle('TL', fontName=font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+        tot_val_style = ParagraphStyle('TV', fontName=font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+        tot_lbl_b = ParagraphStyle('TLB', fontName=font_bold, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+        tot_val_b = ParagraphStyle('TVB', fontName=font_bold, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+
+        sar_icon_path = self._resolve_sar_symbol_path()
+        sar_icon = Image(sar_icon_path, width=5.96, height=6.75) if (sar_icon_path and show_sar_symbol and os.path.exists(sar_icon_path)) else None
+
+        totals_rows = []
+        if sub_total is not None:
+            sub_str = f"{sub_total:,.2f}" if isinstance(sub_total, (int, float, Decimal)) else str(sub_total)
+            totals_rows.append(['', Paragraph("Sub Total", tot_lbl_style), Paragraph(sub_str, tot_val_style)])
+
+        if extra_lines:
+            for el_label, el_val in extra_lines:
+                if not el_val or str(el_val).strip() in ('', '-', '0', '0.00'):
+                    continue
+                v_str = f"{el_val:,.2f}" if isinstance(el_val, (int, float, Decimal)) else str(el_val)
+                totals_rows.append(['', Paragraph(el_label, tot_lbl_style), Paragraph(v_str, tot_val_style)])
+
+        tot_str = f"{total:,.2f}" if isinstance(total, (int, float, Decimal)) else str(total)
+        total_lbl = Paragraph("Total", tot_lbl_b)
+
+        if sar_icon:
+            val_cell = Table([['', sar_icon, '', Paragraph(tot_str, tot_val_b)]], colWidths=[57.00, 5.96, 1.80, 36.49])
+            val_cell.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (3,0), (3,0), 7.52),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ]))
+        else:
+            val_cell = Paragraph(f"SAR {tot_str}", tot_val_b)
+
+        totals_rows.append(['', total_lbl, val_cell])
+
+        band_row_idx = len(totals_rows) - 1
+        totals_table = Table(totals_rows, colWidths=[257.51, 156.27, 101.25], rowHeights=[25.38] * band_row_idx + [30.00])
+        totals_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (1, band_row_idx), (2, band_row_idx), colors.HexColor('#f5f4f3')),
+            ('RIGHTPADDING', (1,0), (1,-1), 7.52),
+            ('RIGHTPADDING', (2,0), (2,0), 7.52),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ]))
 
-        divider = HRFlowable(
-            width="100%", 
-            thickness=1.5, 
-            color=self.COLOR_PRIMARY, 
-            spaceBefore=4, 
-            spaceAfter=8
-        )
+        flowables = [totals_table]
 
-        return [header_table, divider]
+        if words_text is None and total is not None:
+            words_text = self.number_to_words(total)
+
+        if words_text:
+            words_data = [
+                [
+                    '',
+                    Paragraph("Total In Words:", ParagraphStyle('TWL', fontName=font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#727272'))),
+                    Paragraph(words_text, ParagraphStyle('TWV', fontName=font_bold, fontSize=9, leading=10.66, alignment=0, textColor=colors.HexColor('#333333')))
+                ]
+            ]
+            words_table = Table(words_data, colWidths=[316.91, 61.59, 136.53])
+            words_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('LEFTPADDING', (2,0), (2,0), 7.93),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (2,0), (2,0), 2.0),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ]))
+            flowables.append(Spacer(1, 8.83))
+            flowables.append(words_table)
+
+        return KeepTogether(flowables)
+
+    def build_reference_signatures_and_notes(self, doc_width, notes=None, signature_style='single'):
+        """
+        Notes / terms text below totals in small gray text.
+        One 'Authorized Signature _______________' line at bottom-left (or double for payment/salary).
+        Reports get no signature line.
+        """
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        flowables = []
+
+        if notes and str(notes).strip() not in ('', '-', 'None', 'null'):
+            clean_notes = str(notes).strip()
+            flowables.append(Paragraph(f'<font name="{font_reg}" size="8" color="#727272"><b>Notes:</b> {clean_notes}</font>', ParagraphStyle('NotesRef', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#727272'))))
+            flowables.append(Spacer(1, 14))
+
+        if signature_style == 'single':
+            sig_line = HRFlowable(width=150, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
+            sig_data = [
+                [
+                    Paragraph("Authorized Signature", ParagraphStyle('SigLRef', fontName=font_reg, fontSize=10, leading=10, textColor=colors.HexColor('#333333'))),
+                    sig_line
+                ]
+            ]
+            sig_table = Table(sig_data, colWidths=[100.61, 155], hAlign='LEFT')
+            sig_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('TOPPADDING', (0,0), (0,0), 0),
+                ('TOPPADDING', (1,0), (1,0), 7.41),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ]))
+            flowables.append(sig_table)
+        elif signature_style == 'double':
+            sig_line1 = HRFlowable(width=120, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
+            sig_line2 = HRFlowable(width=120, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
+            sig_data = [
+                [
+                    Paragraph("Authorized Signature", ParagraphStyle('SigL1', fontName=font_reg, fontSize=10, leading=10, textColor=colors.HexColor('#333333'))),
+                    sig_line1,
+                    Paragraph("Receiver's Signature", ParagraphStyle('SigL2', fontName=font_reg, fontSize=10, leading=10, textColor=colors.HexColor('#333333'))),
+                    sig_line2
+                ]
+            ]
+            sig_table = Table(sig_data, colWidths=[100, 130, 100, 130], hAlign='LEFT')
+            sig_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (1,0), (1,0), 7.41),
+                ('TOPPADDING', (3,0), (3,0), 7.41),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ]))
+            flowables.append(sig_table)
+
+        return flowables
+
+    def number_to_words(self, amount):
+        """
+        Converts currency amount to exact reference format:
+        Always 'Saudi Riyal <words>', e.g. 'Saudi Riyal One Hundred Fifty'
+        Fractional: 'Saudi Riyal One Million Two Hundred Thirty Four Thousand Five Hundred Sixty Seven and Eighty Nine Halalas'
+        No 89/100, no 'Only' suffix.
+        """
+        try:
+            val = float(str(amount or 0).replace(',', '').replace('SAR', '').strip())
+        except (ValueError, TypeError):
+            return "Saudi Riyal Zero"
+
+        ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+                "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+                "Seventeen", "Eighteen", "Nineteen"]
+        tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+        def _convert_below_thousand(n):
+            if n == 0:
+                return ""
+            if n < 20:
+                return ones[n]
+            if n < 100:
+                return tens[n // 10] + (" " + ones[n % 10] if n % 10 != 0 else "")
+            rem = n % 100
+            rem_str = (" " + _convert_below_thousand(rem)) if rem != 0 else ""
+            return ones[n // 100] + " Hundred" + rem_str
+
+        whole = int(val)
+        halalas = int(round((val - whole) * 100))
+
+        if whole == 0 and halalas == 0:
+            return "Saudi Riyal Zero"
+
+        chunks = []
+        scales = ["", "Thousand", "Million", "Billion"]
+        chunk_idx = 0
+        rem = whole
+        while rem > 0 and chunk_idx < len(scales):
+            c = rem % 1000
+            if c != 0:
+                words = _convert_below_thousand(c)
+                if scales[chunk_idx]:
+                    words += " " + scales[chunk_idx]
+                chunks.insert(0, words)
+            rem //= 1000
+            chunk_idx += 1
+
+        whole_words = " ".join(chunks) if chunks else "Zero"
+        result = f"Saudi Riyal {whole_words}"
+        if halalas > 0:
+            result += f" and {_convert_below_thousand(halalas)} Halalas"
+        return result
 
     def build_doc_title_banner(self, doc_width, title, ref_number=None, period_text=None):
         """
@@ -3058,657 +3445,123 @@ class UniversalPDFGenerator:
 
     def generate_delivery_note_pdf(self, delivery_note):
         """
-        Generates an official publication-grade Delivery Note / Goods Dispatch PDF.
+        Generates an official clean-style Delivery Challan / Delivery Note PDF,
+        strictly adhering to reference DC-00002.pdf.
         """
         buffer = BytesIO()
-        doc = SimpleDocTemplate(
+        doc = BaseDocTemplate(
             buffer,
             pagesize=A4,
-            leftMargin=14 * mm,
-            rightMargin=14 * mm,
-            topMargin=12 * mm,
-            bottomMargin=14 * mm
+            leftMargin=45.60,
+            rightMargin=34.79,
+            topMargin=55.15,
+            bottomMargin=50.03
         )
-        doc_width = A4[0] - (28 * mm)
+        frame = Frame(
+            45.60, 50.03, 515.03, 841.69 - 55.15 - 50.03,
+            id='normal',
+            leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0
+        )
+        template = PageTemplate(id='all_pages', frames=frame)
+        doc.addPageTemplates([template])
+        doc_width = 515.03
         elements = []
 
         # 1. Header
-        elements.extend(self.build_header_flowable(doc_width))
-        elements.append(Spacer(1, 3 * mm))
+        doc_num = delivery_note.delivery_note_number or f"DC-{delivery_note.id:05d}"
+        header = self.build_reference_header(doc_width, "DELIVERY CHALLAN", f"Delivery Challan# {doc_num}")
+        elements.append(header)
+        elements.append(Spacer(1, 23.20))
 
-        # 2. Banner
-        banner_data = [
-            [
-                Paragraph("<b>DELIVERY NOTE</b>", self.styles['DocTitle']),
-                Paragraph(f"<b>DELIVERY NO:</b> {delivery_note.delivery_note_number}", self.styles['DocSubTitle'])
-            ]
-        ]
-        banner_table = Table(banner_data, colWidths=[doc_width * 0.6, doc_width * 0.4])
-        banner_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#0d9488')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 5.5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6.5),
-        ]))
-        elements.append(banner_table)
-        elements.append(Spacer(1, 4 * mm))
-
-        # 3. Delivery & Dispatch Details
+        # 2. Party & Meta Block
         cust = delivery_note.customer
         cust_name = cust.name if cust else "N/A"
-        deliv_addr = delivery_note.delivery_address or getattr(cust, 'address', '') or 'N/A'
-        del_date_str = delivery_note.delivery_date.strftime('%d/%m/%Y') if delivery_note.delivery_date else 'N/A'
-        disp_date_str = delivery_note.dispatch_date.strftime('%d/%m/%Y') if delivery_note.dispatch_date else del_date_str
 
-        left_content = [
-            Paragraph("<b>DELIVER TO / SHIP TO</b>", self.styles['MetaLabel']),
-            Spacer(1, 1.5 * mm),
-            Paragraph(f"<b>{cust_name}</b>", ParagraphStyle('CustTitle', fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=self.COLOR_PRIMARY)),
-            Paragraph(f"<b>Delivery Address:</b> {deliv_addr}", self.styles['MetaValue']),
-            Paragraph(f"<b>Contact Person:</b> {delivery_note.receiver_name or getattr(cust, 'phone', 'N/A')} | <b>Phone:</b> {delivery_note.receiver_phone or 'N/A'}", self.styles['MetaValue']),
-            Paragraph(f"<b>Customer PO #:</b> {delivery_note.customer_po_number or 'N/A'}", self.styles['MetaValue']),
+        deliv_date = format_doc_date(delivery_note.delivery_date or delivery_note.dispatch_date)
+        meta_pairs = [
+            ("Challan Date", deliv_date),
+            ("Challan Type", delivery_note.shipping_method or delivery_note.status or "Others")
+        ]
+        if delivery_note.customer_po_number:
+            meta_pairs.append(("Customer PO #", delivery_note.customer_po_number))
+
+        party_meta = self.build_reference_party_and_meta(
+            doc_width,
+            party_label="Deliver To",
+            party_name=cust_name,
+            party_subtext=delivery_note.delivery_address if delivery_note.delivery_address and delivery_note.delivery_address != cust_name else None,
+            meta_pairs=meta_pairs
+        )
+        elements.append(party_meta)
+        elements.append(Spacer(1, 15.10))
+
+        # 3. Items Table
+        items = list(delivery_note.items.all().order_by('sort_order', 'id'))
+        col_widths = [25.73, 274.80, 56.62, 56.63, 101.25]
+        columns = [
+            ("#", "center"),
+            ("Item & Description", "left"),
+            ("Qty", "right"),
+            ("Rate", "right"),
+            ("Amount", "right")
         ]
 
-        right_content = [
-            Paragraph(f"<b>Delivery Date:</b> {del_date_str}", self.styles['MetaValue']),
-            Paragraph(f"<b>Dispatch Date:</b> {disp_date_str}", self.styles['MetaValue']),
-            Paragraph(f"<b>Shipping Method:</b> {delivery_note.shipping_method or 'Standard Courier/Truck'}", self.styles['MetaValue']),
-            Paragraph(f"<b>Driver / Carrier:</b> {delivery_note.driver_name or 'N/A'} ({delivery_note.driver_phone or 'N/A'})", self.styles['MetaValue']),
-            Paragraph(f"<b>Vehicle #:</b> {delivery_note.vehicle_number or 'N/A'} | <b>Tracking #:</b> {delivery_note.tracking_number or 'N/A'}", self.styles['MetaValue']),
-            Paragraph(f"<b>Total Packages:</b> <b>{delivery_note.total_packages}</b>", self.styles['MetaValue']),
-            Spacer(1, 1.5 * mm),
-            Paragraph(f"<b>Status:</b> <b>{delivery_note.status.upper()}</b>", self.styles['MetaValue']),
-        ]
+        table_rows = []
+        sub_total = Decimal('0.00')
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
 
-        meta_table = Table([[left_content, right_content]], colWidths=[doc_width * 0.55, doc_width * 0.45])
-        meta_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), self.COLOR_ROW_ALT),
-            ('BOX', (0, 0), (-1, -1), 0.75, self.COLOR_BORDER),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('PADDING', (0, 0), (-1, -1), 5.5),
-        ]))
-        elements.append(meta_table)
-        elements.append(Spacer(1, 4 * mm))
-
-        # 4. Items Table
-        items = list(delivery_note.items.all())
-        headers = [
-            Paragraph("<b>#</b>", self.styles['TableHeader']),
-            Paragraph("<b>ITEM / DESCRIPTION</b>", self.styles['TableHeader']),
-            Paragraph("<b>QTY</b>", self.styles['TableHeaderRight']),
-            Paragraph("<b>UNIT</b>", self.styles['TableHeader']),
-            Paragraph("<b>PACKAGES</b>", self.styles['TableHeader']),
-            Paragraph("<b>REMARKS / CONDITION</b>", self.styles['TableHeader']),
-        ]
-        col_w = [
-            doc_width * 0.06,
-            doc_width * 0.42,
-            doc_width * 0.10,
-            doc_width * 0.10,
-            doc_width * 0.14,
-            doc_width * 0.18,
-        ]
-
-        table_rows = [headers]
         for idx, itm in enumerate(items, 1):
-            pkg_str = f"{itm.packages_count} {itm.package_type}".strip() if (itm.packages_count or itm.package_type) else "-"
+            qty = float(itm.quantity or 0)
+            rate = float(itm.unit_price or 0)
+            amt = float(itm.total or (qty * rate))
+            sub_total += Decimal(str(amt))
+
+            desc_text = str(itm.description or '').strip()
+            desc_parts = [p.strip() for p in desc_text.split('\n') if p.strip()]
+            if len(desc_parts) > 1:
+                desc_html = f'<font color="#333333">{desc_parts[0]}</font><br/><font color="#727272">{desc_parts[1]}</font>'
+            elif desc_parts:
+                desc_html = f'<font color="#333333">{desc_parts[0]}</font>'
+            else:
+                desc_html = '<font color="#727272">-</font>'
+
             table_rows.append([
-                Paragraph(str(idx), self.styles['TableCell']),
-                Paragraph(str(itm.description), self.styles['TableCell']),
-                Paragraph(f"{float(itm.quantity):,.2f}", self.styles['TableCellRight']),
-                Paragraph(str(itm.unit or 'Unit'), self.styles['TableCell']),
-                Paragraph(pkg_str, self.styles['TableCell']),
-                Paragraph(str(itm.remarks or 'Good condition'), self.styles['TableCell']),
+                str(idx),
+                Paragraph(desc_html, ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                f"{qty:.2f}",
+                f"{rate:,.2f}",
+                f"{amt:,.2f}"
             ])
 
-        items_table = Table(table_rows, colWidths=col_w, repeatRows=1)
-        t_styles = [
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0d9488')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('GRID', (0, 0), (-1, -1), 0.5, self.COLOR_BORDER),
-            ('PADDING', (0, 0), (-1, -1), 3.5),
-        ]
-        for i in range(1, len(table_rows)):
-            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-            t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-            t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-        items_table.setStyle(TableStyle(t_styles))
+        items_table = self.build_reference_items_table(doc_width, columns, table_rows, col_widths=col_widths)
         elements.append(items_table)
-        elements.append(Spacer(1, 5 * mm))
+        elements.append(Spacer(1, 0.75))
 
-        # 5. Customer Receipt & Acknowledgment Box
-        ack_data = [
-            [
-                Paragraph("<b>ACKNOWLEDGMENT OF RECEIPT</b>", ParagraphStyle('AckH', fontName='Helvetica-Bold', fontSize=9, textColor=self.COLOR_PRIMARY)),
-                Paragraph("<b>DISPATCH / CARRIER INFO</b>", ParagraphStyle('AckH2', fontName='Helvetica-Bold', fontSize=9, textColor=self.COLOR_PRIMARY))
-            ],
-            [
-                [
-                    Paragraph("Received the above goods in full quantity and good condition without any damages.", self.styles['TableCell']),
-                    Spacer(1, 4 * mm),
-                    Paragraph("<b>Received By (Print Name):</b> ___________________________", self.styles['TableCell']),
-                    Spacer(1, 2 * mm),
-                    Paragraph("<b>Signature:</b> ____________________   <b>Date:</b> ______________", self.styles['TableCell']),
-                    Spacer(1, 2 * mm),
-                    Paragraph("<b>Company Stamp / Seal:</b> [                         ]", self.styles['TableCell']),
-                ],
-                [
-                    Paragraph(f"<b>Driver Name:</b> {delivery_note.driver_name or 'N/A'}", self.styles['TableCell']),
-                    Paragraph(f"<b>Vehicle Reg:</b> {delivery_note.vehicle_number or 'N/A'}", self.styles['TableCell']),
-                    Paragraph(f"<b>Total Packages Delivered:</b> {delivery_note.total_packages}", self.styles['TableCell']),
-                    Spacer(1, 4 * mm),
-                    Paragraph("<b>Driver Signature:</b> ___________________________", self.styles['TableCell']),
-                ]
-            ]
-        ]
-        ack_table = Table(ack_data, colWidths=[doc_width * 0.60, doc_width * 0.40])
-        ack_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_ROW_ALT),
-            ('BOX', (0, 0), (-1, -1), 0.75, self.COLOR_BORDER),
-            ('LINEBELOW', (0, 0), (-1, 0), 1, self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('PADDING', (0, 0), (-1, -1), 4),
-        ]))
-        elements.append(ack_table)
-
-        def canvas_maker(*args, **kwargs):
-            c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
-            return c
-
-        doc.build(elements, canvasmaker=canvas_maker)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
-
-    def _build_enquiry_attachment_flowable(self, enquiry, max_width=65 * mm, max_height=36 * mm):
-        """
-        Renders attached reference files (PNG, JPEG, WebP, PDF) as an embedded visual thumbnail
-        with file metadata underneath, matching the Arab Season Job Log design standard.
-        """
-        att = getattr(enquiry, 'attachment', None)
-        if not att:
-            return None
-
-        try:
-            raw_bytes = None
-            is_pdf = False
-            att_type = getattr(enquiry, 'attachment_type', '') or ''
-            att_name = getattr(enquiry, 'attachment_name', '') or 'Reference File'
-
-            if str(att).startswith('data:'):
-                header, b64 = att.split(',', 1)
-                raw_bytes = base64.b64decode(b64)
-                if 'application/pdf' in header.lower() or 'pdf' in att_type.lower():
-                    is_pdf = True
-            elif os.path.exists(str(att)):
-                with open(str(att), 'rb') as f:
-                    raw_bytes = f.read()
-                if str(att).lower().endswith('.pdf') or 'pdf' in att_type.lower():
-                    is_pdf = True
-
-            if not raw_bytes:
-                return None
-
-            pil_img = None
-            pdf_sublabel = ''
-
-            if is_pdf:
-                try:
-                    import pymupdf
-                    doc = pymupdf.open(stream=raw_bytes, filetype='pdf')
-                    if len(doc) > 0:
-                        page = doc.load_page(0)
-                        pix = page.get_pixmap(dpi=140)
-                        png_bytes = pix.tobytes('png')
-                        from PIL import Image as PILImage
-                        pil_img = PILImage.open(io.BytesIO(png_bytes))
-                        pdf_sublabel = f" (Page 1 of {len(doc)})"
-                except Exception:
-                    pil_img = None
-            else:
-                try:
-                    from PIL import Image as PILImage
-                    pil_img = PILImage.open(io.BytesIO(raw_bytes))
-                except Exception:
-                    pil_img = None
-
-            if not pil_img:
-                # Fallback info card if image decoding is unsupported
-                return Table([
-                    [Paragraph(f"<b>Attached File:</b> {att_name} ({att_type or 'Document'})", ParagraphStyle('AttFb', fontName='Helvetica', fontSize=7.5, textColor=colors.HexColor('#475569')))]
-                ], colWidths=[max_width], style=[('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')), ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')), ('PADDING', (0, 0), (-1, -1), 4)])
-
-            orig_w, orig_h = pil_img.size
-            scale = min(max_width / orig_w, max_height / orig_h)
-            disp_w = orig_w * scale
-            disp_h = orig_h * scale
-
-            from PIL import Image as PILImage
-            if pil_img.mode in ('RGBA', 'LA', 'P'):
-                bg = PILImage.new('RGB', pil_img.size, (255, 255, 255))
-                if pil_img.mode == 'P':
-                    pil_img = pil_img.convert('RGBA')
-                bg.paste(pil_img, mask=pil_img.split()[-1])
-                pil_img = bg
-            elif pil_img.mode != 'RGB':
-                pil_img = pil_img.convert('RGB')
-
-            out_io = io.BytesIO()
-            pil_img.save(out_io, format='JPEG', quality=88)
-            out_io.seek(0)
-            rl_img = Image(out_io, width=disp_w, height=disp_h)
-
-            sub_text = f"{att_name}{pdf_sublabel} • {orig_w}×{orig_h}px"
-            lbl_p = Paragraph(f"<font color='#64748b' size='6.5'>{sub_text}</font>", ParagraphStyle('AttMeta', fontName='Helvetica', fontSize=6.5, leading=8.5, alignment=1))
-
-            box_w = max(disp_w + 4 * mm, 60 * mm)
-            att_box = Table([[rl_img], [Spacer(1, 0.5 * mm)], [lbl_p]], colWidths=[box_w])
-            att_box.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
-                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-                ('PADDING', (0, 0), (-1, -1), 3),
-            ]))
-            return att_box
-        except Exception:
-            return None
-
-    def generate_enquiry_pdf(self, enquiry):
-        """
-        Generates an elegant, highly understandable Enquiry Details & Timeline PDF.
-        Features:
-        1. Explicitly labeled customer fields (Client Name:, Phone No:, Estimated Amount:, Lead Status:, etc.)
-        2. Clean outer border framing the entire document.
-        3. Visual preview of attached reference files (PNG, JPEG, WebP, PDF) matching Daily Job Log style.
-        4. Step-by-step follow-up timeline history.
-        """
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=12 * mm,
-            rightMargin=12 * mm,
-            topMargin=12 * mm,
-            bottomMargin=12 * mm
+        # 4. Totals Block
+        total_val = float(delivery_note.total_amount or sub_total)
+        words_text = self.number_to_words(total_val)
+        totals_block = self.build_reference_totals(
+            doc_width,
+            sub_total=float(sub_total),
+            total=total_val,
+            words_text=words_text,
+            show_sar_symbol=True
         )
-        doc_width = A4[0] - (24 * mm)
-        elements = []
+        elements.append(totals_block)
+        elements.append(Spacer(1, 23.00))
 
-        # 1. Corporate Header (Logo only - internal document, contact details hidden)
-        elements.extend(self.build_header_flowable(doc_width, show_contact_details=False))
-        elements.append(Spacer(1, 2.5 * mm))
-
-        # 2. Document Title Bar
-        date_str = enquiry.date.strftime('%d/%m/%Y') if enquiry.date else 'N/A'
-        title_style = ParagraphStyle('EnqTitle', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#0f172a'))
-        date_style = ParagraphStyle('EnqDate', fontName='Helvetica', fontSize=8.5, leading=12, alignment=2, textColor=colors.HexColor('#64748b'))
-
-        title_table = Table([
-            [
-                Paragraph(f"<b>ENQUIRY DETAILS</b>", title_style),
-                Paragraph(f"Enquiry No: <b>{enquiry.enquiry_number}</b> &nbsp;|&nbsp; Date: <b>{date_str}</b>", date_style)
-            ]
-        ], colWidths=[doc_width * 0.55, doc_width * 0.45])
-        title_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        elements.append(title_table)
-        elements.append(Spacer(1, 2 * mm))
-
-        # 3. Explicitly Labeled Client & Lead Summary Grid (Requirement 1)
-        cust = enquiry.customer
-        cust_name = cust.name if cust else (enquiry.customer_name or "Walk-in Prospect")
-        phone_val = enquiry.phone or "—"
-        email_val = enquiry.email or "—"
-        curr = self.settings.get('currency', 'SAR')
-        est_val_str = f"{curr} {enquiry.estimated_value:,.2f}" if enquiry.estimated_value else f"{curr} 0.00"
-        status_name = enquiry.get_status_display() if hasattr(enquiry, 'get_status_display') else enquiry.status
-        channel_name = enquiry.get_channel_display() if hasattr(enquiry, 'get_channel_display') else enquiry.channel
-        salesperson_name = enquiry.salesperson.name if enquiry.salesperson else (enquiry.salesperson_name or 'Unassigned')
-        work_title = enquiry.title or "General Requirement"
-
-        status_color = '#1d4ed8' if enquiry.status == 'under_followup' else ('#15803d' if enquiry.status == 'converted' else ('#b91c1c' if enquiry.status == 'cancelled' else '#475569'))
-
-        cell_style = ParagraphStyle('EnqCell', fontName='Helvetica', fontSize=8.2, leading=11, textColor=colors.HexColor('#0f172a'))
-
-        col_w = doc_width / 2.0
-        meta_rows = [
-            [
-                Paragraph(f"<font color='#64748b'><b>Client Name:</b></font> &nbsp; <b>{cust_name}</b>", cell_style),
-                Paragraph(f"<font color='#64748b'><b>Estimated Amount:</b></font> &nbsp; <font color='#0f172a' size='9'><b>{est_val_str}</b></font>", cell_style),
-            ],
-            [
-                Paragraph(f"<font color='#64748b'><b>Phone No:</b></font> &nbsp; <b>{phone_val}</b>", cell_style),
-                Paragraph(f"<font color='#64748b'><b>Lead Status:</b></font> &nbsp; <font color='{status_color}'><b>● {status_name}</b></font>", cell_style),
-            ],
-            [
-                Paragraph(f"<font color='#64748b'><b>Project:</b></font> &nbsp; <b>{work_title}</b>", cell_style),
-                Paragraph(f"<font color='#64748b'><b>Source:</b></font> &nbsp; <b>{channel_name}</b>", cell_style),
-            ],
-            [
-                Paragraph(f"<font color='#64748b'><b>Email Address:</b></font> &nbsp; {email_val}", cell_style),
-                Paragraph(f"<font color='#64748b'><b>Salesperson:</b></font> &nbsp; <b>{salesperson_name}</b>", cell_style),
-            ]
-        ]
-
-        summary_card = Table(meta_rows, colWidths=[col_w, col_w])
-        summary_card.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
-            ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#cbd5e1')),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-            ('PADDING', (0, 0), (-1, -1), 4.5),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        elements.append(summary_card)
-        elements.append(Spacer(1, 3 * mm))
-
-        # 4. Requirements & Attachment Section (Compact Thumbnail Preview)
-        has_desc = bool(enquiry.description and enquiry.description.strip())
-        att_flowable = self._build_enquiry_attachment_flowable(enquiry, max_width=65 * mm, max_height=36 * mm)
-
-        if has_desc or att_flowable:
-            if has_desc and att_flowable:
-                clean_desc = enquiry.description.replace('\n', '<br/>')
-                desc_p = Paragraph(f"<b>Requirements / Specifications:</b><br/>{clean_desc}", ParagraphStyle('Desc', fontName='Helvetica', fontSize=8.2, leading=11.5, textColor=colors.HexColor('#334155')))
-                right_w = 70 * mm
-                left_w = doc_width - right_w
-                desc_table = Table([[desc_p, att_flowable]], colWidths=[left_w, right_w])
-                desc_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ffffff')),
-                    ('BOX', (0, 0), (-1, -1), 0.65, colors.HexColor('#cbd5e1')),
-                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                    ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-                    ('PADDING', (0, 0), (-1, -1), 5),
-                ]))
-            elif has_desc:
-                clean_desc = enquiry.description.replace('\n', '<br/>')
-                desc_p = Paragraph(f"<b>Requirements / Specifications:</b><br/>{clean_desc}", ParagraphStyle('Desc', fontName='Helvetica', fontSize=8.2, leading=11.5, textColor=colors.HexColor('#334155')))
-                desc_table = Table([[desc_p]], colWidths=[doc_width])
-                desc_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ffffff')),
-                    ('BOX', (0, 0), (-1, -1), 0.65, colors.HexColor('#cbd5e1')),
-                    ('PADDING', (0, 0), (-1, -1), 5),
-                ]))
-            else:
-                desc_table = Table([
-                    [Paragraph("<b>Requirements / Reference Attachment:</b>", ParagraphStyle('DescH', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a')))],
-                    [Spacer(1, 1 * mm)],
-                    [att_flowable]
-                ], colWidths=[doc_width])
-                desc_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ffffff')),
-                    ('BOX', (0, 0), (-1, -1), 0.65, colors.HexColor('#cbd5e1')),
-                    ('PADDING', (0, 0), (-1, -1), 5),
-                ]))
-            elements.append(desc_table)
-            elements.append(Spacer(1, 3 * mm))
-
-        # 5. Timeline & Follow-up History (Clean, easy-to-read chronological list)
-        elements.append(Paragraph("<b>Timeline & Call History</b>", ParagraphStyle('TH', fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=colors.HexColor('#0f172a'))))
-        elements.append(Spacer(1, 1.5 * mm))
-
-        timeline_rows = []
-        creator_name = enquiry.created_by.username if enquiry.created_by else "admin"
-        step1_content = [
-            Table([
-                [
-                    Paragraph("<b>Enquiry Received</b>", ParagraphStyle('OTitle1', fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.HexColor('#0f172a'))),
-                    Paragraph(date_str, ParagraphStyle('ODate1', fontName='Helvetica', fontSize=7.8, alignment=2, textColor=colors.HexColor('#64748b')))
-                ]
-            ], colWidths=[(doc_width - 11 * mm) * 0.7, (doc_width - 11 * mm) * 0.3], style=[('PADDING', (0, 0), (-1, -1), 0)]),
-            Spacer(1, 0.5 * mm),
-            Paragraph(f"Received via <b>{channel_name}</b> • Logged by {creator_name}", ParagraphStyle('OSub1', fontName='Helvetica', fontSize=7.8, textColor=colors.HexColor('#64748b')))
-        ]
-        timeline_rows.append(['', step1_content])
-
-        step_idx = 2
-        for fu in enquiry.follow_ups.all().order_by('id'):
-            fu_date_str = fu.date.strftime('%d/%m/%Y, %I:%M %p') if fu.date else 'N/A'
-            fu_outcome = fu.get_outcome_display() if hasattr(fu, 'get_outcome_display') else fu.outcome
-            fu_mode = fu.get_contact_mode_display() if hasattr(fu, 'get_contact_mode_display') else fu.contact_mode
-
-            fu_content = [
-                Table([
-                    [
-                        Paragraph(f"<b>Via {fu_mode}:</b> <font color='#0284c7'><b>{fu_outcome}</b></font>", ParagraphStyle(f'OTitle{step_idx}', fontName='Helvetica', fontSize=8.2, textColor=colors.HexColor('#0f172a'))),
-                        Paragraph(fu_date_str, ParagraphStyle(f'ODate{step_idx}', fontName='Helvetica', fontSize=7.8, alignment=2, textColor=colors.HexColor('#64748b')))
-                    ]
-                ], colWidths=[(doc_width - 11 * mm) * 0.7, (doc_width - 11 * mm) * 0.3], style=[('PADDING', (0, 0), (-1, -1), 0)]),
-            ]
-            if fu.notes and fu.notes.strip():
-                fu_content.extend([
-                    Spacer(1, 0.5 * mm),
-                    Paragraph(f"<b>Notes:</b> {fu.notes}", ParagraphStyle(f'ONotes{step_idx}', fontName='Helvetica', fontSize=7.8, textColor=colors.HexColor('#334155')))
-                ])
-            if fu.next_follow_up_date:
-                fu_content.extend([
-                    Spacer(1, 0.5 * mm),
-                    Paragraph(f"<font color='#d97706'><b>Next Scheduled:</b> {fu.next_follow_up_date.strftime('%d/%m/%Y')}</font>", ParagraphStyle(f'ONext{step_idx}', fontName='Helvetica', fontSize=7.5, textColor=colors.HexColor('#d97706')))
-                ])
-            timeline_rows.append(['', fu_content])
-            step_idx += 1
-
-        tl_table = TimelineTable(timeline_rows, colWidths=[9 * mm, doc_width - 9 * mm])
-        tl_style = [
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('PADDING', (0, 0), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ]
-        for i in range(len(timeline_rows)):
-            tl_style.append(('LINEBELOW', (1, i), (1, i), 0.5, colors.HexColor('#f1f5f9')))
-        tl_table.setStyle(TableStyle(tl_style))
-        elements.append(tl_table)
-
-        def canvas_maker(*args, **kwargs):
-            c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
-            c.draw_outer_border = True
-            c.outer_border_margin = 6 * mm
-            return c
-
-        doc.build(elements, canvasmaker=canvas_maker)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
-
-    def number_to_words(self, amount):
-        """Converts currency amount to legal English words with SAR and Halalas."""
-        try:
-            val = float(str(amount or 0).replace(',', '').replace('SAR', '').strip())
-        except (ValueError, TypeError):
-            return "Zero Saudi Riyals Only"
-
-        ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-                "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-                "Seventeen", "Eighteen", "Nineteen"]
-        tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
-
-        def _convert_below_thousand(n):
-            if n == 0:
-                return ""
-            if n < 20:
-                return ones[n]
-            if n < 100:
-                return tens[n // 10] + (" " + ones[n % 10] if n % 10 != 0 else "")
-            return ones[n // 100] + " Hundred" + (" and " + _convert_below_thousand(n % 100) if n % 100 != 0 else "")
-
-        whole = int(val)
-        halalas = int(round((val - whole) * 100))
-
-        if whole == 0 and halalas == 0:
-            return "Zero Saudi Riyals Only"
-
-        chunks = []
-        scales = ["", "Thousand", "Million", "Billion"]
-        chunk_idx = 0
-        rem = whole
-        while rem > 0 and chunk_idx < len(scales):
-            c = rem % 1000
-            if c != 0:
-                words = _convert_below_thousand(c)
-                if scales[chunk_idx]:
-                    words += " " + scales[chunk_idx]
-                chunks.insert(0, words)
-            rem //= 1000
-            chunk_idx += 1
-
-        whole_words = " ".join(chunks) if chunks else "Zero"
-        currency = self.settings.get('currency', 'SAR')
-        curr_name = "Saudi Riyals" if currency == 'SAR' else currency
-        result = f"{whole_words} {curr_name}"
-        if halalas > 0:
-            result += f" and {_convert_below_thousand(halalas)} Halalas"
-        return f"{result} Only"
-
-    def generate_universal_table_pdf(self, title, columns, rows, kpis=None, ref_number=None, period_text=None, totals=None, filename_prefix='report', orientation='portrait'):
-        """
-        Universal corporate table report PDF matching the exact publication layout of timesheet_report_pdf.
-        """
-        from reportlab.lib.pagesizes import A4, landscape
-        buffer = io.BytesIO()
-        margin = 10 * mm if orientation == 'landscape' else 12 * mm
-        psize = landscape(A4) if orientation == 'landscape' else A4
-        doc_title = format_dynamic_filename(filename_prefix or 'report', title or 'report', ext='')
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=psize,
-            leftMargin=margin,
-            rightMargin=margin,
-            topMargin=margin,
-            bottomMargin=margin + 8 * mm,
-            title=doc_title,
-            author=self.settings.get('company_name', 'Arab Season')
+        # 5. Signatures and Notes
+        sigs = self.build_reference_signatures_and_notes(
+            doc_width,
+            notes=delivery_note.notes,
+            signature_style='single'
         )
+        elements.extend(sigs)
 
-        doc_width = psize[0] - (2 * margin)
-        elements = []
-
-        # 1. Standard Branded Corporate Header
-        elements.extend(self.build_header_flowable(doc_width))
-
-        # 2. Document Title Banner
-        ref = ref_number or f"REP-{datetime.now().strftime('%Y%m%d')}"
-        period = period_text or f"Generated: {datetime.now().strftime('%d/%m/%Y')} • {len(rows)} Records"
-        banner = self.build_doc_title_banner(doc_width, title=title, ref_number=ref, period_text=period)
-        elements.append(banner)
-        elements.append(Spacer(1, 4 * mm))
-
-        # 3. Optional KPI Summary Cards
-        if kpis and isinstance(kpis, list) and len(kpis) > 0:
-            elements.append(self.build_kpi_cards_flowable(doc_width, kpis))
-            elements.append(Spacer(1, 5 * mm))
-
-        # 4. Standardized Table
-        normalized_cols = []
-        for col in columns:
-            if isinstance(col, dict):
-                normalized_cols.append({
-                    'header': str(col.get('header') or col.get('title') or '').upper(),
-                    'key': str(col.get('key') or col.get('dataKey') or ''),
-                    'align': col.get('align', 'left'),
-                    'width': float(col.get('width') or 0)
-                })
-            else:
-                normalized_cols.append({
-                    'header': str(col).upper(),
-                    'key': str(col),
-                    'align': 'left',
-                    'width': 0
-                })
-
-        num_cols = len(normalized_cols) or 1
-        total_given_w = sum(c['width'] for c in normalized_cols)
-        if total_given_w > 0:
-            col_widths = [doc_width * (c['width'] / total_given_w) for c in normalized_cols]
-        else:
-            col_widths = [doc_width / num_cols] * num_cols
-
-        # Header Row
-        header_cells = []
-        for c in normalized_cols:
-            style = self.styles['TableHeaderCenter'] if c['align'] == 'center' else (self.styles['TableHeaderRight'] if c['align'] == 'right' else self.styles['TableHeader'])
-            header_cells.append(Paragraph(f"<b>{c['header']}</b>", style))
-
-        table_rows = [header_cells]
-
-        # Data Rows
-        for r in rows:
-            row_cells = []
-            for c in normalized_cols:
-                key = c['key']
-                val = r.get(key, '') if isinstance(r, dict) else (r[normalized_cols.index(c)] if isinstance(r, (list, tuple)) and normalized_cols.index(c) < len(r) else '')
-                val_str = str(val) if val is not None else ''
-
-                align = c['align']
-                if align == 'right' or (val_str.startswith(('SAR', '+', '-')) and any(ch.isdigit() for ch in val_str)):
-                    if val_str.startswith('+'):
-                        st = self.styles['TableCellCredit']
-                    elif val_str.startswith('-'):
-                        st = self.styles['TableCellDebit']
-                    else:
-                        st = self.styles['TableCellNumber']
-                elif align == 'center':
-                    st = self.styles['TableCellCenter']
-                else:
-                    st = self.styles['TableCell']
-
-                row_cells.append(Paragraph(val_str, st))
-            table_rows.append(row_cells)
-
-        # Totals Row (optional)
-        if totals and isinstance(totals, dict):
-            tot_cells = []
-            for idx, c in enumerate(normalized_cols):
-                tot_val = totals.get(c['key']) or totals.get(c['header'])
-                if tot_val is not None:
-                    tot_cells.append(Paragraph(f"<b>{tot_val}</b>", self.styles['TableCellNumber']))
-                elif idx == 0:
-                    tot_cells.append(Paragraph("<b>TOTALS</b>", self.styles['TableCellBold']))
-                else:
-                    tot_cells.append(Paragraph("", self.styles['TableCell']))
-            table_rows.append(tot_cells)
-
-        main_table = Table(table_rows, colWidths=col_widths, repeatRows=1)
-        t_styles = [
-            ('BACKGROUND', (0, 0), (-1, 0), self.COLOR_PRIMARY),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 3.5),
-        ]
-        has_totals = bool(totals)
-        end_idx = len(table_rows) - 1 if has_totals else len(table_rows)
-        for i in range(1, end_idx):
-            bg = self.COLOR_WHITE if i % 2 == 1 else self.COLOR_ROW_ALT
-            t_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
-            t_styles.append(('LINEBELOW', (0, i), (-1, i), 0.5, self.COLOR_BORDER))
-
-        if has_totals:
-            t_styles.append(('BACKGROUND', (0, -1), (-1, -1), self.COLOR_ROW_ALT))
-            t_styles.append(('LINEABOVE', (0, -1), (-1, -1), 1.2, self.COLOR_PRIMARY))
-            t_styles.append(('PADDING', (0, -1), (-1, -1), 4.5))
-
-        main_table.setStyle(TableStyle(t_styles))
-        elements.append(main_table)
-
-        # 5. Standard 3-Column Verification Signatures
-        elements.append(Spacer(1, 8 * mm))
-        elements.append(self.build_signatures_flowable(doc_width))
-
-        def canvas_maker(*args, **kwargs):
-            c = NumberedCanvas(*args, **kwargs)
-            c.company_name = self.settings['company_name']
-            c.draw_outer_border = True
-            c.outer_border_margin = 6 * mm
-            return c
-
-        doc.build(elements, canvasmaker=canvas_maker)
-        pdf_bytes = buffer.getvalue()
+        doc.build(elements, canvasmaker=NumberedCanvas)
+        pdf_data = buffer.getvalue()
         buffer.close()
-        return pdf_bytes
+        return pdf_data
 
     def generate_payment_voucher_pdf(self, voucher_data):
         """

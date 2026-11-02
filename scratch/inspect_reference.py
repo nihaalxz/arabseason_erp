@@ -1,51 +1,29 @@
-import fitz
-import json
+import pdfplumber
+import subprocess
 
-doc = fitz.open('design-reference/DC-00002.pdf')
-page = doc[0]
+print("=== PDF FONTS (REFERENCE) ===")
+try:
+    res = subprocess.run(["pdffonts", "design-reference/DC-00002.pdf"], capture_output=True, text=True)
+    print(res.stdout)
+except Exception as e:
+    print("pdffonts CLI error:", e)
 
-print('=== PAGE RECT ===')
-print(f'Width: {page.rect.width}, Height: {page.rect.height}')
+with pdfplumber.open('design-reference/DC-00002.pdf') as pdf:
+    p0 = pdf.pages[0]
+    print(f"Page dimensions: width={p0.width}, height={p0.height}")
+    print("\n=== WORDS IN REFERENCE (top-left origin) ===")
+    words = p0.extract_words(extra_attrs=['fontname', 'size'])
+    for w in words:
+        print(f"{w['text']:<32} | x0={w['x0']:6.2f}, top={w['top']:6.2f}, x1={w['x1']:6.2f}, bottom={w['bottom']:6.2f}, size={w['size']:4.1f}, font={w['fontname']}")
 
-print('\n=== DRAWINGS / RECTS ===')
-drawings = page.get_drawings()
-for i, d in enumerate(drawings):
-    rect = [round(x, 2) for x in d.get('rect', [])]
-    fill = d.get('fill')
-    color = d.get('color')
-    width = d.get('width')
-    items = d.get('items', [])
-    print(f'Drawing {i}: rect={rect}, fill={fill}, stroke={color}, width={width}, items_count={len(items)}')
-    for it in items[:3]:
-        print('   ', it)
+    print("\n=== RECTS IN REFERENCE ===")
+    for r in p0.rects:
+        print(f"Rect: x0={r['x0']:6.2f}, top={r['top']:6.2f}, x1={r['x1']:6.2f}, bottom={r['bottom']:6.2f}, w={r['width']:6.2f}, h={r['height']:6.2f}, fill={r.get('fill')}, non_stroking_color={r.get('non_stroking_color')}")
 
-print('\n=== IMAGES ON PAGE ===')
-for img_info in page.get_images(full=True):
-    xref = img_info[0]
-    base_image = doc.extract_image(xref)
-    print(f'Image xref {xref}: format {base_image["ext"]}, size {base_image["width"]}x{base_image["height"]}')
-    # save image
-    with open(f'design-reference/extracted_img_{xref}.{base_image["ext"]}', 'wb') as img_f:
-        img_f.write(base_image['image'])
+    print("\n=== LINES IN REFERENCE ===")
+    for l in p0.lines:
+        print(f"Line: x0={l['x0']:6.2f}, top={l['top']:6.2f}, x1={l['x1']:6.2f}, bottom={l['bottom']:6.2f}, stroke={l.get('stroke')}")
 
-print('\n=== TEXT BLOCKS & SPANS ===')
-blocks = page.get_text('dict')['blocks']
-for b in blocks:
-    if 'lines' in b:
-        for line in b['lines']:
-            for span in line['spans']:
-                text = span['text']
-                font = span['font']
-                size = span['size']
-                c = span['color']
-                r = (c >> 16) & 255
-                g = (c >> 8) & 255
-                blue = c & 255
-                hex_col = f'#{r:02x}{g:02x}{blue:02x}'
-                bbox = [round(x, 2) for x in span['bbox']]
-                print(f'{bbox} | {font:20s} | sz={size:5.2f} | {hex_col} | {repr(text)}')
-    elif 'image' in b:
-        print(f'Image block bbox: {[round(x, 2) for x in b["bbox"]]}')
-
-doc.close()
-
+    print("\n=== IMAGES IN REFERENCE ===")
+    for img in p0.images:
+        print(f"Image: x0={img['x0']:6.2f}, top={img['top']:6.2f}, x1={img['x1']:6.2f}, bottom={img['bottom']:6.2f}, w={img['width']:6.2f}, h={img['height']:6.2f}")
