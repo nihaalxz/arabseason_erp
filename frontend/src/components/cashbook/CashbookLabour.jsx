@@ -459,7 +459,9 @@ export default function CashbookLabour({
           { item: l.work_done || l.work_description || 'Labour Services', qty: '1', rate: formatCurrency(tot), amount: formatCurrency(tot) },
           ...(pd > 0 ? [{ item: 'Amount Disbursed / Paid', qty: '1', rate: formatCurrency(pd), amount: formatCurrency(pd) }] : [])
         ],
-        notes: `Total Wage: SAR ${tot.toFixed(2)} | Paid: SAR ${pd.toFixed(2)} | Balance Due: SAR ${bal.toFixed(2)}. Worker acknowledges receipt and work completion.`
+        paidAmount: pd,
+        balanceDue: bal,
+        notes: ''
       }
     }
     // Ledger summary voucher
@@ -480,7 +482,9 @@ export default function CashbookLabour({
         rate: formatCurrency(e.payment_amount || 0),
         amount: formatCurrency(e.paid_amount || e.payment_amount || 0)
       })),
-      notes: `Total Work: SAR ${(l.totalAmount || 0).toFixed(2)} | Paid: SAR ${(l.paidAmount || 0).toFixed(2)} | Due: SAR ${(l.dueAmount || 0).toFixed(2)}. Wage payout sign-off.`
+      paidAmount: l.paidAmount || 0,
+      balanceDue: l.dueAmount || 0,
+      notes: ''
     }
   }
 

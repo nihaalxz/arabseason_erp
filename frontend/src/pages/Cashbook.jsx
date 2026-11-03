@@ -836,9 +836,7 @@ const Cashbook = ({ currentUser = null }) => {
     vendor: '',
     payee: '',
     invoice_number: '',
-    recurring: 'No',
     description: '',
-    notes: '',
     syncCashbook: false
   })
 
@@ -1341,7 +1339,6 @@ const Cashbook = ({ currentUser = null }) => {
         type: effectiveType,
         date: expenseFormData.date,
         description: expenseFormData.description?.trim() || fallbackDesc,
-        notes: expenseFormData.notes?.trim() || '',
         job_order: expenseFormData.project ? parseInt(expenseFormData.project, 10) : null,
         vendor: matchedVendorId,
         custom_fields: {
@@ -1352,8 +1349,7 @@ const Cashbook = ({ currentUser = null }) => {
           petty_cash_account_name: effectivePettyCashObj?.name || expenseFormData.petty_cash_account_name || '',
           vendor: matchedVendorId,
           payee: expenseFormData.payee?.trim() || (matchedVendor ? matchedVendor.name : ''),
-          invoice_number: expenseFormData.invoice_number?.trim() || '',
-          recurring: expenseFormData.recurring || 'No'
+          invoice_number: expenseFormData.invoice_number?.trim() || ''
         }
       }
 
@@ -1403,7 +1399,6 @@ const Cashbook = ({ currentUser = null }) => {
         ...prev,
         amount: '',
         description: '',
-        notes: '',
         vendor: '',
         payee: '',
         invoice_number: '',
@@ -1455,9 +1450,7 @@ const Cashbook = ({ currentUser = null }) => {
         vendor: expenseItem.vendor ? String(expenseItem.vendor) : '',
         payee: expenseItem.custom_fields?.payee || expenseItem.vendor_name || expenseItem.payee || '',
         invoice_number: expenseItem.custom_fields?.invoice_number || expenseItem.reference_number || '',
-        recurring: expenseItem.custom_fields?.recurring || 'No',
         description: expenseItem.description || '',
-        notes: expenseItem.notes || '',
         syncCashbook: false
       })
     } else {
@@ -1475,9 +1468,7 @@ const Cashbook = ({ currentUser = null }) => {
         vendor: '',
         payee: '',
         invoice_number: '',
-        recurring: 'No',
         description: '',
-        notes: '',
         syncCashbook: false
       })
     }
@@ -9975,10 +9966,10 @@ const Cashbook = ({ currentUser = null }) => {
         maxWidth="760px"
         title={
           <div>
-            <div style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em' }}>
+            <div style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em', color: isDarkMode ? '#FFFFFF' : 'var(--text, #111111)' }}>
               {'New Expense'}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #8C8C8C)', fontWeight: 400, marginTop: '2px' }}>
+            <div style={{ fontSize: '0.8rem', color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)', fontWeight: 400, marginTop: '2px' }}>
               Record a project or company cost.
             </div>
           </div>
@@ -10020,9 +10011,15 @@ const Cashbook = ({ currentUser = null }) => {
                   style={{
                     padding: '0.42rem 1rem',
                     borderRadius: '9999px',
-                    border: isSelected ? '1.5px solid var(--text, #111)' : '1px solid var(--border, #E4E4E4)',
-                    background: isSelected ? 'var(--text, #111)' : 'transparent',
-                    color: isSelected ? '#fff' : 'var(--text-muted, #8C8C8C)',
+                    border: isSelected
+                      ? (isDarkMode ? '1.5px solid #FFFFFF' : '1.5px solid #0A0A0A')
+                      : (isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'),
+                    background: isSelected
+                      ? (isDarkMode ? '#FFFFFF' : '#0A0A0A')
+                      : (isDarkMode ? 'rgba(255, 255, 255, 0.04)' : 'transparent'),
+                    color: isSelected
+                      ? (isDarkMode ? '#0A0A0A' : '#FFFFFF')
+                      : (isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)'),
                     fontSize: '0.82rem',
                     fontWeight: isSelected ? '700' : '500',
                     cursor: 'pointer',
@@ -10040,19 +10037,19 @@ const Cashbook = ({ currentUser = null }) => {
             {/* Category */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="cred-form-label" style={{ marginBottom: 0 }}>
+                <label className="cred-form-label" style={{ marginBottom: 0, color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>
                   Category <span className="cred-required-dot" />
                 </label>
                 {!isAddingExpenseCategory && (
                   <button type="button" onClick={() => { setIsAddingExpenseCategory(true); setNewExpenseCategoryInput('') }}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent, #0066FF)', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    style={{ background: 'none', border: 'none', color: isDarkMode ? '#60A5FA' : 'var(--accent, #0066FF)', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <Plus size={13} strokeWidth={2.5} /> Add Category
                   </button>
                 )}
               </div>
               {isAddingExpenseCategory ? (
-                <div style={{ background: 'var(--fill-ghost-hover, #F4F4F4)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '12px', padding: '0.65rem 0.75rem' }}>
-                  <div style={{ fontSize: '0.74rem', fontWeight: '600', color: 'var(--text, #111)', marginBottom: '0.35rem' }}>Add New Category</div>
+                <div style={{ background: isDarkMode ? '#181A1F' : 'var(--fill-ghost-hover, #F4F4F4)', border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)', borderRadius: '12px', padding: '0.65rem 0.75rem' }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: '600', color: isDarkMode ? '#FFFFFF' : 'var(--text, #111)', marginBottom: '0.35rem' }}>Add New Category</div>
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                     <input
                       type="text"
@@ -10060,7 +10057,7 @@ const Cashbook = ({ currentUser = null }) => {
                       value={newExpenseCategoryInput}
                       onChange={(e) => setNewExpenseCategoryInput(e.target.value)}
                       autoFocus
-                      style={{ flex: 1, minWidth: 0, height: '36px' }}
+                      style={{ flex: 1, minWidth: 0, height: '36px', background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111', border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)' }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') { e.preventDefault(); handleAddCustomExpenseCategory() }
                         else if (e.key === 'Escape') { setIsAddingExpenseCategory(false); setNewExpenseCategoryInput('') }
@@ -10079,28 +10076,44 @@ const Cashbook = ({ currentUser = null }) => {
                     if (e.target.value === '__add_new_cat__') { setIsAddingExpenseCategory(true); setNewExpenseCategoryInput('') }
                     else setExpenseFormData(prev => ({ ...prev, category: e.target.value }))
                   }}
+                  style={{
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: isDarkMode ? '#141517' : '#FFFFFF',
+                    color: isDarkMode ? '#FFFFFF' : '#111111',
+                    border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'
+                  }}
                 >
-                  {activeGroupCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  <option value="__add_new_cat__" style={{ fontWeight: '700' }}>+ Add New Category...</option>
+                  {activeGroupCategories.map(cat => <option key={cat} value={cat} style={{ background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111' }}>{cat}</option>)}
+                  <option value="__add_new_cat__" style={{ fontWeight: '700', background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#60A5FA' : '#0066FF' }}>+ Add New Category...</option>
                 </select>
               )}
             </div>
 
             {/* Date */}
             <div>
-              <label className="cred-form-label">Date <span className="cred-required-dot" /></label>
+              <label className="cred-form-label" style={{ color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Date <span className="cred-required-dot" /></label>
               <input type="date" className="cred-input"
                 value={expenseFormData.date}
-                onChange={(e) => setExpenseFormData(prev => ({ ...prev, date: e.target.value }))} />
+                onChange={(e) => setExpenseFormData(prev => ({ ...prev, date: e.target.value }))}
+                style={{
+                  height: '40px',
+                  borderRadius: '12px',
+                  background: isDarkMode ? '#141517' : '#FFFFFF',
+                  color: isDarkMode ? '#FFFFFF' : '#111111',
+                  border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)',
+                  colorScheme: isDarkMode ? 'dark' : 'light'
+                }}
+              />
             </div>
 
             {/* Vendor / Payee */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="cred-form-label" style={{ marginBottom: 0 }}>Vendor / Payee</label>
+                <label className="cred-form-label" style={{ marginBottom: 0, color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Vendor / Payee</label>
                 {expenseFormData.vendor && (
                   <button type="button" onClick={() => setExpenseFormData(prev => ({ ...prev, vendor: '', payee: '' }))}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted, #8C8C8C)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
+                    style={{ background: 'none', border: 'none', color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
                     ✕ Clear
                   </button>
                 )}
@@ -10151,10 +10164,10 @@ const Cashbook = ({ currentUser = null }) => {
             {/* Project / Job Order */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="cred-form-label" style={{ marginBottom: 0 }}>Project / Job Order</label>
+                <label className="cred-form-label" style={{ marginBottom: 0, color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Project / Job Order</label>
                 {expenseFormData.project && (
                   <button type="button" onClick={() => setExpenseFormData(prev => ({ ...prev, project: '' }))}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted, #8C8C8C)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
+                    style={{ background: 'none', border: 'none', color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
                     ✕ Clear link
                   </button>
                 )}
@@ -10192,8 +10205,8 @@ const Cashbook = ({ currentUser = null }) => {
                 const purchaseCosts = parseFloat(selectedJob.purchase_expenses || 0)
                 const directCosts = vendorCosts + purchaseCosts
                 return (
-                  <div style={{ fontSize: '0.71rem', color: 'var(--text-muted, #8C8C8C)', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    Total: <strong style={{ color: 'var(--text, #111)' }}>SAR {safeFormatAmount(totalAmt)}</strong> • Direct Costs: <strong style={{ color: 'var(--text, #111)' }}>SAR {safeFormatAmount(directCosts)}</strong>
+                  <div style={{ fontSize: '0.71rem', color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    Total: <strong style={{ color: isDarkMode ? '#FFFFFF' : 'var(--text, #111)' }}>SAR {safeFormatAmount(totalAmt)}</strong> • Direct Costs: <strong style={{ color: isDarkMode ? '#FFFFFF' : 'var(--text, #111)' }}>SAR {safeFormatAmount(directCosts)}</strong>
                     {selectedJob.status && <span> • {selectedJob.status}</span>}
                   </div>
                 )
@@ -10203,17 +10216,26 @@ const Cashbook = ({ currentUser = null }) => {
             {/* Invoice / receipt */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="cred-form-label" style={{ marginBottom: 0 }}>Invoice / receipt</label>
+                <label className="cred-form-label" style={{ marginBottom: 0, color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Invoice / receipt</label>
                 <button type="button" onClick={() => setIsManualInvoiceInput(prev => !prev)}
-                  style={{ background: 'none', border: 'none', color: 'var(--accent, #0066FF)', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', padding: 0 }}>
-                  {isManualInvoiceInput ? 'Choose from list' : '+ Enter manual #'}
+                  style={{ background: 'none', border: 'none', color: isDarkMode ? '#60A5FA' : 'var(--accent, #0066FF)', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', padding: 0 }}>
+                  {isManualInvoiceInput ? 'Choose from list' : '+ Enter manual'}
                 </button>
               </div>
               {isManualInvoiceInput ? (
                 <input type="text" className="cred-input"
                   value={expenseFormData.invoice_number}
                   onChange={(e) => setExpenseFormData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                  autoFocus />
+                  placeholder="e.g. INV-2026-001"
+                  autoFocus
+                  style={{
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: isDarkMode ? '#141517' : '#FFFFFF',
+                    color: isDarkMode ? '#FFFFFF' : '#111111',
+                    border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'
+                  }}
+                />
               ) : (
                 <CashbookSelect
                   value={expenseFormData.invoice_number || ''}
@@ -10245,45 +10267,27 @@ const Cashbook = ({ currentUser = null }) => {
               )}
             </div>
 
-            {/* Recurring? */}
-            <div>
-              <label className="cred-form-label">Recurring?</label>
-              <CashbookSelect
-                value={expenseFormData.recurring || 'No'}
-                onChange={(val) => setExpenseFormData(prev => ({ ...prev, recurring: val }))}
-                options={[
-                  { id: 'No', label: 'No' },
-                  { id: 'Yes - Weekly', label: 'Yes - Weekly' },
-                  { id: 'Yes - Monthly', label: 'Yes - Monthly' },
-                  { id: 'Yes - Quarterly', label: 'Yes - Quarterly' },
-                  { id: 'Yes - Yearly', label: 'Yes - Yearly' }
-                ]}
-                variant="modal-field"
-                isDark={isDarkMode}
-              />
-            </div>
-
             {/* Description */}
             <div>
-              <label className="cred-form-label">Description</label>
+              <label className="cred-form-label" style={{ color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Description</label>
               <input type="text" className="cred-input" placeholder="Optional brief description"
                 value={expenseFormData.description}
-                onChange={(e) => setExpenseFormData(prev => ({ ...prev, description: e.target.value }))} />
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="cred-form-label">Notes</label>
-              <input type="text" className="cred-input" placeholder="Optional remarks / memo"
-                value={expenseFormData.notes}
-                onChange={(e) => setExpenseFormData(prev => ({ ...prev, notes: e.target.value }))} />
+                onChange={(e) => setExpenseFormData(prev => ({ ...prev, description: e.target.value }))}
+                style={{
+                  height: '40px',
+                  borderRadius: '12px',
+                  background: isDarkMode ? '#141517' : '#FFFFFF',
+                  color: isDarkMode ? '#FFFFFF' : '#111111',
+                  border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'
+                }}
+              />
             </div>
 
             {/* Payment method */}
             <div style={{
               gridColumn: (expenseFormData.payment_method === 'Petty Cash' || expenseFormData.payment_method === 'Bank Transfer') ? '1' : '1 / -1'
             }}>
-              <label className="cred-form-label">Payment method</label>
+              <label className="cred-form-label" style={{ color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Payment method</label>
               <select className="cred-select"
                 value={expenseFormData.payment_method}
                 onChange={(e) => {
@@ -10301,15 +10305,24 @@ const Cashbook = ({ currentUser = null }) => {
                     } : { petty_cash_account: '', petty_cash_account_name: '' })
                   }))
                 }}
+                style={{
+                  height: '40px',
+                  borderRadius: '12px',
+                  background: isDarkMode ? '#141517' : '#FFFFFF',
+                  color: isDarkMode ? '#FFFFFF' : '#111111',
+                  border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'
+                }}
               >
-                {PAYMENT_MODES.filter(m => m !== 'All').map(m => <option key={m} value={m}>{m}</option>)}
+                {PAYMENT_MODES.filter(m => m !== 'All').map(m => (
+                  <option key={m} value={m} style={{ background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111' }}>{m}</option>
+                ))}
               </select>
             </div>
 
             {/* Bank account (conditional) */}
             {expenseFormData.payment_method === 'Bank Transfer' && (
               <div>
-                <label className="cred-form-label">Select Bank <span className="cred-required-dot" /></label>
+                <label className="cred-form-label" style={{ color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Select Bank <span className="cred-required-dot" /></label>
                 {banks.length === 0 ? (
                   <div style={{ fontSize: '0.78rem', color: '#ef4444', padding: '0.45rem 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <AlertTriangle size={15} /><span>No active banks found in Banks module.</span>
@@ -10321,9 +10334,21 @@ const Cashbook = ({ currentUser = null }) => {
                       const selectedId = e.target.value
                       const bObj = banks.find(b => String(b.id) === String(selectedId))
                       setExpenseFormData(prev => ({ ...prev, bank_account: selectedId, bank_account_name: bObj?.bank_name || '' }))
-                    }}>
-                    <option value="">-- Select Bank Account --</option>
-                    {banks.map(b => <option key={b.id} value={b.id}>{b.bank_name} {b.account_number ? `(${b.account_number})` : ''} - Balance: {safeFormatAmount(b.current_balance ?? b.balance ?? 0)} SAR</option>)}
+                    }}
+                    style={{
+                      height: '40px',
+                      borderRadius: '12px',
+                      background: isDarkMode ? '#141517' : '#FFFFFF',
+                      color: isDarkMode ? '#FFFFFF' : '#111111',
+                      border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'
+                    }}
+                  >
+                    <option value="" style={{ background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111' }}>-- Select Bank Account --</option>
+                    {banks.map(b => (
+                      <option key={b.id} value={b.id} style={{ background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111' }}>
+                        {b.bank_name} {b.account_number ? `(${b.account_number})` : ''} - Balance: {safeFormatAmount(b.current_balance ?? b.balance ?? 0)} SAR
+                      </option>
+                    ))}
                   </select>
                 )}
               </div>
@@ -10333,23 +10358,23 @@ const Cashbook = ({ currentUser = null }) => {
             {expenseFormData.payment_method === 'Petty Cash' && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label className="cred-form-label" style={{ marginBottom: 0 }}>Petty Cash <span className="cred-required-dot" /></label>
+                  <label className="cred-form-label" style={{ marginBottom: 0, color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Petty Cash <span className="cred-required-dot" /></label>
                   {!isAddingPettyCashAccount && (
                     <button type="button" onClick={() => { setIsAddingPettyCashAccount(true); setNewPettyCashAccountName(''); setNewPettyCashAccountHolder('') }}
-                      style={{ background: 'none', border: 'none', color: 'var(--accent, #0066FF)', fontSize: '0.76rem', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
+                      style={{ background: 'none', border: 'none', color: isDarkMode ? '#60A5FA' : 'var(--accent, #0066FF)', fontSize: '0.76rem', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
                       <Plus size={12} strokeWidth={2.5} /> Add
                     </button>
                   )}
                 </div>
                 {isAddingPettyCashAccount ? (
-                  <div style={{ background: 'var(--fill-ghost-hover, #F4F4F4)', border: '1px solid var(--border, #E4E4E4)', borderRadius: '12px', padding: '0.65rem 0.75rem' }}>
-                    <div style={{ fontSize: '0.74rem', fontWeight: '600', color: 'var(--text, #111)', marginBottom: '0.35rem' }}>Add Dedicated Petty Cash Account</div>
+                  <div style={{ background: isDarkMode ? '#181A1F' : 'var(--fill-ghost-hover, #F4F4F4)', border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)', borderRadius: '12px', padding: '0.65rem 0.75rem' }}>
+                    <div style={{ fontSize: '0.74rem', fontWeight: '600', color: isDarkMode ? '#FFFFFF' : 'var(--text, #111)', marginBottom: '0.35rem' }}>Add Dedicated Petty Cash Account</div>
                     <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <input type="text" className="cred-input"
                         value={newPettyCashAccountName}
                         onChange={(e) => setNewPettyCashAccountName(e.target.value)}
                         placeholder="Account name (e.g. Nizam PC)"
-                        style={{ flex: 1, minWidth: '130px', height: '36px' }}
+                        style={{ flex: 1, minWidth: '130px', height: '36px', background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111', border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)' }}
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') { e.preventDefault(); handleCreatePettyCashAccountInline() }
@@ -10374,9 +10399,21 @@ const Cashbook = ({ currentUser = null }) => {
                         setSelectedPettyCashAccountId(pId)
                         setExpenseFormData(prev => ({ ...prev, petty_cash_account: pId, petty_cash_account_name: pObj?.name || '' }))
                       }
-                    }}>
-                    <option value="">-- Select Petty Cash Account / Person --</option>
-                    {userPettyCashAccounts.map(a => <option key={a.id} value={a.id}>{a.name} ({safeFormatAmount(a.balance || 0)} SAR)</option>)}
+                    }}
+                    style={{
+                      height: '40px',
+                      borderRadius: '12px',
+                      background: isDarkMode ? '#141517' : '#FFFFFF',
+                      color: isDarkMode ? '#FFFFFF' : '#111111',
+                      border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'
+                    }}
+                  >
+                    <option value="" style={{ background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111' }}>-- Select Petty Cash Account / Person --</option>
+                    {userPettyCashAccounts.map(a => (
+                      <option key={a.id} value={a.id} style={{ background: isDarkMode ? '#141517' : '#FFFFFF', color: isDarkMode ? '#FFFFFF' : '#111111' }}>
+                        {a.name} ({safeFormatAmount(a.balance || 0)} SAR)
+                      </option>
+                    ))}
                   </select>
                 )}
               </div>
@@ -10384,14 +10421,23 @@ const Cashbook = ({ currentUser = null }) => {
 
             {/* Amount */}
             <div style={{ gridColumn: '1 / -1' }}>
-              <label className="cred-form-label">Amount <span className="cred-required-dot" /></label>
+              <label className="cred-form-label" style={{ color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)' }}>Amount <span className="cred-required-dot" /></label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted, #8C8C8C)', pointerEvents: 'none' }}>SAR</span>
+                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.85rem', fontWeight: '700', color: isDarkMode ? '#9CA3AF' : 'var(--text-muted, #8C8C8C)', pointerEvents: 'none' }}>SAR</span>
                 <input type="text" required className="cred-input"
                   value={expenseFormData.amount}
                   onChange={(e) => setExpenseFormData(prev => ({ ...prev, amount: e.target.value }))}
                   placeholder="0.00"
-                  style={{ paddingLeft: '3.1rem', fontWeight: '700', fontSize: '1rem' }} />
+                  style={{
+                    paddingLeft: '3.1rem',
+                    fontWeight: '700',
+                    fontSize: '1rem',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: isDarkMode ? '#141517' : '#FFFFFF',
+                    color: isDarkMode ? '#FFFFFF' : '#111111',
+                    border: isDarkMode ? '1px solid #282B32' : '1px solid var(--border, #E4E4E4)'
+                  }} />
               </div>
             </div>
           </div>

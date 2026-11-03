@@ -144,12 +144,12 @@ const CashbookSelect = ({
   const triggerBg = isSidebarDark 
     ? '#1A2234' 
     : darkActive
-      ? '#17191d'
+      ? (isModalField ? '#141517' : '#17191d')
       : isModalField ? 'var(--card-bg, #ffffff)' : isForm ? '#F6F8FD' : '#ffffff'
   const triggerBorder = isSidebarDark
     ? (isOpen ? '1.5px solid #1366D9' : '1.5px solid #232E42')
     : darkActive
-      ? (isOpen ? '1.5px solid #ffffff' : '1px solid #282b32')
+      ? (isOpen ? '1.5px solid #ffffff' : (isModalField ? '1px solid #282B32' : '1px solid #282b32'))
       : isModalField
         ? (isOpen ? '1.5px solid var(--text, #0A0A0A)' : '1px solid var(--border, #E4E4E4)')
         : isDesktopToolbar
@@ -174,11 +174,11 @@ const CashbookSelect = ({
       : '#E8EFFF'
   const iconBoxColor = isSidebarDark ? '#93C5FD' : darkActive ? '#60a5fa' : '#1366D9'
 
-  const menuBg = isSidebarDark ? '#131B2E' : darkActive ? '#1c1e22' : '#ffffff'
+  const menuBg = isSidebarDark ? '#131B2E' : darkActive ? (isModalField ? '#141517' : '#1c1e22') : '#ffffff'
   const menuBorder = isSidebarDark 
     ? '1px solid #28354E' 
     : darkActive 
-      ? '1px solid #33363f' 
+      ? (isModalField ? '1px solid #282B32' : '1px solid #33363f')
       : isModalField ? '1px solid var(--border, #E4E4E4)' : '1px solid #E2E8F0'
   const menuRadius = (isDesktopToolbar || isSidebarDark) ? '14px' : isModalField ? '12px' : '20px'
   const menuShadow = isSidebarDark

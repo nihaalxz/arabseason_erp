@@ -176,7 +176,7 @@ const CredHomeView = ({
     } else if (paymentTypeFilter === 'job_order') {
       list = list.filter(e => getEntryEntities(e).isJob);
     } else if (paymentTypeFilter === 'expense') {
-      list = list.filter(e => getEntryEntities(e).isExp);
+      list = list.filter(e => (e.entry_type === 'out' || e.type === 'out') && getEntryEntities(e).isExp);
     }
 
     return list;

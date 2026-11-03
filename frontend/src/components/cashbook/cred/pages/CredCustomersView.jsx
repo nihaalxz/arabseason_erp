@@ -79,7 +79,7 @@ const CredCustomersView = ({
       ],
       preparedBy: 'Billing Department',
       approvedBy: 'Financial Controller',
-      notes: 'Please verify the outstanding balance. Kindly report any discrepancies within 7 working days.'
+      notes: ''
     };
   };
 

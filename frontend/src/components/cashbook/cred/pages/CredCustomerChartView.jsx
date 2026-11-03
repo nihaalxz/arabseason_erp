@@ -96,7 +96,7 @@ const CredCustomerChartView = ({
           amount: r.amount
         }
       ],
-      notes: r.notes || 'Agreed work specifications and quotation. Valid for 30 days from issuance.',
+      notes: '',
       preparedBy: 'Estimator / Project Coordinator',
       approvedBy: 'Operations Director'
     };

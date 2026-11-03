@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../api'
-import Modal from '../common/Modal'
+import { ModalShell, Field, TextInput, NumberInput, Select as CredSelect, Textarea } from '../common/FormPrimitives'
 import {
   Landmark,
   Wallet,
@@ -996,88 +996,75 @@ const ManageBanksPettyCash = () => {
 
 
       {/* BANK ACCOUNT MODAL */}
-      <Modal
+      <ModalShell
         isOpen={isBankModalOpen}
         onClose={() => setIsBankModalOpen(false)}
         title={editingItem ? 'Edit Bank Account' : 'Add New Bank Account'}
         maxWidth="650px"
+        formId="manage-bank-form"
+        submitLabel={editingItem ? 'Save Changes' : 'Create Bank Account'}
+        submittingLabel="Saving..."
+        submitting={submitting}
       >
-        <form onSubmit={handleSaveBank} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-            <div className="form-group">
-              <label>Bank Name *</label>
-              <input
-                type="text"
-                className="input-field"
+        <form id="manage-bank-form" onSubmit={handleSaveBank} style={{ padding: '4px 0' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px' }}>
+            <Field label="Bank Name" required>
+              <TextInput
                 placeholder="e.g. Al Rajhi Bank, SNB AlAhli"
                 value={bankForm.bank_name}
                 onChange={(e) => setBankForm({ ...bankForm, bank_name: e.target.value })}
                 required
                 autoFocus
               />
-            </div>
+            </Field>
 
-            <div className="form-group">
-              <label>Account Number *</label>
-              <input
-                type="text"
-                className="input-field"
+            <Field label="Account Number" required>
+              <TextInput
                 placeholder="e.g. 1234567890"
                 value={bankForm.account_number}
                 onChange={(e) => setBankForm({ ...bankForm, account_number: e.target.value })}
                 required
+                style={{ fontFamily: 'monospace' }}
               />
-            </div>
+            </Field>
 
-            <div className="form-group">
-              <label>Account Holder Name</label>
-              <input
-                type="text"
-                className="input-field"
+            <Field label="Account Holder Name">
+              <TextInput
                 placeholder="e.g. Arab Season Enterprise LLC"
                 value={bankForm.account_holder_name}
                 onChange={(e) => setBankForm({ ...bankForm, account_holder_name: e.target.value })}
               />
-            </div>
+            </Field>
 
-            <div className="form-group">
-              <label>IBAN</label>
-              <input
-                type="text"
-                className="input-field"
+            <Field label="IBAN">
+              <TextInput
                 placeholder="e.g. SA0380000000608010167519"
                 value={bankForm.iban}
                 onChange={(e) => setBankForm({ ...bankForm, iban: e.target.value })}
+                style={{ fontFamily: 'monospace' }}
               />
-            </div>
+            </Field>
 
-            <div className="form-group">
-              <label>Branch Name</label>
-              <input
-                type="text"
-                className="input-field"
+            <Field label="Branch Name">
+              <TextInput
                 placeholder="e.g. Main Branch, Riyadh"
                 value={bankForm.branch_name}
                 onChange={(e) => setBankForm({ ...bankForm, branch_name: e.target.value })}
               />
-            </div>
+            </Field>
 
-            <div className="form-group">
-              <label>Opening / Current Balance</label>
-              <input
-                type="number"
+            <Field label="Opening / Current Balance">
+              <NumberInput
+                prefix={bankForm.currency || 'SAR'}
                 step="0.01"
-                className="input-field"
                 placeholder="0.00"
                 value={bankForm.balance}
                 onChange={(e) => setBankForm({ ...bankForm, balance: e.target.value })}
               />
-            </div>
+            </Field>
 
-            <div className="form-group">
-              <label>Currency</label>
-              <select
-                className="input-field"
+            <Field label="Currency">
+              <CredSelect
                 value={bankForm.currency}
                 onChange={(e) => setBankForm({ ...bankForm, currency: e.target.value })}
               >
@@ -1085,194 +1072,123 @@ const ManageBanksPettyCash = () => {
                 <option value="AED">AED (UAE Dirham)</option>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
-              </select>
-            </div>
+              </CredSelect>
+            </Field>
 
-            <div className="form-group">
-              <label>Status</label>
-              <select
-                className="input-field"
+            <Field label="Status">
+              <CredSelect
                 value={bankForm.status}
                 onChange={(e) => setBankForm({ ...bankForm, status: e.target.value })}
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
-              </select>
+              </CredSelect>
+            </Field>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Notes / Purpose">
+                <Textarea
+                  rows={2}
+                  placeholder="e.g. Primary operating account for vendor transfers and salaries"
+                  value={bankForm.notes}
+                  onChange={(e) => setBankForm({ ...bankForm, notes: e.target.value })}
+                />
+              </Field>
             </div>
           </div>
-
-          <div className="form-group">
-            <label>Notes / Purpose</label>
-            <textarea
-              className="input-field"
-              rows={2}
-              placeholder="e.g. Primary operating account for vendor transfers and salaries"
-              value={bankForm.notes}
-              onChange={(e) => setBankForm({ ...bankForm, notes: e.target.value })}
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
-            <button
-              type="button"
-              onClick={() => setIsBankModalOpen(false)}
-              style={{
-                height: '38px',
-                padding: '0 18px',
-                borderRadius: '9999px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--fill-ghost, #F4F4F5)',
-                color: 'var(--text, #0A0A0A)',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--fill-ghost-hover, #EAEAEA)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--fill-ghost, #F4F4F5)'}
-            >
-              Cancel
-            </button>
-            <PageHeaderButton
-              type="submit"
-              disabled={submitting}
-            >
-              {submitting ? 'Saving...' : editingItem ? 'Save Changes' : 'Create Bank Account'}
-            </PageHeaderButton>
-          </div>
         </form>
-      </Modal>
+      </ModalShell>
 
       {/* PETTY CASH ACCOUNT MODAL */}
-      <Modal
+      <ModalShell
         isOpen={isPettyModalOpen}
         onClose={() => setIsPettyModalOpen(false)}
         title={editingItem ? 'Edit Petty Cash Account' : 'Add New Petty Cash Account'}
-        maxWidth="550px"
+        maxWidth="560px"
+        formId="manage-petty-form"
+        submitLabel={editingItem ? 'Save Changes' : 'Create Petty Cash Account'}
+        submittingLabel="Saving..."
+        submitting={submitting}
       >
-        <form onSubmit={handleSavePetty} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div className="form-group">
-            <label>Account / Float Name *</label>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="e.g. Nizam Petty Cash, Main Office Float"
-              value={pettyForm.name}
-              onChange={(e) => setPettyForm({ ...pettyForm, name: e.target.value })}
-              required
-              autoFocus
-            />
-          </div>
-
-          {/* Link to User (System Login) */}
-          <div className="form-group">
-            <label style={{ fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>Link to User (System Login)</span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '500' }}>
-                Auto-selects & filters when this user logs in
-              </span>
-            </label>
-            <select
-              className="input-field"
-              value={pettyForm.linked_user || ''}
-              onChange={(e) => {
-                const val = e.target.value
-                const foundUser = staffUsers.find(u => String(u.id) === String(val))
-                setPettyForm(prev => ({
-                  ...prev,
-                  linked_user: val,
-                  holder_name: prev.holder_name || (foundUser ? (foundUser.full_name || foundUser.username) : '')
-                }))
-              }}
-              style={{ width: '100%' }}
-            >
-              <option value="">-- No Linked User (Unrestricted) --</option>
-              {staffUsers.map(u => (
-                <option key={u.id} value={String(u.id)}>
-                  {u.full_name || u.username} ({u.username})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Staff Custodian / Person in Charge</label>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="e.g. Nizam, Shuhaib, Office Manager"
-              value={pettyForm.holder_name}
-              onChange={(e) => setPettyForm({ ...pettyForm, holder_name: e.target.value })}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-            <div className="form-group">
-              <label>Opening / Current Balance</label>
-              <input
-                type="number"
-                step="0.01"
-                className="input-field"
-                placeholder="0.00"
-                value={pettyForm.balance}
-                onChange={(e) => setPettyForm({ ...pettyForm, balance: e.target.value })}
+        <form id="manage-petty-form" onSubmit={handleSavePetty} style={{ padding: '4px 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <Field label="Account / Float Name" required>
+              <TextInput
+                placeholder="e.g. Nizam Petty Cash, Main Office Float"
+                value={pettyForm.name}
+                onChange={(e) => setPettyForm({ ...pettyForm, name: e.target.value })}
+                required
+                autoFocus
               />
-            </div>
+            </Field>
 
-            <div className="form-group">
-              <label>Status</label>
-              <select
-                className="input-field"
-                value={pettyForm.status}
-                onChange={(e) => setPettyForm({ ...pettyForm, status: e.target.value })}
+            {/* Link to User (System Login) */}
+            <Field
+              label="Link to User (System Login)"
+              tooltip="Auto-selects & filters when this user logs in"
+            >
+              <CredSelect
+                value={pettyForm.linked_user || ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  const foundUser = staffUsers.find(u => String(u.id) === String(val))
+                  setPettyForm(prev => ({
+                    ...prev,
+                    linked_user: val,
+                    holder_name: prev.holder_name || (foundUser ? (foundUser.full_name || foundUser.username) : '')
+                  }))
+                }}
               >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
+                <option value="">-- No Linked User (Unrestricted) --</option>
+                {staffUsers.map(u => (
+                  <option key={u.id} value={String(u.id)}>
+                    {u.full_name || u.username} ({u.username})
+                  </option>
+                ))}
+              </CredSelect>
+            </Field>
+
+            <Field label="Staff Custodian / Person in Charge">
+              <TextInput
+                placeholder="e.g. Nizam, Shuhaib, Office Manager"
+                value={pettyForm.holder_name}
+                onChange={(e) => setPettyForm({ ...pettyForm, holder_name: e.target.value })}
+              />
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px' }}>
+              <Field label="Opening / Current Balance">
+                <NumberInput
+                  prefix="SAR"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={pettyForm.balance}
+                  onChange={(e) => setPettyForm({ ...pettyForm, balance: e.target.value })}
+                />
+              </Field>
+
+              <Field label="Status">
+                <CredSelect
+                  value={pettyForm.status}
+                  onChange={(e) => setPettyForm({ ...pettyForm, status: e.target.value })}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </CredSelect>
+              </Field>
             </div>
-          </div>
 
-          <div className="form-group">
-            <label>Notes / Operational Scope</label>
-            <textarea
-              className="input-field"
-              rows={2}
-              placeholder="e.g. For workshop daily maintenance, fuel, and tea expenses"
-              value={pettyForm.notes}
-              onChange={(e) => setPettyForm({ ...pettyForm, notes: e.target.value })}
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
-            <button
-              type="button"
-              onClick={() => setIsPettyModalOpen(false)}
-              style={{
-                height: '38px',
-                padding: '0 18px',
-                borderRadius: '9999px',
-                border: '1px solid var(--border, #E4E4E4)',
-                background: 'var(--fill-ghost, #F4F4F5)',
-                color: 'var(--text, #0A0A0A)',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--fill-ghost-hover, #EAEAEA)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--fill-ghost, #F4F4F5)'}
-            >
-              Cancel
-            </button>
-            <PageHeaderButton
-              type="submit"
-              disabled={submitting}
-            >
-              {submitting ? 'Saving...' : editingItem ? 'Save Changes' : 'Create Petty Cash Account'}
-            </PageHeaderButton>
+            <Field label="Notes / Operational Scope">
+              <Textarea
+                rows={2}
+                placeholder="e.g. For workshop daily maintenance, fuel, and tea expenses"
+                value={pettyForm.notes}
+                onChange={(e) => setPettyForm({ ...pettyForm, notes: e.target.value })}
+              />
+            </Field>
           </div>
         </form>
-      </Modal>
+      </ModalShell>
     </div>
   )
 }

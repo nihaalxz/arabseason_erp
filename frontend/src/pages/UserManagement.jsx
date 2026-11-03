@@ -4,7 +4,7 @@ import {
   Plus, Edit, Trash2, AlertCircle, Check, Users
 } from 'lucide-react'
 import api from '../api'
-import Modal from '../components/common/Modal'
+import { ModalShell, Field, TextInput, Select as CredSelect } from '../components/common/FormPrimitives'
 import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm, showError, showToast } from '../utils/swal'
@@ -278,60 +278,6 @@ const UserManagement = () => {
     </span>
   )
 
-  // Modal Pinned Footer
-  const modalFooter = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
-      <button
-        type="button"
-        onClick={() => setIsModalOpen(false)}
-        style={{
-          height: '36px',
-          padding: '0 16px',
-          backgroundColor: 'transparent',
-          border: '1px solid var(--border, #E4E4E4)',
-          borderRadius: '6px',
-          fontSize: '13px',
-          fontWeight: 500,
-          color: 'var(--text, #111111)',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease'
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-      >
-        Cancel
-      </button>
-
-      <button
-        type="submit"
-        form="user-management-modal-form"
-        disabled={submitting}
-        style={{
-          height: '36px',
-          padding: '0 22px',
-          backgroundColor: 'var(--black, #0A0A0A)',
-          color: '#FFFFFF',
-          border: 'none',
-          borderRadius: '9999px',
-          fontSize: '13px',
-          fontWeight: 500,
-          cursor: submitting ? 'not-allowed' : 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '6px',
-          transition: 'opacity 0.15s ease'
-        }}
-        onMouseEnter={(e) => {
-          if (!submitting) e.currentTarget.style.opacity = '0.9'
-        }}
-        onMouseLeave={(e) => {
-          if (!submitting) e.currentTarget.style.opacity = '1'
-        }}
-      >
-        {submitting ? 'Saving...' : (editingUser ? 'Save Changes' : 'Create User')}
-      </button>
-    </div>
-  )
 
   return (
     <div className="erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -550,12 +496,15 @@ const UserManagement = () => {
       </div>
 
       {/* 4. Add / Edit User Modal */}
-      <Modal
+      <ModalShell
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingUser ? 'Edit User' : 'Add User'}
-        footer={modalFooter}
-        maxWidth="760px"
+        maxWidth="740px"
+        formId="user-management-modal-form"
+        submitLabel={editingUser ? 'Save Changes' : 'Create User'}
+        submittingLabel="Saving..."
+        submitting={submitting}
       >
         <form id="user-management-modal-form" onSubmit={handleSubmit} style={{ padding: '4px 0' }}>
           {formError && (
@@ -577,167 +526,69 @@ const UserManagement = () => {
           )}
 
           {/* Form Fields Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px', marginBottom: '18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px', marginBottom: '18px' }}>
             {/* Username */}
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                <span>Username</span>
-                <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#EF4444', display: 'inline-block' }} />
-              </label>
-              <input
-                className="user-modal-input"
-                type="text"
+            <Field label="Username" required>
+              <TextInput
                 value={formData.username}
                 onChange={e => setFormData({ ...formData, username: e.target.value })}
                 disabled={!!editingUser}
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  padding: '0 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  backgroundColor: editingUser ? 'var(--bg-band, #F2F2F2)' : 'var(--card-bg, #FFFFFF)',
-                  color: editingUser ? 'var(--text-muted, #8C8C8C)' : 'var(--text, #111111)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  cursor: editingUser ? 'not-allowed' : 'text'
-                }}
+                placeholder="e.g. jdoe"
               />
-            </div>
+            </Field>
 
             {/* Password */}
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                <span>{editingUser ? 'New Password' : 'Password'}</span>
-                {!editingUser ? (
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#EF4444', display: 'inline-block' }} />
-                ) : (
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', fontWeight: 400 }}>(leave blank to keep)</span>
-                )}
-              </label>
-              <input
-                className="user-modal-input"
+            <Field
+              label={editingUser ? 'New Password' : 'Password'}
+              required={!editingUser}
+              tooltip={editingUser ? 'Leave blank to keep current password' : null}
+            >
+              <TextInput
                 type="password"
                 value={formData.password}
                 onChange={e => setFormData({ ...formData, password: e.target.value })}
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  padding: '0 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  backgroundColor: 'var(--card-bg, #FFFFFF)',
-                  color: 'var(--text, #111111)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                placeholder={editingUser ? '•••••••• (leave blank to keep)' : 'Enter password'}
               />
-            </div>
+            </Field>
 
             {/* First Name */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                First Name
-              </label>
-              <input
-                className="user-modal-input"
-                type="text"
+            <Field label="First Name">
+              <TextInput
                 value={formData.first_name}
                 onChange={e => setFormData({ ...formData, first_name: e.target.value })}
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  padding: '0 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  backgroundColor: 'var(--card-bg, #FFFFFF)',
-                  color: 'var(--text, #111111)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                placeholder="e.g. John"
               />
-            </div>
+            </Field>
 
             {/* Last Name */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                Last Name
-              </label>
-              <input
-                className="user-modal-input"
-                type="text"
+            <Field label="Last Name">
+              <TextInput
                 value={formData.last_name}
                 onChange={e => setFormData({ ...formData, last_name: e.target.value })}
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  padding: '0 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  backgroundColor: 'var(--card-bg, #FFFFFF)',
-                  color: 'var(--text, #111111)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                placeholder="e.g. Doe"
               />
-            </div>
+            </Field>
 
             {/* Email */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                Email
-              </label>
-              <input
-                className="user-modal-input"
+            <Field label="Email Address">
+              <TextInput
                 type="email"
                 value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  padding: '0 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  backgroundColor: 'var(--card-bg, #FFFFFF)',
-                  color: 'var(--text, #111111)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                placeholder="e.g. jdoe@arabseason.com"
               />
-            </div>
+            </Field>
 
             {/* Role */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                Role
-              </label>
-              <select
-                className="user-modal-select"
+            <Field label="Role">
+              <CredSelect
                 value={formData.role}
                 onChange={e => setFormData({ ...formData, role: e.target.value })}
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  padding: '0 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  backgroundColor: 'var(--card-bg, #FFFFFF)',
-                  color: 'var(--text, #111111)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  boxSizing: 'border-box'
-                }}
               >
                 <option value="Admin">Admin (Full Access)</option>
                 <option value="User">User (Restricted)</option>
-              </select>
-            </div>
+              </CredSelect>
+            </Field>
           </div>
 
           {/* Active User Toggle */}
@@ -899,8 +750,8 @@ const UserManagement = () => {
               })}
             </div>
           </div>
-          </form>
-      </Modal>
+        </form>
+      </ModalShell>
 
       {/* Scoped Neutral Styles for User Management */}
       <style>{`

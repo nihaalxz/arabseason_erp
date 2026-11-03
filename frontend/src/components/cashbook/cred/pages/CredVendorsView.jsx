@@ -75,7 +75,7 @@ const CredVendorsView = ({
       ],
       preparedBy: 'Accounts Payable Officer',
       approvedBy: 'General Manager',
-      notes: 'Certified vendor payment advice. Signature confirms receipt of settlement amount.'
+      notes: ''
     };
   };
 

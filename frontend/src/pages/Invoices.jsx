@@ -11,7 +11,7 @@ import PageHeaderButton from '../components/common/PageHeaderButton'
 import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import PlainFilterDropdown from '../components/common/PlainFilterDropdown'
 import CredPagination from '../components/cashbook/cred/CredPagination'
-import { ModalShell } from '../components/common/FormPrimitives'
+import { ModalShell, Field, NumberInput, DateInput, TextInput } from '../components/common/FormPrimitives'
 import { showConfirm, showError, showToast, showSuccess } from '../utils/swal'
 import { handlePdfResponse } from '../utils/pdfDownload'
 import { isCurrentUserAdmin } from '../constants/permissions'
@@ -926,11 +926,16 @@ const Invoices = () => {
         onClose={() => setIsPaymentModalOpen(false)}
         title={`Record Payment for ${targetInvoiceForPayment?.invoice_number || 'Invoice'}`}
         maxWidth="500px"
+        formId="invoice-payment-form"
+        submitLabel="Record Payment"
+        submittingLabel="Recording..."
+        submitting={submittingPayment}
       >
-        <form onSubmit={handleSubmitPayment}>
+        <form id="invoice-payment-form" onSubmit={handleSubmitPayment}>
           <div style={{
             background: 'var(--bg-subtle, #F7F7F7)',
-            borderRadius: '10px',
+            borderRadius: '12px',
+            border: '1px solid var(--border, #E4E4E4)',
             padding: '14px 16px',
             marginBottom: '18px',
             fontSize: '13px'
@@ -953,13 +958,10 @@ const Invoices = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '22px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' }}>
-                Payment Amount ({currency})<span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
-              </label>
-              <input
-                type="number"
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+            <Field label={`Payment Amount (${currency})`} required>
+              <NumberInput
+                prefix={currency}
                 step="0.01"
                 min="0.01"
                 max={targetInvoiceForPayment?.balance_due || undefined}
@@ -967,105 +969,24 @@ const Invoices = () => {
                 autoFocus
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
-                style={{
-                  height: '38px',
-                  width: '100%',
-                  padding: '0 12px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  color: 'var(--text, #111111)',
-                  backgroundColor: 'var(--card-bg, #ffffff)',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
               />
-            </div>
+            </Field>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' }}>
-                Payment Date<span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>
-              </label>
-              <input
-                type="date"
+            <Field label="Payment Date" required>
+              <DateInput
                 required
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                style={{
-                  height: '38px',
-                  width: '100%',
-                  padding: '0 12px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  color: 'var(--text, #111111)',
-                  backgroundColor: 'var(--card-bg, #ffffff)',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
               />
-            </div>
+            </Field>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' }}>
-                Payment Reference / Notes
-              </label>
-              <input
-                type="text"
+            <Field label="Payment Reference / Notes">
+              <TextInput
                 placeholder="Optional transaction reference"
                 value={paymentNotes}
                 onChange={(e) => setPaymentNotes(e.target.value)}
-                style={{
-                  height: '38px',
-                  width: '100%',
-                  padding: '0 12px',
-                  border: '1px solid var(--border, #E4E4E4)',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  color: 'var(--text, #111111)',
-                  backgroundColor: 'var(--card-bg, #ffffff)',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
               />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-            <button
-              type="button"
-              onClick={() => setIsPaymentModalOpen(false)}
-              disabled={submittingPayment}
-              style={{
-                height: '36px',
-                padding: '0 14px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted, #8C8C8C)',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submittingPayment}
-              style={{
-                height: '36px',
-                padding: '0 20px',
-                backgroundColor: 'var(--black, #0A0A0A)',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '9999px',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: submittingPayment ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {submittingPayment ? 'Recording…' : 'Record Payment'}
-            </button>
+            </Field>
           </div>
         </form>
       </ModalShell>

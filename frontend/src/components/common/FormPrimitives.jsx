@@ -41,7 +41,7 @@ export const credSelectStyles = {
     ...base,
     margin: 0,
     padding: 0,
-    color: 'var(--text, #111111)',
+    color: 'inherit',
     fontSize: '13.5px',
     border: 'none',
     outline: 'none',

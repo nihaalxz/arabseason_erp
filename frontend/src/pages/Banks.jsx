@@ -8,7 +8,7 @@ import {
   FileText, Download, Printer, ArrowDownLeft, ArrowUpRight, Calendar, Filter, ChevronRight, FileSpreadsheet, ArrowUpDown, ChevronDown
 } from '../components/icons'
 import api from '../api'
-import Modal from '../components/common/Modal'
+import { ModalShell, Field, TextInput, NumberInput, Select as CredSelect, Textarea } from '../components/common/FormPrimitives'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { handlePdfResponse } from '../utils/pdfDownload'
 import { showConfirm, showError, showToast } from '../utils/swal'
@@ -1551,12 +1551,17 @@ const Banks = () => {
       )}
 
       {/* Add / Edit Bank Modal */}
-      <Modal
+      <ModalShell
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingBank ? `Edit Bank Account: ${editingBank.bank_name}` : 'Add New Bank Account'}
+        maxWidth="640px"
+        formId="bank-modal-form"
+        submitLabel={editingBank ? 'Update Account' : 'Save Account'}
+        submittingLabel="Saving..."
+        submitting={submitting}
       >
-        <form onSubmit={handleSubmit} style={{ padding: '0.5rem 0' }}>
+        <form id="bank-modal-form" onSubmit={handleSubmit} style={{ padding: '4px 0' }}>
           {formError && (
             <div style={{
               background: '#fee2e2',
@@ -1571,152 +1576,116 @@ const Banks = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px' }}>
             {/* Bank Name */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                Bank Name <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <input
-                type="text"
-                list="bank-suggestions"
-                value={formData.bank_name}
-                onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                required
-                className="input-field"
-                style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1' }}
-              />
-              <datalist id="bank-suggestions">
-                {POPULAR_BANKS.map((bank) => (
-                  <option key={bank} value={bank} />
-                ))}
-              </datalist>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Bank Name" required>
+                <TextInput
+                  type="text"
+                  list="bank-suggestions"
+                  value={formData.bank_name}
+                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                  required
+                  placeholder="e.g. Al Rajhi Bank, SNB AlAhli"
+                />
+                <datalist id="bank-suggestions">
+                  {POPULAR_BANKS.map((bank) => (
+                    <option key={bank} value={bank} />
+                  ))}
+                </datalist>
+              </Field>
             </div>
 
             {/* Account Number */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                Bank Account Number <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.account_number}
-                onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                required
-                className="input-field"
-                style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1', fontFamily: 'monospace' }}
-              />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Bank Account Number" required>
+                <TextInput
+                  type="text"
+                  value={formData.account_number}
+                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                  required
+                  placeholder="e.g. 1234567890"
+                  style={{ fontFamily: 'monospace' }}
+                />
+              </Field>
             </div>
 
-            {/* Account Holder & IBAN (2 columns) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                  Account Holder Name
-                </label>
-                <input
+            {/* Account Holder Name */}
+            <div>
+              <Field label="Account Holder Name">
+                <TextInput
                   type="text"
                   value={formData.account_holder_name}
                   onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
-                  className="input-field"
-                  style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1' }}
+                  placeholder="e.g. Arab Season LLC"
                 />
-              </div>
+              </Field>
+            </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                  IBAN Number (Optional)
-                </label>
-                <input
+            {/* IBAN Number */}
+            <div>
+              <Field label="IBAN Number (Optional)">
+                <TextInput
                   type="text"
                   value={formData.iban}
                   onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
-                  className="input-field"
-                  style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1', fontFamily: 'monospace' }}
+                  placeholder="e.g. SA038000..."
+                  style={{ fontFamily: 'monospace' }}
                 />
-              </div>
+              </Field>
             </div>
 
-            {/* Balance & Status (2 columns) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                  {editingBank ? 'Current Balance (SAR)' : 'Initial Balance (SAR)'}
-                </label>
-                <input
-                  type="number"
+            {/* Balance */}
+            <div>
+              <Field label={editingBank ? 'Current Balance' : 'Initial Balance'}>
+                <NumberInput
+                  prefix="SAR"
                   step="0.01"
                   value={formData.balance}
                   onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
-                  className="input-field"
-                  style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1', fontWeight: '700' }}
                 />
-              </div>
+              </Field>
+            </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                  Account Status
-                </label>
-                <select
+            {/* Account Status */}
+            <div>
+              <Field label="Account Status">
+                <CredSelect
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1', background: '#ffffff', fontWeight: '600' }}
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
-                </select>
-              </div>
+                </CredSelect>
+              </Field>
             </div>
 
             {/* Branch Name */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                Branch / Location
-              </label>
-              <input
-                type="text"
-                value={formData.branch_name}
-                onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                className="input-field"
-                style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1' }}
-              />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Branch / Location">
+                <TextInput
+                  type="text"
+                  value={formData.branch_name}
+                  onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
+                  placeholder="e.g. Main Branch, Riyadh"
+                />
+              </Field>
             </div>
 
             {/* Notes */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                Notes / Description
-              </label>
-              <textarea
-                rows={2}
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="input-field"
-                style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '7px', border: '1.5px solid #cbd5e1' }}
-              />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Notes / Description">
+                <Textarea
+                  rows={2}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Optional description..."
+                />
+              </Field>
             </div>
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setIsModalOpen(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-              style={{ minWidth: '110px' }}
-            >
-              {submitting ? 'Saving...' : editingBank ? 'Update Account' : 'Save Account'}
-            </button>
-          </div>
         </form>
-      </Modal>
+      </ModalShell>
     </div>
   )
 }

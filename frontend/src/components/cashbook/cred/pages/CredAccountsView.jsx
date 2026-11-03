@@ -159,7 +159,8 @@ const CredAccountsView = ({
       particulars: [
         { item: tx.remark || 'Account Transaction', qty: '1', rate: formatCurrency(amt), amount: formatCurrency(amt) }
       ],
-      notes: `Account: ${activeAccName} | Running Balance after TX: SAR ${parseFloat(tx.running_balance || 0).toFixed(2)}. Formal bank & cash ledger transaction record.`
+      runningBalance: parseFloat(tx.running_balance || 0),
+      notes: ''
     };
   };
 

@@ -2175,7 +2175,7 @@ export default function Enquiries({ currentUser }) {
           <Field label="Email Address">
             <TextInput
               type="email"
-              placeholder="e.g. tariq@arabseason.com"
+              placeholder="e.g. tariq@arabseason.club"
               value={newSalespersonForm.email}
               onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, email: e.target.value }))}
             />
