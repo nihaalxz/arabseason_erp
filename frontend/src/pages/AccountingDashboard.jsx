@@ -7,10 +7,12 @@ import api from '../api'
 import { Link, useNavigate } from 'react-router-dom'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import Money from '../components/cashbook/cred/Money'
+import { isCurrentUserAdmin } from '../constants/permissions'
 import CredViewAll from '../components/cashbook/cred/CredViewAll'
 import GooeyMenu from '../components/cashbook/cred/GooeyMenu'
 
 const AccountingDashboard = () => {
+  const isAdmin = isCurrentUserAdmin()
   const [data, setData] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [quotations, setQuotations] = useState([])
@@ -224,6 +226,7 @@ const AccountingDashboard = () => {
 
             <div style={{ margin: '12px 0 20px' }}>
               <Money 
+                mask={!isAdmin}
                 value={totalReceivables} 
                 currency="SAR" 
                 style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }} 
@@ -242,13 +245,14 @@ const AccountingDashboard = () => {
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current</div>
               <div style={{ marginTop: '4px' }}>
-                <Money value={currentReceivables} currency="SAR" style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }} />
+                <Money mask={!isAdmin} value={currentReceivables} currency="SAR" style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }} />
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Overdue</div>
               <div style={{ marginTop: '4px' }}>
                 <Money 
+                  mask={!isAdmin}
                   value={overdueReceivables} 
                   currency="SAR" 
                   style={{ fontSize: '15px', fontWeight: 500, color: overdueReceivables > 0 ? 'var(--danger, #DC2626)' : 'var(--text, #0A0A0A)' }} 
@@ -279,6 +283,7 @@ const AccountingDashboard = () => {
 
             <div style={{ margin: '12px 0 20px' }}>
               <Money 
+                mask={!isAdmin}
                 value={totalPayables} 
                 currency="SAR" 
                 style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }} 
@@ -297,13 +302,14 @@ const AccountingDashboard = () => {
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current</div>
               <div style={{ marginTop: '4px' }}>
-                <Money value={currentPayables} currency="SAR" style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }} />
+                <Money mask={!isAdmin} value={currentPayables} currency="SAR" style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }} />
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Overdue</div>
               <div style={{ marginTop: '4px' }}>
                 <Money 
+                  mask={!isAdmin}
                   value={overduePayables} 
                   currency="SAR" 
                   style={{ fontSize: '15px', fontWeight: 500, color: overduePayables > 0 ? 'var(--danger, #DC2626)' : 'var(--text, #0A0A0A)' }} 
@@ -338,6 +344,7 @@ const AccountingDashboard = () => {
 
             <div style={{ margin: '12px 0 20px' }}>
               <Money 
+                mask={!isAdmin}
                 value={totalQuotesValuation} 
                 currency="SAR" 
                 style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }} 
@@ -356,13 +363,13 @@ const AccountingDashboard = () => {
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Accepted</div>
               <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--success, #16A34A)' }}>
-                <span className="cred-tnum">{acceptedQuotes.length}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
+                <span className="cred-tnum">{isAdmin ? acceptedQuotes.length : '****'}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sent to Client</div>
               <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>
-                <span className="cred-tnum">{pendingQuotes.length}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
+                <span className="cred-tnum">{isAdmin ? pendingQuotes.length : '****'}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>quotes</span>
               </div>
             </div>
           </div>
@@ -389,7 +396,7 @@ const AccountingDashboard = () => {
 
             <div style={{ margin: '12px 0 20px' }}>
               <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }}>
-                <span className="cred-tnum">{data?.total_customers || 0}</span>
+                <span className="cred-tnum">{isAdmin ? (data?.total_customers || 0) : '****'}</span>
                 <span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginLeft: '8px' }}>Registered Clients</span>
               </div>
             </div>
@@ -466,7 +473,7 @@ const AccountingDashboard = () => {
               Cash as on {formatShortDate(dateRange.start)}
             </div>
             <div style={{ marginTop: '10px' }}>
-              <Money value={initialCashBalance} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }} />
+              <Money mask={!isAdmin} value={initialCashBalance} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }} />
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
               Opening Balance
@@ -485,7 +492,7 @@ const AccountingDashboard = () => {
               Incoming (+)
             </div>
             <div style={{ marginTop: '10px' }}>
-              <Money value={incomingTotal} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--success, #16A34A)' }} />
+              <Money mask={!isAdmin} value={incomingTotal} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--success, #16A34A)' }} />
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
               Cash Inflow
@@ -504,7 +511,7 @@ const AccountingDashboard = () => {
               Outgoing (-)
             </div>
             <div style={{ marginTop: '10px' }}>
-              <Money value={outgoingTotal} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--danger, #DC2626)' }} />
+              <Money mask={!isAdmin} value={outgoingTotal} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--danger, #DC2626)' }} />
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
               Cash Outflow
@@ -523,7 +530,7 @@ const AccountingDashboard = () => {
               Cash as on {formatShortDate(dateRange.end)}
             </div>
             <div style={{ marginTop: '10px' }}>
-              <Money value={endingCashBalance} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }} />
+              <Money mask={!isAdmin} value={endingCashBalance} currency="SAR" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }} />
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
               Closing Net Balance

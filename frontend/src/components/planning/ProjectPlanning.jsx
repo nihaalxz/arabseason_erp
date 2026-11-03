@@ -1,3 +1,4 @@
+import { isCurrentUserAdmin } from '../../constants/permissions'
 const getTodayStr = () => {
   const d = new Date()
   const year = d.getFullYear()
@@ -22,6 +23,7 @@ import {
 import { showConfirm, showError, showToast } from '../../utils/swal'
 
 const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
+  const isAdmin = isCurrentUserAdmin()
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -390,7 +392,7 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
             Total plans
           </div>
           <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-            {totalPlans}
+            {isAdmin ? totalPlans : '****'}
           </div>
         </div>
 
@@ -399,7 +401,7 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
             In progress
           </div>
           <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-            {inProgressPlans}
+            {isAdmin ? inProgressPlans : '****'}
           </div>
         </div>
 
@@ -408,7 +410,7 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
             Completed
           </div>
           <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-            {completedPlans}
+            {isAdmin ? completedPlans : '****'}
           </div>
         </div>
 
@@ -417,10 +419,10 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
             Active teams
           </div>
           <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-            {uniqueWorkers}
+            {isAdmin ? uniqueWorkers : '****'}
           </div>
           <div style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>
-            {uniqueWorkers} workers / {uniqueTools} tools
+            {isAdmin ? `${uniqueWorkers} workers / ${uniqueTools} tools` : '****'}
           </div>
         </div>
       </div>

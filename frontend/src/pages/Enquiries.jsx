@@ -657,7 +657,7 @@ export default function Enquiries({ currentUser }) {
             Follow-ups Due Today
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-            {metrics.due_today_count}
+            {isAdmin ? metrics.due_today_count : '****'}
           </div>
         </div>
 
@@ -678,7 +678,7 @@ export default function Enquiries({ currentUser }) {
             Active Enquiries
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-            {metrics.active_count}
+            {isAdmin ? metrics.active_count : '****'}
           </div>
         </div>
 
@@ -699,7 +699,7 @@ export default function Enquiries({ currentUser }) {
             Lead Converted (Won)
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--positive, #19B25B)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-            {metrics.converted_count}
+            {isAdmin ? metrics.converted_count : '****'}
           </div>
         </div>
 

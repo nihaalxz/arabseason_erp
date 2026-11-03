@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, Navigate } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
+import { isCurrentUserAdmin } from '../constants/permissions'
 import { FileBarChart, TrendingUp, Users, Download, FileSpreadsheet, Briefcase, AlertCircle, CreditCard } from '../components/icons'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
 import * as XLSX from 'xlsx'
@@ -13,6 +14,7 @@ import { showError } from '../utils/swal'
 import logo from '../assets/logo.png'
 
 const Reports = () => {
+  const isAdmin = isCurrentUserAdmin()
   const { settings, formatCurrency } = useSettings()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab')
@@ -455,7 +457,7 @@ const Reports = () => {
                 ].map((x, i) => (
                   <div key={i} style={{ textAlign: 'center', borderRight: i < 3 ? '1px solid #eee' : 'none' }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#64748b' }}>{x.l.toUpperCase()}</div>
-                    <div style={{ fontSize: '1.7rem', fontWeight: '900', color: x.c, whiteSpace: 'nowrap' }}>{fmt(x.v || 0)}</div>
+                    <div style={{ fontSize: '1.7rem', fontWeight: '900', color: x.c, whiteSpace: 'nowrap' }}>{isAdmin ? fmt(x.v || 0) : '****'}</div>
                   </div>
                 ))}
               </div>
@@ -516,17 +518,17 @@ const Reports = () => {
           <div className="glass-panel" style={{ padding: '2.5rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', border: '1px solid #eee', marginBottom: '2rem' }}>
             <div style={{ textAlign: 'center', borderRight: '1px solid #eee' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b' }}>OPENING BALANCE</div>
-              <div style={{ fontSize: '1.7rem', fontWeight: '900', color: '#3b82f6', whiteSpace: 'nowrap' }}>{fmt(data.expense_report.opening_balance)}</div>
+              <div style={{ fontSize: '1.7rem', fontWeight: '900', color: '#3b82f6', whiteSpace: 'nowrap' }}>{isAdmin ? fmt(data.expense_report.opening_balance) : '****'}</div>
             </div>
             <div style={{ textAlign: 'center', borderRight: '1px solid #eee' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b' }}>TOTAL EXPENSES (PERIOD)</div>
               <div style={{ fontSize: '1.7rem', fontWeight: '900', color: '#dc2626', whiteSpace: 'nowrap' }}>
-                {fmt(data.expense_report.expenses.reduce((sum, e) => sum + Number(e.amount), 0))}
+                {isAdmin ? fmt(data.expense_report.expenses.reduce((sum, e) => sum + Number(e.amount), 0)) : '****'}
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b' }}>CLOSING BANK BALANCE</div>
-              <div style={{ fontSize: '1.7rem', fontWeight: '900', color: data.expense_report.closing_balance >= 0 ? '#059669' : '#ef4444', whiteSpace: 'nowrap' }}>{fmt(data.expense_report.closing_balance)}</div>
+              <div style={{ fontSize: '1.7rem', fontWeight: '900', color: data.expense_report.closing_balance >= 0 ? '#059669' : '#ef4444', whiteSpace: 'nowrap' }}>{isAdmin ? fmt(data.expense_report.closing_balance) : '****'}</div>
             </div>
           </div>
 

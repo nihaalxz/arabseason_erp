@@ -6,6 +6,7 @@ import React from 'react';
  * Formats integer with thousands separators, keeps exact 2 decimals.
  * Never uses parseFloat for mathematical mutations.
  * Formats negative values as "-SAR 275,484.80" (never "SAR-275,484.80").
+ * Supports `mask` or '****' to hide sensitive financial values for non-admin roles.
  */
 export const formatMoneyParts = (value, currency = 'SAR') => {
   if (value === null || value === undefined || value === '' || value === '—') {
@@ -33,8 +34,16 @@ export const formatMoneyParts = (value, currency = 'SAR') => {
   };
 };
 
-const Money = ({ value, amount, currency = 'SAR', className = '', style = {} }) => {
+const Money = ({ value, amount, currency = 'SAR', className = '', style = {}, mask = false }) => {
   const effectiveValue = value !== undefined ? value : amount;
+  if (mask || effectiveValue === '****') {
+    return (
+      <span className={`cred-money-wrap cred-tnum ${className}`} style={{ letterSpacing: '2px', ...style }}>
+        ****
+      </span>
+    );
+  }
+
   if (effectiveValue === '—' || effectiveValue === '-' || effectiveValue === 'N/A') {
     return <span className={`cred-money-wrap cred-tnum ${className}`} style={{ color: 'var(--text-muted, #8C8C8C)', ...style }}>—</span>;
   }

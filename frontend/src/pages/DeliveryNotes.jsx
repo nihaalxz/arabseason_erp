@@ -7,6 +7,7 @@ import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm, showError, showToast } from '../utils/swal'
+import { isCurrentUserAdmin } from '../constants/permissions'
 import { handlePdfResponse } from '../utils/pdfDownload'
 
 const STATUS_CHOICES = [
@@ -75,6 +76,7 @@ const renderDeliveryStatus = (status) => {
 }
 
 const DeliveryNotes = () => {
+  const isAdmin = isCurrentUserAdmin()
   const navigate = useNavigate()
 
   // Data states
@@ -231,7 +233,7 @@ const DeliveryNotes = () => {
             Total dispatches
           </div>
           <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-            {kpis.total}
+            {isAdmin ? kpis.total : '****'}
           </div>
         </div>
 
@@ -240,7 +242,7 @@ const DeliveryNotes = () => {
             Delivered & signed
           </div>
           <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-            {kpis.deliveredCount}
+            {isAdmin ? kpis.deliveredCount : '****'}
           </div>
         </div>
 
@@ -249,7 +251,7 @@ const DeliveryNotes = () => {
             In transit / dispatched
           </div>
           <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-            {kpis.inTransitCount}
+            {isAdmin ? kpis.inTransitCount : '****'}
           </div>
         </div>
 
@@ -259,7 +261,7 @@ const DeliveryNotes = () => {
               Total value
             </div>
             <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-              {(() => {
+              {isAdmin ? (() => {
                 const parts = kpis.totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
                 return (
                   <>
@@ -267,7 +269,7 @@ const DeliveryNotes = () => {
                     <span style={{ fontSize: '14px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 400 }}>SAR</span>
                   </>
                 )
-              })()}
+              })() : '****'}
             </div>
           </div>
         )}

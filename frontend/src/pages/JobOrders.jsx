@@ -1911,7 +1911,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                   {isCancelledView ? 'Cancelled Contracts' : 'Total Contracts'}
                 </div>
                 <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                  {currentJobCount}
+                  {isAdmin ? currentJobCount : '****'}
                 </div>
               </div>
 
@@ -1925,7 +1925,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                   {isCancelledView ? 'Cancelled Contract Value' : 'Total Contract Value'}
                 </div>
                 <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                  {(() => {
+                  {isAdmin ? (() => {
                     const parts = parseFloat(currentTotalVal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
                     return (
                       <>
@@ -1933,7 +1933,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                         <span style={{ fontSize: '14px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 400 }}>SAR</span>
                       </>
                     )
-                  })()}
+                  })() : '****'}
                 </div>
               </div>
 
@@ -1947,7 +1947,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                   {isCancelledView ? 'Money Collected' : 'Amount Collected'}
                 </div>
                 <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                  {(() => {
+                  {isAdmin ? (() => {
                     const parts = parseFloat(currentTotalPaid || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
                     return (
                       <>
@@ -1955,7 +1955,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                         <span style={{ fontSize: '14px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 400 }}>SAR</span>
                       </>
                     )
-                  })()}
+                  })() : '****'}
                 </div>
               </div>
 
@@ -1969,7 +1969,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                   {isCancelledView ? 'Net Receivable Due' : 'Pending Balance'}
                 </div>
                 <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text, #0A0A0A)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                  {(() => {
+                  {isAdmin ? (() => {
                     const parts = parseFloat(currentTotalBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.')
                     return (
                       <>
@@ -1977,7 +1977,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                         <span style={{ fontSize: '14px', color: 'var(--text-muted, #8C8C8C)', marginLeft: '4px', fontWeight: 400 }}>SAR</span>
                       </>
                     )
-                  })()}
+                  })() : '****'}
                 </div>
               </div>
             </div>

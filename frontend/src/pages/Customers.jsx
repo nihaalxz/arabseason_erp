@@ -16,6 +16,7 @@ import {
   Textarea
 } from '../components/common/FormPrimitives'
 import { showConfirm, showError, showToast } from '../utils/swal'
+import { isCurrentUserAdmin } from '../constants/permissions'
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All Customers' },
@@ -26,6 +27,7 @@ const FILTER_OPTIONS = [
 ]
 
 const Customers = () => {
+  const isAdmin = isCurrentUserAdmin()
   const { formatCurrency } = useSettings()
   const basePath = '/accounting'
 
@@ -301,7 +303,7 @@ const Customers = () => {
             Total Billed
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {formatCurrency(summary.total_billed || 0)}
+            {isAdmin ? formatCurrency(summary.total_billed || 0) : '****'}
           </div>
         </div>
 
@@ -323,7 +325,7 @@ const Customers = () => {
             Amount Received
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {formatCurrency(summary.paid_amount || 0)}
+            {isAdmin ? formatCurrency(summary.paid_amount || 0) : '****'}
           </div>
         </div>
 
@@ -345,7 +347,7 @@ const Customers = () => {
             Receivables Due
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {formatCurrency(summary.pending_balance || 0)}
+            {isAdmin ? formatCurrency(summary.pending_balance || 0) : '****'}
           </div>
         </div>
 
@@ -367,7 +369,7 @@ const Customers = () => {
             Payables Owed
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            {formatCurrency(summary.total_payable || 0)}
+            {isAdmin ? formatCurrency(summary.total_payable || 0) : '****'}
           </div>
         </div>
       </div>

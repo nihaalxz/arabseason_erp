@@ -9,6 +9,7 @@ import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import PlainFilterDropdown from '../components/common/PlainFilterDropdown'
 import CredPagination from '../components/cashbook/cred/CredPagination'
 import { showConfirm, showError, showToast } from '../utils/swal'
+import { isCurrentUserAdmin } from '../constants/permissions'
 import { handlePdfResponse } from '../utils/pdfDownload'
 
 const STATUS_FILTER_OPTIONS = [
@@ -41,6 +42,7 @@ const formatTabular = (num) => {
 }
 
 const CreditNotes = () => {
+  const isAdmin = isCurrentUserAdmin()
   const { settings } = useSettings()
   const currency = settings?.currency || 'SAR'
   const navigate = useNavigate()
@@ -276,8 +278,8 @@ const CreditNotes = () => {
             Total credits issued
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(metrics.totalVal).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(metrics.totalVal).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -299,8 +301,8 @@ const CreditNotes = () => {
             Active / issued credits
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(metrics.issuedVal).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(metrics.issuedVal).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -322,8 +324,8 @@ const CreditNotes = () => {
             Applied credits
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(metrics.appliedVal).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(metrics.appliedVal).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
       </div>

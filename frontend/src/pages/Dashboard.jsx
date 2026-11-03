@@ -9,6 +9,7 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 import Money from '../components/cashbook/cred/Money'
 import CredViewAll from '../components/cashbook/cred/CredViewAll'
 import GooeyMenu from '../components/cashbook/cred/GooeyMenu'
+import { isCurrentUserAdmin } from '../constants/permissions'
 
 const Dashboard = () => {
   const [data, setData] = useState(null)
@@ -19,6 +20,7 @@ const Dashboard = () => {
   const [error, setError] = useState('')
   const { formatCurrency } = useSettings()
   const navigate = useNavigate()
+  const isAdmin = isCurrentUserAdmin()
 
   // Date range state - default last 30 days
   const today = new Date().toISOString().split('T')[0]
@@ -213,6 +215,7 @@ const Dashboard = () => {
 
             <div style={{ margin: '12px 0 20px' }}>
               <Money 
+                mask={!isAdmin}
                 value={activeJobsValuation} 
                 currency="SAR" 
                 style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }} 
@@ -231,13 +234,13 @@ const Dashboard = () => {
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>In Progress</div>
               <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>
-                <span className="cred-tnum">{inProgressJobs}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
+                <span className="cred-tnum">{isAdmin ? inProgressJobs : '****'}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pending Start</div>
               <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--text, #0A0A0A)' }}>
-                <span className="cred-tnum">{pendingJobs}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
+                <span className="cred-tnum">{isAdmin ? pendingJobs : '****'}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
               </div>
             </div>
           </div>
@@ -264,7 +267,7 @@ const Dashboard = () => {
 
             <div style={{ margin: '12px 0 20px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
               <span style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em' }}>
-                <span className="cred-tnum">{enquiryMetrics.active_count || 0}</span>
+                <span className="cred-tnum">{isAdmin ? (enquiryMetrics.active_count || 0) : '****'}</span>
               </span>
               <span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>
                 Active enquiries
@@ -283,13 +286,13 @@ const Dashboard = () => {
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Due Today</div>
               <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: (enquiryMetrics.due_today_count || 0) > 0 ? '#2563eb' : 'var(--text, #0A0A0A)' }}>
-                <span className="cred-tnum">{enquiryMetrics.due_today_count || 0}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>follow-ups</span>
+                <span className="cred-tnum">{isAdmin ? (enquiryMetrics.due_today_count || 0) : '****'}</span> <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>follow-ups</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Conversion Rate</div>
               <div style={{ marginTop: '4px', fontSize: '15px', fontWeight: 500, color: 'var(--success, #16A34A)' }}>
-                <span className="cred-tnum">{enquiryMetrics.conversion_rate || 0}%</span>
+                <span className="cred-tnum">{isAdmin ? `${enquiryMetrics.conversion_rate || 0}%` : '****'}</span>
               </div>
             </div>
           </div>
@@ -328,7 +331,7 @@ const Dashboard = () => {
               Pending
             </div>
             <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text, #0A0A0A)', marginTop: '10px' }}>
-              <span className="cred-tnum">{pendingJobs}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
+              <span className="cred-tnum">{isAdmin ? pendingJobs : '****'}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
               Waiting to start
@@ -347,7 +350,7 @@ const Dashboard = () => {
               In Progress
             </div>
             <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text, #0A0A0A)', marginTop: '10px' }}>
-              <span className="cred-tnum">{inProgressJobs}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
+              <span className="cred-tnum">{isAdmin ? inProgressJobs : '****'}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
               Currently in work
@@ -366,7 +369,7 @@ const Dashboard = () => {
               Completed
             </div>
             <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--success, #16A34A)', marginTop: '10px' }}>
-              <span className="cred-tnum">{completedJobs}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
+              <span className="cred-tnum">{isAdmin ? completedJobs : '****'}</span> <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>jobs</span>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
               Finished and delivered
@@ -385,10 +388,10 @@ const Dashboard = () => {
               Completion Rate
             </div>
             <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text, #0A0A0A)', marginTop: '10px' }}>
-              <span className="cred-tnum">{completionRate}%</span>
+              <span className="cred-tnum">{isAdmin ? `${completionRate}%` : '****'}</span>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', fontWeight: 400 }}>
-              {completedJobs} of {totalTrackedJobs} completed
+              {isAdmin ? `${completedJobs} of ${totalTrackedJobs} completed` : '****'}
             </div>
           </div>
         </div>

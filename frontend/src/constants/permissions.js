@@ -113,6 +113,26 @@ export const isUserAdmin = (user) => {
 }
 
 /**
+ * Check if the currently active user is an administrator
+ * @param {Object} [userProp] - Optional user object to test. If omitted, reads from localStorage.
+ */
+export const isCurrentUserAdmin = (userProp = null) => {
+  if (userProp && typeof userProp === 'object') {
+    return isUserAdmin(userProp)
+  }
+  try {
+    const raw = localStorage.getItem('user')
+    if (raw) {
+      const u = JSON.parse(raw)
+      return isUserAdmin(u)
+    }
+  } catch (e) {
+    // ignore json error
+  }
+  return false
+}
+
+/**
  * Universal Permission Evaluator
  */
 export const canAccessPermission = (user, permissionKey) => {

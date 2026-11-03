@@ -35,6 +35,7 @@ const formatTabular = (num) => {
 }
 
 const Invoices = () => {
+  const isAdmin = isCurrentUserAdmin()
   const { settings } = useSettings()
   const currency = settings?.currency || 'SAR'
   const navigate = useNavigate()
@@ -341,8 +342,8 @@ const Invoices = () => {
             Total invoiced
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(metrics.totalInvoiced).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(metrics.totalInvoiced).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -364,8 +365,8 @@ const Invoices = () => {
             Total collected
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(metrics.totalCollected).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(metrics.totalCollected).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -387,8 +388,8 @@ const Invoices = () => {
             Outstanding
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(metrics.totalOutstanding).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(metrics.totalOutstanding).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -410,8 +411,8 @@ const Invoices = () => {
             Overdue
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(metrics.totalOverdue).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(metrics.totalOverdue).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
       </div>

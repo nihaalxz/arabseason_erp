@@ -35,6 +35,7 @@ const formatTabular = (num) => {
 }
 
 const Quotations = () => {
+  const isAdmin = isCurrentUserAdmin()
   const { settings } = useSettings()
   const currency = settings?.currency || 'SAR'
   const navigate = useNavigate()
@@ -280,8 +281,8 @@ const Quotations = () => {
             Total pipeline value
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(kpis.totalVal).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(kpis.totalVal).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -303,8 +304,8 @@ const Quotations = () => {
             Accepted quotes
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(kpis.acceptedVal).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(kpis.acceptedVal).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -326,8 +327,8 @@ const Quotations = () => {
             Pending client decision
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span>{Math.round(kpis.pendingVal).toLocaleString('en-US')}</span>
-            <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+            <span>{isAdmin ? Math.round(kpis.pendingVal).toLocaleString('en-US') : '****'}</span>
+            {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
           </div>
         </div>
 
@@ -349,7 +350,7 @@ const Quotations = () => {
             Converted to invoice
           </div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-            {kpis.convertedCount}
+            {isAdmin ? kpis.convertedCount : '****'}
           </div>
         </div>
       </div>

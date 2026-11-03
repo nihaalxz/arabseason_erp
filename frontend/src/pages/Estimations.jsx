@@ -92,6 +92,7 @@ const getEstimateStatusBadge = (status) => {
 }
 
 const Estimations = () => {
+  const isAdmin = isCurrentUserAdmin()
   const navigate = useNavigate()
   const basePath = '/accounting'
 
@@ -572,7 +573,7 @@ const Estimations = () => {
                 Active estimates
               </div>
               <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                {stats.totalCount}
+                {isAdmin ? stats.totalCount : '****'}
               </div>
             </div>
 
@@ -589,8 +590,8 @@ const Estimations = () => {
                 Total pipeline value
               </div>
               <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span>{Math.round(stats.totalPipeline).toLocaleString('en-US')}</span>
-                <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+                <span>{isAdmin ? Math.round(stats.totalPipeline).toLocaleString('en-US') : '****'}</span>
+                {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
               </div>
             </div>
 
@@ -607,8 +608,8 @@ const Estimations = () => {
                 Projected gross margin
               </div>
               <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span>{Math.round(stats.totalMargin).toLocaleString('en-US')}</span>
-                <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>
+                <span>{isAdmin ? Math.round(stats.totalMargin).toLocaleString('en-US') : '****'}</span>
+                {isAdmin && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted, #8C8C8C)' }}>SAR</span>}
               </div>
             </div>
 
@@ -625,7 +626,7 @@ const Estimations = () => {
                 Average profit margin
               </div>
               <div style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                {stats.avgMarginPct}%
+                {isAdmin ? `${stats.avgMarginPct}%` : '****'}
               </div>
             </div>
           </div>
