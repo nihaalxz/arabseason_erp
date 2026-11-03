@@ -1169,6 +1169,8 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             Q(notes__icontains='➔') |
             Q(description__icontains='➔')
         )
+        # Entries made within custom cash books should NEVER be shown in general company expenses
+        queryset = queryset.exclude(cashbook_entries__cashbook__isnull=False)
         job_order = self.request.query_params.get('job_order')
         if job_order:
             queryset = queryset.filter(job_order_id=job_order)
@@ -2253,7 +2255,15 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
 
         ledger_only = qp.get('ledger_only')
         if ledger_only in ['true', '1', True]:
-            qs = qs.filter(cashbook__isnull=True)
+            qs = qs.filter(cashbook__isnull=True).exclude(
+                Q(debit_type__iexact='Transfer') |
+                Q(category__iexact='Transfer') |
+                Q(party_name__icontains='Internal Transfer') |
+                Q(remark__icontains='Internal Transfer') |
+                Q(party_name__icontains='➔') |
+                Q(party_name__icontains='->') |
+                (Q(petty_cash_account__isnull=False) & Q(bank_account__isnull=False))
+            )
 
         search = qp.get('search')
         if search:
@@ -2375,25 +2385,33 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
             tx_type = (entry.transaction_type or '').strip()
             d_type_raw = (entry.debit_type or '').strip().upper()
 
-            is_transfer = (
+            # An entry with an attached business entity (vendor, customer, labour, salary, expense)
+            # is NEVER an internal transfer, even if paid via "Bank Transfer" or "Bank Withdrawal"
+            has_business_entity = bool(
+                entry.vendor_id or entry.customer_id or entry.labour_id or
+                entry.expense_id or entry.staff_user_id or
+                d_type_raw in ['VENDOR', 'CUSTOMER', 'LABOUR', 'SALARY', 'COMPANY EXPENSE']
+            )
+
+            is_transfer = not has_business_entity and (
                 cat_lower == 'transfer' or
                 d_type_raw == 'TRANSFER' or
                 'internal transfer' in party_lower or
                 'internal transfer' in remark_lower or
                 '➔' in (entry.party_name or '') or
                 '->' in (entry.party_name or '') or
-                tx_type in ['Bank Transfer', 'Bank Deposit', 'Bank Withdrawal'] or
                 (entry.petty_cash_account_id and entry.bank_account_id)
             )
 
             if is_transfer:
                 entry.debit_type = 'Transfer'
+                entry.cashbook = None  # Internal transfers do not belong to any specific CashBook
                 # Fund transfers are not expenses or customer payments
                 _cleanup(entry.expense); entry.expense = None
                 _cleanup(entry.vendor_payment); entry.vendor_payment = None
                 _cleanup(entry.salary_payment); entry.salary_payment = None
                 _cleanup(entry.customer_payment); entry.customer_payment = None
-                entry.save(update_fields=['debit_type', 'expense', 'vendor_payment', 'salary_payment', 'customer_payment'])
+                entry.save(update_fields=['debit_type', 'cashbook', 'expense', 'vendor_payment', 'salary_payment', 'customer_payment'])
                 return
 
             d_type = (entry.debit_type or '').strip().upper()
@@ -2559,6 +2577,14 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                 _cleanup(entry.salary_payment); entry.salary_payment = None
                 _cleanup(entry.customer_payment); entry.customer_payment = None
 
+                # Entries inside a custom Cash Book belong ONLY to that book; they must NEVER create or sync an Expense in general company expenses
+                if entry.cashbook_id:
+                    if entry.expense:
+                        _cleanup(entry.expense)
+                        entry.expense = None
+                    entry.save(update_fields=['expense', 'vendor_payment', 'salary_payment', 'customer_payment'])
+                    return
+
                 desc = entry.remark or entry.category or 'Company Expense'
                 cat = entry.category or 'General'
                 notes = f"{cb_name} - Payee: {entry.party_name or 'Company'}".strip()
@@ -2594,23 +2620,26 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
             remark_lower = (entry.remark or '').strip().lower()
             tx_type = (entry.transaction_type or '').strip()
 
-            is_transfer = (
-                not entry.customer and
-                tx_type != 'Customer Payment' and (
-                    cat_lower == 'transfer' or
-                    'internal transfer' in party_lower or
-                    'internal transfer' in remark_lower or
-                    '➔' in (entry.party_name or '') or
-                    '->' in (entry.party_name or '') or
-                    tx_type in ['Bank Transfer', 'Bank Deposit', 'Bank Withdrawal'] or
-                    (entry.petty_cash_account_id and entry.bank_account_id)
-                )
+            has_business_entity = bool(
+                entry.customer_id or
+                tx_type == 'Customer Payment' or
+                (entry.party_name and Customer.objects.filter(name__iexact=entry.party_name.strip()).exists())
+            )
+
+            is_transfer = not has_business_entity and (
+                cat_lower == 'transfer' or
+                'internal transfer' in party_lower or
+                'internal transfer' in remark_lower or
+                '➔' in (entry.party_name or '') or
+                '->' in (entry.party_name or '') or
+                (entry.petty_cash_account_id and entry.bank_account_id)
             )
 
             if is_transfer:
+                entry.cashbook = None  # Internal transfers do not belong to any specific CashBook
                 _cleanup(entry.customer_payment); entry.customer_payment = None
                 _cleanup(entry.expense); entry.expense = None
-                entry.save(update_fields=['customer_payment', 'expense'])
+                entry.save(update_fields=['cashbook', 'customer_payment', 'expense'])
                 return
 
             _cleanup(entry.vendor_payment); entry.vendor_payment = None
@@ -3029,8 +3058,16 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='bank-flow')
     def bank_flow(self, request):
         entries = CashBookEntry.objects.filter(
-            Q(bank_account__isnull=False) | Q(payment_mode__iexact='Bank Transfer')
-        ).select_related('cashbook', 'bank_account', 'created_by')
+            cashbook__isnull=True
+        ).exclude(
+            Q(debit_type__iexact='Transfer') |
+            Q(category__iexact='Transfer') |
+            Q(party_name__icontains='Internal Transfer') |
+            Q(remark__icontains='Internal Transfer') |
+            Q(party_name__icontains='➔') |
+            Q(party_name__icontains='->') |
+            (Q(petty_cash_account__isnull=False) & Q(bank_account__isnull=False))
+        ).select_related('cashbook', 'bank_account', 'petty_cash_account', 'created_by', 'customer', 'vendor', 'labour', 'job_order')
 
         start_date = request.query_params.get('start_date')
         if start_date:
@@ -3068,7 +3105,18 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
         banks = BankAccount.objects.all()
         bank_stats = []
         for b in banks:
-            b_entries = CashBookEntry.objects.filter(bank_account_id=b.id)
+            b_entries = CashBookEntry.objects.filter(
+                bank_account_id=b.id,
+                cashbook__isnull=True
+            ).exclude(
+                Q(debit_type__iexact='Transfer') |
+                Q(category__iexact='Transfer') |
+                Q(party_name__icontains='Internal Transfer') |
+                Q(remark__icontains='Internal Transfer') |
+                Q(party_name__icontains='➔') |
+                Q(party_name__icontains='->') |
+                (Q(petty_cash_account__isnull=False) & Q(bank_account__isnull=False))
+            )
             b_deposits = b_entries.filter(entry_type='in').aggregate(tot=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField()))['tot']
             b_withdrawals = b_entries.filter(entry_type='out').aggregate(tot=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField()))['tot']
             bank_stats.append({
@@ -3109,6 +3157,16 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                 'bank_account_number': e.bank_account.account_number if e.bank_account else '',
                 'petty_cash_account': e.petty_cash_account_id,
                 'petty_cash_account_name': e.petty_cash_account_name or (e.petty_cash_account.name if e.petty_cash_account else ''),
+                'customer': e.customer_id,
+                'customer_name': e.customer.name if e.customer else '',
+                'vendor': e.vendor_id,
+                'vendor_name': e.vendor.name if e.vendor else '',
+                'labour': e.labour_id,
+                'labour_name': e.labour.name if e.labour else '',
+                'debit_type': e.debit_type,
+                'job_order': e.job_order_id,
+                'job_order_title': e.job_order.title if e.job_order else '',
+                'job_order_number': e.job_order.order_id if e.job_order else '',
                 'reference_number': e.reference_number,
                 'custom_fields': e.custom_fields or {},
                 'created_by_name': e.created_by.username if e.created_by else 'System'
@@ -3117,6 +3175,8 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
         return Response({
             'total_bank_deposits': float(total_bank_deposits),
             'total_bank_withdrawals': float(total_bank_withdrawals),
+            'total_company_inflows': float(total_bank_deposits),
+            'total_company_outflows': float(total_bank_withdrawals),
             'net_bank_flow': float(net_bank_flow),
             'total_transactions': entries.count(),
             'total_bank_reserves': float(total_bank_reserves),
