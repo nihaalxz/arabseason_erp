@@ -111,35 +111,53 @@ const MobileCardCarousel = ({
 // Entity Classifier Helper: detects if entry is a payment to Customer, Vendor, Labour, Job Order, or Expense
 export const getEntryEntities = (e) => {
   if (!e) return { isCust: false, isVend: false, isLabour: false, isJob: false, isExp: false, primaryEntity: 'Other' }
-  
-  const isCust = Boolean(
+
+  const entryType = e.entry_type || e.type || ''
+  const isOut = entryType === 'out'
+  const isIn  = entryType === 'in'
+  const debitType  = e.debit_type || ''
+  const catLower   = (e.category || '').toLowerCase()
+  const isTransfer = debitType === 'Transfer' || catLower === 'transfer'
+
+  // Customer: has a customer FK, explicit debit_type, or is a CASH-IN with a sales/customer category
+  const isCust = !isTransfer && Boolean(
     e.customer || e.customer_name || e.customer_payment ||
-    e.debit_type === 'CUSTOMER' ||
-    (e.category && (e.category.toLowerCase().includes('customer') || e.category.toLowerCase() === 'sales'))
+    debitType === 'CUSTOMER' ||
+    (isIn && (catLower.includes('customer') || catLower === 'sales'))
   )
-  const isVend = Boolean(
+
+  // Vendor: has a vendor FK or explicit debit_type
+  const isVend = !isTransfer && Boolean(
     e.vendor || e.vendor_name || e.vendor_payment ||
-    e.debit_type === 'VENDOR'
+    debitType === 'VENDOR'
   )
-  const isLabour = Boolean(
+
+  // Labour: has a labour/staff FK, salary payment, or category keyword
+  const isLabour = !isTransfer && !isVend && !isCust && Boolean(
     e.labour || e.labour_name || e.salary_payment || e.staff_user || e.staff_name ||
-    e.debit_type === 'LABOUR' || e.debit_type === 'SALARY' ||
+    debitType === 'LABOUR' || debitType === 'SALARY' ||
     /labour|labor|wage|salary|overtime|worker/i.test(e.category || '')
   )
-  const isJob = Boolean(
+
+  // Job Order: linked to a job order FK
+  const isJob = !isTransfer && Boolean(
     e.job_order || e.pending_job_order || e.job_order_title || e.job_order_number
   )
-  const isExp = Boolean(
-    e.expense || e.debit_type === 'Company Expense' ||
-    /expense|food|petrol|fuel|rent|office|supplies|maintenance|utility|software|materials/i.test(e.category || '')
+
+  // Expense: MUST be cash-out, not a transfer/customer/vendor/labour/job
+  const isExp = isOut && !isTransfer && !isCust && !isVend && !isLabour && !isJob && Boolean(
+    e.expense ||
+    debitType === 'Company Expense' ||
+    /expense|food|petrol|fuel|rent|office|supplies|maintenance|utility|software|materials/i.test(e.category || '') ||
+    (debitType && !['CUSTOMER', 'VENDOR', 'LABOUR', 'SALARY', 'Transfer'].includes(debitType))
   )
 
   let primaryEntity = 'General'
-  if (isCust) primaryEntity = 'Customer'
-  else if (isVend) primaryEntity = 'Vendor'
+  if (isCust)        primaryEntity = 'Customer'
+  else if (isVend)   primaryEntity = 'Vendor'
   else if (isLabour) primaryEntity = 'Labour'
-  else if (isJob) primaryEntity = 'Job Order'
-  else if (isExp) primaryEntity = 'Expense'
+  else if (isJob)    primaryEntity = 'Job Order'
+  else if (isExp)    primaryEntity = 'Expense'
 
   return { isCust, isVend, isLabour, isJob, isExp, primaryEntity }
 }

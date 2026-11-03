@@ -1164,9 +1164,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         # Internal fund transfers between accounts are never business expenses
         queryset = queryset.exclude(
             Q(category__iexact='Transfer') |
-            Q(notes__icontains='Internal Transfer') |
             Q(description__icontains='Internal Transfer') |
-            Q(notes__icontains='➔') |
             Q(description__icontains='➔')
         )
         job_order = self.request.query_params.get('job_order')
@@ -1186,8 +1184,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
                 Q(job_order__title__icontains=search) |
                 Q(job_order__order_id__icontains=search) |
                 Q(category__icontains=search) |
-                Q(type__icontains=search) |
-                Q(notes__icontains=search)
+                Q(type__icontains=search)
             )
         return queryset
 
@@ -1487,7 +1484,7 @@ class DashboardAPIView(views.APIView):
         job_qs = JobOrder.objects.all() if is_admin else JobOrder.objects.filter(created_by=request.user)
         cust_pay_qs = CustomerPayment.objects.all() if is_admin else CustomerPayment.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))
         exp_qs = (Expense.objects.all() if is_admin else Expense.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))).exclude(
-            Q(category__iexact='Transfer') | Q(notes__icontains='Internal Transfer') | Q(description__icontains='Internal Transfer') | Q(notes__icontains='➔') | Q(description__icontains='➔')
+            Q(category__iexact='Transfer') | Q(description__icontains='Internal Transfer') | Q(description__icontains='➔')
         )
         pay_req_qs = PaymentRequest.objects.all() if is_admin else PaymentRequest.objects.filter(created_by=request.user)
         labour_qs = Labour.objects.all() if is_admin else Labour.objects.filter(created_by=request.user)
@@ -1614,7 +1611,7 @@ class ReportAPIView(views.APIView):
             vend_base = Vendor.objects.all()
             cust_pay_base = CustomerPayment.objects.all() if is_admin else CustomerPayment.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))
             exp_base = (Expense.objects.all() if is_admin else Expense.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))).exclude(
-                Q(category__iexact='Transfer') | Q(notes__icontains='Internal Transfer') | Q(description__icontains='Internal Transfer') | Q(notes__icontains='➔') | Q(description__icontains='➔')
+                Q(category__iexact='Transfer') | Q(description__icontains='Internal Transfer') | Q(description__icontains='➔')
             )
             vend_pay_base = VendorPayment.objects.all() if is_admin else VendorPayment.objects.filter(Q(created_by=request.user) | Q(job_order__created_by=request.user))
             pay_req_base = PaymentRequest.objects.all() if is_admin else PaymentRequest.objects.filter(created_by=request.user)
@@ -1717,7 +1714,7 @@ class ReportAPIView(views.APIView):
             bank_balance = float(opening_balance + all_income - direct_exp - vendor_outflow - all_labour)
             
             expense_list = list(expenses_qs.filter(is_opening_balance=False).values(
-                'id', 'date', 'description', 'amount', 'category', 'type', 'notes'
+                'id', 'date', 'description', 'amount', 'category', 'type'
             ))
             
             expense_report = {
@@ -2561,7 +2558,8 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
 
                 desc = entry.remark or entry.category or 'Company Expense'
                 cat = entry.category or 'General'
-                notes = f"{cb_name} - Payee: {entry.party_name or 'Company'}".strip()
+                desc = entry.remark or entry.category or 'Company Expense'
+                cat = entry.category or 'General'
 
                 if entry.expense:
                     exp = entry.expense
@@ -2569,7 +2567,6 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                     exp.amount = entry.amount
                     exp.date = entry.date
                     exp.category = cat
-                    exp.notes = notes
                     exp.job_order = entry.job_order
                     exp.save()
                 else:
@@ -2579,7 +2576,6 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                         date=entry.date,
                         category=cat,
                         type='Operational',
-                        notes=notes,
                         job_order=entry.job_order,
                         created_by=self.request.user if self.request.user.is_authenticated else None
                     )
