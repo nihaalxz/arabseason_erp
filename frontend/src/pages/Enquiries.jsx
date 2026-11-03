@@ -38,6 +38,7 @@ import {
 } from '../components/common/FormPrimitives'
 import { showConfirm, showError, showToast, showSuccess } from '../utils/swal'
 import { handlePdfResponse } from '../utils/pdfDownload'
+import { isCurrentUserAdmin } from '../constants/permissions'
 
 const CHANNEL_CONFIG = {
   whatsapp: { label: 'WhatsApp', color: '#16a34a', bg: 'rgba(22, 163, 74, 0.1)', border: 'rgba(22, 163, 74, 0.25)' },
@@ -86,6 +87,7 @@ const CANCELLATION_REASONS = [
 ]
 
 export default function Enquiries({ currentUser }) {
+  const isAdmin = isCurrentUserAdmin(currentUser)
   const { formatCurrency } = useSettings()
   const navigate = useNavigate()
 
