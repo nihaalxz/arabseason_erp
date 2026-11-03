@@ -3917,7 +3917,7 @@ div:where(.swal2-icon) {
 }
 
 /* Monochromatic overrides for dark mode: replace all blues and saturated colors with clean grayscale */
-.cb-dark-bw div[style*="linear-gradient"],
+.cb-dark-bw div[style*="linear-gradient"]:not(.login-page-root div):not(.login-modal-card),
 .cb-dark-bw div[style*="#0B1B44"],
 .cb-dark-bw div[style*="#0F2E7A"],
 .cb-dark-bw div[style*="#162850"] {
