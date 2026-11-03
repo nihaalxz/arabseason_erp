@@ -26,6 +26,8 @@ class PDFGeneratorSmokeTests(TestCase):
         text = ""
         for page in doc:
             text += page.get_text() + "\n"
+        self.assertNotIn("Notes:", text, "Notes: block must not appear in any generated corporate PDF")
+        self.assertNotIn("Terms & Notes", text, "Terms & Notes block must not appear in any generated corporate PDF")
         return len(doc), text
 
     def test_smoke_delivery_note_pdf(self):
@@ -228,6 +230,49 @@ class PDFGeneratorSmokeTests(TestCase):
         self.assertIn("rahul vendor", text)
         self.assertIn("5.00", text)
 
+    def test_smoke_job_order_cost_signoff_pdf(self):
+        signoff_data = {
+            'voucherType': 'JOB ORDER COST & DISBURSEMENT VOUCHER',
+            'voucherNo': 'JOB-2026-88',
+            'date': '2026-11-03',
+            'payeeName': 'Apex Infrastructure Works',
+            'amount': 500.00,
+            'particulars': [
+                {'item': 'Structural Fabrication Scope', 'qty': 1.0, 'rate': 500.0, 'amount': 500.00}
+            ],
+            'notes': 'Status: In Progress. Total: SAR 500.00 | Paid: SAR 350.00 | Balance Due: SAR 150.00. Formal project cost sign-off.'
+        }
+        pdf_bytes = self.gen.generate_payment_voucher_pdf(signoff_data)
+        pages, text = self._extract_pdf_text(pdf_bytes)
+        self.assertGreater(pages, 0)
+        self.assertIn("JOB-2026-88", text)
+        self.assertIn("Apex Infrastructure Works", text)
+        self.assertIn("In Progress", text)
+        self.assertIn("350.00", text)
+        self.assertIn("150.00", text)
+        self.assertNotIn("Notes:", text)
+        self.assertNotIn("Formal project cost sign-off", text)
+
+    def test_smoke_bank_cash_ledger_transaction_voucher_pdf(self):
+        tx_data = {
+            'voucherType': 'Bank Funds Transfer Voucher',
+            'voucherNo': 'TX-9001',
+            'date': '2026-11-03',
+            'payeeName': 'National Electric Grid Co.',
+            'amount': 2500.00,
+            'particulars': [
+                {'item': 'Substation Maintenance Settlement', 'qty': 1.0, 'rate': 2500.0, 'amount': 2500.00}
+            ],
+            'notes': 'Account: Khuair | Running Balance after TX: SAR 35.00. Formal bank & cash ledger transaction record.'
+        }
+        pdf_bytes = self.gen.generate_payment_voucher_pdf(tx_data)
+        pages, text = self._extract_pdf_text(pdf_bytes)
+        self.assertGreater(pages, 0)
+        self.assertIn("TX-9001", text)
+        self.assertIn("35.00", text)
+        self.assertNotIn("Notes:", text)
+        self.assertNotIn("Formal bank & cash ledger transaction record", text)
+
     def test_smoke_statement_ledger_pdf(self):
         stmt_data = {
             'voucherType': 'Customer Account Statement',
@@ -416,8 +461,10 @@ class CashbookExportTablePdfSmokeTests(TestCase):
         self.assertAlmostEqual(first_page.rect.width, 595.28, delta=1.5, msg="Width must match A4 portrait (595.28 pt)")
         self.assertAlmostEqual(first_page.rect.height, 841.89, delta=1.5, msg="Height must match A4 portrait (841.89 pt)")
         # Assert no obsolete 'Report#' number line appears
-        extracted_text = first_page.get_text()
+        extracted_text = "".join([page.get_text() for page in doc])
         self.assertNotIn("Report#", extracted_text, "Report# line must not appear in report header")
+        self.assertNotIn("Notes:", extracted_text, "Notes: block must not appear in table exports")
+        self.assertNotIn("Terms & Notes", extracted_text, "Terms & Notes block must not appear in table exports")
 
     def test_smoke_export_customer_chart(self):
         payload = {

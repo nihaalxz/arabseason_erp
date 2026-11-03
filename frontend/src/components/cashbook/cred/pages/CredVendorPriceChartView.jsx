@@ -102,7 +102,7 @@ const CredVendorPriceChartView = ({
           amount: q.price
         }
       ],
-      notes: q.notes || 'Approved supplier pricing benchmark for estimation & procurement.',
+      notes: '',
       preparedBy: 'Procurement Engineer',
       approvedBy: 'Commercial Director'
     };

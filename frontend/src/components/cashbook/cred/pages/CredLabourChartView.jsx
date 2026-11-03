@@ -349,7 +349,7 @@ const CredLabourChartView = ({
       particulars: [
         { item: `${q.sector} Services (${q.unit})`, qty: '1', rate: formatCurrency(q.charge), amount: formatCurrency(q.charge) }
       ],
-      notes: `Terms & Notes: ${q.notes || 'Work completed to company quality standard'}. Rate valid as agreed.`
+      notes: ''
     };
   };
 

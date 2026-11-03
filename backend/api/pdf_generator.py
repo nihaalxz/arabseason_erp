@@ -892,12 +892,13 @@ class UniversalPDFGenerator:
         items_table.setStyle(TableStyle(t_style))
         return items_table
 
-    def build_reference_totals(self, doc_width, sub_total, total, words_text=None, extra_lines=None, show_sar_symbol=True):
+    def build_reference_totals(self, doc_width, sub_total, total, words_text=None, extra_lines=None, show_sar_symbol=True, post_total_lines=None):
         """
         Right-aligned stack:
         Sub Total (regular)
         Optional extra lines (Discount, VAT 15%, etc.)
         Total band (warm-gray #f5f4f3 with bold Total and bold Amount with SAR glyph)
+        Optional post-total lines (Paid, Balance Due rows)
         Total In Words below it
         """
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
@@ -947,12 +948,24 @@ class UniversalPDFGenerator:
             val_cell = Paragraph(f"SAR {tot_str}", tot_val_b)
 
         totals_rows.append(['', total_lbl, val_cell])
+        total_band_row_idx = len(totals_rows) - 1
 
-        band_row_idx = len(totals_rows) - 1
-        totals_table = Table(totals_rows, colWidths=[257.51, 156.27, 101.25], rowHeights=[25.38] * band_row_idx + [30.00])
+        if post_total_lines:
+            for p_lbl, p_val in post_total_lines:
+                if not p_val or str(p_val).strip() in ('', '-', 'None'):
+                    continue
+                v_str = f"{p_val:,.2f}" if isinstance(p_val, (int, float, Decimal)) else str(p_val)
+                val_text = f"SAR {v_str}" if not str(v_str).startswith('SAR') else v_str
+                is_due = 'due' in p_lbl.lower()
+                style_l = ParagraphStyle(f'PTL_{p_lbl}', fontName=font_bold if is_due else font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+                style_v = ParagraphStyle(f'PTV_{p_lbl}', fontName=font_bold if is_due else font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+                totals_rows.append(['', Paragraph(p_lbl, style_l), Paragraph(val_text, style_v)])
+
+        row_heights = [25.38] * total_band_row_idx + [30.00] + [22.00] * (len(totals_rows) - total_band_row_idx - 1)
+        totals_table = Table(totals_rows, colWidths=[257.51, 156.27, 101.25], rowHeights=row_heights)
         totals_table.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BACKGROUND', (1, band_row_idx), (2, band_row_idx), colors.HexColor('#f5f4f3')),
+            ('BACKGROUND', (1, total_band_row_idx), (2, total_band_row_idx), colors.HexColor('#f5f4f3')),
             ('RIGHTPADDING', (1,0), (1,-1), 7.52),
             ('RIGHTPADDING', (2,0), (2,0), 7.52),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
@@ -990,17 +1003,11 @@ class UniversalPDFGenerator:
 
     def build_reference_signatures_and_notes(self, doc_width, notes=None, signature_style='single'):
         """
-        Notes / terms text below totals in small gray text.
         One 'Authorized Signature _______________' line at bottom-left (or double for payment/salary).
-        Reports get no signature line.
+        Reports get no signature line. Notes / terms sections are completely removed across all PDFs.
         """
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         flowables = []
-
-        if notes and str(notes).strip() not in ('', '-', 'None', 'null'):
-            clean_notes = str(notes).strip()
-            flowables.append(Paragraph(f'<font name="{font_reg}" size="8" color="#727272"><b>Notes:</b> {clean_notes}</font>', ParagraphStyle('NotesRef', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#727272'))))
-            flowables.append(Spacer(1, 14))
 
         if signature_style == 'single':
             sig_line = HRFlowable(width=150, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
@@ -2014,7 +2021,7 @@ class UniversalPDFGenerator:
         else:
             table_rows.append([
                 "1",
-                Paragraph(invoice.notes or "General Services as per Contract", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                Paragraph("General Services as per Contract", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
                 "1.00",
                 f"{float(invoice.subtotal):,.2f}",
                 f"{float(invoice.tax_rate or 15):.1f}%",
@@ -2052,51 +2059,12 @@ class UniversalPDFGenerator:
             remittance_lines.append(f"<b>Remittance Bank:</b> {bank.bank_name}")
             remittance_lines.append(f"<b>Account Name:</b> {bank.account_name}")
             remittance_lines.append(f"<b>IBAN:</b> {bank.iban}")
-        inv_notes = getattr(invoice, 'notes', None)
-        if inv_notes:
-            remittance_lines.append(f"<b>Notes:</b> {inv_notes}")
-        inv_terms = getattr(invoice, 'terms', None)
-        if inv_terms:
-            remittance_lines.append(f"<b>Terms:</b> {inv_terms}")
 
         remittance_p = Paragraph("<br/>".join(remittance_lines) if remittance_lines else "", ParagraphStyle('RemP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
 
-        # 5. Remittance Notes & Optional QR (Default OFF per project requirements)
-        concluding_flowables = [totals_block, Spacer(1, 14.00)]
-
-        use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
-        if use_qr:
-            settings_data = self._get_site_settings()
-            seller_name = settings_data.get('company_name', 'Arab Season')
-            seller_trn = settings_data.get('tax_number', '')
-            inv_iso_time = f"{invoice.invoice_date}T12:00:00Z" if invoice.invoice_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
-            qr_drawing = self._build_zatca_qr_drawing(
-                seller_name=seller_name,
-                vat_number=seller_trn,
-                invoice_time=inv_iso_time,
-                total_amount=total_val,
-                vat_amount=vat_amt,
-                size=65
-            )
-            remit_table = Table([[remittance_p, qr_drawing]], colWidths=[doc_width - 80, 80])
-            remit_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('ALIGN', (1,0), (1,0), 'RIGHT'),
-                ('LEFTPADDING', (0,0), (-1,-1), 0),
-                ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                ('TOPPADDING', (0,0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-            ]))
-            concluding_flowables.append(remit_table)
-            concluding_flowables.append(Spacer(1, 14.00))
-        elif remittance_lines:
-            # Clean full-width reflow with no empty QR gap
-            concluding_flowables.append(remittance_p)
-            concluding_flowables.append(Spacer(1, 14.00))
-
         totals_block.keepWithNext = True
         elements.append(totals_block)
-        elements.append(Spacer(1, 14.00))
+        elements.append(Spacer(1, 14.00 if remittance_lines else 23.00))
 
         if remittance_lines:
             remittance_p.keepWithNext = True
@@ -2204,10 +2172,10 @@ class UniversalPDFGenerator:
         elements.append(items_table)
         elements.append(Spacer(1, 23.00))
 
-        # 4. Signatures
+        # 4. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=estimation.notes or estimation.scope_of_work,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -2338,7 +2306,7 @@ class UniversalPDFGenerator:
 
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=estimation.notes or estimation.scope_of_work,
+            notes=None,
             signature_style='internal'
         )
         elements.extend(sigs)
@@ -2464,7 +2432,7 @@ class UniversalPDFGenerator:
         else:
             table_rows.append([
                 "1",
-                Paragraph(quotation.notes or "Quoted Services and Deliverables", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                Paragraph("Quoted Services and Deliverables", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
                 "1.00",
                 f"{float(quotation.subtotal):,.2f}",
                 f"{float(quotation.tax_rate or 15):.1f}%",
@@ -2498,11 +2466,10 @@ class UniversalPDFGenerator:
         elements.append(totals_block)
         elements.append(Spacer(1, 23.00))
 
-        # 5. Signatures and Notes
-        notes_full = quotation.notes or quotation.terms
+        # 5. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=notes_full,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -2626,7 +2593,7 @@ class UniversalPDFGenerator:
         else:
             table_rows.append([
                 "1",
-                Paragraph(credit_note.notes or "Credit Adjustment as agreed", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                Paragraph("Credit Adjustment as agreed", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
                 "1.00",
                 f"{float(credit_note.subtotal):,.2f}",
                 f"{float(credit_note.tax_rate or 15):.1f}%",
@@ -2658,46 +2625,10 @@ class UniversalPDFGenerator:
 
         # 5. Notes & Optional QR (Default OFF per project requirements)
         concluding_flowables = [totals_block, Spacer(1, 14.00)]
-        use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
-        if use_qr:
-            settings_data = self._get_site_settings()
-            seller_name = settings_data.get('company_name', 'Arab Season')
-            seller_trn = settings_data.get('tax_number', '')
-            cn_iso_time = f"{credit_note.credit_note_date}T12:00:00Z" if credit_note.credit_note_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
-            qr_drawing = self._build_zatca_qr_drawing(
-                seller_name=seller_name,
-                vat_number=seller_trn,
-                invoice_time=cn_iso_time,
-                total_amount=total_val,
-                vat_amount=vat_amt,
-                size=65
-            )
-            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}" if credit_note.notes else "", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
-            qr_table = Table([[notes_p, qr_drawing]], colWidths=[doc_width - 80, 80])
-            qr_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('ALIGN', (1,0), (1,0), 'RIGHT'),
-                ('LEFTPADDING', (0,0), (-1,-1), 0),
-                ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                ('TOPPADDING', (0,0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-            ]))
-            concluding_flowables.append(qr_table)
-            concluding_flowables.append(Spacer(1, 14.00))
-        elif credit_note.notes:
-            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
-            concluding_flowables.append(notes_p)
-            concluding_flowables.append(Spacer(1, 14.00))
-
         totals_block.keepWithNext = True
         elements.append(totals_block)
-        elements.append(Spacer(1, 14.00))
+        elements.append(Spacer(1, 23.00))
 
-        if credit_note.notes:
-            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
-            notes_p.keepWithNext = True
-            elements.append(notes_p)
-            elements.append(Spacer(1, 14.00))
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
             notes=None,
@@ -2824,10 +2755,10 @@ class UniversalPDFGenerator:
         elements.append(totals_block)
         elements.append(Spacer(1, 23.00))
 
-        # 5. Signatures and Notes
+        # 5. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=delivery_note.notes,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -2922,6 +2853,28 @@ class UniversalPDFGenerator:
             ("Voucher No", str(v_no)),
             ("Date", format_doc_date(v_date))
         ]
+        # Status (e.g. from Job Order / project sign-off)
+        status_val = voucher_data.get('status')
+        if not status_val and voucher_data.get('notes'):
+            m_status = re.search(r'Status:\s*([A-Za-z0-9_\-\s]+?)(?:\.|$|\|)', str(voucher_data.get('notes')))
+            if m_status:
+                status_val = m_status.group(1).strip()
+        if status_val and str(status_val).strip() not in ('-', 'None', 'null'):
+            meta_pairs.append(("Status", str(status_val).strip()))
+
+        # Running Balance (e.g. from bank / cash ledger transaction voucher)
+        rb_val = voucher_data.get('runningBalance') or voucher_data.get('running_balance')
+        if rb_val is None and voucher_data.get('notes'):
+            m_rb = re.search(r'Running Balance after TX:\s*SAR\s*([\d,.]+)', str(voucher_data.get('notes')))
+            if m_rb:
+                rb_val = m_rb.group(1).strip()
+        if rb_val is not None and str(rb_val).strip() not in ('', '-', 'None', 'null'):
+            try:
+                rb_num = float(str(rb_val).replace(',', '').replace('SAR', '').strip())
+                meta_pairs.append(("Running Balance", f"SAR {rb_num:,.2f}"))
+            except Exception:
+                meta_pairs.append(("Running Balance", str(rb_val).strip()))
+
         period_val = voucher_data.get('period') or voucher_data.get('period_text')
         if is_statement and period_val:
             meta_pairs.append(("Period", str(period_val)))
@@ -3063,8 +3016,7 @@ class UniversalPDFGenerator:
             elements.append(totals_block)
             elements.append(Spacer(1, 23.00))
 
-            notes_text = voucher_data.get('notes') or voucher_data.get('narration')
-            sigs = self.build_reference_signatures_and_notes(doc_width, notes=notes_text, signature_style='single')
+            sigs = self.build_reference_signatures_and_notes(doc_width, notes=None, signature_style='single')
             elements.extend(sigs)
 
         # =========================================================================
@@ -3139,22 +3091,50 @@ class UniversalPDFGenerator:
             # 4. Totals Block (Total amount appears ONCE in totals area)
             total_val = float(amt) if amt > 0 else float(computed_subtotal)
             words_text = voucher_data.get('amountWords') or self.number_to_words(total_val)
+
+            # Check for Paid & Balance Due (e.g. Project Cost Sign-Off / Wage Payout)
+            post_total_lines = []
+            paid_val = voucher_data.get('paidAmount') or voucher_data.get('paid')
+            due_val = voucher_data.get('balanceDue') or voucher_data.get('due') or voucher_data.get('dueAmount')
+            if (paid_val is None or due_val is None) and voucher_data.get('notes'):
+                notes_s = str(voucher_data.get('notes'))
+                m_paid = re.search(r'Paid:\s*SAR\s*([\d,.]+)', notes_s)
+                m_due = re.search(r'(?:Balance Due|Due):\s*SAR\s*([\d,.]+)', notes_s)
+                if m_paid and paid_val is None:
+                    paid_val = m_paid.group(1).strip()
+                if m_due and due_val is None:
+                    due_val = m_due.group(1).strip()
+
+            if paid_val is not None and str(paid_val).strip() not in ('', '-', 'None'):
+                try:
+                    p_num = float(str(paid_val).replace(',', '').replace('SAR', '').strip())
+                    post_total_lines.append(("Paid", f"SAR {p_num:,.2f}"))
+                except Exception:
+                    post_total_lines.append(("Paid", str(paid_val).strip()))
+
+            if due_val is not None and str(due_val).strip() not in ('', '-', 'None'):
+                try:
+                    d_num = float(str(due_val).replace(',', '').replace('SAR', '').strip())
+                    post_total_lines.append(("Balance Due", f"SAR {d_num:,.2f}"))
+                except Exception:
+                    post_total_lines.append(("Balance Due", str(due_val).strip()))
+
             totals_block = self.build_reference_totals(
                 doc_width,
                 sub_total=float(computed_subtotal),
                 total=total_val,
                 words_text=words_text,
-                show_sar_symbol=True
+                show_sar_symbol=True,
+                post_total_lines=post_total_lines if post_total_lines else None
             )
             totals_block.keepWithNext = True
             elements.append(totals_block)
             elements.append(Spacer(1, 23.00))
 
             sig_style = 'double' if any(k in v_type_upper for k in ['PAYMENT', 'RECEIPT', 'SALARY']) else 'single'
-            notes_text = voucher_data.get('notes') or voucher_data.get('narration') or voucher_data.get('terms')
             sigs = self.build_reference_signatures_and_notes(
                 doc_width,
-                notes=notes_text,
+                notes=None,
                 signature_style=sig_style
             )
             elements.extend(sigs)
@@ -3263,11 +3243,10 @@ class UniversalPDFGenerator:
         elements.append(items_table)
         elements.append(Spacer(1, 23.00))
 
-        # 4. Signatures and Notes
-        notes_full = enquiry.notes
+        # 4. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=notes_full,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
