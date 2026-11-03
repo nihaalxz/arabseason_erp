@@ -2651,7 +2651,30 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         from django.db import transaction
+        from rest_framework.exceptions import ValidationError
         with transaction.atomic():
+            validated_data = serializer.validated_data
+            entry_type = validated_data.get('entry_type')
+            amt = Decimal(str(validated_data.get('amount') or '0.00'))
+            pca = validated_data.get('petty_cash_account')
+            bank = validated_data.get('bank_account')
+
+            if entry_type == 'out':
+                if pca:
+                    pca_obj = PettyCashAccount.objects.select_for_update().filter(id=pca.id).first()
+                    curr_bal = Decimal(str(pca_obj.balance or '0.00')) if pca_obj else Decimal('0.00')
+                    if curr_bal < amt:
+                        raise ValidationError({
+                            "amount": f"Insufficient balance in Petty Cash account '{pca_obj.name}'. Available: {curr_bal} {pca_obj.currency}, requested: {amt} {pca_obj.currency}."
+                        })
+                elif bank:
+                    bank_obj = BankAccount.objects.select_for_update().filter(id=bank.id).first()
+                    curr_bal = Decimal(str(bank_obj.balance or '0.00')) if bank_obj else Decimal('0.00')
+                    if curr_bal < amt:
+                        raise ValidationError({
+                            "amount": f"Insufficient balance in Bank account '{bank_obj.bank_name}'. Available: {curr_bal} {bank_obj.currency}, requested: {amt} {bank_obj.currency}."
+                        })
+
             entry = serializer.save(created_by=self.request.user)
             self._sync_entry_side_effects(entry)
 
@@ -2759,6 +2782,31 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                     old_l.save()
                 except Exception:
                     pass
+
+            # Validate sufficient balance before saving updated Cash Out
+            validated_data = serializer.validated_data
+            new_entry_type = validated_data.get('entry_type', old_instance.entry_type)
+            new_amount = Decimal(str(validated_data.get('amount') if 'amount' in validated_data else old_instance.amount))
+            new_pca = validated_data.get('petty_cash_account', old_instance.petty_cash_account)
+            new_bank = validated_data.get('bank_account', old_instance.bank_account)
+
+            if new_entry_type == 'out':
+                if new_pca:
+                    pca_obj = PettyCashAccount.objects.select_for_update().filter(id=new_pca.id).first()
+                    curr_bal = Decimal(str(pca_obj.balance or '0.00')) if pca_obj else Decimal('0.00')
+                    if curr_bal < new_amount:
+                        from rest_framework.exceptions import ValidationError
+                        raise ValidationError({
+                            "amount": f"Insufficient balance in Petty Cash account '{pca_obj.name}'. Available: {curr_bal} {pca_obj.currency}, requested: {new_amount} {pca_obj.currency}."
+                        })
+                elif new_bank:
+                    bank_obj = BankAccount.objects.select_for_update().filter(id=new_bank.id).first()
+                    curr_bal = Decimal(str(bank_obj.balance or '0.00')) if bank_obj else Decimal('0.00')
+                    if curr_bal < new_amount:
+                        from rest_framework.exceptions import ValidationError
+                        raise ValidationError({
+                            "amount": f"Insufficient balance in Bank account '{bank_obj.bank_name}'. Available: {curr_bal} {bank_obj.currency}, requested: {new_amount} {bank_obj.currency}."
+                        })
 
             new_instance = serializer.save()
             self._sync_entry_side_effects(new_instance)

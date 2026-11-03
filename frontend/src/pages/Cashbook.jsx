@@ -1569,6 +1569,53 @@ const Cashbook = ({ currentUser = null }) => {
     return []
   }, [pettyCashAccounts, user])
 
+  // Resolve active cashout channel and calculate available balance
+  const selectedCashoutAccount = useMemo(() => {
+    if (entryType !== 'out') return null
+    const mode = entryFormData.payment_mode || 'Petty Cash'
+    if (mode === 'Bank Transfer') {
+      const bankId = entryFormData.bank_account || (banks.length > 0 ? banks[0].id : null)
+      const b = banks.find(x => String(x.id) === String(bankId))
+      if (!b) return null
+      let bal = parseFloat(b.balance || 0)
+      if (editingEntry && editingEntry.entry_type === 'out' && String(editingEntry.bank_account) === String(b.id)) {
+        bal += parseFloat(editingEntry.amount || 0)
+      }
+      return {
+        type: 'bank',
+        id: b.id,
+        name: b.bank_name,
+        currency: b.currency || 'SAR',
+        balance: bal
+      }
+    } else if (mode === 'Petty Cash') {
+      const pca = userPettyCashAccounts.find(a => String(a.id) === String(selectedPettyCashAccountId)) ||
+        pettyCashAccounts.find(a => String(a.id) === String(selectedPettyCashAccountId))
+      if (!pca) return null
+      let bal = parseFloat(pca.balance || 0)
+      if (editingEntry && editingEntry.entry_type === 'out' && String(editingEntry.petty_cash_account) === String(pca.id)) {
+        bal += parseFloat(editingEntry.amount || 0)
+      }
+      return {
+        type: 'petty_cash',
+        id: pca.id,
+        name: pca.name,
+        currency: pca.currency || 'SAR',
+        balance: bal
+      }
+    }
+    return null
+  }, [entryType, entryFormData.payment_mode, entryFormData.bank_account, banks, selectedPettyCashAccountId, userPettyCashAccounts, pettyCashAccounts, editingEntry])
+
+  const currentCashoutAvailableBalance = selectedCashoutAccount ? selectedCashoutAccount.balance : null
+  const cashoutRequestedAmount = parseFloat(entryFormData.amount) || 0
+  const isInsufficientCashoutBalance = Boolean(
+    entryType === 'out' &&
+    currentCashoutAvailableBalance !== null &&
+    cashoutRequestedAmount > 0 &&
+    cashoutRequestedAmount > currentCashoutAvailableBalance
+  )
+
   // Create/Edit Book Modal
   const [isBookModalOpen, setIsBookModalOpen] = useState(false)
   const [editingBook, setEditingBook] = useState(null)
@@ -3184,6 +3231,13 @@ const Cashbook = ({ currentUser = null }) => {
       setEntryError('Credit/Debit designation (Cash In / Cash Out) is required.')
       return
     }
+    if (entryType === 'out' && selectedCashoutAccount) {
+      const reqAmt = parseFloat(entryFormData.amount) || 0
+      if (reqAmt > selectedCashoutAccount.balance) {
+        setEntryError(`Cannot cash out: Insufficient balance in ${selectedCashoutAccount.name}. Available: ${safeFormatAmount(selectedCashoutAccount.balance)} ${selectedCashoutAccount.currency || 'SAR'}, Requested: ${safeFormatAmount(reqAmt)} ${selectedCashoutAccount.currency || 'SAR'}.`)
+        return
+      }
+    }
     const targetBookId = effectiveBookId
 
     if (activeTab === 'book' && !targetBookId) {
@@ -3236,6 +3290,17 @@ const Cashbook = ({ currentUser = null }) => {
           finalBankAcc = entryFormData.bank_account
           const foundB = banks.find(b => String(b.id) === String(finalBankAcc))
           finalBankName = foundB?.bank_name || entryFormData.bank_account_name || ''
+          if (entryType === 'out' && foundB) {
+            let avail = parseFloat(foundB.balance || 0)
+            if (editingEntry && editingEntry.entry_type === 'out' && String(editingEntry.bank_account) === String(foundB.id)) {
+              avail += parseFloat(editingEntry.amount || 0)
+            }
+            if (parseFloat(entryFormData.amount) > avail) {
+              setEntryError(`Cannot cash out: Insufficient balance in bank account '${foundB.bank_name}'. Available: ${safeFormatAmount(avail)} ${foundB.currency || 'SAR'}, Requested: ${safeFormatAmount(entryFormData.amount)} ${foundB.currency || 'SAR'}.`)
+              setSubmittingEntry(false)
+              return
+            }
+          }
         } else {
           setEntryError('Please configure at least one active bank account in the Banks module before recording a Bank Transfer.')
           setSubmittingEntry(false)
@@ -3247,6 +3312,17 @@ const Cashbook = ({ currentUser = null }) => {
           finalPettyCashAcc = selectedPettyCashAccountId
           const foundA = pettyCashAccounts.find(a => String(a.id) === String(selectedPettyCashAccountId))
           finalPettyCashName = foundA?.name || ''
+          if (entryType === 'out' && foundA) {
+            let avail = parseFloat(foundA.balance || 0)
+            if (editingEntry && editingEntry.entry_type === 'out' && String(editingEntry.petty_cash_account) === String(foundA.id)) {
+              avail += parseFloat(editingEntry.amount || 0)
+            }
+            if (parseFloat(entryFormData.amount) > avail) {
+              setEntryError(`Cannot cash out: Insufficient balance in petty cash account '${foundA.name}'. Available: ${safeFormatAmount(avail)} ${foundA.currency || 'SAR'}, Requested: ${safeFormatAmount(entryFormData.amount)} ${foundA.currency || 'SAR'}.`)
+              setSubmittingEntry(false)
+              return
+            }
+          }
         } else {
           setEntryError('Please select a petty cash account before recording a Petty Cash entry.')
           setSubmittingEntry(false)
@@ -17203,7 +17279,12 @@ const Cashbook = ({ currentUser = null }) => {
               type="submit"
               form="cashbook-entry-form"
               className="cred-modal-submit-btn"
-              disabled={submittingEntry}
+              disabled={submittingEntry || isInsufficientCashoutBalance}
+              title={isInsufficientCashoutBalance ? `Cannot cash out: Insufficient balance in ${selectedCashoutAccount?.name || 'account'}` : ''}
+              style={{
+                opacity: isInsufficientCashoutBalance ? 0.5 : 1,
+                cursor: isInsufficientCashoutBalance ? 'not-allowed' : 'pointer'
+              }}
             >
               {submittingEntry ? 'Saving...' : (editingEntry ? 'Update Entry' : (entryType === 'in' ? '+ Save Credit (Customer)' : '— Save Debit (Expense)'))}
             </button>
@@ -19302,15 +19383,37 @@ const Cashbook = ({ currentUser = null }) => {
                       fontWeight: '800', 
                       color: isDarkMode ? '#ffffff' : '#0f172a',
                       background: isDarkMode ? '#1a1c20' : '#ffffff',
-                      border: isDarkMode ? '1px solid #2e323a' : '1px solid #cbd5e1',
+                      border: isInsufficientCashoutBalance ? '1.5px solid #ef4444' : (isDarkMode ? '1px solid #2e323a' : '1px solid #cbd5e1'),
+                      boxShadow: isInsufficientCashoutBalance ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : 'none',
                       borderRadius: '10px',
                       padding: '0 0.85rem',
                       height: '42px',
                       minHeight: '42px',
                       boxSizing: 'border-box',
-                      width: '100%'
+                      width: '100%',
+                      outline: 'none'
                     }}
                   />
+                  {isInsufficientCashoutBalance && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      marginTop: '6px',
+                      padding: '6px 10px',
+                      borderRadius: '8px',
+                      background: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+                      border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #fecaca',
+                      color: isDarkMode ? '#f87171' : '#dc2626',
+                      fontSize: '0.74rem',
+                      fontWeight: '600'
+                    }}>
+                      <AlertTriangle size={14} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+                      <span>
+                        Insufficient balance in {selectedCashoutAccount?.name || 'account'}! Available: {safeFormatAmount(currentCashoutAvailableBalance)} {selectedCashoutAccount?.currency || 'SAR'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -19354,19 +19457,27 @@ const Cashbook = ({ currentUser = null }) => {
                           Petty Cash *
                         </label>
                         {(() => {
-                          const activePca = userPettyCashAccounts.find(a => String(a.id) === String(selectedPettyCashAccountId))
+                          const activePca = userPettyCashAccounts.find(a => String(a.id) === String(selectedPettyCashAccountId)) ||
+                            pettyCashAccounts.find(a => String(a.id) === String(selectedPettyCashAccountId))
                           if (activePca) {
+                            const isPcaInsufficient = isInsufficientCashoutBalance && (entryFormData.payment_mode === 'Petty Cash' || !entryFormData.payment_mode)
                             return (
                               <span style={{
                                 fontSize: '0.72rem',
                                 fontWeight: '700',
                                 padding: '1px 7px',
                                 borderRadius: '999px',
-                                background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
-                                color: isDarkMode ? '#93c5fd' : '#1d4ed8',
-                                border: isDarkMode ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe'
+                                background: isPcaInsufficient
+                                  ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2')
+                                  : (isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff'),
+                                color: isPcaInsufficient
+                                  ? (isDarkMode ? '#f87171' : '#dc2626')
+                                  : (isDarkMode ? '#93c5fd' : '#1d4ed8'),
+                                border: isPcaInsufficient
+                                  ? (isDarkMode ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid #fca5a5')
+                                  : (isDarkMode ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe')
                               }}>
-                                Bal: {safeFormatAmount(activePca.balance || 0)} SAR
+                                Bal: {safeFormatAmount(activePca.balance || 0)} SAR{isPcaInsufficient ? ' (Insufficient)' : ''}
                               </span>
                             )
                           }
@@ -19402,19 +19513,26 @@ const Cashbook = ({ currentUser = null }) => {
                         Select Bank *
                       </label>
                       {(() => {
-                        const selectedBank = banks.find(b => String(b.id) === String(entryFormData.bank_account))
+                        const selectedBank = banks.find(b => String(b.id) === String(entryFormData.bank_account || (banks.length > 0 ? banks[0].id : '')))
                         if (selectedBank) {
+                          const isBankInsufficient = isInsufficientCashoutBalance && entryFormData.payment_mode === 'Bank Transfer'
                           return (
                             <span style={{
                               fontSize: '0.72rem',
                               fontWeight: '700',
                               padding: '1px 7px',
                               borderRadius: '999px',
-                              background: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
-                              color: isDarkMode ? '#93c5fd' : '#1d4ed8',
-                              border: isDarkMode ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe'
+                              background: isBankInsufficient
+                                ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2')
+                                : (isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff'),
+                              color: isBankInsufficient
+                                ? (isDarkMode ? '#f87171' : '#dc2626')
+                                : (isDarkMode ? '#93c5fd' : '#1d4ed8'),
+                              border: isBankInsufficient
+                                ? (isDarkMode ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid #fca5a5')
+                                : (isDarkMode ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe')
                             }}>
-                              Bal: {safeFormatAmount(selectedBank.balance || 0)} SAR
+                              Bal: {safeFormatAmount(selectedBank.balance || 0)} SAR{isBankInsufficient ? ' (Insufficient)' : ''}
                             </span>
                           )
                         }
