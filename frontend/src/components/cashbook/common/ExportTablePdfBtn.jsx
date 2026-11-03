@@ -17,7 +17,7 @@ export default function ExportTablePdfBtn({
   className = '',
   style = {}
 }) {
-  const handleExport = (e) => {
+  const handleExport = async (e) => {
     e?.stopPropagation?.();
     e?.preventDefault?.();
     if (onClick) { onClick(e); return; }
@@ -26,7 +26,7 @@ export default function ExportTablePdfBtn({
       return;
     }
     try {
-      exportTableToPdf({
+      await exportTableToPdf({
         title,
         subtitle,
         columns,
@@ -38,7 +38,6 @@ export default function ExportTablePdfBtn({
       });
     } catch (err) {
       console.error('Failed to export table PDF:', err);
-      alert('Failed to generate PDF. Please try again.');
     }
   };
 

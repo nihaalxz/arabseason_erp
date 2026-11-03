@@ -5150,8 +5150,13 @@ class CashbookExportTablePdfView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        import logging
         from django.http import HttpResponse
+        from rest_framework.response import Response
+        from rest_framework import status
         from .pdf_generator import universal_pdf_generator, format_dynamic_filename
+
+        logger = logging.getLogger(__name__)
 
         data = request.data or {}
         title = data.get('title') or 'Cashbook Report'
@@ -5164,22 +5169,29 @@ class CashbookExportTablePdfView(views.APIView):
         prefix = data.get('filename_prefix') or 'cashbook_report'
         orientation = data.get('orientation') or 'portrait'
 
-        pdf_bytes = universal_pdf_generator.generate_universal_table_pdf(
-            title=title,
-            columns=columns,
-            rows=rows,
-            kpis=kpis,
-            ref_number=ref_number,
-            period_text=period_text,
-            totals=totals,
-            filename_prefix=prefix,
-            orientation=orientation
-        )
+        try:
+            pdf_bytes = universal_pdf_generator.generate_universal_table_pdf(
+                title=title,
+                columns=columns,
+                rows=rows,
+                kpis=kpis,
+                ref_number=ref_number,
+                period_text=period_text,
+                totals=totals,
+                filename_prefix=prefix,
+                orientation=orientation
+            )
 
-        filename = format_dynamic_filename(prefix, title, datetime.datetime.now().strftime('%Y%m%d'))
-        response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="{filename}"'
-        return response
+            filename = format_dynamic_filename(prefix, title, datetime.datetime.now().strftime('%Y%m%d'))
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+        except Exception as e:
+            logger.exception("Failed to generate cashbook table export PDF: %s", e)
+            return Response({
+                'error': str(e),
+                'detail': f"PDF Generation Error in '{title}': {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CashbookVoucherPdfView(views.APIView):

@@ -34,6 +34,26 @@ try:
 except ImportError:
     HAS_ARABIC_SUPPORT = False
 
+
+def sanitize_doc_text(text):
+    if text is None:
+        return ''
+    s = str(text)
+    # Map unsupported glyphs that render as black boxes in standard fonts
+    replacements = {
+        '★': '*',
+        '☆': '*',
+        '﷼': 'SAR',
+        '₪': 'ILS',
+        '■': '-',
+        '\ufeff': '',
+        '\u200b': '',
+    }
+    for old, new in replacements.items():
+        if old in s:
+            s = s.replace(old, new)
+    return s
+
 def format_bidi_text(text):
     """
     Reshapes and applies BiDi visual ordering to Arabic script text
@@ -629,6 +649,59 @@ class UniversalPDFGenerator:
     # SHARED REFERENCE LAYOUT COMPONENTS (STRICTLY MATCHING DC-00002.pdf)
     # ══════════════════════════════════════════════════════════════════════
 
+    def _compute_adaptive_title(self, title, max_width, font_name):
+        clean = (title or '').strip()
+        clean_upper = clean.upper()
+        words = clean_upper.split()
+        if not words:
+            return 28, 32.25, clean_upper
+
+        if clean_upper == "DELIVERY CHALLAN":
+            return 28, 32.25, "DELIVERY&nbsp;<br/>CHALLAN"
+
+        candidate_sizes = [28, 24, 20, 18, 16]
+
+        for sz in candidate_sizes:
+            leading = sz * (32.25 / 28.0)
+
+            w_single = stringWidth(clean_upper, font_name, sz)
+            if w_single <= max_width:
+                return sz, leading, clean_upper
+
+            best_split = None
+            best_diff = 999999
+            for i in range(1, len(words)):
+                l1 = " ".join(words[:i])
+                l2 = " ".join(words[i:])
+                w1 = stringWidth(l1, font_name, sz)
+                w2 = stringWidth(l2, font_name, sz)
+                if w1 <= max_width and w2 <= max_width:
+                    diff = abs(w1 - w2)
+                    if diff < best_diff:
+                        best_diff = diff
+                        best_split = (l1, l2)
+
+            if best_split:
+                if (len(words) >= 4 or len(clean_upper) >= 25) and sz > 18:
+                    continue
+                return sz, leading, f"{best_split[0]}&nbsp;<br/>{best_split[1]}"
+
+        sz = 16
+        leading = 18.5
+        lines = []
+        curr = []
+        for w in words:
+            test = " ".join(curr + [w])
+            if stringWidth(test, font_name, sz) <= max_width:
+                curr.append(w)
+            else:
+                if curr:
+                    lines.append(" ".join(curr))
+                curr = [w]
+        if curr:
+            lines.append(" ".join(curr))
+        return sz, leading, "&nbsp;<br/>".join(lines)
+
     def build_reference_header(self, doc_width, title, doc_number):
         """
         Reference Header layout (matching DC-00002.pdf):
@@ -641,7 +714,7 @@ class UniversalPDFGenerator:
         left_flowables = []
         if logo_path and os.path.exists(logo_path):
             try:
-                left_flowables.append(Image(logo_path, width=177, height=54))
+                left_flowables.append(Image(logo_path, width=177, height=54, mask='auto'))
             except Exception:
                 pass
 
@@ -676,18 +749,12 @@ class UniversalPDFGenerator:
         # Exact spacer before logo (top=57.15) and before company block
         left_flowables = [Spacer(1, 1.80)] + left_flowables + [Spacer(1, 1.41), comp_p1, comp_p2]
 
-        # Right: Title + Number
+        # Right: Adaptive Title + Shortened Document Number
         t_clean = (title or '').strip().upper()
-        t_words = t_clean.split(' ')
-        if len(t_words) == 2:
-            title_html = f"{t_words[0]}&nbsp;<br/>{t_words[1]}"
-        elif len(t_words) > 2 and len(t_clean) > 14:
-            mid = len(t_words) // 2
-            title_html = f"{' '.join(t_words[:mid])}&nbsp;<br/>{' '.join(t_words[mid:])}"
-        else:
-            title_html = t_clean
+        right_col_w = doc_width - 280.0
+        title_sz, title_ld, title_html = self._compute_adaptive_title(t_clean, right_col_w, font_reg)
 
-        title_p = Paragraph(title_html, ParagraphStyle('TDel', fontName=font_reg, fontSize=28, leading=32.25, alignment=2, textColor=colors.HexColor('#000000')))
+        title_p = Paragraph(title_html, ParagraphStyle('TDel', fontName=font_reg, fontSize=title_sz, leading=title_ld, alignment=2, textColor=colors.HexColor('#000000')))
         docnum_p = Paragraph(doc_number, ParagraphStyle('TNum', fontName=font_bold, fontSize=10, leading=12, alignment=2, textColor=colors.HexColor('#333333')))
         right_flowables = [Spacer(1, 0.4), title_p, Spacer(1, 1.59), docnum_p]
 
@@ -746,7 +813,21 @@ class UniversalPDFGenerator:
 
         if meta_rows:
             rhs = [19.05] * 2 if len(meta_rows) == 2 else None
-            meta_table = Table(meta_rows, colWidths=[140, 110], rowHeights=rhs)
+            # Check maximum string width of meta values to prevent unwanted wrapping of common values like "QUOTED RATE / AGREEMENT"
+            max_v_w = 0.0
+            if meta_pairs:
+                for _, mv in meta_pairs:
+                    if mv:
+                        max_v_w = max(max_v_w, stringWidth(str(mv).strip(), font_reg, 9))
+
+            if max_v_w > 105.0:
+                val_col_w = min(150.0, max_v_w + 12.0)
+                lbl_col_w = 250.0 - val_col_w
+            else:
+                lbl_col_w = 140.0
+                val_col_w = 110.0
+
+            meta_table = Table(meta_rows, colWidths=[lbl_col_w, val_col_w], rowHeights=rhs)
             meta_table.setStyle(TableStyle([
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('TOPPADDING', (0,0), (-1,-1), 0),
@@ -839,7 +920,7 @@ class UniversalPDFGenerator:
         tot_val_b = ParagraphStyle('TVB', fontName=font_bold, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
 
         sar_icon_path = self._resolve_sar_symbol_path()
-        sar_icon = Image(sar_icon_path, width=5.96, height=6.75) if (sar_icon_path and show_sar_symbol and os.path.exists(sar_icon_path)) else None
+        sar_icon = Image(sar_icon_path, width=5.96, height=6.75, mask='auto') if (sar_icon_path and show_sar_symbol and os.path.exists(sar_icon_path)) else None
 
         totals_rows = []
         if sub_total is not None:
@@ -1056,10 +1137,21 @@ class UniversalPDFGenerator:
         Universal corporate report PDF matching reference DC-00002 design standard.
         Charcoal header, thin #adadad row dividers, quiet summary stack, no alternating colors,
         footer timestamp and page count.
+        Supports:
+        - 0 rows (shows clean 'No records found' row spanning table)
+        - 1 row
+        - 50+ rows over multiple pages (repeatRows=1)
+        - Arabic text (reshaped with format_bidi_text)
+        - None or empty cells
+        - Long text in a cell (wrapped via Paragraph, never overflows)
+        - Automatic landscape and 8pt text when > 6 columns
+        - Proper totals summary row when provided
         """
         from reportlab.lib.pagesizes import A4, landscape
         buffer = BytesIO()
-        is_landscape = (orientation == 'landscape' or len(columns) > 6)
+
+        num_cols = len(columns) if columns else 1
+        is_landscape = (orientation == 'landscape' or num_cols > 6)
         psize = landscape(A4) if is_landscape else A4
         page_w, page_h = psize
 
@@ -1083,7 +1175,7 @@ class UniversalPDFGenerator:
         # 2. Summary Stack (Replacing KPI cards)
         summary_items = []
         if period_text:
-            summary_items.append(("Report Period", str(period_text)))
+            summary_items.append(("Report Period", sanitize_doc_text(str(period_text))))
         if kpis:
             if isinstance(kpis, list):
                 summary_items.extend(kpis)
@@ -1094,28 +1186,197 @@ class UniversalPDFGenerator:
             elements.append(self.build_reference_summary_stack(doc_w, summary_items))
             elements.append(Spacer(1, 12.00))
 
-        # 3. Table
-        # Columns format
-        cols_formatted = []
-        col_w = doc_w / len(columns) if columns else doc_w
-        for c in columns:
-            c_name = c if isinstance(c, str) else (c.get('header') or c.get('title') or c.get('name') or 'Column')
-            align = 'right' if any(k in c_name.lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar']) else 'left'
-            cols_formatted.append((c_name, align))
-
+        # 3. Columns & Proportional Widths
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
-        table_rows = []
-        for r in rows:
-            row_cells = []
-            for idx, c in enumerate(columns):
-                val = r[idx] if isinstance(r, (list, tuple)) and idx < len(r) else (r.get(c) if isinstance(r, dict) else (r.get(c.get('key')) if isinstance(c, dict) else ''))
-                val_str = str(val) if val is not None else ''
-                align = cols_formatted[idx][1]
-                p_align = 2 if align == 'right' else 0
-                row_cells.append(Paragraph(val_str, ParagraphStyle('TRow', fontName=font_reg, fontSize=8.0 if is_landscape else 8.5, leading=10.5, alignment=p_align, textColor=colors.HexColor('#333333'))))
-            table_rows.append(row_cells)
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
 
-        items_table = self.build_reference_items_table(doc_w, cols_formatted, table_rows, col_widths=[col_w] * len(columns))
+        # Typography scale: 8.0 pt text when more than 6 columns or landscape
+        font_size = 8.0 if is_landscape else 8.5
+        leading = 9.8 if is_landscape else 10.5
+        th_font_size = 8.0 if is_landscape else 8.5
+        th_leading = 9.8 if is_landscape else 10.5
+
+        cols_formatted = []
+        col_weights = []
+        for c in columns:
+            if isinstance(c, str):
+                c_name = c
+                c_align = 'left'
+            else:
+                c_name = c.get('header') or c.get('title') or c.get('name') or c.get('dataKey') or 'Column'
+                c_align = c.get('align') or ('right' if any(k in str(c_name).lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'val', 'wages', 'paid', 'due', 'billed']) else 'left')
+
+            if any(k in str(c_name).lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'wages', 'paid', 'due', 'billed']):
+                c_align = 'right'
+
+            cols_formatted.append((sanitize_doc_text(str(c_name)), c_align))
+
+            # Weight calculation for proportional column widths
+            name_lower = str(c_name).lower()
+            if any(k in name_lower for k in ['desc', 'work', 'note', 'particular', 'scope', 'title', 'item']):
+                col_weights.append(2.4)
+            elif any(k in name_lower for k in ['customer', 'vendor', 'name', 'supplier', 'party']):
+                col_weights.append(1.8)
+            elif any(k in name_lower for k in ['category', 'benchmark', 'contact', 'company']):
+                col_weights.append(1.3)
+            elif any(k in name_lower for k in ['date', 'time', 'phone', 'mode', 'status', 'type', 'unit', 'job', 'ref', 'order']):
+                col_weights.append(1.0)
+            else:
+                col_weights.append(1.1)
+
+        total_weight = sum(col_weights) if col_weights else 1.0
+        col_widths = [(w / total_weight) * doc_w for w in col_weights]
+
+        # 4. Table Header Row
+        header_cells = []
+        for i, (col_title, align) in enumerate(cols_formatted):
+            p_align = 2 if align == 'right' else (1 if align == 'center' else 0)
+            th_style = ParagraphStyle(
+                f'UnivTH_{i}_{align}',
+                fontName=font_bold,
+                fontSize=th_font_size,
+                textColor=colors.HexColor('#ffffff'),
+                leading=th_leading,
+                alignment=p_align
+            )
+            header_cells.append(Paragraph(col_title, th_style))
+
+        table_data = [header_cells]
+
+        # 5. Table Body Rows
+        def _get_cell_val(row_item, col_idx, col_spec):
+            if isinstance(row_item, (list, tuple)):
+                v = row_item[col_idx] if col_idx < len(row_item) else ''
+            elif isinstance(row_item, dict):
+                if isinstance(col_spec, str):
+                    v = row_item.get(col_spec, '')
+                elif isinstance(col_spec, dict):
+                    v = None
+                    for key_name in ('dataKey', 'key', 'accessor', 'field', 'id', 'name'):
+                        k_val = col_spec.get(key_name)
+                        if k_val and k_val in row_item:
+                            v = row_item[k_val]
+                            break
+                    if v is None:
+                        h_val = col_spec.get('header') or col_spec.get('title')
+                        if h_val and h_val in row_item:
+                            v = row_item[h_val]
+                        elif h_val:
+                            h_low = str(h_val).strip().lower()
+                            for rk, rv in row_item.items():
+                                if str(rk).strip().lower() == h_low:
+                                    v = rv
+                                    break
+                    if v is None:
+                        for key_name in ('dataKey', 'key', 'accessor', 'field', 'id', 'name'):
+                            k_val = col_spec.get(key_name)
+                            if k_val:
+                                k_low = str(k_val).strip().lower()
+                                for rk, rv in row_item.items():
+                                    if str(rk).strip().lower() == k_low:
+                                        v = rv
+                                        break
+                                if v is not None:
+                                    break
+                    if v is None:
+                        v = ''
+                else:
+                    v = ''
+            else:
+                v = str(row_item) if row_item is not None else ''
+
+            if v is None:
+                return ''
+            return sanitize_doc_text(str(v))
+
+        if not rows:
+            # Show a clean "No records found" row spanning the table
+            no_rec_style = ParagraphStyle(
+                'NoRec',
+                fontName=font_reg,
+                fontSize=8.5,
+                leading=12.0,
+                alignment=1,
+                textColor=colors.HexColor('#727272')
+            )
+            no_rec_row = [Paragraph("No records found", no_rec_style)] + [''] * (len(columns) - 1)
+            table_data.append(no_rec_row)
+        else:
+            for row_idx, r in enumerate(rows):
+                row_cells = []
+                for col_idx, c in enumerate(columns):
+                    val_str = _get_cell_val(r, col_idx, c)
+                    align = cols_formatted[col_idx][1]
+                    p_align = 2 if align == 'right' else (1 if align == 'center' else 0)
+
+                    # Bidi shaping for Arabic content
+                    shaped_val = format_bidi_text(val_str)
+
+                    td_style = ParagraphStyle(
+                        f'UnivTD_{col_idx}_{align}',
+                        fontName=font_reg,
+                        fontSize=font_size,
+                        leading=leading,
+                        alignment=p_align,
+                        textColor=colors.HexColor('#333333')
+                    )
+                    row_cells.append(Paragraph(shaped_val, td_style))
+                table_data.append(row_cells)
+
+        # 6. Totals Row Support
+        has_totals = False
+        if totals:
+            totals_row_cells = []
+            for col_idx, c in enumerate(columns):
+                t_val = _get_cell_val(totals, col_idx, c)
+                align = cols_formatted[col_idx][1]
+                p_align = 2 if align == 'right' else (1 if align == 'center' else 0)
+
+                t_shaped = format_bidi_text(t_val)
+                tot_style = ParagraphStyle(
+                    f'UnivTot_{col_idx}_{align}',
+                    fontName=font_bold,
+                    fontSize=font_size,
+                    leading=leading,
+                    alignment=p_align,
+                    textColor=colors.HexColor('#000000')
+                )
+                totals_row_cells.append(Paragraph(t_shaped, tot_style))
+
+            table_data.append(totals_row_cells)
+            has_totals = True
+
+        # 7. Construct ReportLab Table
+        t_pad_tb = 5.5 if is_landscape else 7.0
+        t_pad_lr = 4.0 if is_landscape else 5.5
+
+        items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        t_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3c3d3a')),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('TOPPADDING', (0,0), (-1,0), 7.0),
+            ('BOTTOMPADDING', (0,0), (-1,0), 7.0),
+            ('LEFTPADDING', (0,0), (-1,-1), t_pad_lr),
+            ('RIGHTPADDING', (0,0), (-1,-1), t_pad_lr),
+            ('TOPPADDING', (0,1), (-1,-1), t_pad_tb),
+            ('BOTTOMPADDING', (0,1), (-1,-1), t_pad_tb),
+            ('LINEBELOW', (0,1), (-1,-1), 0.75, colors.HexColor('#adadad')),
+        ]
+
+        if not rows:
+            # Span "No records found" across all columns
+            t_style.append(('SPAN', (0, 1), (-1, 1)))
+            t_style.append(('ALIGN', (0, 1), (-1, 1), 'CENTER'))
+
+        if has_totals:
+            # Distinct styling for the bottom totals row
+            tot_idx = len(table_data) - 1
+            t_style.append(('LINEABOVE', (0, tot_idx), (-1, tot_idx), 1.2, colors.HexColor('#3c3d3a')))
+            t_style.append(('BACKGROUND', (0, tot_idx), (-1, tot_idx), colors.HexColor('#f5f4f3')))
+            t_style.append(('TOPPADDING', (0, tot_idx), (-1, tot_idx), 7.0))
+            t_style.append(('BOTTOMPADDING', (0, tot_idx), (-1, tot_idx), 7.0))
+
+        items_table.setStyle(TableStyle(t_style))
         elements.append(items_table)
 
         def report_canvas(*args, **kwargs):
@@ -1127,6 +1388,7 @@ class UniversalPDFGenerator:
         pdf_bytes = buffer.getvalue()
         buffer.close()
         return pdf_bytes
+
 
     def generate_cashbook_ledger_pdf(self, book_data, summary, entries, filters=None):
         """
@@ -2612,7 +2874,24 @@ class UniversalPDFGenerator:
 
         # 1. Header
         title_clean = v_type.upper()
-        ref_label = f"{v_type}# {v_no}"
+
+        # Derive concise document number prefix (do NOT repeat full multi-word titles)
+        if 'CUSTOMER WORK ORDER' in v_type_upper or 'CWO' in v_type_upper:
+            doc_prefix = "Work Order"
+        elif 'VENDOR PRICE QUOTE' in v_type_upper or 'VPA' in v_type_upper or 'VENDOR QUOTE' in v_type_upper:
+            doc_prefix = "Vendor Quote"
+        elif 'SALARY' in v_type_upper:
+            doc_prefix = "Salary Voucher"
+        elif 'PAYMENT' in v_type_upper:
+            doc_prefix = "Payment Voucher"
+        elif 'RECEIPT' in v_type_upper:
+            doc_prefix = "Receipt Voucher"
+        elif 'STATEMENT' in v_type_upper:
+            doc_prefix = "Statement"
+        else:
+            doc_prefix = v_type.split('&')[0].split('/')[0].strip().title()
+
+        ref_label = f"{doc_prefix}# {v_no}"
         header = self.build_reference_header(doc_width, title_clean, ref_label)
         elements.append(header)
         elements.append(Spacer(1, 23.20))
