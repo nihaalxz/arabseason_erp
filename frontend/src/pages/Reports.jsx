@@ -216,10 +216,6 @@ const Reports = () => {
 
   const statusColor = (s) => s === 'Completed' ? '#27ae60' : s === 'In Progress' ? '#e67e22' : s === 'Cancelled' ? '#dc2626' : '#64748b'
 
-  if (activeTab === 'salary') {
-    return <Navigate to="/salary" replace />
-  }
-
   return (
     <div className="reports-page academy-style erp-page-container" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto', boxSizing: 'border-box' }}>
       {/* ── TOP BAR (screen only) ── */}

@@ -42,12 +42,6 @@
       "description": "Open Cash Books and Running Balances"
     },
     {
-      "name": "Salary & Timesheets",
-      "short_name": "Timesheets",
-      "url": "/salary?sub=timesheets",
-      "description": "Staff Daily Timesheets and Payroll"
-    },
-    {
       "name": "Banks",
       "short_name": "Banks",
       "url": "/banks",

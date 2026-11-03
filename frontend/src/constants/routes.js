@@ -32,7 +32,6 @@ export const ROUTES = {
   EXPENSES: '/cashbook?tab=expenses',
   BANKS: '/banks',
   REPORTS: '/reports',
-  SALARY: '/salary',
 
   // Common & Admin
   SETTINGS: '/settings',

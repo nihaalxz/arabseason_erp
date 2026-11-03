@@ -89,8 +89,7 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
       location.pathname === '/credit-notes' ||
       location.pathname.startsWith('/credit-notes/') ||
       location.pathname === '/banks' ||
-      location.pathname === '/reports' ||
-      location.pathname === '/salary'
+      location.pathname === '/reports'
     ) {
       if (activeModule !== 'accounting') setActiveModule('accounting')
     } else if (

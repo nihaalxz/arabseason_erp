@@ -119,12 +119,6 @@ export const ACCOUNTING_FEATURE_DEFINITIONS = [
         description: 'Supplier directory, vendor bills, and purchase records.',
         path: '/accounting/vendors'
       },
-      {
-        key: 'salary',
-        label: 'Salary & Payroll',
-        description: 'Staff payroll, attendance, timesheets, and wage slips.',
-        path: '/salary'
-      },
     ]
   },
   {

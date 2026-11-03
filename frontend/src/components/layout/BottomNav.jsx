@@ -69,11 +69,8 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     if (itemPath === '/jobs') {
       return location.pathname === '/jobs' && currentTab !== 'planning'
     }
-    if (itemPath === '/salary' || itemPath === '/reports?tab=salary') {
-      return location.pathname === '/salary' || (location.pathname === '/reports' && currentTab === 'salary')
-    }
     if (itemPath === '/reports') {
-      return location.pathname === '/reports' && currentTab !== 'salary'
+      return location.pathname === '/reports'
     }
     if (itemPath.startsWith('/cashbook')) {
       return location.pathname === '/cashbook'
@@ -125,7 +122,6 @@ const BottomNav = ({ onOpenMore, currentUser }) => {
     '/cashbook?view=books': 'cashbook',
     '/reports': 'reports',
     '/reports?tab=cashbook': 'cashbook',
-    '/salary': 'salary',
   }
 
   const visibleNavItems = navItems.filter(item => {

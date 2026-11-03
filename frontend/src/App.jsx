@@ -11,7 +11,6 @@ import Expenses from './pages/Expenses'
 import Estimations from './pages/Estimations'
 import EstimateBuilder from './pages/EstimateBuilder'
 import Reports from './pages/Reports'
-import Salary from './pages/Salary'
 import Settings from './pages/Settings'
 import SearchResults from './pages/SearchResults'
 import UserManagement from './pages/UserManagement'
@@ -145,7 +144,6 @@ function App() {
     if (['quotations', 'credit_notes', 'delivery_notes'].includes(moduleKey)) {
       return list.includes(moduleKey) || list.includes('invoices')
     }
-    if (moduleKey === 'salary') return list.includes('salary') || list.includes('reports')
     if (moduleKey === 'planning') return list.includes('planning') || list.includes('jobs')
     if (moduleKey === 'enquiries') return true
     return list.includes(moduleKey)
@@ -336,11 +334,6 @@ function App() {
               <Route path="reports" element={
                 <RouteGuard permission="reports" currentUser={currentUser}>
                   <Reports />
-                </RouteGuard>
-              } />
-              <Route path="salary" element={
-                <RouteGuard permission="salary" currentUser={currentUser}>
-                  <Salary />
                 </RouteGuard>
               } />
 

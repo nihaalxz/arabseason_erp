@@ -30,8 +30,6 @@ const MODULE_KEY_MAP = {
   '/banks': 'banks',
   '/cashbook': 'cashbook',
   '/reports': 'reports',
-  '/reports?tab=salary': 'salary',
-  '/salary': 'salary',
   '/settings': 'settings',
   '/users': 'users',
 }
@@ -107,11 +105,8 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
     if (itemPath === '/jobs') {
       return location.pathname === '/jobs' && currentTab !== 'planning'
     }
-    if (itemPath === '/salary' || itemPath === '/reports?tab=salary') {
-      return location.pathname === '/salary' || (location.pathname === '/reports' && currentTab === 'salary')
-    }
     if (itemPath === '/reports') {
-      return location.pathname === '/reports' && currentTab !== 'salary'
+      return location.pathname === '/reports'
     }
     return location.pathname === itemPath || location.pathname.startsWith(itemPath + '/')
   }
@@ -141,7 +136,6 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
       { name: 'Credit Notes', path: '/credit-notes', icon: RotateCcw, permission: 'credit_notes' },
       { type: 'divider', label: 'PURCHASES' },
       { name: 'Vendors', path: '/accounting/vendors', icon: Building2, permission: 'vendors' },
-      { name: 'Salary & Payroll', path: '/salary', icon: Banknote, permission: 'salary' },
       { type: 'divider', label: 'REPORTS' },
       { name: 'Financial Reports', path: '/reports', icon: FileBarChart, permission: 'reports' },
       { name: 'Settings', path: '/accounting/settings', icon: Settings, permission: 'accounting_settings' },

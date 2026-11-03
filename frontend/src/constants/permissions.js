@@ -19,7 +19,6 @@ export const PERMISSIONS = {
   QUOTATIONS: 'quotations',
   INVOICES: 'invoices',
   CREDIT_NOTES: 'credit_notes',
-  SALARY: 'salary',
   REPORTS: 'reports',
   ACCOUNTING_SETTINGS: 'accounting_settings',
 
@@ -57,7 +56,6 @@ export const MODULE_PERMISSION_GROUPS = [
       { key: 'quotations', label: 'Quotations', description: 'Create and issue client price quotations', defaultRoute: '/accounting/quotations' },
       { key: 'invoices', label: 'Tax Invoices', description: 'Issue VAT tax invoices and payment tracking', defaultRoute: '/invoices' },
       { key: 'credit_notes', label: 'Credit Notes', description: 'Generate customer returns and credit notes', defaultRoute: '/credit-notes' },
-      { key: 'salary', label: 'Salary & Payroll', description: 'Staff payroll, salary vouchers and timesheets', defaultRoute: '/salary' },
       { key: 'reports', label: 'Financial Reports', description: 'Ledgers, trial balances, statements and cash flows', defaultRoute: '/reports' },
       { key: 'accounting_settings', label: 'Accounting Settings', description: 'Tax configurations, bank accounts and currency', defaultRoute: '/accounting/settings' },
     ]
@@ -78,7 +76,7 @@ export const ROLE_PRESETS = {
     description: 'Full access to Accounting & Cashbook ledgers and financial reports',
     permissions: [
       'accounting', 'customers', 'vendors', 'estimations', 'quotations',
-      'invoices', 'credit_notes', 'salary', 'reports', 'accounting_settings',
+      'invoices', 'credit_notes', 'reports', 'accounting_settings',
       'cashbook', 'expenses', 'labour', 'banks', 'recycle_bin'
     ]
   },
