@@ -5324,11 +5324,70 @@ html.dark .enquiry-due-today-pill.is-active .due-dot {
   background: #0A0A0A !important;
 }
 
-/* Login page theme helpers */
+/* Login page theme isolation: Login page & its modal are strictly default light mode */
+.login-page-root,
+.login-page-root *,
+.login-modal-card,
+.login-modal-card * {
+  color-scheme: light !important;
+}
+
+.cb-dark-bw .login-modal-card,
+body[data-theme="dark"] .login-modal-card,
+html[data-theme="dark"] .login-modal-card {
+  background: linear-gradient(180deg, rgba(235, 248, 255, 0.86) 0%, rgba(255, 255, 255, 0.94) 28%, #ffffff 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.12), 0 8px 24px -4px rgba(186, 230, 253, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.7) !important;
+  color: #0f172a !important;
+}
+
+.cb-dark-bw .login-badge-box,
+body[data-theme="dark"] .login-badge-box,
+html[data-theme="dark"] .login-badge-box {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+}
+
+.cb-dark-bw .login-input-container,
+body[data-theme="dark"] .login-input-container,
+html[data-theme="dark"] .login-input-container {
+  background: #F1F4F9 !important;
+  border-color: #E2E8F0 !important;
+}
+
+.cb-dark-bw .login-page-root input,
+body[data-theme="dark"] .login-page-root input,
+html[data-theme="dark"] .login-page-root input,
 .login-input {
   background: transparent !important;
   background-color: transparent !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+  color: #0f172a !important;
+}
+
+.cb-dark-bw .login-page-root label,
+body[data-theme="dark"] .login-page-root label,
+html[data-theme="dark"] .login-page-root label {
+  color: #334155 !important;
+}
+
+.cb-dark-bw .login-page-root h1,
+body[data-theme="dark"] .login-page-root h1,
+html[data-theme="dark"] .login-page-root h1 {
+  color: #0f172a !important;
+}
+
+.cb-dark-bw .login-page-root p,
+body[data-theme="dark"] .login-page-root p,
+html[data-theme="dark"] .login-page-root p {
+  color: #64748b !important;
+}
+
+.cb-dark-bw .login-modal-card button[type="submit"],
+body[data-theme="dark"] .login-modal-card button[type="submit"],
+html[data-theme="dark"] .login-modal-card button[type="submit"] {
+  background: #18181B !important;
+  color: #ffffff !important;
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Lock, User, Eye, EyeOff, AlertCircle } from '../components/icons'
-import { getIsDarkMode } from '../utils/theme'
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('')
@@ -9,20 +8,38 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [focusedField, setFocusedField] = useState(null)
-  const [isDarkMode, setIsDarkMode] = useState(() => getIsDarkMode())
 
   useEffect(() => {
-    const handleThemeSync = (e) => {
-      const current = typeof e?.detail?.isDarkMode === 'boolean'
-        ? e.detail.isDarkMode
-        : getIsDarkMode()
-      setIsDarkMode(current)
-    }
-    window.addEventListener('app:theme-change', handleThemeSync)
-    window.addEventListener('storage', handleThemeSync)
+    // Ensure the login page is always default light mode
+    const prevBodyTheme = document.body.getAttribute('data-theme')
+    const prevBodyCbDark = document.body.classList.contains('cb-dark-bw')
+    const prevBodyDark = document.body.classList.contains('dark')
+
+    const prevDocTheme = document.documentElement.getAttribute('data-theme')
+    const prevDocCbDark = document.documentElement.classList.contains('cb-dark-bw')
+    const prevDocDark = document.documentElement.classList.contains('dark')
+
+    document.body.classList.remove('cb-dark-bw', 'dark')
+    document.body.setAttribute('data-theme', 'light')
+    document.body.style.colorScheme = 'light'
+
+    document.documentElement.classList.remove('cb-dark-bw', 'dark')
+    document.documentElement.setAttribute('data-theme', 'light')
+    document.documentElement.style.colorScheme = 'light'
+
     return () => {
-      window.removeEventListener('app:theme-change', handleThemeSync)
-      window.removeEventListener('storage', handleThemeSync)
+      // Restore on unmount when transitioning to authenticated app
+      if (prevBodyCbDark) document.body.classList.add('cb-dark-bw')
+      if (prevBodyDark) document.body.classList.add('dark')
+      if (prevBodyTheme) document.body.setAttribute('data-theme', prevBodyTheme)
+
+      if (prevDocCbDark) document.documentElement.classList.add('cb-dark-bw')
+      if (prevDocDark) document.documentElement.classList.add('dark')
+      if (prevDocTheme) {
+        document.documentElement.setAttribute('data-theme', prevDocTheme)
+        document.documentElement.style.colorScheme = prevDocTheme
+        document.body.style.colorScheme = prevBodyTheme || prevDocTheme
+      }
     }
   }, [])
 
@@ -56,7 +73,7 @@ const Login = ({ onLogin }) => {
       padding: '1.5rem',
       boxSizing: 'border-box'
     }}>
-      {/* Concentric Ambient Orbital Rings (Original Reference Style) */}
+      {/* Concentric Ambient Orbital Rings */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -94,54 +111,44 @@ const Login = ({ onLogin }) => {
         zIndex: 1
       }} />
 
-      {/* Center Floating Glass Card / Form Modal */}
+      {/* Center Floating Glass Card / Form Modal (Always Default Light Mode) */}
       <div 
         className="login-modal-card"
         style={{
           width: '100%',
           maxWidth: '430px',
-          background: isDarkMode 
-            ? 'rgba(18, 20, 24, 0.92)' 
-            : 'linear-gradient(180deg, rgba(235, 248, 255, 0.86) 0%, rgba(255, 255, 255, 0.94) 28%, #ffffff 100%)',
+          background: 'linear-gradient(180deg, rgba(235, 248, 255, 0.86) 0%, rgba(255, 255, 255, 0.94) 28%, #ffffff 100%)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderRadius: '30px',
-          border: isDarkMode 
-            ? '1px solid rgba(255, 255, 255, 0.12)' 
-            : '1px solid rgba(255, 255, 255, 0.85)',
-          boxShadow: isDarkMode
-            ? '0 24px 60px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08)'
-            : '0 24px 60px -12px rgba(15, 23, 42, 0.12), 0 8px 24px -4px rgba(186, 230, 253, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.7)',
+          border: '1px solid rgba(255, 255, 255, 0.85)',
+          boxShadow: '0 24px 60px -12px rgba(15, 23, 42, 0.12), 0 8px 24px -4px rgba(186, 230, 253, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.7)',
           padding: '2.5rem 2.25rem 2.25rem 2.25rem',
           position: 'relative',
           zIndex: 10,
-          boxSizing: 'border-box',
-          transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease'
+          boxSizing: 'border-box'
         }}
       >
         {/* Top Logo Badge (Arab Season Logo) */}
-        <div style={{
-          width: '72px',
-          height: '52px',
-          borderRadius: '16px',
-          background: isDarkMode 
-            ? '#1e2229' 
-            : 'linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%)',
-          boxShadow: isDarkMode 
-            ? '0 8px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(56, 189, 248, 0.12)' 
-            : '0 8px 20px rgba(186, 230, 253, 0.75), 0 2px 6px rgba(0, 0, 0, 0.04)',
-          border: isDarkMode 
-            ? '1px solid rgba(255, 255, 255, 0.15)' 
-            : '1px solid rgba(255, 255, 255, 0.95)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 1.25rem auto',
-          padding: '6px 12px',
-          boxSizing: 'border-box'
-        }}>
+        <div 
+          className="login-badge-box"
+          style={{
+            width: '72px',
+            height: '52px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%)',
+            boxShadow: '0 8px 20px rgba(186, 230, 253, 0.75), 0 2px 6px rgba(0, 0, 0, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.95)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.25rem auto',
+            padding: '6px 12px',
+            boxSizing: 'border-box'
+          }}
+        >
           <img 
-            src={isDarkMode ? "/logo_white.png" : "/logo_black.png"} 
+            src="/logo_black.png" 
             alt="Arab Season" 
             style={{ 
               width: '100%', 
@@ -155,7 +162,7 @@ const Login = ({ onLogin }) => {
         <h1 style={{
           fontSize: '1.45rem',
           fontWeight: '800',
-          color: isDarkMode ? '#FFFFFF' : '#0f172a',
+          color: '#0f172a',
           textAlign: 'center',
           margin: 0,
           letterSpacing: '-0.02em'
@@ -164,7 +171,7 @@ const Login = ({ onLogin }) => {
         </h1>
         <p style={{
           fontSize: '0.8rem',
-          color: isDarkMode ? '#94a3b8' : '#64748b',
+          color: '#64748b',
           textAlign: 'center',
           marginTop: '0.45rem',
           marginBottom: '1.4rem',
@@ -179,9 +186,9 @@ const Login = ({ onLogin }) => {
         {/* Error message */}
         {error && (
           <div style={{
-            background: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
-            border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #FCA5A5',
-            color: isDarkMode ? '#fca5a5' : '#DC2626',
+            background: '#FEF2F2',
+            border: '1px solid #FCA5A5',
+            color: '#DC2626',
             padding: '0.65rem 0.85rem',
             borderRadius: '12px',
             fontSize: '0.8rem',
@@ -206,30 +213,29 @@ const Login = ({ onLogin }) => {
                 display: 'block', 
                 fontSize: '0.8rem', 
                 fontWeight: '700', 
-                color: isDarkMode ? '#cbd5e1' : '#334155', 
+                color: '#334155', 
                 marginBottom: '6px',
                 textAlign: 'left'
               }}
             >
               Email or Username
             </label>
-            <div style={{
-              background: isDarkMode ? '#1e2229' : '#F1F4F9',
-              borderRadius: '12px',
-              height: '46px',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 14px',
-              gap: '10px',
-              border: focusedField === 'username' 
-                ? (isDarkMode ? '1.5px solid #38bdf8' : '1.5px solid #0284c7') 
-                : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #E2E8F0'),
-              boxShadow: focusedField === 'username' 
-                ? (isDarkMode ? '0 0 0 3px rgba(56, 189, 248, 0.2)' : '0 0 0 3px rgba(14, 165, 233, 0.15)') 
-                : 'none',
-              transition: 'all 0.15s ease'
-            }}>
-              <User size={16} color={focusedField === 'username' ? (isDarkMode ? '#38bdf8' : '#0284c7') : (isDarkMode ? '#64748b' : '#94a3b8')} style={{ flexShrink: 0 }} />
+            <div 
+              className="login-input-container"
+              style={{
+                background: '#F1F4F9',
+                borderRadius: '12px',
+                height: '46px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 14px',
+                gap: '10px',
+                border: focusedField === 'username' ? '1.5px solid #0284c7' : '1px solid #E2E8F0',
+                boxShadow: focusedField === 'username' ? '0 0 0 3px rgba(14, 165, 233, 0.15)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <User size={16} color={focusedField === 'username' ? '#0284c7' : '#94a3b8'} style={{ flexShrink: 0 }} />
               <input 
                 id="login-username"
                 className="login-input"
@@ -249,7 +255,7 @@ const Login = ({ onLogin }) => {
                   outline: 'none',
                   width: '100%',
                   fontSize: '0.86rem',
-                  color: isDarkMode ? '#FFFFFF' : '#0f172a',
+                  color: '#0f172a',
                   fontWeight: '500'
                 }}
               />
@@ -264,30 +270,29 @@ const Login = ({ onLogin }) => {
                 display: 'block', 
                 fontSize: '0.8rem', 
                 fontWeight: '700', 
-                color: isDarkMode ? '#cbd5e1' : '#334155', 
+                color: '#334155', 
                 marginBottom: '6px',
                 textAlign: 'left'
               }}
             >
               Password
             </label>
-            <div style={{
-              background: isDarkMode ? '#1e2229' : '#F1F4F9',
-              borderRadius: '12px',
-              height: '46px',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 14px',
-              gap: '10px',
-              border: focusedField === 'password' 
-                ? (isDarkMode ? '1.5px solid #38bdf8' : '1.5px solid #0284c7') 
-                : (isDarkMode ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #E2E8F0'),
-              boxShadow: focusedField === 'password' 
-                ? (isDarkMode ? '0 0 0 3px rgba(56, 189, 248, 0.2)' : '0 0 0 3px rgba(14, 165, 233, 0.15)') 
-                : 'none',
-              transition: 'all 0.15s ease'
-            }}>
-              <Lock size={16} color={focusedField === 'password' ? (isDarkMode ? '#38bdf8' : '#0284c7') : (isDarkMode ? '#64748b' : '#94a3b8')} style={{ flexShrink: 0 }} />
+            <div 
+              className="login-input-container"
+              style={{
+                background: '#F1F4F9',
+                borderRadius: '12px',
+                height: '46px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 14px',
+                gap: '10px',
+                border: focusedField === 'password' ? '1.5px solid #0284c7' : '1px solid #E2E8F0',
+                boxShadow: focusedField === 'password' ? '0 0 0 3px rgba(14, 165, 233, 0.15)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Lock size={16} color={focusedField === 'password' ? '#0284c7' : '#94a3b8'} style={{ flexShrink: 0 }} />
               <input 
                 id="login-password"
                 className="login-input"
@@ -307,7 +312,7 @@ const Login = ({ onLogin }) => {
                   outline: 'none',
                   width: '100%',
                   fontSize: '0.86rem',
-                  color: isDarkMode ? '#FFFFFF' : '#0f172a',
+                  color: '#0f172a',
                   fontWeight: '500'
                 }}
               />
@@ -322,7 +327,7 @@ const Login = ({ onLogin }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: isDarkMode ? '#94a3b8' : '#64748b',
+                  color: '#94a3b8',
                   transition: 'color 0.15s'
                 }}
                 title={showPassword ? 'Hide password' : 'Show password'}
@@ -340,8 +345,8 @@ const Login = ({ onLogin }) => {
               width: '100%',
               height: '46px',
               borderRadius: '12px',
-              background: isDarkMode ? '#FFFFFF' : '#18181B',
-              color: isDarkMode ? '#0A0A0A' : '#ffffff',
+              background: '#18181B',
+              color: '#ffffff',
               border: 'none',
               fontSize: '0.92rem',
               fontWeight: '700',
@@ -350,19 +355,19 @@ const Login = ({ onLogin }) => {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              boxShadow: isDarkMode ? '0 4px 14px rgba(255, 255, 255, 0.12)' : '0 4px 14px rgba(0, 0, 0, 0.16)',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.16)',
               transition: 'all 0.15s ease'
             }}
             onMouseEnter={(e) => { 
               if (!isSubmitting) {
                 e.currentTarget.style.transform = 'translateY(-1px)'
-                e.currentTarget.style.background = isDarkMode ? '#f1f5f9' : '#000000'
+                e.currentTarget.style.background = '#000000'
               }
             }}
             onMouseLeave={(e) => { 
               if (!isSubmitting) {
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.background = isDarkMode ? '#FFFFFF' : '#18181B'
+                e.currentTarget.style.background = '#18181B'
               }
             }}
           >
@@ -379,10 +384,10 @@ const Login = ({ onLogin }) => {
       }}>
         <p style={{
           fontSize: '0.78rem',
-          color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : '#64748b',
+          color: '#64748b',
           margin: 0,
           fontWeight: '500',
-          textShadow: isDarkMode ? '0 1px 2px rgba(0, 0, 0, 0.6)' : '0 1px 2px rgba(255, 255, 255, 0.6)'
+          textShadow: '0 1px 2px rgba(255, 255, 255, 0.6)'
         }}>
           © {new Date().getFullYear()} Arab Season ERP. All rights reserved.
         </p>
