@@ -26,6 +26,8 @@ class PDFGeneratorSmokeTests(TestCase):
         text = ""
         for page in doc:
             text += page.get_text() + "\n"
+        self.assertNotIn("Notes:", text, "Notes: block must not appear in any generated corporate PDF")
+        self.assertNotIn("Terms & Notes", text, "Terms & Notes block must not appear in any generated corporate PDF")
         return len(doc), text
 
     def test_smoke_delivery_note_pdf(self):
@@ -228,6 +230,49 @@ class PDFGeneratorSmokeTests(TestCase):
         self.assertIn("rahul vendor", text)
         self.assertIn("5.00", text)
 
+    def test_smoke_job_order_cost_signoff_pdf(self):
+        signoff_data = {
+            'voucherType': 'JOB ORDER COST & DISBURSEMENT VOUCHER',
+            'voucherNo': 'JOB-2026-88',
+            'date': '2026-11-03',
+            'payeeName': 'Apex Infrastructure Works',
+            'amount': 500.00,
+            'particulars': [
+                {'item': 'Structural Fabrication Scope', 'qty': 1.0, 'rate': 500.0, 'amount': 500.00}
+            ],
+            'notes': 'Status: In Progress. Total: SAR 500.00 | Paid: SAR 350.00 | Balance Due: SAR 150.00. Formal project cost sign-off.'
+        }
+        pdf_bytes = self.gen.generate_payment_voucher_pdf(signoff_data)
+        pages, text = self._extract_pdf_text(pdf_bytes)
+        self.assertGreater(pages, 0)
+        self.assertIn("JOB-2026-88", text)
+        self.assertIn("Apex Infrastructure Works", text)
+        self.assertIn("In Progress", text)
+        self.assertIn("350.00", text)
+        self.assertIn("150.00", text)
+        self.assertNotIn("Notes:", text)
+        self.assertNotIn("Formal project cost sign-off", text)
+
+    def test_smoke_bank_cash_ledger_transaction_voucher_pdf(self):
+        tx_data = {
+            'voucherType': 'Bank Funds Transfer Voucher',
+            'voucherNo': 'TX-9001',
+            'date': '2026-11-03',
+            'payeeName': 'National Electric Grid Co.',
+            'amount': 2500.00,
+            'particulars': [
+                {'item': 'Substation Maintenance Settlement', 'qty': 1.0, 'rate': 2500.0, 'amount': 2500.00}
+            ],
+            'notes': 'Account: Khuair | Running Balance after TX: SAR 35.00. Formal bank & cash ledger transaction record.'
+        }
+        pdf_bytes = self.gen.generate_payment_voucher_pdf(tx_data)
+        pages, text = self._extract_pdf_text(pdf_bytes)
+        self.assertGreater(pages, 0)
+        self.assertIn("TX-9001", text)
+        self.assertIn("35.00", text)
+        self.assertNotIn("Notes:", text)
+        self.assertNotIn("Formal bank & cash ledger transaction record", text)
+
     def test_smoke_statement_ledger_pdf(self):
         stmt_data = {
             'voucherType': 'Customer Account Statement',
@@ -391,3 +436,336 @@ class CommonVendorTests(TestCase):
         results = res.data.get('results', res.data)
         self.assertEqual(len(results), 1)
         self.assertEqual(float(results[0]['amount']), 500.0)
+
+
+class CashbookExportTablePdfSmokeTests(TestCase):
+    """
+    Smoke tests for all 11 index table PDF exports calling /api/cashbook/export-table-pdf/.
+    Asserts HTTP 200, Content-Type application/pdf, and page_count > 0.
+    """
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username='pdf_export_tester', password='password123')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.endpoint = '/api/cashbook/export-table-pdf/'
+
+    def _assert_valid_pdf_response(self, response):
+        self.assertEqual(response.status_code, 200, f"Expected 200, got {response.status_code}: {getattr(response, 'data', response.content)}")
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        doc = fitz.open(stream=response.content, filetype='pdf')
+        self.assertGreater(len(doc), 0)
+        # Assert A4 portrait dimensions (595.28 x 841.89 pt within 1.5 pt tolerance)
+        first_page = doc[0]
+        self.assertLess(first_page.rect.width, first_page.rect.height, "PDF must be in portrait orientation")
+        self.assertAlmostEqual(first_page.rect.width, 595.28, delta=1.5, msg="Width must match A4 portrait (595.28 pt)")
+        self.assertAlmostEqual(first_page.rect.height, 841.89, delta=1.5, msg="Height must match A4 portrait (841.89 pt)")
+        # Assert no obsolete 'Report#' number line appears
+        extracted_text = "".join([page.get_text() for page in doc])
+        self.assertNotIn("Report#", extracted_text, "Report# line must not appear in report header")
+        self.assertNotIn("Notes:", extracted_text, "Notes: block must not appear in table exports")
+        self.assertNotIn("Terms & Notes", extracted_text, "Terms & Notes block must not appear in table exports")
+
+    def test_smoke_export_customer_chart(self):
+        payload = {
+            'title': 'Customer Price Chart',
+            'filename_prefix': 'customer_price_chart',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Item / Category', 'dataKey': 'item_name'},
+                {'header': 'Customer', 'dataKey': 'customer_name'},
+                {'header': 'Quoted Rate', 'dataKey': 'quoted_rate', 'align': 'right'},
+                {'header': 'Market Benchmark', 'dataKey': 'benchmark_rate', 'align': 'right'},
+                {'header': 'Variance', 'dataKey': 'variance', 'align': 'right'},
+            ],
+            'rows': [
+                {'sl': 1, 'item_name': 'Steel Rebar 12mm', 'customer_name': 'Saudi Aramco / أرامكو', 'quoted_rate': '2,450.00', 'benchmark_rate': '2,400.00', 'variance': '+2.08%'},
+                {'sl': 2, 'item_name': 'Concrete C35', 'customer_name': 'Sabic EPC', 'quoted_rate': '240.00', 'benchmark_rate': '245.00', 'variance': '-2.04%'}
+            ]
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_vendor_price_chart(self):
+        payload = {
+            'title': 'Vendor Price Chart',
+            'filename_prefix': 'vendor_price_chart',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Item / Category', 'dataKey': 'item_name'},
+                {'header': 'Vendor', 'dataKey': 'vendor_name'},
+                {'header': 'Quoted Rate', 'dataKey': 'quoted_rate', 'align': 'right'},
+                {'header': 'Benchmark Rate', 'dataKey': 'benchmark_rate', 'align': 'right'},
+                {'header': 'Status', 'dataKey': 'status', 'align': 'center'},
+            ],
+            'rows': [
+                {'sl': 1, 'item_name': 'Portland Cement Type I', 'vendor_name': 'Al-Yamama Cement', 'quoted_rate': '18.50', 'benchmark_rate': '19.00', 'status': 'Approved'},
+                {'sl': 2, 'item_name': 'Hollow Block 20cm', 'vendor_name': 'Riyadh Precast Co.', 'quoted_rate': '3.20', 'benchmark_rate': '3.20', 'status': 'Benchmark Match'}
+            ]
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_vendors(self):
+        payload = {
+            'title': 'Vendors Directory',
+            'filename_prefix': 'vendors_directory',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Vendor Name', 'dataKey': 'name'},
+                {'header': 'Contact Person', 'dataKey': 'contact_person'},
+                {'header': 'Phone', 'dataKey': 'phone'},
+                {'header': 'Total Orders', 'dataKey': 'total_orders', 'align': 'right'},
+                {'header': 'Total Spend (SAR)', 'dataKey': 'total_spend', 'align': 'right'},
+            ],
+            'rows': [
+                {'sl': 1, 'name': 'Al-Futtaim Heavy Equipment', 'contact_person': 'Rashid Al-Hassan', 'phone': '+966 50 111 2233', 'total_orders': 14, 'total_spend': '145,200.00'},
+                {'sl': 2, 'name': 'Rawabi Contracting & Services', 'contact_person': 'Mahmoud Saeed', 'phone': '+966 55 444 7788', 'total_orders': 8, 'total_spend': '89,500.00'}
+            ],
+            'totals': {'name': 'Total Spend', 'total_spend': '234,700.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_customers(self):
+        payload = {
+            'title': 'Customers Directory',
+            'filename_prefix': 'customers_directory',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Customer Name', 'dataKey': 'name'},
+                {'header': 'Contact Person', 'dataKey': 'contact_person'},
+                {'header': 'Phone', 'dataKey': 'phone'},
+                {'header': 'Total Projects', 'dataKey': 'total_projects', 'align': 'right'},
+                {'header': 'Total Invoiced (SAR)', 'dataKey': 'total_invoiced', 'align': 'right'},
+            ],
+            'rows': [
+                {'sl': 1, 'name': 'Saudi Electricity Company (SEC)', 'contact_person': 'Eng. Khalid', 'phone': '+966 51 234 5678', 'total_projects': 5, 'total_invoiced': '380,000.00'},
+                {'sl': 2, 'name': 'Red Sea Global', 'contact_person': 'Fahad Al-Zahrani', 'phone': '+966 54 987 6543', 'total_projects': 3, 'total_invoiced': '520,000.00'}
+            ],
+            'totals': {'name': 'Total Invoiced', 'total_invoiced': '900,000.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_expenses(self):
+        payload = {
+            'title': 'Expenses Register',
+            'filename_prefix': 'expenses_register',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Date', 'dataKey': 'date'},
+                {'header': 'Category', 'dataKey': 'category'},
+                {'header': 'Description', 'dataKey': 'description'},
+                {'header': 'Paid Via', 'dataKey': 'paid_via'},
+                {'header': 'Amount (SAR)', 'dataKey': 'amount', 'align': 'right'},
+            ],
+            'rows': [
+                {'sl': 1, 'date': '2026-11-01', 'category': 'Fuel & Transport', 'description': 'Site Diesel Supply 2000L', 'paid_via': 'Petty Cash', 'amount': '2,400.00'},
+                {'sl': 2, 'date': '2026-11-02', 'category': 'Office Utilities', 'description': 'Electricity & Water Bill', 'paid_via': 'Al Rajhi Bank', 'amount': '1,150.00'}
+            ],
+            'totals': {'description': 'Total Expenses', 'amount': '3,550.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_labour_chart(self):
+        payload = {
+            'title': 'Labour Price Chart',
+            'filename_prefix': 'labour_price_chart',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Labour Type', 'dataKey': 'labour_type'},
+                {'header': 'Skill / Category', 'dataKey': 'category'},
+                {'header': 'Daily Rate (SAR)', 'dataKey': 'daily_rate', 'align': 'right'},
+                {'header': 'Overtime Rate (SAR/h)', 'dataKey': 'ot_rate', 'align': 'right'},
+                {'header': 'Active Count', 'dataKey': 'active_count', 'align': 'right'},
+            ],
+            'rows': [
+                {'sl': 1, 'labour_type': 'Certified Welder (6G)', 'category': 'Mechanical', 'daily_rate': '320.00', 'ot_rate': '45.00', 'active_count': 12},
+                {'sl': 2, 'labour_type': 'Civil Mason', 'category': 'Civil', 'daily_rate': '180.00', 'ot_rate': '25.00', 'active_count': 25}
+            ]
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_bank_accounts(self):
+        payload = {
+            'title': 'Bank & Cash Accounts Directory',
+            'filename_prefix': 'accounts_directory',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Account Name', 'dataKey': 'name'},
+                {'header': 'Account Type', 'dataKey': 'account_type'},
+                {'header': 'Account Number', 'dataKey': 'account_no'},
+                {'header': 'Bank Name', 'dataKey': 'bank_name'},
+                {'header': 'Current Balance (SAR)', 'dataKey': 'balance', 'align': 'right'},
+            ],
+            'rows': [
+                {'sl': 1, 'name': 'Corporate Operating', 'account_type': 'Bank Current', 'account_no': 'SA0380000000608010167519', 'bank_name': 'Al Rajhi Bank', 'balance': '450,210.50'},
+                {'sl': 2, 'name': 'Site Petty Cash', 'account_type': 'Cash Vault', 'account_no': 'PETTY-01', 'bank_name': 'On-Site Safe', 'balance': '12,500.00'}
+            ],
+            'totals': {'bank_name': 'Total Liquid Funds', 'balance': '462,710.50'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_books(self):
+        payload = {
+            'title': 'Books & Registers',
+            'filename_prefix': 'books_registers',
+            'columns': [
+                {'header': 'SL', 'dataKey': 'sl', 'align': 'center'},
+                {'header': 'Book Name', 'dataKey': 'name'},
+                {'header': 'Type', 'dataKey': 'type'},
+                {'header': 'Total Transactions', 'dataKey': 'tx_count', 'align': 'right'},
+                {'header': 'Total Inflow (SAR)', 'dataKey': 'inflow', 'align': 'right'},
+                {'header': 'Total Outflow (SAR)', 'dataKey': 'outflow', 'align': 'right'},
+                {'header': 'Net Balance (SAR)', 'dataKey': 'net_balance', 'align': 'right'},
+            ],
+            'rows': [
+                {'sl': 1, 'name': 'Main Operations Cashbook', 'type': 'Primary Cash', 'tx_count': 142, 'inflow': '520,000.00', 'outflow': '310,400.00', 'net_balance': '209,600.00'},
+                {'sl': 2, 'name': 'Dammam Project Petty Cash', 'type': 'Petty Cash', 'tx_count': 64, 'inflow': '50,000.00', 'outflow': '42,100.00', 'net_balance': '7,900.00'}
+            ],
+            'totals': {'name': 'Overall Books Total', 'inflow': '570,000.00', 'outflow': '352,500.00', 'net_balance': '217,500.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_cash_ledger(self):
+        payload = {
+            'title': 'Cash Ledger Report',
+            'filename_prefix': 'cash_ledger_report',
+            'columns': [
+                {'header': 'Date', 'dataKey': 'date'},
+                {'header': 'Voucher#', 'dataKey': 'voucher_no'},
+                {'header': 'Description / Narration', 'dataKey': 'narration'},
+                {'header': 'Account / Mode', 'dataKey': 'account'},
+                {'header': 'Debit (Inflow)', 'dataKey': 'debit', 'align': 'right'},
+                {'header': 'Credit (Outflow)', 'dataKey': 'credit', 'align': 'right'},
+                {'header': 'Balance (SAR)', 'dataKey': 'balance', 'align': 'right'},
+            ],
+            'rows': [
+                {'date': '2026-11-01', 'voucher_no': 'RCV-0012', 'narration': 'Customer Advance Payment', 'account': 'Al Rajhi Bank', 'debit': '50,000.00', 'credit': '0.00', 'balance': '50,000.00'},
+                {'date': '2026-11-02', 'voucher_no': 'PV-0045', 'narration': 'Vendor Materials Settlement', 'account': 'Al Rajhi Bank', 'debit': '0.00', 'credit': '18,500.00', 'balance': '31,500.00'}
+            ],
+            'totals': {'narration': 'Net Ledger Movement', 'debit': '50,000.00', 'credit': '18,500.00', 'balance': '31,500.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_job_orders(self):
+        payload = {
+            'title': 'Job Orders Register',
+            'filename_prefix': 'job_orders_register',
+            'columns': [
+                {'header': 'Job Order#', 'dataKey': 'order_no'},
+                {'header': 'Customer', 'dataKey': 'customer_name'},
+                {'header': 'Project / Scope', 'dataKey': 'project_name'},
+                {'header': 'Status', 'dataKey': 'status'},
+                {'header': 'Start Date', 'dataKey': 'start_date'},
+                {'header': 'Contract Value (SAR)', 'dataKey': 'contract_value', 'align': 'right'},
+            ],
+            'rows': [
+                {'order_no': 'JO-2026-001', 'customer_name': 'Arabian Drilling Co.', 'project_name': 'Rig Site Piping Fabrication', 'status': 'In Progress', 'start_date': '2026-10-10', 'contract_value': '340,000.00'},
+                {'order_no': 'JO-2026-002', 'customer_name': 'Nesma & Partners', 'project_name': 'Structural Steel Assembly', 'status': 'Completed', 'start_date': '2026-09-15', 'contract_value': '195,000.00'}
+            ],
+            'totals': {'project_name': 'Total Contract Value', 'contract_value': '535,000.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_labour(self):
+        payload = {
+            'title': 'Labour Directory & Timesheet',
+            'filename_prefix': 'labour_directory',
+            'columns': [
+                {'header': 'Emp ID', 'dataKey': 'emp_id'},
+                {'header': 'Full Name', 'dataKey': 'name'},
+                {'header': 'Trade / Role', 'dataKey': 'role'},
+                {'header': 'Nationality', 'dataKey': 'nationality'},
+                {'header': 'Daily Wage (SAR)', 'dataKey': 'daily_wage', 'align': 'right'},
+                {'header': 'Status', 'dataKey': 'status'},
+            ],
+            'rows': [
+                {'emp_id': 'EMP-101', 'name': 'Mohammed Iqbal', 'role': 'Lead Fabricator', 'nationality': 'Pakistani', 'daily_wage': '250.00', 'status': 'Active'},
+                {'emp_id': 'EMP-102', 'name': 'Ali Hassan', 'role': 'Electrician', 'nationality': 'Egyptian', 'daily_wage': '220.00', 'status': 'Active'}
+            ]
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_widest_table_edge_cases(self):
+        """
+        Verify extreme edge cases on 10-column widest table:
+        - 55 rows spanning multiple pages
+        - Arabic text shaping
+        - None / empty cell values
+        - Extra long wrapping text
+        - Portrait layout integrity without overflow
+        """
+        columns = [
+            {'header': 'ID', 'dataKey': 'col1', 'align': 'center'},
+            {'header': 'Date', 'dataKey': 'col2'},
+            {'header': 'Client / Beneficiary', 'dataKey': 'col3'},
+            {'header': 'Detailed Project Scope / Scope of Works', 'dataKey': 'col4'},
+            {'header': 'Shift In', 'dataKey': 'col5'},
+            {'header': 'Shift Out', 'dataKey': 'col6'},
+            {'header': 'Reg Hrs', 'dataKey': 'col7', 'align': 'right'},
+            {'header': 'OT Hrs', 'dataKey': 'col8', 'align': 'right'},
+            {'header': 'Total SAR', 'dataKey': 'col9', 'align': 'right'},
+            {'header': 'Status', 'dataKey': 'col10', 'align': 'center'},
+        ]
+        rows = []
+        # Row 1: Arabic text & long descriptions
+        rows.append({
+            'col1': '1',
+            'col2': '2026-11-03',
+            'col3': 'شركة البناء المتقدمة للمقاولات العامة (ذ.م.م)',
+            'col4': 'تركيب هياكل حديدية مسبقة الصنع مع العوازل الحرارية والمقاومة للحريق للمستودع رقم 4 في المنطقة الصناعية الثانية بالرياض',
+            'col5': '08:00',
+            'col6': '17:00',
+            'col7': '8.0',
+            'col8': '2.0',
+            'col9': '1,450.00',
+            'col10': 'Approved'
+        })
+        # Row 2: None and empty values
+        rows.append({
+            'col1': '2',
+            'col2': '2026-11-04',
+            'col3': None,
+            'col4': '',
+            'col5': None,
+            'col6': '',
+            'col7': '0.0',
+            'col8': '0.0',
+            'col9': '0.00',
+            'col10': 'Pending'
+        })
+        # 53 additional rows to guarantee multi-page rendering (55 total)
+        for i in range(3, 56):
+            rows.append({
+                'col1': str(i),
+                'col2': '2026-11-05',
+                'col3': f'Subcontractor Division {i} - Special Works Unit',
+                'col4': f'Routine maintenance, inspection, and verification of mechanical systems for sector #{i}',
+                'col5': '07:30',
+                'col6': '16:30',
+                'col7': '8.0',
+                'col8': '1.5',
+                'col9': f'{i * 125}.50',
+                'col10': 'Completed'
+            })
+
+        payload = {
+            'title': 'Master Multi-Page Operational Audit Register',
+            'filename_prefix': 'master_audit_register',
+            'columns': columns,
+            'rows': rows,
+            'totals': {'col4': 'Grand Audit Total', 'col9': '245,670.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+        doc = fitz.open(stream=res.content, filetype='pdf')
+        self.assertGreater(len(doc), 1, "55 rows must span across multiple pages")

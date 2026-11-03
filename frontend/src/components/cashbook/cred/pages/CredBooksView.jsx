@@ -327,7 +327,8 @@ const CredBooksView = ({
       particulars: [
         { item: e.remark || 'Petty Cash Expense', qty: '1', rate: formatCurrency(amt), amount: formatCurrency(amt) }
       ],
-      notes: `Book: ${activeBook?.name || 'Cash Book'}. Running Balance after TX: SAR ${parseFloat(e.display_running_balance || 0).toFixed(2)}. Verified by accountant.`
+      runningBalance: parseFloat(e.display_running_balance || 0),
+      notes: ''
     };
   };
 

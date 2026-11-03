@@ -494,7 +494,10 @@ export default function CashbookJobOrders({
         { item: `Contract Scope: ${j.title || 'Works'}`, qty: '1', rate: formatCurrency(total), amount: formatCurrency(total) },
         ...(paid > 0 ? [{ item: 'Contract Disbursements / Progress Received', qty: '1', rate: formatCurrency(paid), amount: formatCurrency(paid) }] : [])
       ],
-      notes: `Status: ${j.status || 'Active'}. Total: SAR ${total.toFixed(2)} | Paid: SAR ${paid.toFixed(2)} | Balance Due: SAR ${due.toFixed(2)}. Formal project cost sign-off.`
+      paidAmount: paid,
+      balanceDue: due,
+      status: (j.status || 'Active').toUpperCase(),
+      notes: ''
     }
   }
 

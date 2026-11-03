@@ -194,7 +194,7 @@ const Reports = () => {
         <img src={logo} alt="arabSeason Logo" style={{ height: '60px', width: 'auto' }} />
         <div style={{ textAlign: 'right', fontSize: '9px', lineHeight: '1.6' }}>
           <div style={{ fontWeight: '900', fontSize: '13px', color: '#000' }}>arabSeason™</div>
-          <div style={{ fontWeight: '700', color: '#334155' }}>TRN: 301374966800003 | JEDDAH, KSA</div>
+          <div style={{ fontWeight: '700', color: '#334155' }}>RIYADH, KSA</div>
           <div style={{ color: '#3b82f6', fontWeight: '700' }}>ad@arabseason.net &nbsp;•&nbsp; Published: {new Date().toLocaleString()}</div>
         </div>
       </div>

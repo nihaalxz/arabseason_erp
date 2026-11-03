@@ -200,7 +200,7 @@ const Login = ({ onLogin }) => {
                 onChange={(e) => setUsername(e.target.value)} 
                 onFocus={() => setFocusedField('username')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="name@arabseason.com or username"
+                placeholder="name@arabseason.club or username"
                 autoComplete="username"
                 required 
                 disabled={isSubmitting}

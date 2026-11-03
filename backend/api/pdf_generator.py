@@ -34,6 +34,26 @@ try:
 except ImportError:
     HAS_ARABIC_SUPPORT = False
 
+
+def sanitize_doc_text(text):
+    if text is None:
+        return ''
+    s = str(text)
+    # Map unsupported glyphs that render as black boxes in standard fonts
+    replacements = {
+        '★': '*',
+        '☆': '*',
+        '﷼': 'SAR',
+        '₪': 'ILS',
+        '■': '-',
+        '\ufeff': '',
+        '\u200b': '',
+    }
+    for old, new in replacements.items():
+        if old in s:
+            s = s.replace(old, new)
+    return s
+
 def format_bidi_text(text):
     """
     Reshapes and applies BiDi visual ordering to Arabic script text
@@ -327,19 +347,18 @@ class UniversalPDFGenerator:
 
     def _get_site_settings(self):
         """
-        Retrieve live company settings from database with fallbacks matching DC-00002 reference.
+        Retrieve live company settings from database.
         Never hardcodes values if database fields are populated.
         """
         fallback = {
-            'legal_name': 'ALI MOHAMMED MOTAH Establishment For Contracting',
             'company_name': 'Arab Season',
             'email': 'ad@arabseason.net',
-            'website': 'www.arabseason.com',
+            'website': 'www.arabseason.club',
             'phone': '0575287403',
             'address': 'Riyadh, KSA',
             'currency': 'SAR',
             'cr_number': '',
-            'tax_number': '301374966800003'
+            'tax_number': ''
         }
         try:
             s = SiteSettings.objects.first()
@@ -350,16 +369,18 @@ class UniversalPDFGenerator:
                 addr_val = str(s.address or '').strip()
                 if not addr_val or 'Alsalihia' in addr_val:
                     addr_val = 'Riyadh, KSA'
+                web_val = str(getattr(s, 'website', '') or '').strip()
+                if not web_val or 'arabseason.com' in web_val:
+                    web_val = 'www.arabseason.club'
                 return {
-                    'legal_name': fallback['legal_name'],
                     'company_name': s.company_name or fallback['company_name'],
                     'email': s.email or fallback['email'],
-                    'website': fallback['website'],
+                    'website': web_val,
                     'phone': phone_val,
                     'address': addr_val,
                     'currency': s.currency or fallback['currency'],
                     'cr_number': getattr(s, 'cr_number', '') or '',
-                    'tax_number': getattr(s, 'tax_number', '') or fallback['tax_number']
+                    'tax_number': getattr(s, 'tax_number', '') or ''
                 }
         except Exception:
             pass
@@ -629,6 +650,59 @@ class UniversalPDFGenerator:
     # SHARED REFERENCE LAYOUT COMPONENTS (STRICTLY MATCHING DC-00002.pdf)
     # ══════════════════════════════════════════════════════════════════════
 
+    def _compute_adaptive_title(self, title, max_width, font_name):
+        clean = (title or '').strip()
+        clean_upper = clean.upper()
+        words = clean_upper.split()
+        if not words:
+            return 28, 32.25, clean_upper
+
+        if clean_upper == "DELIVERY CHALLAN":
+            return 28, 32.25, "DELIVERY&nbsp;<br/>CHALLAN"
+
+        candidate_sizes = [28, 24, 20, 18, 16]
+
+        for sz in candidate_sizes:
+            leading = sz * (32.25 / 28.0)
+
+            w_single = stringWidth(clean_upper, font_name, sz)
+            if w_single <= max_width:
+                return sz, leading, clean_upper
+
+            best_split = None
+            best_diff = 999999
+            for i in range(1, len(words)):
+                l1 = " ".join(words[:i])
+                l2 = " ".join(words[i:])
+                w1 = stringWidth(l1, font_name, sz)
+                w2 = stringWidth(l2, font_name, sz)
+                if w1 <= max_width and w2 <= max_width:
+                    diff = abs(w1 - w2)
+                    if diff < best_diff:
+                        best_diff = diff
+                        best_split = (l1, l2)
+
+            if best_split:
+                if (len(words) >= 4 or len(clean_upper) >= 25) and sz > 18:
+                    continue
+                return sz, leading, f"{best_split[0]}&nbsp;<br/>{best_split[1]}"
+
+        sz = 16
+        leading = 18.5
+        lines = []
+        curr = []
+        for w in words:
+            test = " ".join(curr + [w])
+            if stringWidth(test, font_name, sz) <= max_width:
+                curr.append(w)
+            else:
+                if curr:
+                    lines.append(" ".join(curr))
+                curr = [w]
+        if curr:
+            lines.append(" ".join(curr))
+        return sz, leading, "&nbsp;<br/>".join(lines)
+
     def build_reference_header(self, doc_width, title, doc_number):
         """
         Reference Header layout (matching DC-00002.pdf):
@@ -641,55 +715,37 @@ class UniversalPDFGenerator:
         left_flowables = []
         if logo_path and os.path.exists(logo_path):
             try:
-                left_flowables.append(Image(logo_path, width=177, height=54))
+                left_flowables.append(Image(logo_path, width=177, height=54, mask='auto'))
             except Exception:
                 pass
 
-        legal_name = settings.get("legal_name") or "ALI MOHAMMED MOTAH Establishment For Contracting"
-        tax_num = settings.get("tax_number", "301374966800003")
         addr = settings.get("address", "Riyadh, KSA")
         phone = settings.get("phone", "0575287403")
         email = settings.get("email", "ad@arabseason.net")
-        web = settings.get("website", "www.arabseason.com")
+        web = settings.get("website", "www.arabseason.club")
 
         font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
 
-        if len(legal_name) > 30 and ' ' in legal_name:
-            last_space = legal_name.rfind(' ')
-            comp_p1_text = f"{legal_name[:last_space]}<br/>{legal_name[last_space+1:]}"
-        else:
-            comp_p1_text = legal_name
-
-        comp_p1 = Paragraph(
-            comp_p1_text,
-            ParagraphStyle('C1', fontName=font_bold, fontSize=10, leading=11.84, textColor=colors.HexColor('#333333'))
-        )
-        comp_p2 = Paragraph(
-            f"{legal_name}<br/>"
-            f"TRN {tax_num}<br/>"
+        comp_p = Paragraph(
             f"{addr}<br/>"
             f"{phone}<br/>"
             f"{email} - {web}",
             ParagraphStyle('C2', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))
         )
-        # Exact spacer before logo (top=57.15) and before company block
-        left_flowables = [Spacer(1, 1.80)] + left_flowables + [Spacer(1, 1.41), comp_p1, comp_p2]
+        # Exact spacer before logo (top=57.15) and before company block (immediately after logo, no gap)
+        left_flowables = [Spacer(1, 1.80)] + left_flowables + [Spacer(1, 1.41), comp_p]
 
-        # Right: Title + Number
+        # Right: Adaptive Title + Shortened Document Number (if provided)
         t_clean = (title or '').strip().upper()
-        t_words = t_clean.split(' ')
-        if len(t_words) == 2:
-            title_html = f"{t_words[0]}&nbsp;<br/>{t_words[1]}"
-        elif len(t_words) > 2 and len(t_clean) > 14:
-            mid = len(t_words) // 2
-            title_html = f"{' '.join(t_words[:mid])}&nbsp;<br/>{' '.join(t_words[mid:])}"
-        else:
-            title_html = t_clean
+        right_col_w = doc_width - 280.0
+        title_sz, title_ld, title_html = self._compute_adaptive_title(t_clean, right_col_w, font_reg)
 
-        title_p = Paragraph(title_html, ParagraphStyle('TDel', fontName=font_reg, fontSize=28, leading=32.25, alignment=2, textColor=colors.HexColor('#000000')))
-        docnum_p = Paragraph(doc_number, ParagraphStyle('TNum', fontName=font_bold, fontSize=10, leading=12, alignment=2, textColor=colors.HexColor('#333333')))
-        right_flowables = [Spacer(1, 0.4), title_p, Spacer(1, 1.59), docnum_p]
+        title_p = Paragraph(title_html, ParagraphStyle('TDel', fontName=font_reg, fontSize=title_sz, leading=title_ld, alignment=2, textColor=colors.HexColor('#000000')))
+        right_flowables = [Spacer(1, 0.4), title_p]
+        if doc_number and str(doc_number).strip():
+            docnum_p = Paragraph(str(doc_number).strip(), ParagraphStyle('TNum', fontName=font_bold, fontSize=10, leading=12, alignment=2, textColor=colors.HexColor('#333333')))
+            right_flowables.extend([Spacer(1, 1.59), docnum_p])
 
         hdr_table = Table([[left_flowables, right_flowables]], colWidths=[280, doc_width - 280])
         hdr_table.setStyle(TableStyle([
@@ -746,7 +802,21 @@ class UniversalPDFGenerator:
 
         if meta_rows:
             rhs = [19.05] * 2 if len(meta_rows) == 2 else None
-            meta_table = Table(meta_rows, colWidths=[140, 110], rowHeights=rhs)
+            # Check maximum string width of meta values to prevent unwanted wrapping of common values like "QUOTED RATE / AGREEMENT"
+            max_v_w = 0.0
+            if meta_pairs:
+                for _, mv in meta_pairs:
+                    if mv:
+                        max_v_w = max(max_v_w, stringWidth(str(mv).strip(), font_reg, 9))
+
+            if max_v_w > 105.0:
+                val_col_w = min(150.0, max_v_w + 12.0)
+                lbl_col_w = 250.0 - val_col_w
+            else:
+                lbl_col_w = 140.0
+                val_col_w = 110.0
+
+            meta_table = Table(meta_rows, colWidths=[lbl_col_w, val_col_w], rowHeights=rhs)
             meta_table.setStyle(TableStyle([
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('TOPPADDING', (0,0), (-1,-1), 0),
@@ -822,12 +892,13 @@ class UniversalPDFGenerator:
         items_table.setStyle(TableStyle(t_style))
         return items_table
 
-    def build_reference_totals(self, doc_width, sub_total, total, words_text=None, extra_lines=None, show_sar_symbol=True):
+    def build_reference_totals(self, doc_width, sub_total, total, words_text=None, extra_lines=None, show_sar_symbol=True, post_total_lines=None):
         """
         Right-aligned stack:
         Sub Total (regular)
         Optional extra lines (Discount, VAT 15%, etc.)
         Total band (warm-gray #f5f4f3 with bold Total and bold Amount with SAR glyph)
+        Optional post-total lines (Paid, Balance Due rows)
         Total In Words below it
         """
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
@@ -839,7 +910,7 @@ class UniversalPDFGenerator:
         tot_val_b = ParagraphStyle('TVB', fontName=font_bold, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
 
         sar_icon_path = self._resolve_sar_symbol_path()
-        sar_icon = Image(sar_icon_path, width=5.96, height=6.75) if (sar_icon_path and show_sar_symbol and os.path.exists(sar_icon_path)) else None
+        sar_icon = Image(sar_icon_path, width=5.96, height=6.75, mask='auto') if (sar_icon_path and show_sar_symbol and os.path.exists(sar_icon_path)) else None
 
         totals_rows = []
         if sub_total is not None:
@@ -877,12 +948,24 @@ class UniversalPDFGenerator:
             val_cell = Paragraph(f"SAR {tot_str}", tot_val_b)
 
         totals_rows.append(['', total_lbl, val_cell])
+        total_band_row_idx = len(totals_rows) - 1
 
-        band_row_idx = len(totals_rows) - 1
-        totals_table = Table(totals_rows, colWidths=[257.51, 156.27, 101.25], rowHeights=[25.38] * band_row_idx + [30.00])
+        if post_total_lines:
+            for p_lbl, p_val in post_total_lines:
+                if not p_val or str(p_val).strip() in ('', '-', 'None'):
+                    continue
+                v_str = f"{p_val:,.2f}" if isinstance(p_val, (int, float, Decimal)) else str(p_val)
+                val_text = f"SAR {v_str}" if not str(v_str).startswith('SAR') else v_str
+                is_due = 'due' in p_lbl.lower()
+                style_l = ParagraphStyle(f'PTL_{p_lbl}', fontName=font_bold if is_due else font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+                style_v = ParagraphStyle(f'PTV_{p_lbl}', fontName=font_bold if is_due else font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#000000'))
+                totals_rows.append(['', Paragraph(p_lbl, style_l), Paragraph(val_text, style_v)])
+
+        row_heights = [25.38] * total_band_row_idx + [30.00] + [22.00] * (len(totals_rows) - total_band_row_idx - 1)
+        totals_table = Table(totals_rows, colWidths=[257.51, 156.27, 101.25], rowHeights=row_heights)
         totals_table.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BACKGROUND', (1, band_row_idx), (2, band_row_idx), colors.HexColor('#f5f4f3')),
+            ('BACKGROUND', (1, total_band_row_idx), (2, total_band_row_idx), colors.HexColor('#f5f4f3')),
             ('RIGHTPADDING', (1,0), (1,-1), 7.52),
             ('RIGHTPADDING', (2,0), (2,0), 7.52),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
@@ -920,17 +1003,11 @@ class UniversalPDFGenerator:
 
     def build_reference_signatures_and_notes(self, doc_width, notes=None, signature_style='single'):
         """
-        Notes / terms text below totals in small gray text.
         One 'Authorized Signature _______________' line at bottom-left (or double for payment/salary).
-        Reports get no signature line.
+        Reports get no signature line. Notes / terms sections are completely removed across all PDFs.
         """
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         flowables = []
-
-        if notes and str(notes).strip() not in ('', '-', 'None', 'null'):
-            clean_notes = str(notes).strip()
-            flowables.append(Paragraph(f'<font name="{font_reg}" size="8" color="#727272"><b>Notes:</b> {clean_notes}</font>', ParagraphStyle('NotesRef', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#727272'))))
-            flowables.append(Spacer(1, 14))
 
         if signature_style == 'single':
             sig_line = HRFlowable(width=150, thickness=0.75, color=colors.black, spaceBefore=0, spaceAfter=0, hAlign='LEFT')
@@ -1056,11 +1133,21 @@ class UniversalPDFGenerator:
         Universal corporate report PDF matching reference DC-00002 design standard.
         Charcoal header, thin #adadad row dividers, quiet summary stack, no alternating colors,
         footer timestamp and page count.
+        Supports:
+        - 0 rows (shows clean 'No records found' row spanning table)
+        - 1 row
+        - 50+ rows over multiple pages (repeatRows=1)
+        - Arabic text (reshaped with format_bidi_text)
+        - None or empty cells
+        - Long text in a cell (wrapped via Paragraph, never overflows)
+        - Automatic landscape and 8pt text when > 6 columns
+        - Proper totals summary row when provided
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        is_landscape = (orientation == 'landscape' or len(columns) > 6)
-        psize = landscape(A4) if is_landscape else A4
+
+        num_cols = len(columns) if columns else 1
+        psize = A4
         page_w, page_h = psize
 
         left_m = 45.60
@@ -1075,15 +1162,14 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        # 1. Header
-        ref = ref_number or f"Report# {datetime.now().strftime('%Y%m%d')}"
-        elements.append(self.build_reference_header(doc_w, title.upper(), ref))
+        # 1. Header (Reports receive no document number under the title)
+        elements.append(self.build_reference_header(doc_w, title.upper(), ""))
         elements.append(Spacer(1, 15.00))
 
         # 2. Summary Stack (Replacing KPI cards)
         summary_items = []
         if period_text:
-            summary_items.append(("Report Period", str(period_text)))
+            summary_items.append(("Report Period", sanitize_doc_text(str(period_text))))
         if kpis:
             if isinstance(kpis, list):
                 summary_items.extend(kpis)
@@ -1094,28 +1180,212 @@ class UniversalPDFGenerator:
             elements.append(self.build_reference_summary_stack(doc_w, summary_items))
             elements.append(Spacer(1, 12.00))
 
-        # 3. Table
-        # Columns format
-        cols_formatted = []
-        col_w = doc_w / len(columns) if columns else doc_w
-        for c in columns:
-            c_name = c if isinstance(c, str) else (c.get('header') or c.get('title') or c.get('name') or 'Column')
-            align = 'right' if any(k in c_name.lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar']) else 'left'
-            cols_formatted.append((c_name, align))
-
+        # 3. Columns & Proportional Widths (All A4 Portrait)
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
-        table_rows = []
-        for r in rows:
-            row_cells = []
-            for idx, c in enumerate(columns):
-                val = r[idx] if isinstance(r, (list, tuple)) and idx < len(r) else (r.get(c) if isinstance(r, dict) else (r.get(c.get('key')) if isinstance(c, dict) else ''))
-                val_str = str(val) if val is not None else ''
-                align = cols_formatted[idx][1]
-                p_align = 2 if align == 'right' else 0
-                row_cells.append(Paragraph(val_str, ParagraphStyle('TRow', fontName=font_reg, fontSize=8.0 if is_landscape else 8.5, leading=10.5, alignment=p_align, textColor=colors.HexColor('#333333'))))
-            table_rows.append(row_cells)
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
 
-        items_table = self.build_reference_items_table(doc_w, cols_formatted, table_rows, col_widths=[col_w] * len(columns))
+        # Typography scale: 8.0 pt text for standard tables, 7.0 pt minimum for 9+ columns
+        if num_cols >= 9:
+            font_size = 7.0
+            leading = 8.6
+            th_font_size = 7.0
+            th_leading = 8.6
+            t_pad_tb = 4.0
+            t_pad_lr = 3.0
+        else:
+            font_size = 8.0
+            leading = 9.8
+            th_font_size = 8.0
+            th_leading = 9.8
+            t_pad_tb = 5.0
+            t_pad_lr = 4.0
+
+        cols_formatted = []
+        col_weights = []
+        for c in columns:
+            if isinstance(c, str):
+                c_name = c
+                c_align = 'left'
+            else:
+                c_name = c.get('header') or c.get('title') or c.get('name') or c.get('dataKey') or 'Column'
+                c_align = c.get('align') or ('right' if any(k in str(c_name).lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'val', 'wages', 'paid', 'due', 'billed']) else 'left')
+
+            name_lower = str(c_name).lower()
+            if any(k in name_lower for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'wages', 'paid', 'due', 'billed']):
+                c_align = 'right'
+
+            cols_formatted.append((sanitize_doc_text(str(c_name)), c_align))
+
+            # Weight calculation for proportional column widths strictly fitting 515 pt portrait
+            if any(k == name_lower for k in ['sl', '#', 'id', 'no', 'sl no', 'sl.']):
+                col_weights.append(0.5)
+            elif any(k in name_lower for k in ['desc', 'work', 'note', 'particular', 'scope', 'title']):
+                col_weights.append(2.2)
+            elif any(k in name_lower for k in ['customer', 'vendor', 'name', 'supplier', 'party', 'item']):
+                col_weights.append(1.6)
+            elif any(k in name_lower for k in ['category', 'benchmark', 'contact', 'company', 'account']):
+                col_weights.append(1.2)
+            elif any(k in name_lower for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'wages', 'paid', 'due', 'billed']):
+                col_weights.append(1.1)
+            elif any(k in name_lower for k in ['date', 'time', 'phone', 'mode', 'status', 'type', 'unit', 'job', 'ref', 'order']):
+                col_weights.append(1.0)
+            else:
+                col_weights.append(1.0)
+
+        total_weight = sum(col_weights) if col_weights else 1.0
+        col_widths = [(w / total_weight) * doc_w for w in col_weights]
+
+        # 4. Table Header Row
+        header_cells = []
+        for i, (col_title, align) in enumerate(cols_formatted):
+            p_align = 2 if align == 'right' else (1 if align == 'center' else 0)
+            th_style = ParagraphStyle(
+                f'UnivTH_{i}_{align}',
+                fontName=font_bold,
+                fontSize=th_font_size,
+                textColor=colors.HexColor('#ffffff'),
+                leading=th_leading,
+                alignment=p_align
+            )
+            header_cells.append(Paragraph(col_title, th_style))
+
+        table_data = [header_cells]
+
+        # 5. Table Body Rows
+        def _get_cell_val(row_item, col_idx, col_spec):
+            if isinstance(row_item, (list, tuple)):
+                v = row_item[col_idx] if col_idx < len(row_item) else ''
+            elif isinstance(row_item, dict):
+                if isinstance(col_spec, str):
+                    v = row_item.get(col_spec, '')
+                elif isinstance(col_spec, dict):
+                    v = None
+                    for key_name in ('dataKey', 'key', 'accessor', 'field', 'id', 'name'):
+                        k_val = col_spec.get(key_name)
+                        if k_val and k_val in row_item:
+                            v = row_item[k_val]
+                            break
+                    if v is None:
+                        h_val = col_spec.get('header') or col_spec.get('title')
+                        if h_val and h_val in row_item:
+                            v = row_item[h_val]
+                        elif h_val:
+                            h_low = str(h_val).strip().lower()
+                            for rk, rv in row_item.items():
+                                if str(rk).strip().lower() == h_low:
+                                    v = rv
+                                    break
+                    if v is None:
+                        for key_name in ('dataKey', 'key', 'accessor', 'field', 'id', 'name'):
+                            k_val = col_spec.get(key_name)
+                            if k_val:
+                                k_low = str(k_val).strip().lower()
+                                for rk, rv in row_item.items():
+                                    if str(rk).strip().lower() == k_low:
+                                        v = rv
+                                        break
+                                if v is not None:
+                                    break
+                    if v is None:
+                        v = ''
+                else:
+                    v = ''
+            else:
+                v = str(row_item) if row_item is not None else ''
+
+            if v is None:
+                return ''
+            return sanitize_doc_text(str(v))
+
+        if not rows:
+            # Show a clean "No records found" row spanning the table
+            no_rec_style = ParagraphStyle(
+                'NoRec',
+                fontName=font_reg,
+                fontSize=8.5,
+                leading=12.0,
+                alignment=1,
+                textColor=colors.HexColor('#727272')
+            )
+            no_rec_row = [Paragraph("No records found", no_rec_style)] + [''] * (len(columns) - 1)
+            table_data.append(no_rec_row)
+        else:
+            for row_idx, r in enumerate(rows):
+                row_cells = []
+                for col_idx, c in enumerate(columns):
+                    val_str = _get_cell_val(r, col_idx, c)
+                    align = cols_formatted[col_idx][1]
+                    p_align = 2 if align == 'right' else (1 if align == 'center' else 0)
+
+                    # Bidi shaping for Arabic content
+                    shaped_val = format_bidi_text(val_str)
+                    if align == 'right' and shaped_val:
+                        shaped_val = shaped_val.replace(' ', '&nbsp;')
+
+                    td_style = ParagraphStyle(
+                        f'UnivTD_{col_idx}_{align}',
+                        fontName=font_reg,
+                        fontSize=font_size,
+                        leading=leading,
+                        alignment=p_align,
+                        textColor=colors.HexColor('#333333')
+                    )
+                    row_cells.append(Paragraph(shaped_val, td_style))
+                table_data.append(row_cells)
+
+        # 6. Totals Row Support
+        has_totals = False
+        if totals:
+            totals_row_cells = []
+            for col_idx, c in enumerate(columns):
+                t_val = _get_cell_val(totals, col_idx, c)
+                align = cols_formatted[col_idx][1]
+                p_align = 2 if align == 'right' else (1 if align == 'center' else 0)
+
+                t_shaped = format_bidi_text(t_val)
+                if align == 'right' and t_shaped:
+                    t_shaped = t_shaped.replace(' ', '&nbsp;')
+                tot_style = ParagraphStyle(
+                    f'UnivTot_{col_idx}_{align}',
+                    fontName=font_bold,
+                    fontSize=font_size,
+                    leading=leading,
+                    alignment=p_align,
+                    textColor=colors.HexColor('#000000')
+                )
+                totals_row_cells.append(Paragraph(t_shaped, tot_style))
+
+            table_data.append(totals_row_cells)
+            has_totals = True
+
+        # 7. Construct ReportLab Table
+        items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        t_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3c3d3a')),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('TOPPADDING', (0,0), (-1,0), 7.0),
+            ('BOTTOMPADDING', (0,0), (-1,0), 7.0),
+            ('LEFTPADDING', (0,0), (-1,-1), t_pad_lr),
+            ('RIGHTPADDING', (0,0), (-1,-1), t_pad_lr),
+            ('TOPPADDING', (0,1), (-1,-1), t_pad_tb),
+            ('BOTTOMPADDING', (0,1), (-1,-1), t_pad_tb),
+            ('LINEBELOW', (0,1), (-1,-1), 0.75, colors.HexColor('#adadad')),
+        ]
+
+        if not rows:
+            # Span "No records found" across all columns
+            t_style.append(('SPAN', (0, 1), (-1, 1)))
+            t_style.append(('ALIGN', (0, 1), (-1, 1), 'CENTER'))
+
+        if has_totals:
+            # Distinct styling for the bottom totals row
+            tot_idx = len(table_data) - 1
+            t_style.append(('LINEABOVE', (0, tot_idx), (-1, tot_idx), 1.2, colors.HexColor('#3c3d3a')))
+            t_style.append(('BACKGROUND', (0, tot_idx), (-1, tot_idx), colors.HexColor('#f5f4f3')))
+            t_style.append(('TOPPADDING', (0, tot_idx), (-1, tot_idx), 7.0))
+            t_style.append(('BOTTOMPADDING', (0, tot_idx), (-1, tot_idx), 7.0))
+
+        items_table.setStyle(TableStyle(t_style))
         elements.append(items_table)
 
         def report_canvas(*args, **kwargs):
@@ -1128,14 +1398,15 @@ class UniversalPDFGenerator:
         buffer.close()
         return pdf_bytes
 
+
     def generate_cashbook_ledger_pdf(self, book_data, summary, entries, filters=None):
         """
-        Generates official Cashbook Statement & Transaction Ledger PDF in landscape.
+        Generates official Cashbook Statement & Transaction Ledger PDF in A4 portrait.
         Charcoal table header, thin dividers, summary stack, no alternating rows.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1149,8 +1420,7 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        book_name = book_data.get('name', 'Main Cashbook') if isinstance(book_data, dict) else getattr(book_data, 'name', 'Main Cashbook')
-        header = self.build_reference_header(doc_w, "CASHBOOK LEDGER REPORT", f"Book# {book_name}")
+        header = self.build_reference_header(doc_w, "CASHBOOK LEDGER REPORT", "")
         elements.append(header)
         elements.append(Spacer(1, 15.00))
 
@@ -1165,7 +1435,9 @@ class UniversalPDFGenerator:
         e_date = filters.get('end_date') if filters else None
         p_str = f"{format_doc_date(s_date)} to {format_doc_date(e_date)}" if (s_date and e_date) else f"As of {datetime.now().strftime('%d/%m/%Y')}"
 
+        book_name = book_data.get('name', 'Main Cashbook') if isinstance(book_data, dict) else getattr(book_data, 'name', 'Main Cashbook')
         summary_items = [
+            ("Book Name", str(book_name)),
             ("Ledger Period", p_str),
             ("Opening Balance", f"{open_b:,.2f} SAR"),
             ("Total Inflow", f"{tot_in:,.2f} SAR"),
@@ -1187,7 +1459,7 @@ class UniversalPDFGenerator:
             ("Outflow (SAR)", "right"),
             ("Balance (SAR)", "right")
         ]
-        col_w = [25.00, 70.00, 75.00, 120.00, 231.30, 80.00, 80.00, 80.00]
+        col_w = [20.00, 52.00, 52.00, 75.00, 146.03, 55.00, 55.00, 60.00]
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         table_rows = []
 
@@ -1226,11 +1498,11 @@ class UniversalPDFGenerator:
 
     def generate_cashbook_bank_flow_pdf(self, summary, transactions, filters=None):
         """
-        Generates Consolidated Bank Flow & Transaction Ledger PDF in landscape.
+        Generates Consolidated Bank Flow & Transaction Ledger PDF in A4 portrait.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1244,7 +1516,7 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        elements.append(self.build_reference_header(doc_w, "CONSOLIDATED BANK FLOW REPORT", f"Flow# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(self.build_reference_header(doc_w, "CONSOLIDATED BANK FLOW REPORT", ""))
         elements.append(Spacer(1, 15.00))
 
         tot_in = float(summary.get('total_inflow', 0) if isinstance(summary, dict) else getattr(summary, 'total_inflow', 0))
@@ -1272,7 +1544,7 @@ class UniversalPDFGenerator:
             ("Description / Purpose", "left"),
             ("Transfer Amount (SAR)", "right")
         ]
-        col_w = [25.00, 75.00, 160.00, 160.00, 221.30, 120.00]
+        col_w = [20.00, 55.00, 105.00, 105.00, 155.03, 75.00]
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         table_rows = []
 
@@ -1319,7 +1591,7 @@ class UniversalPDFGenerator:
         acct_no = getattr(bank, 'account_number', '') or ''
         iban = getattr(bank, 'iban', '') or ''
 
-        elements.append(self.build_reference_header(doc_w, "BANK STATEMENT", f"Account# {acct_no or 'BANK'}"))
+        elements.append(self.build_reference_header(doc_w, "BANK STATEMENT", ""))
         elements.append(Spacer(1, 15.00))
 
         open_b = float(summary.get('opening_balance', 0) if isinstance(summary, dict) else getattr(summary, 'opening_balance', 0))
@@ -1396,7 +1668,7 @@ class UniversalPDFGenerator:
         elements = []
 
         staff_name = employee_ledger.get('staff_name', 'Employee') if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'staff_name', 'Employee')
-        elements.append(self.build_reference_header(doc_w, "EMPLOYEE LEDGER", f"Employee# {staff_name}"))
+        elements.append(self.build_reference_header(doc_w, "EMPLOYEE LEDGER", ""))
         elements.append(Spacer(1, 15.00))
 
         summary = employee_ledger.get('summary', {}) if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'summary', {})
@@ -1456,11 +1728,11 @@ class UniversalPDFGenerator:
 
     def generate_timesheet_report_pdf(self, timesheets, filters=None):
         """
-        Generates official Staff Timesheet and Attendance Audit Report PDF in landscape.
+        Generates official Staff Timesheet and Attendance Audit Report PDF in A4 portrait.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1474,7 +1746,7 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        elements.append(self.build_reference_header(doc_w, "TIMESHEET AUDIT REPORT", f"Audit# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(self.build_reference_header(doc_w, "TIMESHEET AUDIT REPORT", ""))
         elements.append(Spacer(1, 15.00))
 
         tot_shifts = len(timesheets)
@@ -1504,7 +1776,7 @@ class UniversalPDFGenerator:
             ("Total Hrs", "right"),
             ("Status", "center")
         ]
-        col_w = [25.00, 65.00, 130.00, 231.30, 60.00, 60.00, 50.00, 50.00, 50.00, 40.00]
+        col_w = [18.00, 48.00, 85.00, 128.03, 38.00, 38.00, 38.00, 38.00, 44.00, 40.00]
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         table_rows = []
 
@@ -1522,8 +1794,8 @@ class UniversalPDFGenerator:
             table_rows.append([
                 str(idx),
                 t_date,
-                Paragraph(s_name, ParagraphStyle('TN', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
-                Paragraph(job, ParagraphStyle('TJ', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                Paragraph(s_name, ParagraphStyle('TN', fontName=font_reg, fontSize=7, leading=8.5, textColor=colors.HexColor('#333333'))),
+                Paragraph(job, ParagraphStyle('TJ', fontName=font_reg, fontSize=7, leading=8.5, textColor=colors.HexColor('#333333'))),
                 cin,
                 cout,
                 f"{r_hrs:.1f}",
@@ -1532,7 +1804,7 @@ class UniversalPDFGenerator:
                 st
             ])
 
-        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w))
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w, row_padding=(3.5, 2.5)))
 
         def report_canvas(*args, **kwargs):
             c = NumberedCanvas(*args, **kwargs)
@@ -1546,11 +1818,11 @@ class UniversalPDFGenerator:
 
     def generate_financial_report_pdf(self, report_type, data, filters=None):
         """
-        Generates uniform corporate Financial Report PDF matching DC-00002 standard.
+        Generates uniform corporate Financial Report PDF in A4 portrait.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1565,7 +1837,7 @@ class UniversalPDFGenerator:
         elements = []
 
         rep_title = f"FINANCIAL REPORT ({report_type.upper()})"
-        elements.append(self.build_reference_header(doc_w, rep_title, f"FinReport# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(self.build_reference_header(doc_w, rep_title, ""))
         elements.append(Spacer(1, 15.00))
 
         s_date = filters.get('start_date') if filters else None
@@ -1657,7 +1929,7 @@ class UniversalPDFGenerator:
         doc_num = invoice.invoice_number or f"INV-{invoice.id:05d}"
         header = self.build_reference_header(doc_width, "TAX INVOICE / فاتورة ضريبية", f"Invoice# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta (Buyer details with VAT/TRN)
         cust = invoice.customer
@@ -1749,7 +2021,7 @@ class UniversalPDFGenerator:
         else:
             table_rows.append([
                 "1",
-                Paragraph(invoice.notes or "General Services as per Contract", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                Paragraph("General Services as per Contract", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
                 "1.00",
                 f"{float(invoice.subtotal):,.2f}",
                 f"{float(invoice.tax_rate or 15):.1f}%",
@@ -1787,51 +2059,12 @@ class UniversalPDFGenerator:
             remittance_lines.append(f"<b>Remittance Bank:</b> {bank.bank_name}")
             remittance_lines.append(f"<b>Account Name:</b> {bank.account_name}")
             remittance_lines.append(f"<b>IBAN:</b> {bank.iban}")
-        inv_notes = getattr(invoice, 'notes', None)
-        if inv_notes:
-            remittance_lines.append(f"<b>Notes:</b> {inv_notes}")
-        inv_terms = getattr(invoice, 'terms', None)
-        if inv_terms:
-            remittance_lines.append(f"<b>Terms:</b> {inv_terms}")
 
         remittance_p = Paragraph("<br/>".join(remittance_lines) if remittance_lines else "", ParagraphStyle('RemP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
 
-        # 5. Remittance Notes & Optional QR (Default OFF per project requirements)
-        concluding_flowables = [totals_block, Spacer(1, 14.00)]
-
-        use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
-        if use_qr:
-            settings_data = self._get_site_settings()
-            seller_name = settings_data.get('legal_name', 'ALI MOHAMMED MOTAH Establishment For Contracting')
-            seller_trn = settings_data.get('tax_number', '301374966800003')
-            inv_iso_time = f"{invoice.invoice_date}T12:00:00Z" if invoice.invoice_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
-            qr_drawing = self._build_zatca_qr_drawing(
-                seller_name=seller_name,
-                vat_number=seller_trn,
-                invoice_time=inv_iso_time,
-                total_amount=total_val,
-                vat_amount=vat_amt,
-                size=65
-            )
-            remit_table = Table([[remittance_p, qr_drawing]], colWidths=[doc_width - 80, 80])
-            remit_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('ALIGN', (1,0), (1,0), 'RIGHT'),
-                ('LEFTPADDING', (0,0), (-1,-1), 0),
-                ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                ('TOPPADDING', (0,0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-            ]))
-            concluding_flowables.append(remit_table)
-            concluding_flowables.append(Spacer(1, 14.00))
-        elif remittance_lines:
-            # Clean full-width reflow with no empty QR gap
-            concluding_flowables.append(remittance_p)
-            concluding_flowables.append(Spacer(1, 14.00))
-
         totals_block.keepWithNext = True
         elements.append(totals_block)
-        elements.append(Spacer(1, 14.00))
+        elements.append(Spacer(1, 14.00 if remittance_lines else 23.00))
 
         if remittance_lines:
             remittance_p.keepWithNext = True
@@ -1878,7 +2111,7 @@ class UniversalPDFGenerator:
         doc_num = estimation.estimate_number or f"EST-{estimation.id:05d}"
         header = self.build_reference_header(doc_width, "PRODUCTION CHECKLIST", f"Estimate# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         client_name = estimation.client_name or (estimation.customer.name if estimation.customer else "Valued Client")
@@ -1939,10 +2172,10 @@ class UniversalPDFGenerator:
         elements.append(items_table)
         elements.append(Spacer(1, 23.00))
 
-        # 4. Signatures
+        # 4. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=estimation.notes or estimation.scope_of_work,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -1981,7 +2214,7 @@ class UniversalPDFGenerator:
         doc_num = estimation.estimate_number or f"EST-{estimation.id:05d}"
         header = self.build_reference_header(doc_width, "MATERIAL ESTIMATE", f"Estimate# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         client_name = estimation.client_name or (estimation.customer.name if estimation.customer else "Valued Client")
@@ -2073,7 +2306,7 @@ class UniversalPDFGenerator:
 
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=estimation.notes or estimation.scope_of_work,
+            notes=None,
             signature_style='internal'
         )
         elements.extend(sigs)
@@ -2111,7 +2344,7 @@ class UniversalPDFGenerator:
         doc_num = quotation.quotation_number or f"QT-{quotation.id:05d}"
         header = self.build_reference_header(doc_width, "QUOTATION", f"Quotation# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         cust = quotation.customer
@@ -2199,7 +2432,7 @@ class UniversalPDFGenerator:
         else:
             table_rows.append([
                 "1",
-                Paragraph(quotation.notes or "Quoted Services and Deliverables", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                Paragraph("Quoted Services and Deliverables", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
                 "1.00",
                 f"{float(quotation.subtotal):,.2f}",
                 f"{float(quotation.tax_rate or 15):.1f}%",
@@ -2233,11 +2466,10 @@ class UniversalPDFGenerator:
         elements.append(totals_block)
         elements.append(Spacer(1, 23.00))
 
-        # 5. Signatures and Notes
-        notes_full = quotation.notes or quotation.terms
+        # 5. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=notes_full,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -2277,7 +2509,7 @@ class UniversalPDFGenerator:
         doc_num = credit_note.credit_note_number or f"CN-{credit_note.id:05d}"
         header = self.build_reference_header(doc_width, "CREDIT NOTE / إشعار دائن", f"Credit Note# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         cust = credit_note.customer
@@ -2361,7 +2593,7 @@ class UniversalPDFGenerator:
         else:
             table_rows.append([
                 "1",
-                Paragraph(credit_note.notes or "Credit Adjustment as agreed", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
+                Paragraph("Credit Adjustment as agreed", ParagraphStyle('ItmDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
                 "1.00",
                 f"{float(credit_note.subtotal):,.2f}",
                 f"{float(credit_note.tax_rate or 15):.1f}%",
@@ -2393,46 +2625,10 @@ class UniversalPDFGenerator:
 
         # 5. Notes & Optional QR (Default OFF per project requirements)
         concluding_flowables = [totals_block, Spacer(1, 14.00)]
-        use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
-        if use_qr:
-            settings_data = self._get_site_settings()
-            seller_name = settings_data.get('legal_name', 'ALI MOHAMMED MOTAH Establishment For Contracting')
-            seller_trn = settings_data.get('tax_number', '301374966800003')
-            cn_iso_time = f"{credit_note.credit_note_date}T12:00:00Z" if credit_note.credit_note_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
-            qr_drawing = self._build_zatca_qr_drawing(
-                seller_name=seller_name,
-                vat_number=seller_trn,
-                invoice_time=cn_iso_time,
-                total_amount=total_val,
-                vat_amount=vat_amt,
-                size=65
-            )
-            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}" if credit_note.notes else "", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
-            qr_table = Table([[notes_p, qr_drawing]], colWidths=[doc_width - 80, 80])
-            qr_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('ALIGN', (1,0), (1,0), 'RIGHT'),
-                ('LEFTPADDING', (0,0), (-1,-1), 0),
-                ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                ('TOPPADDING', (0,0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-            ]))
-            concluding_flowables.append(qr_table)
-            concluding_flowables.append(Spacer(1, 14.00))
-        elif credit_note.notes:
-            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
-            concluding_flowables.append(notes_p)
-            concluding_flowables.append(Spacer(1, 14.00))
-
         totals_block.keepWithNext = True
         elements.append(totals_block)
-        elements.append(Spacer(1, 14.00))
+        elements.append(Spacer(1, 23.00))
 
-        if credit_note.notes:
-            notes_p = Paragraph(f"<b>Notes:</b> {credit_note.notes}", ParagraphStyle('CNP', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#555555')))
-            notes_p.keepWithNext = True
-            elements.append(notes_p)
-            elements.append(Spacer(1, 14.00))
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
             notes=None,
@@ -2473,7 +2669,7 @@ class UniversalPDFGenerator:
         doc_num = delivery_note.delivery_note_number or f"DC-{delivery_note.id:05d}"
         header = self.build_reference_header(doc_width, "DELIVERY CHALLAN", f"Delivery Challan# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta Block
         cust = delivery_note.customer
@@ -2559,10 +2755,10 @@ class UniversalPDFGenerator:
         elements.append(totals_block)
         elements.append(Spacer(1, 23.00))
 
-        # 5. Signatures and Notes
+        # 5. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=delivery_note.notes,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
@@ -2612,10 +2808,11 @@ class UniversalPDFGenerator:
 
         # 1. Header
         title_clean = v_type.upper()
-        ref_label = f"{v_type}# {v_no}"
-        header = self.build_reference_header(doc_width, title_clean, ref_label)
+
+        # 1. Header (Vouchers do not repeat title under the header; number is displayed in meta block)
+        header = self.build_reference_header(doc_width, title_clean, "")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         payee_name = (
@@ -2653,8 +2850,31 @@ class UniversalPDFGenerator:
         party_subtext = '\n'.join(subtext_parts) if subtext_parts else None
 
         meta_pairs = [
+            ("Voucher No", str(v_no)),
             ("Date", format_doc_date(v_date))
         ]
+        # Status (e.g. from Job Order / project sign-off)
+        status_val = voucher_data.get('status')
+        if not status_val and voucher_data.get('notes'):
+            m_status = re.search(r'Status:\s*([A-Za-z0-9_\-\s]+?)(?:\.|$|\|)', str(voucher_data.get('notes')))
+            if m_status:
+                status_val = m_status.group(1).strip()
+        if status_val and str(status_val).strip() not in ('-', 'None', 'null'):
+            meta_pairs.append(("Status", str(status_val).strip()))
+
+        # Running Balance (e.g. from bank / cash ledger transaction voucher)
+        rb_val = voucher_data.get('runningBalance') or voucher_data.get('running_balance')
+        if rb_val is None and voucher_data.get('notes'):
+            m_rb = re.search(r'Running Balance after TX:\s*SAR\s*([\d,.]+)', str(voucher_data.get('notes')))
+            if m_rb:
+                rb_val = m_rb.group(1).strip()
+        if rb_val is not None and str(rb_val).strip() not in ('', '-', 'None', 'null'):
+            try:
+                rb_num = float(str(rb_val).replace(',', '').replace('SAR', '').strip())
+                meta_pairs.append(("Running Balance", f"SAR {rb_num:,.2f}"))
+            except Exception:
+                meta_pairs.append(("Running Balance", str(rb_val).strip()))
+
         period_val = voucher_data.get('period') or voucher_data.get('period_text')
         if is_statement and period_val:
             meta_pairs.append(("Period", str(period_val)))
@@ -2796,8 +3016,7 @@ class UniversalPDFGenerator:
             elements.append(totals_block)
             elements.append(Spacer(1, 23.00))
 
-            notes_text = voucher_data.get('notes') or voucher_data.get('narration')
-            sigs = self.build_reference_signatures_and_notes(doc_width, notes=notes_text, signature_style='single')
+            sigs = self.build_reference_signatures_and_notes(doc_width, notes=None, signature_style='single')
             elements.extend(sigs)
 
         # =========================================================================
@@ -2872,22 +3091,50 @@ class UniversalPDFGenerator:
             # 4. Totals Block (Total amount appears ONCE in totals area)
             total_val = float(amt) if amt > 0 else float(computed_subtotal)
             words_text = voucher_data.get('amountWords') or self.number_to_words(total_val)
+
+            # Check for Paid & Balance Due (e.g. Project Cost Sign-Off / Wage Payout)
+            post_total_lines = []
+            paid_val = voucher_data.get('paidAmount') or voucher_data.get('paid')
+            due_val = voucher_data.get('balanceDue') or voucher_data.get('due') or voucher_data.get('dueAmount')
+            if (paid_val is None or due_val is None) and voucher_data.get('notes'):
+                notes_s = str(voucher_data.get('notes'))
+                m_paid = re.search(r'Paid:\s*SAR\s*([\d,.]+)', notes_s)
+                m_due = re.search(r'(?:Balance Due|Due):\s*SAR\s*([\d,.]+)', notes_s)
+                if m_paid and paid_val is None:
+                    paid_val = m_paid.group(1).strip()
+                if m_due and due_val is None:
+                    due_val = m_due.group(1).strip()
+
+            if paid_val is not None and str(paid_val).strip() not in ('', '-', 'None'):
+                try:
+                    p_num = float(str(paid_val).replace(',', '').replace('SAR', '').strip())
+                    post_total_lines.append(("Paid", f"SAR {p_num:,.2f}"))
+                except Exception:
+                    post_total_lines.append(("Paid", str(paid_val).strip()))
+
+            if due_val is not None and str(due_val).strip() not in ('', '-', 'None'):
+                try:
+                    d_num = float(str(due_val).replace(',', '').replace('SAR', '').strip())
+                    post_total_lines.append(("Balance Due", f"SAR {d_num:,.2f}"))
+                except Exception:
+                    post_total_lines.append(("Balance Due", str(due_val).strip()))
+
             totals_block = self.build_reference_totals(
                 doc_width,
                 sub_total=float(computed_subtotal),
                 total=total_val,
                 words_text=words_text,
-                show_sar_symbol=True
+                show_sar_symbol=True,
+                post_total_lines=post_total_lines if post_total_lines else None
             )
             totals_block.keepWithNext = True
             elements.append(totals_block)
             elements.append(Spacer(1, 23.00))
 
             sig_style = 'double' if any(k in v_type_upper for k in ['PAYMENT', 'RECEIPT', 'SALARY']) else 'single'
-            notes_text = voucher_data.get('notes') or voucher_data.get('narration') or voucher_data.get('terms')
             sigs = self.build_reference_signatures_and_notes(
                 doc_width,
-                notes=notes_text,
+                notes=None,
                 signature_style=sig_style
             )
             elements.extend(sigs)
@@ -2925,7 +3172,7 @@ class UniversalPDFGenerator:
         doc_num = enquiry.enquiry_number or f"ENQ-{enquiry.id:05d}"
         header = self.build_reference_header(doc_width, "CUSTOMER ENQUIRY", f"Enquiry# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         cust = enquiry.customer
@@ -2996,11 +3243,10 @@ class UniversalPDFGenerator:
         elements.append(items_table)
         elements.append(Spacer(1, 23.00))
 
-        # 4. Signatures and Notes
-        notes_full = enquiry.notes
+        # 4. Signatures (Notes removed per design standard)
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
-            notes=notes_full,
+            notes=None,
             signature_style='single'
         )
         elements.extend(sigs)
