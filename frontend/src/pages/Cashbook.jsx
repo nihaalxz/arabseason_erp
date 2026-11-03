@@ -4388,13 +4388,27 @@ const Cashbook = ({ currentUser = null }) => {
       ((v.name || '').trim().toLowerCase() === qName)
     )
     const venId = matchedVen?.id || entryFormData.vendor
+    const venName = (matchedVen?.name || entryFormData.party_name || '').trim().toLowerCase()
     const allJobList = jobOrdersList.length > 0 ? jobOrdersList : jobOrders
+
+    // Also include any job orders where this vendor has expenses recorded
+    const vendorExpenseJobIds = new Set()
+    ;(expensesList || []).forEach(exp => {
+      const expVenId = exp.vendor != null ? String(exp.vendor) : ''
+      const expPayee = (exp.payee || exp.vendor_name || '').trim().toLowerCase()
+      if ((venId && expVenId === String(venId)) || (venName && expPayee === venName)) {
+        const jId = exp.job_order != null ? String(exp.job_order) : (exp.project != null ? String(exp.project) : '')
+        if (jId) vendorExpenseJobIds.add(String(jId))
+      }
+    })
+
     return allJobList.filter(j => {
       if (venId && (String(j.vendor) === String(venId) || String(j.vendor_id) === String(venId))) return true
-      if (j.vendor_name && j.vendor_name.trim().toLowerCase() === (matchedVen?.name || '').toLowerCase()) return true
+      if (j.vendor_name && j.vendor_name.trim().toLowerCase() === venName) return true
+      if (vendorExpenseJobIds.has(String(j.id))) return true
       return false
     })
-  }, [entryFormData.party_name, entryFormData.vendor, vendors, jobOrders, jobOrdersList])
+  }, [entryFormData.party_name, entryFormData.vendor, vendors, jobOrders, jobOrdersList, expensesList])
 
   const selectedVendorJobOrder = useMemo(() => {
     if (!entryFormData.job_order || entryFormData.debit_type !== 'VENDOR') return null
@@ -4421,7 +4435,7 @@ const Cashbook = ({ currentUser = null }) => {
     const jobOrderNum = String(selectedVendorJobOrder.order_id || '').replace(/^#+/, '').trim().toLowerCase()
 
     // 1. Sum of all expenses/bills recorded for this vendor on this specific job order
-    const billed = (expensesList || []).reduce((acc, exp) => {
+    const expBilled = (expensesList || []).reduce((acc, exp) => {
       const expVenId = exp.vendor != null ? String(exp.vendor) : ''
       const expPayee = (exp.payee || exp.vendor_name || '').trim().toLowerCase()
       const matchVen = (expVenId && expVenId === venId) || (expPayee && expPayee === venName)
@@ -4435,16 +4449,28 @@ const Cashbook = ({ currentUser = null }) => {
       return acc + (parseFloat(exp.amount) || 0)
     }, 0)
 
+    // Check if this job order is directly assigned to this vendor
+    const isAssignedVendor = (
+      (selectedVendorJobOrder.vendor != null && String(selectedVendorJobOrder.vendor) === venId) ||
+      (selectedVendorJobOrder.vendor_id != null && String(selectedVendorJobOrder.vendor_id) === venId) ||
+      ((selectedVendorJobOrder.vendor_name || '').trim().toLowerCase() === venName)
+    )
+    const jobContractAmount = isAssignedVendor ? (parseFloat(selectedVendorJobOrder.total_amount) || 0) : 0
+
+    // Total billed is the agreed contract amount on the assigned job order, or the sum of expenses if greater
+    const billed = Math.max(jobContractAmount, expBilled)
+
     // 2. Sum of all disbursements / payments made to this vendor on this specific job order
     const paid = (allCashEntries || []).reduce((acc, ent) => {
       if (ent.entry_type !== 'out') return acc
+      if (editingEntry && String(ent.id) === String(editingEntry.id)) return acc
       const entVenId = ent.vendor != null ? String(ent.vendor) : ''
       const entParty = (ent.party_name || '').trim().toLowerCase()
       const matchVen = (entVenId && entVenId === venId) || (entParty && entParty === venName)
       if (!matchVen) return acc
 
       const entJobId = ent.job_order != null ? String(ent.job_order) : ''
-      const matchJob = entJobId && entJobId === jobId
+      const matchJob = entJobId && String(entJobId) === jobId
       if (!matchJob) return acc
 
       return acc + (parseFloat(ent.amount) || 0)
@@ -4458,7 +4484,7 @@ const Cashbook = ({ currentUser = null }) => {
     const overallDue = Math.max(0, overallBilled - overallPaid)
 
     return { billed, paid, due, overallDue }
-  }, [selectedVendorJobOrder, selectedVendor, expensesList, allCashEntries])
+  }, [selectedVendorJobOrder, selectedVendor, expensesList, allCashEntries, editingEntry])
 
   // Matching Job Orders for the currently typed/selected vendor in New Expense modal
   const expenseVendorJobOrders = useMemo(() => {
@@ -18869,6 +18895,164 @@ const Cashbook = ({ currentUser = null }) => {
                       ariaLabel="Select Job Order"
                       isDark={isDarkMode}
                     />
+
+                    {/* Financial summary: Total Billed, Total Paid, Remaining Due */}
+                    {selectedVendorJobOrder ? (
+                      <div
+                        style={{
+                          marginTop: '0.65rem',
+                          padding: '0.75rem 0.95rem',
+                          borderRadius: '12px',
+                          background: isDarkMode ? '#16181b' : '#f8fafc',
+                          border: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0',
+                          boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.03)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: isDarkMode ? '1px solid #23262b' : '1px solid #edf2f7', paddingBottom: '0.4rem' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#334155', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: selectedVendorJobFinances.due > 0 ? '#ef4444' : '#10b981' }} />
+                            Job Order #{String(selectedVendorJobOrder.order_id || selectedVendorJobOrder.id).replace(/^#+/, '')} Finances
+                          </span>
+                          {selectedVendorJobOrder.customer_name && (
+                            <span style={{ fontSize: '0.68rem', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+                              Client: <strong style={{ color: isDarkMode ? '#f1f5f9' : '#0f172a' }}>{selectedVendorJobOrder.customer_name}</strong>
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
+                          {/* 1. Total Billed */}
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Total Billed
+                            </span>
+                            <span style={{ fontSize: '0.98rem', fontWeight: '800', color: isDarkMode ? '#ffffff' : '#0f172a', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                              SAR {selectedVendorJobFinances.billed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          {/* 2. Total Paid */}
+                          <div style={{ display: 'flex', flexDirection: 'column', borderLeft: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0', paddingLeft: '0.65rem' }}>
+                            <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Total Paid
+                            </span>
+                            <span style={{ fontSize: '0.98rem', fontWeight: '800', color: isDarkMode ? '#4ade80' : '#16a34a', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                              SAR {selectedVendorJobFinances.paid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          {/* 3. Remaining Due */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              borderLeft: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0',
+                              paddingLeft: '0.65rem',
+                              cursor: selectedVendorJobFinances.due > 0 ? 'pointer' : 'default'
+                            }}
+                            onClick={() => {
+                              if (selectedVendorJobFinances.due > 0) {
+                                setEntryFormData(prev => ({ ...prev, amount: selectedVendorJobFinances.due.toFixed(2) }))
+                              }
+                            }}
+                            title={selectedVendorJobFinances.due > 0 ? "Click to auto-fill payment amount" : ""}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Remaining Due
+                              </span>
+                              {selectedVendorJobFinances.due > 0 && !entryFormData.amount && (
+                                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: 'var(--primary, #5B4BDB)', background: isDarkMode ? 'rgba(91, 75, 219, 0.2)' : '#eef2ff', padding: '1px 5px', borderRadius: '4px' }}>
+                                  Fill
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '0.98rem', fontWeight: '800', color: selectedVendorJobFinances.due > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : (isDarkMode ? '#94a3b8' : '#64748b'), marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                              SAR {selectedVendorJobFinances.due.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : selectedVendor ? (
+                      <div
+                        style={{
+                          marginTop: '0.65rem',
+                          padding: '0.75rem 0.95rem',
+                          borderRadius: '12px',
+                          background: isDarkMode ? '#16181b' : '#f8fafc',
+                          border: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0',
+                          boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.03)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: isDarkMode ? '1px solid #23262b' : '1px solid #edf2f7', paddingBottom: '0.4rem' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '700', color: isDarkMode ? '#cbd5e1' : '#334155', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: (Math.max(0, (parseFloat(selectedVendor.total_billed || 0)) - (parseFloat(selectedVendor.paid_amount || 0))) > 0) ? '#ef4444' : '#10b981' }} />
+                            Overall Vendor Account Summary
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+                            All Orders & Invoices
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
+                          {/* 1. Total Billed */}
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Total Billed
+                            </span>
+                            <span style={{ fontSize: '0.98rem', fontWeight: '800', color: isDarkMode ? '#ffffff' : '#0f172a', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                              SAR {(parseFloat(selectedVendor.total_billed) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          {/* 2. Total Paid */}
+                          <div style={{ display: 'flex', flexDirection: 'column', borderLeft: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0', paddingLeft: '0.65rem' }}>
+                            <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Total Paid
+                            </span>
+                            <span style={{ fontSize: '0.98rem', fontWeight: '800', color: isDarkMode ? '#4ade80' : '#16a34a', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                              SAR {(parseFloat(selectedVendor.paid_amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          {/* 3. Remaining Due */}
+                          {(() => {
+                            const vDue = Math.max(0, (parseFloat(selectedVendor.total_billed || 0)) - (parseFloat(selectedVendor.paid_amount || 0)))
+                            return (
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  borderLeft: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0',
+                                  paddingLeft: '0.65rem',
+                                  cursor: vDue > 0 ? 'pointer' : 'default'
+                                }}
+                                onClick={() => {
+                                  if (vDue > 0) {
+                                    setEntryFormData(prev => ({ ...prev, amount: vDue.toFixed(2) }))
+                                  }
+                                }}
+                                title={vDue > 0 ? "Click to auto-fill payment amount" : ""}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Remaining Due
+                                  </span>
+                                  {vDue > 0 && !entryFormData.amount && (
+                                    <span style={{ fontSize: '0.6rem', fontWeight: '700', color: 'var(--primary, #5B4BDB)', background: isDarkMode ? 'rgba(91, 75, 219, 0.2)' : '#eef2ff', padding: '1px 5px', borderRadius: '4px' }}>
+                                      Fill
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '0.98rem', fontWeight: '800', color: vDue > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : (isDarkMode ? '#94a3b8' : '#64748b'), marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                                  SAR {vDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </div>
+                    ) : null}
 
                     {/* Job Order Form if user selects create job */}
                     {Boolean(entryFormData.is_creating_rough_job) && (

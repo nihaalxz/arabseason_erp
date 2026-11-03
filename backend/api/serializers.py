@@ -195,10 +195,23 @@ class VendorSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        exp_sum = sum(float(e.amount) for e in instance.expenses.all())
         lab_sum = sum(float(l.payment_amount) for l in instance.labours.all())
         ob = float(instance.opening_balance or 0)
-        total_billed = round(exp_sum + lab_sum + ob, 2)
+
+        # Assigned job orders billed
+        job_orders = instance.job_orders.exclude(status='Cancelled')
+        assigned_job_ids = set()
+        job_assigned_sum = 0.0
+        for j in job_orders:
+            assigned_job_ids.add(j.id)
+            j_amt = float(j.total_amount or 0)
+            j_exps = sum(float(e.amount) for e in j.expenses.filter(vendor=instance))
+            job_assigned_sum += max(j_amt, j_exps)
+
+        # Expenses not tied to any assigned job order
+        other_exp_sum = sum(float(e.amount) for e in instance.expenses.exclude(job_order_id__in=assigned_job_ids))
+
+        total_billed = round(job_assigned_sum + other_exp_sum + lab_sum + ob, 2)
         ret['total_billed'] = total_billed
 
         paid_sum = sum(float(p.amount) for p in instance.payments.all())
@@ -207,6 +220,8 @@ class VendorSerializer(serializers.ModelSerializer):
         pending = round(total_billed - paid_sum, 2)
         ret['pending_balance'] = pending
         ret['outstanding_balance'] = pending
+        ret['payable_amount'] = pending
+        ret['remaining_payable'] = pending
         return ret
 
 class JobOrderLookupSerializer(serializers.ModelSerializer):
