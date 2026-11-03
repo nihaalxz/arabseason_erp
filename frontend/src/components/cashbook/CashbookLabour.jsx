@@ -2487,30 +2487,7 @@ export default function CashbookLabour({
                 <div style={{ fontSize: '0.8rem', fontWeight: '700', color: textPrimary }}>
                   Work Orders & Disbursements ({statementLabourer.entries.length})
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const l = statementLabourer
-                    setStatementLabourer(null)
-                    handleAssignJobToLabourer(l)
-                  }}
-                  style={{
-                    padding: '0.35rem 0.75rem',
-                    fontSize: '0.75rem',
-                    fontWeight: '700',
-                    borderRadius: '8px',
-                    background: isDarkMode ? '#ffffff' : '#0f172a',
-                    color: isDarkMode ? '#0f172a' : '#ffffff',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <Briefcase size={12} strokeWidth={2.5} />
-                  <span>+ Assign Job Order</span>
-                </button>
+
               </div>
 
               <div style={{

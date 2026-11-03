@@ -910,26 +910,7 @@ const CredCustomersView = ({
                   gap: '12px',
                   padding: '4px 0 10px 56px'
                 }}>
-                  {hasDue && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNavigate && onNavigate('entries', { search: c.name });
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: 'var(--text, #0A0A0A)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Receive payment
-                    </button>
-                  )}
+
                   <VoucherPrintBtn
                     title="Customer Balance Statement & Voucher"
                     onClick={(e) => {

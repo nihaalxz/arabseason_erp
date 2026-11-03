@@ -1407,26 +1407,7 @@ export default function CashbookJobOrders({
                   gap: '12px',
                   padding: '4px 0 10px 56px'
                 }}>
-                  {hasDue && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReceivePayment ? onReceivePayment(job) : handleOpenReceivePaymentModal(job);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: 'var(--text, #0A0A0A)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Receive payment
-                    </button>
-                  )}
+
                   {job.attachment && (
                     <button
                       type="button"
@@ -1662,16 +1643,7 @@ export default function CashbookJobOrders({
                       {/* Actions ("receive payment" row text action, CredRowIconButton for edit & delete) */}
                       <td style={{ padding: '8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
-                          {hasDue && (
-                            <button
-                              type="button"
-                              className="cred-row-link"
-                              title="Receive Payment from Customer"
-                              onClick={() => onReceivePayment ? onReceivePayment(job) : handleOpenReceivePaymentModal(job)}
-                            >
-                              receive payment
-                            </button>
-                          )}
+
                           <VoucherPrintBtn
                             onClick={() => printPaymentVoucher(mapJobToVoucher(job))}
                             title={`Print Job Voucher for ${job.title}`}

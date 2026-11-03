@@ -773,26 +773,7 @@ const CredVendorsView = ({
                   gap: '12px',
                   padding: '4px 0 10px 56px'
                 }}>
-                  {hasDue && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNavigate && onNavigate('entries', { search: v.name });
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: 'var(--text, #0A0A0A)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Pay vendor
-                    </button>
-                  )}
+
                   <VoucherPrintBtn
                     title="Vendor Payment Voucher & Advice"
                     onClick={(e) => {
