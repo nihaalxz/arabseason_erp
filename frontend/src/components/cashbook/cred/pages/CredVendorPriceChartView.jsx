@@ -726,9 +726,9 @@ const CredVendorPriceChartView = ({
               height: '36px',
               padding: '0 30px 0 34px',
               borderRadius: '12px',
-              border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid var(--border, #E4E4E4)',
-              background: 'var(--bg, #FFFFFF)',
-              color: 'var(--text, #0A0A0A)',
+              border: isDarkMode ? '1px solid #232528' : '1px solid var(--border, #E4E4E4)',
+              background: isDarkMode ? '#16181b' : '#f4f4f4',
+              color: isDarkMode ? '#ffffff' : 'var(--text, #0A0A0A)',
               fontSize: '13px',
               outline: 'none',
               boxSizing: 'border-box'

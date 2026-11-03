@@ -17380,9 +17380,10 @@ const Cashbook = ({ currentUser = null }) => {
         maxWidth="680px"
         style={{
           borderRadius: '24px',
-          background: 'var(--card-bg, #FFFFFF)',
-          border: '1px solid var(--border, #E4E4E4)',
-          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16)'
+          background: isDarkMode ? '#141517' : '#FFFFFF',
+          border: isDarkMode ? '1px solid #232528' : '1px solid var(--border, #E4E4E4)',
+          color: isDarkMode ? '#FFFFFF' : '#0A0A0A',
+          boxShadow: isDarkMode ? '0 24px 64px rgba(0, 0, 0, 0.8)' : '0 20px 48px rgba(0, 0, 0, 0.16)'
         }}
         footer={(
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
@@ -17419,7 +17420,7 @@ const Cashbook = ({ currentUser = null }) => {
           {/* Toggle Type / Credit-Debit Designation */}
           <div style={{ marginBottom: '16px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-              <label className="cred-form-label" style={{ margin: 0, textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: '#475569' }}>
+              <label className="cred-form-label" style={{ margin: 0, textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: isDarkMode ? '#cbd5e1' : '#475569' }}>
                 <span>Designation (Credit / Debit)</span>
               </label>
               <span className="cred-required-dot" />
@@ -17506,7 +17507,7 @@ const Cashbook = ({ currentUser = null }) => {
           {entryType === 'out' && (
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="cred-form-label" style={{ margin: 0, textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: '#475569' }}>
+                <label className="cred-form-label" style={{ margin: 0, textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: isDarkMode ? '#cbd5e1' : '#475569' }}>
                   <span>Type</span>
                 </label>
                 <span className="cred-required-dot" />
@@ -18947,25 +18948,13 @@ const Cashbook = ({ currentUser = null }) => {
                               display: 'flex',
                               flexDirection: 'column',
                               borderLeft: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0',
-                              paddingLeft: '0.65rem',
-                              cursor: selectedVendorJobFinances.due > 0 ? 'pointer' : 'default'
+                              paddingLeft: '0.65rem'
                             }}
-                            onClick={() => {
-                              if (selectedVendorJobFinances.due > 0) {
-                                setEntryFormData(prev => ({ ...prev, amount: selectedVendorJobFinances.due.toFixed(2) }))
-                              }
-                            }}
-                            title={selectedVendorJobFinances.due > 0 ? "Click to auto-fill payment amount" : ""}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 Remaining Due
                               </span>
-                              {selectedVendorJobFinances.due > 0 && !entryFormData.amount && (
-                                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: 'var(--primary, #5B4BDB)', background: isDarkMode ? 'rgba(91, 75, 219, 0.2)' : '#eef2ff', padding: '1px 5px', borderRadius: '4px' }}>
-                                  Fill
-                                </span>
-                              )}
                             </div>
                             <span style={{ fontSize: '0.98rem', fontWeight: '800', color: selectedVendorJobFinances.due > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : (isDarkMode ? '#94a3b8' : '#64748b'), marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
                               SAR {selectedVendorJobFinances.due.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -19024,25 +19013,13 @@ const Cashbook = ({ currentUser = null }) => {
                                   display: 'flex',
                                   flexDirection: 'column',
                                   borderLeft: isDarkMode ? '1px solid #282a2e' : '1px solid #e2e8f0',
-                                  paddingLeft: '0.65rem',
-                                  cursor: vDue > 0 ? 'pointer' : 'default'
+                                  paddingLeft: '0.65rem'
                                 }}
-                                onClick={() => {
-                                  if (vDue > 0) {
-                                    setEntryFormData(prev => ({ ...prev, amount: vDue.toFixed(2) }))
-                                  }
-                                }}
-                                title={vDue > 0 ? "Click to auto-fill payment amount" : ""}
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                   <span style={{ fontSize: '0.67rem', fontWeight: '700', color: isDarkMode ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                     Remaining Due
                                   </span>
-                                  {vDue > 0 && !entryFormData.amount && (
-                                    <span style={{ fontSize: '0.6rem', fontWeight: '700', color: 'var(--primary, #5B4BDB)', background: isDarkMode ? 'rgba(91, 75, 219, 0.2)' : '#eef2ff', padding: '1px 5px', borderRadius: '4px' }}>
-                                      Fill
-                                    </span>
-                                  )}
                                 </div>
                                 <span style={{ fontSize: '0.98rem', fontWeight: '800', color: vDue > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : (isDarkMode ? '#94a3b8' : '#64748b'), marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
                                   SAR {vDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

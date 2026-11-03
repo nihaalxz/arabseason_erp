@@ -3909,7 +3909,7 @@ div:where(.swal2-icon) {
   background: #191b1e !important;
 }
 
-.cb-dark-bw input:not(.cred-input):not(.cred-input-prefixed):not([class*="-Input"]):not([class*="-input"]):not([class*="__input"]):not([class*="react-select"]):not([id^="react-select"]):not(.cred-input-wrap input):not(div[class*="control"] input):not(div[class*="value"] input),
+.cb-dark-bw input:not(.cred-input):not(.login-input):not(.login-page-root input):not(.cred-input-prefixed):not([class*="-Input"]):not([class*="-input"]):not([class*="__input"]):not([class*="react-select"]):not([id^="react-select"]):not(.cred-input-wrap input):not(div[class*="control"] input):not(div[class*="value"] input),
 .cb-dark-bw select:not(.cred-select) {
   background-color: #121316 !important;
   color: #ffffff !important;
@@ -5322,4 +5322,13 @@ html.dark .enquiry-due-today-pill.is-active {
 body.cb-dark-bw .enquiry-due-today-pill.is-active .due-dot,
 html.dark .enquiry-due-today-pill.is-active .due-dot {
   background: #0A0A0A !important;
+}
+
+/* Login page theme helpers */
+.login-input {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
