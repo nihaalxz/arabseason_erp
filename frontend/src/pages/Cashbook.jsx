@@ -2926,7 +2926,7 @@ const Cashbook = ({ currentUser = null }) => {
       handleOpenVendorModal()
     }
     if (tabParam === 'expenses' && searchParams.get('openCreate') === '1') {
-      setIsExpenseModalOpen(true)
+      handleOpenEntryModal('out')
     }
     const bId = searchParams.get('bookId') || searchParams.get('book')
     if (bId && books.length > 0) {
@@ -12583,7 +12583,7 @@ const Cashbook = ({ currentUser = null }) => {
             jobOrders={jobOrdersList}
             isLoading={expensesLoading}
             isDarkMode={isDarkMode}
-            onAddExpense={() => handleOpenExpenseModal()}
+            onAddExpense={() => handleOpenEntryModal('out')}
             onDeleteExpense={handleDeleteExpense}
             onNavigate={(tab, params) => navigateToTab(tab, params)}
           />

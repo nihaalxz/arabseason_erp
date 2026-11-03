@@ -661,6 +661,33 @@ export default function CashbookLabour({
     }
   }
 
+  // Delete Entire Labourer (and all associated work records)
+  const handleDeleteLabourer = async (labourer) => {
+    if (!labourer) return
+    const count = labourer.entries?.length || 0
+    const confirmed = await showConfirm(
+      `Delete Labourer "${labourer.name}"?`,
+      count > 0
+        ? `Are you sure you want to delete labourer "${labourer.name}" and all ${count} associated work record(s)? This action cannot be undone.`
+        : `Are you sure you want to delete labourer "${labourer.name}"?`
+    )
+    if (!confirmed) return
+
+    try {
+      if (labourer.entries && labourer.entries.length > 0) {
+        await Promise.all(labourer.entries.map(e => api.delete(`labours/${e.id}/`)))
+      }
+      showToast(`Labourer "${labourer.name}" deleted`, 'info')
+      fetchLabourEntries()
+      if (statementLabourer?.name === labourer.name) {
+        setStatementLabourer(null)
+      }
+    } catch (err) {
+      console.error('Failed to delete labourer:', err)
+      showError('Failed to delete labourer.')
+    }
+  }
+
   // Delete Entry
   const handleDeleteEntry = async (id, labourName) => {
     const confirmed = await showConfirm(
@@ -674,8 +701,15 @@ export default function CashbookLabour({
       showToast('Labour entry deleted', 'info')
       fetchLabourEntries()
       if (statementLabourer) {
-        // Refresh statement modal data
+        // Refresh statement modal data live
         setLabourEntries(prev => prev.filter(e => e.id !== id))
+        setStatementLabourer(prev => prev ? {
+          ...prev,
+          entries: prev.entries.filter(e => e.id !== id),
+          totalAmount: prev.entries.filter(e => e.id !== id).reduce((acc, ent) => acc + (parseFloat(ent.payment_amount) || 0), 0),
+          paidAmount: prev.entries.filter(e => e.id !== id).reduce((acc, ent) => acc + (parseFloat(ent.paid_amount) || 0), 0),
+          dueAmount: Math.max(0, prev.entries.filter(e => e.id !== id).reduce((acc, ent) => acc + (parseFloat(ent.payment_amount) || 0), 0) - prev.entries.filter(e => e.id !== id).reduce((acc, ent) => acc + (parseFloat(ent.paid_amount) || 0), 0))
+        } : null)
       }
     } catch (err) {
       console.error('Failed to delete labour entry:', err)
@@ -1416,6 +1450,26 @@ export default function CashbookLabour({
                           title={`Print Wage Voucher for ${l.name}`}
                           isDarkMode={isDarkMode}
                         />
+                        <button
+                          type="button"
+                          title={`Delete Labourer ${l.name}`}
+                          aria-label={`Delete Labourer ${l.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLabourer(l);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: 'var(--dot-danger, #E5482E)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
 
                       {/* Inset dashed separator */}
@@ -1580,6 +1634,17 @@ export default function CashbookLabour({
                             title={`Print Wage Voucher for ${l.name}`}
                             isDarkMode={isDarkMode}
                           />
+                          <CredRowIconButton
+                            tone="danger"
+                            title={`Delete Labourer ${l.name}`}
+                            ariaLabel={`Delete Labourer ${l.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteLabourer(l)
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </CredRowIconButton>
                         </div>
                       </td>
                     </tr>
@@ -2505,6 +2570,7 @@ export default function CashbookLabour({
                       <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500' }}>AGREED</th>
                       <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500' }}>PAID</th>
                       <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500', textAlign: 'right' }}>DUE</th>
+                      <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500', textAlign: 'right' }}>ACTION</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2539,6 +2605,29 @@ export default function CashbookLabour({
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: '700', color: d > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted, textAlign: 'right' }}>
                             {safeFormatAmount(d)}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              title="Delete work order"
+                              aria-label="Delete work order"
+                              onClick={(ev) => {
+                                ev.stopPropagation()
+                                handleDeleteEntry(ent.id, statementLabourer.name)
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: '3px 6px',
+                                color: 'var(--dot-danger, #E5482E)',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                borderRadius: '6px'
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </td>
                         </tr>
                       )
