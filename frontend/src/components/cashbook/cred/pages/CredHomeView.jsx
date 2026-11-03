@@ -388,7 +388,7 @@ const CredHomeView = ({
         <CredMobileTxList
           entries={pageItems}
           isClickable={false}
-          showBalance={true}
+          showBalance={false}
           isLoading={isLoading}
           emptyMessage="no entries match these filters"
           onClearFilters={handleClearAllFilters}
@@ -397,7 +397,7 @@ const CredHomeView = ({
       ) : (
         <CredLedgerTable
           entries={pageItems}
-          columns={['date', 'particulars', 'relation', 'channel', 'category', 'flow', 'amount', 'balance']}
+          columns={['date', 'particulars', 'relation', 'channel', 'category', 'flow', 'amount']}
           isClickable={true}
           onOpenEntry={onOpenEntry}
           isLoading={isLoading}

@@ -113,7 +113,7 @@ export const getEntryEntities = (e) => {
  */
 const CredLedgerTable = ({
   entries = [],
-  columns = ['date', 'particulars', 'relation', 'channel', 'category', 'flow', 'amount', 'balance'],
+  columns = ['date', 'particulars', 'relation', 'channel', 'category', 'flow', 'amount'],
   isClickable = true,
   onOpenEntry = () => {},
   isLoading = false,
@@ -139,7 +139,9 @@ const CredLedgerTable = ({
         : '130px minmax(200px, 2.2fr) minmax(120px, 1.2fr) minmax(150px, 1.5fr) 60px 130px 130px')
     : (columns.length === 5
         ? '130px minmax(200px, 2.5fr) minmax(160px, 1.8fr) 100px 140px'
-        : '130px minmax(170px, 2fr) minmax(140px, 1.4fr) minmax(150px, 1.4fr) minmax(110px, 1.1fr) 90px 130px 140px');
+        : (showBalance
+            ? '130px minmax(170px, 2fr) minmax(140px, 1.4fr) minmax(150px, 1.4fr) minmax(110px, 1.1fr) 90px 130px 140px'
+            : '130px minmax(190px, 2fr) minmax(150px, 1.4fr) minmax(160px, 1.4fr) minmax(120px, 1.1fr) 90px 140px'));
 
   return (
     <div className="cred-ledger-table-wrap" style={style}>

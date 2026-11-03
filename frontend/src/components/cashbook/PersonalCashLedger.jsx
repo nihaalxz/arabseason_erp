@@ -1371,9 +1371,6 @@ export default function PersonalCashLedger({
                 <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   AMOUNT (SAR)
                 </th>
-                <th style={{ padding: '0.75rem 1rem', fontSize: '11px', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  RUNNING BALANCE
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -1591,18 +1588,6 @@ export default function PersonalCashLedger({
                         : (isDarkMode ? '#f87171' : '#dc2626')
                     }}>
                       {isIn ? '+' : '-'}{fmt(amt)} SAR
-                    </td>
-
-                    {/* Running In-Hand Balance */}
-                    <td style={{
-                      padding: '0.85rem 1rem',
-                      textAlign: 'right',
-                      whiteSpace: 'nowrap',
-                      fontWeight: '700',
-                      fontSize: '0.85rem',
-                      color: runBal !== null && runBal < 0 ? (isDarkMode ? '#f87171' : '#dc2626') : textPrimary
-                    }}>
-                      {runBal !== null ? `${fmt(runBal)} SAR` : '—'}
                     </td>
                   </tr>
                 )
