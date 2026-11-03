@@ -363,7 +363,8 @@ const DeliveryNoteBuilder = () => {
     return materials.filter(m =>
       (m.name && m.name.toLowerCase().includes(q)) ||
       (m.measurements && m.measurements.toLowerCase().includes(q)) ||
-      (m.category && m.category.toLowerCase().includes(q))
+      (typeof m.category_name === 'string' && m.category_name.toLowerCase().includes(q)) ||
+      (typeof m.category === 'string' && m.category.toLowerCase().includes(q))
     )
   }, [materials, bulkSearch])
 
