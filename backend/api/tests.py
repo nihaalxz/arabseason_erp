@@ -410,6 +410,14 @@ class CashbookExportTablePdfSmokeTests(TestCase):
         self.assertEqual(response['Content-Type'], 'application/pdf')
         doc = fitz.open(stream=response.content, filetype='pdf')
         self.assertGreater(len(doc), 0)
+        # Assert A4 portrait dimensions (595.28 x 841.89 pt within 1.5 pt tolerance)
+        first_page = doc[0]
+        self.assertLess(first_page.rect.width, first_page.rect.height, "PDF must be in portrait orientation")
+        self.assertAlmostEqual(first_page.rect.width, 595.28, delta=1.5, msg="Width must match A4 portrait (595.28 pt)")
+        self.assertAlmostEqual(first_page.rect.height, 841.89, delta=1.5, msg="Height must match A4 portrait (841.89 pt)")
+        # Assert no obsolete 'Report#' number line appears
+        extracted_text = first_page.get_text()
+        self.assertNotIn("Report#", extracted_text, "Report# line must not appear in report header")
 
     def test_smoke_export_customer_chart(self):
         payload = {
@@ -639,3 +647,78 @@ class CashbookExportTablePdfSmokeTests(TestCase):
         }
         res = self.client.post(self.endpoint, data=payload, format='json')
         self._assert_valid_pdf_response(res)
+
+    def test_smoke_export_widest_table_edge_cases(self):
+        """
+        Verify extreme edge cases on 10-column widest table:
+        - 55 rows spanning multiple pages
+        - Arabic text shaping
+        - None / empty cell values
+        - Extra long wrapping text
+        - Portrait layout integrity without overflow
+        """
+        columns = [
+            {'header': 'ID', 'dataKey': 'col1', 'align': 'center'},
+            {'header': 'Date', 'dataKey': 'col2'},
+            {'header': 'Client / Beneficiary', 'dataKey': 'col3'},
+            {'header': 'Detailed Project Scope / Scope of Works', 'dataKey': 'col4'},
+            {'header': 'Shift In', 'dataKey': 'col5'},
+            {'header': 'Shift Out', 'dataKey': 'col6'},
+            {'header': 'Reg Hrs', 'dataKey': 'col7', 'align': 'right'},
+            {'header': 'OT Hrs', 'dataKey': 'col8', 'align': 'right'},
+            {'header': 'Total SAR', 'dataKey': 'col9', 'align': 'right'},
+            {'header': 'Status', 'dataKey': 'col10', 'align': 'center'},
+        ]
+        rows = []
+        # Row 1: Arabic text & long descriptions
+        rows.append({
+            'col1': '1',
+            'col2': '2026-11-03',
+            'col3': 'شركة البناء المتقدمة للمقاولات العامة (ذ.م.م)',
+            'col4': 'تركيب هياكل حديدية مسبقة الصنع مع العوازل الحرارية والمقاومة للحريق للمستودع رقم 4 في المنطقة الصناعية الثانية بالرياض',
+            'col5': '08:00',
+            'col6': '17:00',
+            'col7': '8.0',
+            'col8': '2.0',
+            'col9': '1,450.00',
+            'col10': 'Approved'
+        })
+        # Row 2: None and empty values
+        rows.append({
+            'col1': '2',
+            'col2': '2026-11-04',
+            'col3': None,
+            'col4': '',
+            'col5': None,
+            'col6': '',
+            'col7': '0.0',
+            'col8': '0.0',
+            'col9': '0.00',
+            'col10': 'Pending'
+        })
+        # 53 additional rows to guarantee multi-page rendering (55 total)
+        for i in range(3, 56):
+            rows.append({
+                'col1': str(i),
+                'col2': '2026-11-05',
+                'col3': f'Subcontractor Division {i} - Special Works Unit',
+                'col4': f'Routine maintenance, inspection, and verification of mechanical systems for sector #{i}',
+                'col5': '07:30',
+                'col6': '16:30',
+                'col7': '8.0',
+                'col8': '1.5',
+                'col9': f'{i * 125}.50',
+                'col10': 'Completed'
+            })
+
+        payload = {
+            'title': 'Master Multi-Page Operational Audit Register',
+            'filename_prefix': 'master_audit_register',
+            'columns': columns,
+            'rows': rows,
+            'totals': {'col4': 'Grand Audit Total', 'col9': '245,670.00'}
+        }
+        res = self.client.post(self.endpoint, data=payload, format='json')
+        self._assert_valid_pdf_response(res)
+        doc = fitz.open(stream=res.content, filetype='pdf')
+        self.assertGreater(len(doc), 1, "55 rows must span across multiple pages")

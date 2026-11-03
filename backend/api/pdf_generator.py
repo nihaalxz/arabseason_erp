@@ -347,19 +347,18 @@ class UniversalPDFGenerator:
 
     def _get_site_settings(self):
         """
-        Retrieve live company settings from database with fallbacks matching DC-00002 reference.
+        Retrieve live company settings from database.
         Never hardcodes values if database fields are populated.
         """
         fallback = {
-            'legal_name': 'ALI MOHAMMED MOTAH Establishment For Contracting',
             'company_name': 'Arab Season',
             'email': 'ad@arabseason.net',
-            'website': 'www.arabseason.com',
+            'website': 'www.arabseason.club',
             'phone': '0575287403',
             'address': 'Riyadh, KSA',
             'currency': 'SAR',
             'cr_number': '',
-            'tax_number': '301374966800003'
+            'tax_number': ''
         }
         try:
             s = SiteSettings.objects.first()
@@ -370,16 +369,18 @@ class UniversalPDFGenerator:
                 addr_val = str(s.address or '').strip()
                 if not addr_val or 'Alsalihia' in addr_val:
                     addr_val = 'Riyadh, KSA'
+                web_val = str(getattr(s, 'website', '') or '').strip()
+                if not web_val or 'arabseason.com' in web_val:
+                    web_val = 'www.arabseason.club'
                 return {
-                    'legal_name': fallback['legal_name'],
                     'company_name': s.company_name or fallback['company_name'],
                     'email': s.email or fallback['email'],
-                    'website': fallback['website'],
+                    'website': web_val,
                     'phone': phone_val,
                     'address': addr_val,
                     'currency': s.currency or fallback['currency'],
                     'cr_number': getattr(s, 'cr_number', '') or '',
-                    'tax_number': getattr(s, 'tax_number', '') or fallback['tax_number']
+                    'tax_number': getattr(s, 'tax_number', '') or ''
                 }
         except Exception:
             pass
@@ -718,45 +719,33 @@ class UniversalPDFGenerator:
             except Exception:
                 pass
 
-        legal_name = settings.get("legal_name") or "ALI MOHAMMED MOTAH Establishment For Contracting"
-        tax_num = settings.get("tax_number", "301374966800003")
         addr = settings.get("address", "Riyadh, KSA")
         phone = settings.get("phone", "0575287403")
         email = settings.get("email", "ad@arabseason.net")
-        web = settings.get("website", "www.arabseason.com")
+        web = settings.get("website", "www.arabseason.club")
 
         font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
 
-        if len(legal_name) > 30 and ' ' in legal_name:
-            last_space = legal_name.rfind(' ')
-            comp_p1_text = f"{legal_name[:last_space]}<br/>{legal_name[last_space+1:]}"
-        else:
-            comp_p1_text = legal_name
-
-        comp_p1 = Paragraph(
-            comp_p1_text,
-            ParagraphStyle('C1', fontName=font_bold, fontSize=10, leading=11.84, textColor=colors.HexColor('#333333'))
-        )
-        comp_p2 = Paragraph(
-            f"{legal_name}<br/>"
-            f"TRN {tax_num}<br/>"
+        comp_p = Paragraph(
             f"{addr}<br/>"
             f"{phone}<br/>"
             f"{email} - {web}",
             ParagraphStyle('C2', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))
         )
-        # Exact spacer before logo (top=57.15) and before company block
-        left_flowables = [Spacer(1, 1.80)] + left_flowables + [Spacer(1, 1.41), comp_p1, comp_p2]
+        # Exact spacer before logo (top=57.15) and before company block (immediately after logo, no gap)
+        left_flowables = [Spacer(1, 1.80)] + left_flowables + [Spacer(1, 1.41), comp_p]
 
-        # Right: Adaptive Title + Shortened Document Number
+        # Right: Adaptive Title + Shortened Document Number (if provided)
         t_clean = (title or '').strip().upper()
         right_col_w = doc_width - 280.0
         title_sz, title_ld, title_html = self._compute_adaptive_title(t_clean, right_col_w, font_reg)
 
         title_p = Paragraph(title_html, ParagraphStyle('TDel', fontName=font_reg, fontSize=title_sz, leading=title_ld, alignment=2, textColor=colors.HexColor('#000000')))
-        docnum_p = Paragraph(doc_number, ParagraphStyle('TNum', fontName=font_bold, fontSize=10, leading=12, alignment=2, textColor=colors.HexColor('#333333')))
-        right_flowables = [Spacer(1, 0.4), title_p, Spacer(1, 1.59), docnum_p]
+        right_flowables = [Spacer(1, 0.4), title_p]
+        if doc_number and str(doc_number).strip():
+            docnum_p = Paragraph(str(doc_number).strip(), ParagraphStyle('TNum', fontName=font_bold, fontSize=10, leading=12, alignment=2, textColor=colors.HexColor('#333333')))
+            right_flowables.extend([Spacer(1, 1.59), docnum_p])
 
         hdr_table = Table([[left_flowables, right_flowables]], colWidths=[280, doc_width - 280])
         hdr_table.setStyle(TableStyle([
@@ -1147,12 +1136,11 @@ class UniversalPDFGenerator:
         - Automatic landscape and 8pt text when > 6 columns
         - Proper totals summary row when provided
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
 
         num_cols = len(columns) if columns else 1
-        is_landscape = (orientation == 'landscape' or num_cols > 6)
-        psize = landscape(A4) if is_landscape else A4
+        psize = A4
         page_w, page_h = psize
 
         left_m = 45.60
@@ -1167,9 +1155,8 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        # 1. Header
-        ref = ref_number or f"Report# {datetime.now().strftime('%Y%m%d')}"
-        elements.append(self.build_reference_header(doc_w, title.upper(), ref))
+        # 1. Header (Reports receive no document number under the title)
+        elements.append(self.build_reference_header(doc_w, title.upper(), ""))
         elements.append(Spacer(1, 15.00))
 
         # 2. Summary Stack (Replacing KPI cards)
@@ -1186,15 +1173,25 @@ class UniversalPDFGenerator:
             elements.append(self.build_reference_summary_stack(doc_w, summary_items))
             elements.append(Spacer(1, 12.00))
 
-        # 3. Columns & Proportional Widths
+        # 3. Columns & Proportional Widths (All A4 Portrait)
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
 
-        # Typography scale: 8.0 pt text when more than 6 columns or landscape
-        font_size = 8.0 if is_landscape else 8.5
-        leading = 9.8 if is_landscape else 10.5
-        th_font_size = 8.0 if is_landscape else 8.5
-        th_leading = 9.8 if is_landscape else 10.5
+        # Typography scale: 8.0 pt text for standard tables, 7.0 pt minimum for 9+ columns
+        if num_cols >= 9:
+            font_size = 7.0
+            leading = 8.6
+            th_font_size = 7.0
+            th_leading = 8.6
+            t_pad_tb = 4.0
+            t_pad_lr = 3.0
+        else:
+            font_size = 8.0
+            leading = 9.8
+            th_font_size = 8.0
+            th_leading = 9.8
+            t_pad_tb = 5.0
+            t_pad_lr = 4.0
 
         cols_formatted = []
         col_weights = []
@@ -1206,23 +1203,27 @@ class UniversalPDFGenerator:
                 c_name = c.get('header') or c.get('title') or c.get('name') or c.get('dataKey') or 'Column'
                 c_align = c.get('align') or ('right' if any(k in str(c_name).lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'val', 'wages', 'paid', 'due', 'billed']) else 'left')
 
-            if any(k in str(c_name).lower() for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'wages', 'paid', 'due', 'billed']):
+            name_lower = str(c_name).lower()
+            if any(k in name_lower for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'wages', 'paid', 'due', 'billed']):
                 c_align = 'right'
 
             cols_formatted.append((sanitize_doc_text(str(c_name)), c_align))
 
-            # Weight calculation for proportional column widths
-            name_lower = str(c_name).lower()
-            if any(k in name_lower for k in ['desc', 'work', 'note', 'particular', 'scope', 'title', 'item']):
-                col_weights.append(2.4)
-            elif any(k in name_lower for k in ['customer', 'vendor', 'name', 'supplier', 'party']):
-                col_weights.append(1.8)
-            elif any(k in name_lower for k in ['category', 'benchmark', 'contact', 'company']):
-                col_weights.append(1.3)
+            # Weight calculation for proportional column widths strictly fitting 515 pt portrait
+            if any(k == name_lower for k in ['sl', '#', 'id', 'no', 'sl no', 'sl.']):
+                col_weights.append(0.5)
+            elif any(k in name_lower for k in ['desc', 'work', 'note', 'particular', 'scope', 'title']):
+                col_weights.append(2.2)
+            elif any(k in name_lower for k in ['customer', 'vendor', 'name', 'supplier', 'party', 'item']):
+                col_weights.append(1.6)
+            elif any(k in name_lower for k in ['category', 'benchmark', 'contact', 'company', 'account']):
+                col_weights.append(1.2)
+            elif any(k in name_lower for k in ['amount', 'total', 'debit', 'credit', 'balance', 'inflow', 'outflow', 'rate', 'price', 'sar', 'wages', 'paid', 'due', 'billed']):
+                col_weights.append(1.1)
             elif any(k in name_lower for k in ['date', 'time', 'phone', 'mode', 'status', 'type', 'unit', 'job', 'ref', 'order']):
                 col_weights.append(1.0)
             else:
-                col_weights.append(1.1)
+                col_weights.append(1.0)
 
         total_weight = sum(col_weights) if col_weights else 1.0
         col_widths = [(w / total_weight) * doc_w for w in col_weights]
@@ -1311,6 +1312,8 @@ class UniversalPDFGenerator:
 
                     # Bidi shaping for Arabic content
                     shaped_val = format_bidi_text(val_str)
+                    if align == 'right' and shaped_val:
+                        shaped_val = shaped_val.replace(' ', '&nbsp;')
 
                     td_style = ParagraphStyle(
                         f'UnivTD_{col_idx}_{align}',
@@ -1333,6 +1336,8 @@ class UniversalPDFGenerator:
                 p_align = 2 if align == 'right' else (1 if align == 'center' else 0)
 
                 t_shaped = format_bidi_text(t_val)
+                if align == 'right' and t_shaped:
+                    t_shaped = t_shaped.replace(' ', '&nbsp;')
                 tot_style = ParagraphStyle(
                     f'UnivTot_{col_idx}_{align}',
                     fontName=font_bold,
@@ -1347,9 +1352,6 @@ class UniversalPDFGenerator:
             has_totals = True
 
         # 7. Construct ReportLab Table
-        t_pad_tb = 5.5 if is_landscape else 7.0
-        t_pad_lr = 4.0 if is_landscape else 5.5
-
         items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
         t_style = [
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3c3d3a')),
@@ -1392,12 +1394,12 @@ class UniversalPDFGenerator:
 
     def generate_cashbook_ledger_pdf(self, book_data, summary, entries, filters=None):
         """
-        Generates official Cashbook Statement & Transaction Ledger PDF in landscape.
+        Generates official Cashbook Statement & Transaction Ledger PDF in A4 portrait.
         Charcoal table header, thin dividers, summary stack, no alternating rows.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1411,8 +1413,7 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        book_name = book_data.get('name', 'Main Cashbook') if isinstance(book_data, dict) else getattr(book_data, 'name', 'Main Cashbook')
-        header = self.build_reference_header(doc_w, "CASHBOOK LEDGER REPORT", f"Book# {book_name}")
+        header = self.build_reference_header(doc_w, "CASHBOOK LEDGER REPORT", "")
         elements.append(header)
         elements.append(Spacer(1, 15.00))
 
@@ -1427,7 +1428,9 @@ class UniversalPDFGenerator:
         e_date = filters.get('end_date') if filters else None
         p_str = f"{format_doc_date(s_date)} to {format_doc_date(e_date)}" if (s_date and e_date) else f"As of {datetime.now().strftime('%d/%m/%Y')}"
 
+        book_name = book_data.get('name', 'Main Cashbook') if isinstance(book_data, dict) else getattr(book_data, 'name', 'Main Cashbook')
         summary_items = [
+            ("Book Name", str(book_name)),
             ("Ledger Period", p_str),
             ("Opening Balance", f"{open_b:,.2f} SAR"),
             ("Total Inflow", f"{tot_in:,.2f} SAR"),
@@ -1449,7 +1452,7 @@ class UniversalPDFGenerator:
             ("Outflow (SAR)", "right"),
             ("Balance (SAR)", "right")
         ]
-        col_w = [25.00, 70.00, 75.00, 120.00, 231.30, 80.00, 80.00, 80.00]
+        col_w = [20.00, 52.00, 52.00, 75.00, 146.03, 55.00, 55.00, 60.00]
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         table_rows = []
 
@@ -1488,11 +1491,11 @@ class UniversalPDFGenerator:
 
     def generate_cashbook_bank_flow_pdf(self, summary, transactions, filters=None):
         """
-        Generates Consolidated Bank Flow & Transaction Ledger PDF in landscape.
+        Generates Consolidated Bank Flow & Transaction Ledger PDF in A4 portrait.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1506,7 +1509,7 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        elements.append(self.build_reference_header(doc_w, "CONSOLIDATED BANK FLOW REPORT", f"Flow# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(self.build_reference_header(doc_w, "CONSOLIDATED BANK FLOW REPORT", ""))
         elements.append(Spacer(1, 15.00))
 
         tot_in = float(summary.get('total_inflow', 0) if isinstance(summary, dict) else getattr(summary, 'total_inflow', 0))
@@ -1534,7 +1537,7 @@ class UniversalPDFGenerator:
             ("Description / Purpose", "left"),
             ("Transfer Amount (SAR)", "right")
         ]
-        col_w = [25.00, 75.00, 160.00, 160.00, 221.30, 120.00]
+        col_w = [20.00, 55.00, 105.00, 105.00, 155.03, 75.00]
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         table_rows = []
 
@@ -1581,7 +1584,7 @@ class UniversalPDFGenerator:
         acct_no = getattr(bank, 'account_number', '') or ''
         iban = getattr(bank, 'iban', '') or ''
 
-        elements.append(self.build_reference_header(doc_w, "BANK STATEMENT", f"Account# {acct_no or 'BANK'}"))
+        elements.append(self.build_reference_header(doc_w, "BANK STATEMENT", ""))
         elements.append(Spacer(1, 15.00))
 
         open_b = float(summary.get('opening_balance', 0) if isinstance(summary, dict) else getattr(summary, 'opening_balance', 0))
@@ -1658,7 +1661,7 @@ class UniversalPDFGenerator:
         elements = []
 
         staff_name = employee_ledger.get('staff_name', 'Employee') if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'staff_name', 'Employee')
-        elements.append(self.build_reference_header(doc_w, "EMPLOYEE LEDGER", f"Employee# {staff_name}"))
+        elements.append(self.build_reference_header(doc_w, "EMPLOYEE LEDGER", ""))
         elements.append(Spacer(1, 15.00))
 
         summary = employee_ledger.get('summary', {}) if isinstance(employee_ledger, dict) else getattr(employee_ledger, 'summary', {})
@@ -1718,11 +1721,11 @@ class UniversalPDFGenerator:
 
     def generate_timesheet_report_pdf(self, timesheets, filters=None):
         """
-        Generates official Staff Timesheet and Attendance Audit Report PDF in landscape.
+        Generates official Staff Timesheet and Attendance Audit Report PDF in A4 portrait.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1736,7 +1739,7 @@ class UniversalPDFGenerator:
         doc.addPageTemplates([PageTemplate(id='all_pages', frames=frame)])
         elements = []
 
-        elements.append(self.build_reference_header(doc_w, "TIMESHEET AUDIT REPORT", f"Audit# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(self.build_reference_header(doc_w, "TIMESHEET AUDIT REPORT", ""))
         elements.append(Spacer(1, 15.00))
 
         tot_shifts = len(timesheets)
@@ -1766,7 +1769,7 @@ class UniversalPDFGenerator:
             ("Total Hrs", "right"),
             ("Status", "center")
         ]
-        col_w = [25.00, 65.00, 130.00, 231.30, 60.00, 60.00, 50.00, 50.00, 50.00, 40.00]
+        col_w = [18.00, 48.00, 85.00, 128.03, 38.00, 38.00, 38.00, 38.00, 44.00, 40.00]
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
         table_rows = []
 
@@ -1784,8 +1787,8 @@ class UniversalPDFGenerator:
             table_rows.append([
                 str(idx),
                 t_date,
-                Paragraph(s_name, ParagraphStyle('TN', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
-                Paragraph(job, ParagraphStyle('TJ', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#333333'))),
+                Paragraph(s_name, ParagraphStyle('TN', fontName=font_reg, fontSize=7, leading=8.5, textColor=colors.HexColor('#333333'))),
+                Paragraph(job, ParagraphStyle('TJ', fontName=font_reg, fontSize=7, leading=8.5, textColor=colors.HexColor('#333333'))),
                 cin,
                 cout,
                 f"{r_hrs:.1f}",
@@ -1794,7 +1797,7 @@ class UniversalPDFGenerator:
                 st
             ])
 
-        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w))
+        elements.append(self.build_reference_items_table(doc_w, cols, table_rows, col_widths=col_w, row_padding=(3.5, 2.5)))
 
         def report_canvas(*args, **kwargs):
             c = NumberedCanvas(*args, **kwargs)
@@ -1808,11 +1811,11 @@ class UniversalPDFGenerator:
 
     def generate_financial_report_pdf(self, report_type, data, filters=None):
         """
-        Generates uniform corporate Financial Report PDF matching DC-00002 standard.
+        Generates uniform corporate Financial Report PDF in A4 portrait.
         """
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         buffer = BytesIO()
-        psize = landscape(A4)
+        psize = A4
         page_w, page_h = psize
         left_m = 45.60
         right_m = 34.79
@@ -1827,7 +1830,7 @@ class UniversalPDFGenerator:
         elements = []
 
         rep_title = f"FINANCIAL REPORT ({report_type.upper()})"
-        elements.append(self.build_reference_header(doc_w, rep_title, f"FinReport# {datetime.now().strftime('%Y%m%d')}"))
+        elements.append(self.build_reference_header(doc_w, rep_title, ""))
         elements.append(Spacer(1, 15.00))
 
         s_date = filters.get('start_date') if filters else None
@@ -1919,7 +1922,7 @@ class UniversalPDFGenerator:
         doc_num = invoice.invoice_number or f"INV-{invoice.id:05d}"
         header = self.build_reference_header(doc_width, "TAX INVOICE / فاتورة ضريبية", f"Invoice# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta (Buyer details with VAT/TRN)
         cust = invoice.customer
@@ -2064,8 +2067,8 @@ class UniversalPDFGenerator:
         use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
         if use_qr:
             settings_data = self._get_site_settings()
-            seller_name = settings_data.get('legal_name', 'ALI MOHAMMED MOTAH Establishment For Contracting')
-            seller_trn = settings_data.get('tax_number', '301374966800003')
+            seller_name = settings_data.get('company_name', 'Arab Season')
+            seller_trn = settings_data.get('tax_number', '')
             inv_iso_time = f"{invoice.invoice_date}T12:00:00Z" if invoice.invoice_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
             qr_drawing = self._build_zatca_qr_drawing(
                 seller_name=seller_name,
@@ -2140,7 +2143,7 @@ class UniversalPDFGenerator:
         doc_num = estimation.estimate_number or f"EST-{estimation.id:05d}"
         header = self.build_reference_header(doc_width, "PRODUCTION CHECKLIST", f"Estimate# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         client_name = estimation.client_name or (estimation.customer.name if estimation.customer else "Valued Client")
@@ -2243,7 +2246,7 @@ class UniversalPDFGenerator:
         doc_num = estimation.estimate_number or f"EST-{estimation.id:05d}"
         header = self.build_reference_header(doc_width, "MATERIAL ESTIMATE", f"Estimate# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         client_name = estimation.client_name or (estimation.customer.name if estimation.customer else "Valued Client")
@@ -2373,7 +2376,7 @@ class UniversalPDFGenerator:
         doc_num = quotation.quotation_number or f"QT-{quotation.id:05d}"
         header = self.build_reference_header(doc_width, "QUOTATION", f"Quotation# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         cust = quotation.customer
@@ -2539,7 +2542,7 @@ class UniversalPDFGenerator:
         doc_num = credit_note.credit_note_number or f"CN-{credit_note.id:05d}"
         header = self.build_reference_header(doc_width, "CREDIT NOTE / إشعار دائن", f"Credit Note# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         cust = credit_note.customer
@@ -2658,8 +2661,8 @@ class UniversalPDFGenerator:
         use_qr = getattr(self, 'enable_zatca_qr', ENABLE_ZATCA_QR)
         if use_qr:
             settings_data = self._get_site_settings()
-            seller_name = settings_data.get('legal_name', 'ALI MOHAMMED MOTAH Establishment For Contracting')
-            seller_trn = settings_data.get('tax_number', '301374966800003')
+            seller_name = settings_data.get('company_name', 'Arab Season')
+            seller_trn = settings_data.get('tax_number', '')
             cn_iso_time = f"{credit_note.credit_note_date}T12:00:00Z" if credit_note.credit_note_date else datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
             qr_drawing = self._build_zatca_qr_drawing(
                 seller_name=seller_name,
@@ -2735,7 +2738,7 @@ class UniversalPDFGenerator:
         doc_num = delivery_note.delivery_note_number or f"DC-{delivery_note.id:05d}"
         header = self.build_reference_header(doc_width, "DELIVERY CHALLAN", f"Delivery Challan# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta Block
         cust = delivery_note.customer
@@ -2875,26 +2878,10 @@ class UniversalPDFGenerator:
         # 1. Header
         title_clean = v_type.upper()
 
-        # Derive concise document number prefix (do NOT repeat full multi-word titles)
-        if 'CUSTOMER WORK ORDER' in v_type_upper or 'CWO' in v_type_upper:
-            doc_prefix = "Work Order"
-        elif 'VENDOR PRICE QUOTE' in v_type_upper or 'VPA' in v_type_upper or 'VENDOR QUOTE' in v_type_upper:
-            doc_prefix = "Vendor Quote"
-        elif 'SALARY' in v_type_upper:
-            doc_prefix = "Salary Voucher"
-        elif 'PAYMENT' in v_type_upper:
-            doc_prefix = "Payment Voucher"
-        elif 'RECEIPT' in v_type_upper:
-            doc_prefix = "Receipt Voucher"
-        elif 'STATEMENT' in v_type_upper:
-            doc_prefix = "Statement"
-        else:
-            doc_prefix = v_type.split('&')[0].split('/')[0].strip().title()
-
-        ref_label = f"{doc_prefix}# {v_no}"
-        header = self.build_reference_header(doc_width, title_clean, ref_label)
+        # 1. Header (Vouchers do not repeat title under the header; number is displayed in meta block)
+        header = self.build_reference_header(doc_width, title_clean, "")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         payee_name = (
@@ -2932,6 +2919,7 @@ class UniversalPDFGenerator:
         party_subtext = '\n'.join(subtext_parts) if subtext_parts else None
 
         meta_pairs = [
+            ("Voucher No", str(v_no)),
             ("Date", format_doc_date(v_date))
         ]
         period_val = voucher_data.get('period') or voucher_data.get('period_text')
@@ -3204,7 +3192,7 @@ class UniversalPDFGenerator:
         doc_num = enquiry.enquiry_number or f"ENQ-{enquiry.id:05d}"
         header = self.build_reference_header(doc_width, "CUSTOMER ENQUIRY", f"Enquiry# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 23.20))
+        elements.append(Spacer(1, 67.66))
 
         # 2. Party & Meta
         cust = enquiry.customer

@@ -268,6 +268,7 @@ class SiteSettings(models.Model):
     date_format = models.CharField(max_length=50, default='DD/MM/YYYY')
     cr_number = models.CharField(max_length=100, blank=True, default='')
     tax_number = models.CharField(max_length=100, blank=True, default='')
+    website = models.CharField(max_length=255, blank=True, default='www.arabseason.club')
     
     def __str__(self):
         return "Site Settings"
