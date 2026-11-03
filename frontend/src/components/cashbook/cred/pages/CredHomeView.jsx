@@ -137,9 +137,24 @@ const CredHomeView = ({
     }, { replace: true });
   };
 
-  // Filter transactions for the table
+  const isTransferFund = (e) => {
+    if (!e) return false;
+    const cat = (e.category || '').toLowerCase().trim();
+    const party = (e.party_name || e.party || '').toLowerCase().trim();
+    const remark = (e.remark || '').toLowerCase().trim();
+    const txType = (e.transaction_type || '').toLowerCase().trim();
+    const debitType = (e.debit_type || '').toLowerCase().trim();
+    if (cat === 'transfer' || debitType === 'transfer') return true;
+    if (party.includes('internal transfer') || party.includes('internal bank transfer') || party.includes('internal petty cash transfer') || party.includes('➔') || party.includes('->')) return true;
+    if (remark.includes('bank withdrawal to petty cash') || remark.includes('petty cash to bank') || remark.includes('internal transfer')) return true;
+    if (e.petty_cash_account && e.bank_account) return true;
+    if (txType === 'bank withdrawal' && !e.customer && !e.customer_name) return true;
+    return false;
+  };
+
+  // Filter transactions for the table (Internal transfers strictly excluded from Ledger)
   const tableEntries = useMemo(() => {
-    let list = transactions || [];
+    let list = (transactions || []).filter(e => !isTransferFund(e));
 
     // 1. Card filter
     if (cardFilter === 'in') {

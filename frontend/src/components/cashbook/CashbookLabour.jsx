@@ -238,6 +238,15 @@ export default function CashbookLabour({
   useEffect(() => {
     fetchLabourEntries()
     fetchJobOrders()
+
+    const handleRefresh = () => {
+      fetchLabourEntries()
+      fetchJobOrders()
+    }
+    window.addEventListener('refresh-cash-ledger', handleRefresh)
+    return () => {
+      window.removeEventListener('refresh-cash-ledger', handleRefresh)
+    }
   }, [fetchLabourEntries, fetchJobOrders])
 
   // Extract unique labourer names for suggestions

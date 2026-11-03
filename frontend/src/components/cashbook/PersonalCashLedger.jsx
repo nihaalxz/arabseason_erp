@@ -144,9 +144,40 @@ export const getEntryEntities = (e) => {
   return { isCust, isVend, isLabour, isJob, isExp, primaryEntity }
 }
 
-// Disconnect Books: Entries belonging to a book must NEVER appear in the Cash Ledger
+export const isTransferFundEntry = (e) => {
+  if (!e) return false
+  const cat = (e.category || '').toLowerCase().trim()
+  const party = (e.party_name || e.party || '').toLowerCase().trim()
+  const remark = (e.remark || '').toLowerCase().trim()
+  const txType = (e.transaction_type || '').toLowerCase().trim()
+  const debitType = (e.debit_type || '').toLowerCase().trim()
+
+  if (cat === 'transfer' || debitType === 'transfer') return true
+
+  if (
+    party.includes('internal transfer') ||
+    party.includes('internal bank transfer') ||
+    party.includes('internal petty cash transfer') ||
+    party.includes('➔') ||
+    party.includes('->')
+  ) return true
+
+  if (
+    remark.includes('bank withdrawal to petty cash') ||
+    remark.includes('petty cash to bank') ||
+    remark.includes('internal transfer')
+  ) return true
+
+  if (e.petty_cash_account && e.bank_account) return true
+  if (txType === 'bank withdrawal' && !e.customer && !e.customer_name) return true
+
+  return false
+}
+
+// Disconnect Books & Internal Transfers: Entries belonging to a book or inter-account transfer must NEVER appear in the Cash Ledger
 export const isLedgerTransaction = (e) => {
   if (!e) return false
+  if (isTransferFundEntry(e)) return false
   const bookId = (typeof e.cashbook === 'object' && e.cashbook !== null)
     ? e.cashbook.id
     : (e.cashbook ?? e.cashbook_id)

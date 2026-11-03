@@ -903,6 +903,40 @@ const Cashbook = ({ currentUser = null }) => {
     return false
   }, [])
 
+  const isTransferFundEntry = (e) => {
+    if (!e) return false
+    const cat = (e.category || '').toLowerCase().trim()
+    const party = (e.party_name || e.party || '').toLowerCase().trim()
+    const remark = (e.remark || '').toLowerCase().trim()
+    const txType = (e.transaction_type || '').toLowerCase().trim()
+    const debitType = (e.debit_type || '').toLowerCase().trim()
+
+    if (cat === 'transfer' || debitType === 'transfer') return true
+
+    if (
+      party.includes('internal transfer') ||
+      party.includes('internal bank transfer') ||
+      party.includes('internal petty cash transfer') ||
+      party.includes('➔') ||
+      party.includes('->')
+    ) return true
+
+    if (
+      remark.includes('bank withdrawal to petty cash') ||
+      remark.includes('petty cash to bank') ||
+      remark.includes('internal transfer')
+    ) return true
+
+    if (e.petty_cash_account && e.bank_account) return true
+    if (txType === 'bank withdrawal' && !e.customer && !e.customer_name) return true
+
+    return false
+  }
+
+  const isBookEntry = (e) => {
+    return Boolean(e && (e.cashbook != null && e.cashbook !== '' && e.cashbook !== false))
+  }
+
   const fetchExpensesList = useCallback(async () => {
     try {
       setExpensesLoading(true)
@@ -912,6 +946,8 @@ const Cashbook = ({ currentUser = null }) => {
       const uniqueData = raw.filter(item => {
         if (!item || item.id == null) return false
         if (isTransferExpense(item)) return false
+        if (item.cashbook || item.cashbook_id || item.cashbook_name) return false
+        if (item.cashbook_entries && item.cashbook_entries.some(ce => ce.cashbook)) return false
         if (seen.has(item.id)) return false
         seen.add(item.id)
         return true
@@ -2074,7 +2110,6 @@ const Cashbook = ({ currentUser = null }) => {
     amount: '',
     date: '',
     time: '',
-    cashbook: '',
     reference_number: '',
     notes: ''
   })
@@ -2608,7 +2643,8 @@ const Cashbook = ({ currentUser = null }) => {
 
   // Filter entries according to Duration dropdown
   const periodEntries = useMemo(() => {
-    if (duration === 'all') return entries
+    const baseEntries = selectedBook ? entries : (allCashEntries || []).filter(e => !isBookEntry(e))
+    if (duration === 'all') return baseEntries
 
     const today = new Date()
     const todayStr = today.toISOString().split('T')[0]
@@ -2634,7 +2670,7 @@ const Cashbook = ({ currentUser = null }) => {
       }
       return true
     })
-  }, [entries, duration])
+  }, [selectedBook, entries, allCashEntries, duration])
 
   // Compute active book summary metrics (Cash In, Cash Out, Net Balance, Outflow Bank vs Cash)
   const bookSummary = useMemo(() => {
@@ -2677,14 +2713,15 @@ const Cashbook = ({ currentUser = null }) => {
     return { totalIn, totalOut, outBank, outCash, netBal, opening }
   }, [selectedBook, periodEntries, entries, duration])
 
-  // CRED Design System: Home KPI metrics derived across all entries (or active book) with duration & search
+  // CRED Design System: Home KPI metrics derived across General Cash Ledger (strictly excluding custom books & internal transfers)
   const credHomeKpi = useMemo(() => {
-    const sourceEntries = selectedBook ? entries : allCashEntries
+    // General Cash Ledger is strictly separate from custom Cash Books and internal transfers
+    const sourceEntries = (allCashEntries || []).filter(e => !isBookEntry(e) && !isTransferFundEntry(e))
     const today = new Date()
     const todayStr = today.toISOString().split('T')[0]
     const currentMonthPrefix = todayStr.substring(0, 7)
 
-    const filtered = (sourceEntries || []).filter(e => {
+    const filtered = sourceEntries.filter(e => {
       if (!e) return false
       if (duration === 'today') return (e.date || '').startsWith(todayStr)
       if (duration === 'this_month') return (e.date || '').startsWith(currentMonthPrefix)
@@ -2722,9 +2759,7 @@ const Cashbook = ({ currentUser = null }) => {
     })
 
     const totalFlowVal = inSum + outSum
-    const netBalVal = selectedBook 
-      ? (parseFloat(selectedBook.opening_balance || 0) || 0) + inSum - outSum 
-      : (inSum - outSum)
+    const netBalVal = inSum - outSum
 
     return {
       totalFlow: safeFormatAmount(totalFlowVal),
@@ -2736,11 +2771,12 @@ const Cashbook = ({ currentUser = null }) => {
       outCount,
       filteredTransactions: finalEntries
     }
-  }, [selectedBook, entries, allCashEntries, duration, searchQuery])
+  }, [allCashEntries, duration, searchQuery])
 
   // Filter period entries according to Type, Mode, Category, Outflow Channel, and Search
   const filteredEntries = useMemo(() => {
     return periodEntries.filter(e => {
+      if (isTransferFundEntry(e)) return false
       // 1. Type filter
       if (typeFilter !== 'all' && e.entry_type !== typeFilter) return false
 
@@ -3018,8 +3054,8 @@ const Cashbook = ({ currentUser = null }) => {
       const pad = (num) => String(num).padStart(2, '0')
       const curDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
       const curTime = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-      const isInsideBook = (activeTab === 'book' || activeTab === 'books') && selectedBook?.id
-      const defaultBookId = isInsideBook ? String(selectedBook.id) : (entry?.cashbook ? String(entry.cashbook) : '')
+      const isInsideBook = (activeTab === 'book' || activeTab === 'books') && (selectedBook?.id || searchParams.get('book'))
+      const defaultBookId = isInsideBook ? String(selectedBook?.id || searchParams.get('book')) : (entry?.cashbook ? String(entry.cashbook) : '')
       
       const presetMode = (entry?.payment_mode && entry.payment_mode !== 'Cash') ? entry.payment_mode : 'Petty Cash'
       const defaultPettyAcc = matchedUserPettyAcc || null
@@ -3186,9 +3222,9 @@ const Cashbook = ({ currentUser = null }) => {
     e.preventDefault()
     
     // Effective Book resolution - Cash Ledger entries (tab === 'ledger') are completely separate from Books
-    const isInsideBook = (activeTab === 'book' || activeTab === 'books') && selectedBook?.id
+    const isInsideBook = (activeTab === 'book' || activeTab === 'books') && (selectedBook?.id || searchParams.get('book'))
     let effectiveBookId = isInsideBook
-      ? String(selectedBook.id)
+      ? String(selectedBook?.id || searchParams.get('book'))
       : (activeTab === 'ledger' ? null : ((entryFormData.cashbook && String(entryFormData.cashbook).trim()) ? String(entryFormData.cashbook).trim() : null))
 
     let resolvedParty = (entryFormData.party_name || '').trim()
@@ -3483,7 +3519,7 @@ const Cashbook = ({ currentUser = null }) => {
       fetchDashboardData()
       fetchStaffUsers()
       fetchLabourList()
-      handleUniversalRefresh()
+      await handleUniversalRefresh()
     } catch (err) {
       console.error(err)
       const data = err.response?.data
@@ -4030,7 +4066,6 @@ const Cashbook = ({ currentUser = null }) => {
       amount: '',
       date: curDate,
       time: curTime,
-      cashbook: defaultBookId,
       reference_number: '',
       notes: ''
     })
@@ -4060,9 +4095,6 @@ const Cashbook = ({ currentUser = null }) => {
     }
     if (transferFormData.from_account === transferFormData.to_account) {
       return setTransferFormError('Source (From) and destination (To) accounts cannot be the same.')
-    }
-    if (!transferFormData.cashbook) {
-      return setTransferFormError('Please select a Cashbook for this transaction.')
     }
     if (!transferFormData.date) {
       return setTransferFormError('Please select a date.')
@@ -4098,7 +4130,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Transfer from ${fromName} to ${toName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4114,7 +4146,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Deposit from ${fromName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4132,7 +4164,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Withdrawal from ${fromName} to ${toName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4148,7 +4180,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Petty cash deposit from ${fromName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4166,7 +4198,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Transfer from ${fromName} to ${toName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4182,7 +4214,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Deposit from ${fromName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4200,7 +4232,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Petty Cash transfer from ${fromName} to ${toName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4216,7 +4248,7 @@ const Cashbook = ({ currentUser = null }) => {
           remark: transferFormData.notes?.trim() || `Petty Cash deposit from ${fromName}`,
           category: 'Transfer',
           amount: amt,
-          cashbook: transferFormData.cashbook,
+          cashbook: null,
           date: transferFormData.date,
           time: transferFormData.time || '12:00:00',
           reference_number: transferFormData.reference_number?.trim() || ''
@@ -4237,16 +4269,19 @@ const Cashbook = ({ currentUser = null }) => {
       if (selectedAccountForStatement) {
         fetchAccountStatement(selectedAccountForStatement)
       }
-      if (transferFormData.cashbook) {
-        fetchLedger(transferFormData.cashbook)
-        fetchBooks(transferFormData.cashbook)
-      }
+
       showToast('Funds transferred successfully', 'success')
     } catch (err) {
       console.error('Transfer funds error:', err)
-      const detail = err.response?.data
-        ? Object.entries(err.response.data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('; ')
-        : (err.message || 'Failed to transfer funds.')
+      const data = err.response?.data
+      let detail = 'Failed to transfer funds'
+      if (typeof data === 'string') {
+        detail = data.includes('<html') ? 'A server error occurred. Please check your inputs or try again.' : data
+      } else if (data && typeof data === 'object') {
+        detail = Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('; ')
+      } else if (err.message) {
+        detail = err.message
+      }
       setTransferFormError(detail)
     } finally {
       setSubmittingTransfer(false)
@@ -4509,9 +4544,22 @@ const Cashbook = ({ currentUser = null }) => {
     return (expensesList || []).filter(e => !isTransferExpense(e)).reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0)
   }, [expensesList, isTransferExpense])
 
+  const totalCompanyCashIn = useMemo(() => {
+    return (allCashEntries || [])
+      .filter(e => e && e.entry_type === 'in' && !isBookEntry(e) && !isTransferFundEntry(e))
+      .reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0)
+  }, [allCashEntries])
+
+  const totalCompanyCashOut = useMemo(() => {
+    return (allCashEntries || [])
+      .filter(e => e && e.entry_type === 'out' && !isBookEntry(e) && !isTransferFundEntry(e))
+      .reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0)
+  }, [allCashEntries])
+
   const pettyCashEntries = useMemo(() => {
     let list = allCashEntries.filter(e => 
-      !e.payment_mode || e.payment_mode === 'Cash' || e.payment_mode === 'Petty Cash'
+      (!e.payment_mode || e.payment_mode === 'Cash' || e.payment_mode === 'Petty Cash') &&
+      !isTransferFundEntry(e)
     )
     if (pettyCashAccountFilter !== 'All') {
       list = list.filter(e => String(e.petty_cash_account) === String(pettyCashAccountFilter))
@@ -4534,13 +4582,13 @@ const Cashbook = ({ currentUser = null }) => {
 
   const pettyCashInflow = useMemo(() => {
     return allCashEntries
-      .filter(e => (!e.payment_mode || e.payment_mode === 'Cash' || e.payment_mode === 'Petty Cash') && e.entry_type === 'in' && (pettyCashAccountFilter === 'All' || String(e.petty_cash_account) === String(pettyCashAccountFilter)))
+      .filter(e => (!e.payment_mode || e.payment_mode === 'Cash' || e.payment_mode === 'Petty Cash') && !isTransferFundEntry(e) && e.entry_type === 'in' && (pettyCashAccountFilter === 'All' || String(e.petty_cash_account) === String(pettyCashAccountFilter)))
       .reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0)
   }, [allCashEntries, pettyCashAccountFilter])
 
   const pettyCashOutflow = useMemo(() => {
     return allCashEntries
-      .filter(e => (!e.payment_mode || e.payment_mode === 'Cash' || e.payment_mode === 'Petty Cash') && e.entry_type === 'out' && (pettyCashAccountFilter === 'All' || String(e.petty_cash_account) === String(pettyCashAccountFilter)))
+      .filter(e => (!e.payment_mode || e.payment_mode === 'Cash' || e.payment_mode === 'Petty Cash') && !isTransferFundEntry(e) && e.entry_type === 'out' && (pettyCashAccountFilter === 'All' || String(e.petty_cash_account) === String(pettyCashAccountFilter)))
       .reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0)
   }, [allCashEntries, pettyCashAccountFilter])
 
@@ -4621,7 +4669,7 @@ const Cashbook = ({ currentUser = null }) => {
     const receivedPaymentsList = []
 
     ;(allCashEntries || []).forEach(e => {
-      if (e && e.entry_type === 'in' && !isTransferFundEntry(e)) {
+      if (e && e.entry_type === 'in' && !isTransferFundEntry(e) && !isBookEntry(e)) {
         const idKey = e.id != null ? String(e.id) : null
         if (idKey && seenCashInflowIds.has(idKey)) return
         if (idKey) seenCashInflowIds.add(idKey)
@@ -4674,6 +4722,7 @@ const Cashbook = ({ currentUser = null }) => {
     const combinedRecentTransactions = []
     const seenTxIds = new Set()
     ;(allCashEntries || []).forEach(e => {
+      if (isTransferFundEntry(e) || isBookEntry(e)) return
       const idKey = e && e.id != null ? String(e.id) : null
       if (idKey && seenTxIds.has(idKey)) return
       if (idKey) seenTxIds.add(idKey)
@@ -4689,6 +4738,7 @@ const Cashbook = ({ currentUser = null }) => {
       })
     })
     ;(transactions || []).forEach(t => {
+      if (isTransferFundEntry(t)) return
       const idKey = t && t.id != null ? String(t.id) : null
       if (idKey && seenTxIds.has(idKey)) return
       if (idKey) seenTxIds.add(idKey)
@@ -12347,13 +12397,13 @@ const Cashbook = ({ currentUser = null }) => {
               amount: safeFormatAmount(totalCombinedBalance || '0.00')
             }}
             kpis={{
-              totalInflows: safeFormatAmount(bankFlowData?.total_company_inflows || bankFlowData?.total_bank_deposits || '0.00'),
+              totalInflows: safeFormatAmount(bankFlowData?.total_company_inflows || bankFlowData?.total_bank_deposits || totalCompanyCashIn || '0.00'),
               creditDue: safeFormatAmount(customerSummary?.pending_balance || '0.00'),
-              totalExpenses: safeFormatAmount(totalCompanyExpense || '0.00'),
+              totalExpenses: safeFormatAmount(bankFlowData?.total_company_outflows || bankFlowData?.total_bank_withdrawals || totalCompanyCashOut || '0.00'),
               customersCount: customers.length,
               customersBalance: safeFormatAmount(customerSummary?.pending_balance || '0.00')
             }}
-            latestTransactions={allCashEntries && allCashEntries.length > 0 ? allCashEntries : entries}
+            latestTransactions={(bankFlowData?.transactions && bankFlowData.transactions.length > 0) ? bankFlowData.transactions : ((allCashEntries || []).filter(e => !isTransferFundEntry(e) && !isBookEntry(e)))}
             customers={customers}
             expensesList={expensesList}
             initialDrawer={searchParams.get('view')}
@@ -12410,7 +12460,7 @@ const Cashbook = ({ currentUser = null }) => {
         ) : activeTab === 'cash_ledger' ? (
           <CredCashLedgerView
             isMobile={isMobileScreen}
-            entries={filteredEntries && filteredEntries.length > 0 ? filteredEntries : (selectedBook ? entries : allCashEntries)}
+            entries={(filteredEntries && filteredEntries.length > 0 ? filteredEntries : (selectedBook ? entries : (allCashEntries || []).filter(e => !isBookEntry(e)))).filter(e => !isTransferFundEntry(e))}
             onBack={() => navigateToTab('ledger')}
             onOpenEntry={(e) => {
               setEditingEntry(e)
@@ -21210,24 +21260,6 @@ const Cashbook = ({ currentUser = null }) => {
               />
             </div>
 
-            {/* Cashbook Ledger Reference */}
-            <div className="form-group">
-              <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
-                Record In Cashbook *
-              </label>
-              <CashbookSelect
-                value={transferFormData.cashbook}
-                onChange={(val) => setTransferFormData({ ...transferFormData, cashbook: val })}
-                options={books.map(bk => ({
-                  id: String(bk.id),
-                  label: bk.name
-                }))}
-                variant="modal-field"
-                ariaLabel="Select Cashbook"
-                isDark={isDarkMode}
-              />
-            </div>
-
             {/* Transfer Date */}
             <div className="form-group" style={{ minWidth: 0 }}>
               <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
@@ -21244,7 +21276,7 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
 
             {/* Reference / Cheque / Transaction Number */}
-            <div className="form-group" style={{ minWidth: 0 }}>
+            <div className="form-group col-span-2" style={{ minWidth: 0 }}>
               <label className="cred-form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>
                 Reference / Receipt #
               </label>

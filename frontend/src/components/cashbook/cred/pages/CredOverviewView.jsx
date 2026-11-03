@@ -56,14 +56,37 @@ const CredOverviewView = ({
     }
   };
 
-  // 1. Transaction Modes Data & Filtering
-  const cashInTransactions = useMemo(() => {
-    return (latestTransactions || []).filter(t => t.entry_type === 'in' || t.type === 'in');
+  const isTransferFund = (e) => {
+    if (!e) return false;
+    const cat = (e.category || '').toLowerCase().trim();
+    const party = (e.party_name || e.party || '').toLowerCase().trim();
+    const remark = (e.remark || '').toLowerCase().trim();
+    const txType = (e.transaction_type || '').toLowerCase().trim();
+    const debitType = (e.debit_type || '').toLowerCase().trim();
+    if (cat === 'transfer' || debitType === 'transfer') return true;
+    if (party.includes('internal transfer') || party.includes('internal bank transfer') || party.includes('internal petty cash transfer') || party.includes('➔') || party.includes('->')) return true;
+    if (remark.includes('bank withdrawal to petty cash') || remark.includes('petty cash to bank') || remark.includes('internal transfer')) return true;
+    if (e.petty_cash_account && e.bank_account) return true;
+    if (txType === 'bank withdrawal' && !e.customer && !e.customer_name) return true;
+    return false;
+  };
+
+  const isBookEntry = (e) => {
+    return Boolean(e && (e.cashbook != null && e.cashbook !== '' && e.cashbook !== false));
+  };
+
+  // 1. Transaction Modes Data & Filtering (Custom Cash Books & Internal transfers strictly excluded)
+  const cleanLatestTransactions = useMemo(() => {
+    return (latestTransactions || []).filter(t => !isTransferFund(t) && !isBookEntry(t));
   }, [latestTransactions]);
 
+  const cashInTransactions = useMemo(() => {
+    return cleanLatestTransactions.filter(t => t.entry_type === 'in' || t.type === 'in');
+  }, [cleanLatestTransactions]);
+
   const cashOutTransactions = useMemo(() => {
-    return (latestTransactions || []).filter(t => t.entry_type === 'out' || t.type === 'out');
-  }, [latestTransactions]);
+    return cleanLatestTransactions.filter(t => t.entry_type === 'out' || t.type === 'out');
+  }, [cleanLatestTransactions]);
 
   // 2. Customer Modes Data & Filtering
   const customersWithCreditDue = useMemo(() => {
@@ -89,13 +112,13 @@ const CredOverviewView = ({
         };
       case 'expenses':
         return {
-          title: 'EXPENSES',
+          title: 'EXPENSES & CASHOUT',
           count: cashOutTransactions.length,
-          viewAllText: 'view all expenses >',
-          ariaLabel: 'view all expenses',
+          viewAllText: 'view all cash out >',
+          ariaLabel: 'view all cash out transactions in the cash ledger',
           navigate: () => {
-            if (onNavigate) onNavigate('expenses');
-            else if (onNavigateSection) onNavigateSection('expenses');
+            if (onNavigate) onNavigate('ledger', { flow: 'out' });
+            else if (onNavigateSection) onNavigateSection('ledger', { flow: 'out' });
           }
         };
       case 'credit_due':
@@ -124,7 +147,7 @@ const CredOverviewView = ({
       default:
         return {
           title: 'LATEST TRANSACTIONS',
-          count: latestTransactions.length,
+          count: cleanLatestTransactions.length,
           viewAllText: 'view all transactions >',
           ariaLabel: 'view all transactions in the cash ledger',
           navigate: () => {
@@ -157,9 +180,9 @@ const CredOverviewView = ({
         ? cashInTransactions 
         : activeCard === 'expenses' 
           ? cashOutTransactions 
-          : (latestTransactions || [])
+          : cleanLatestTransactions
     ).slice(0, 10);
-  }, [activeCard, cashInTransactions, cashOutTransactions, latestTransactions]);
+  }, [activeCard, cashInTransactions, cashOutTransactions, cleanLatestTransactions]);
 
   return (
     <div className="cred-overview-page" style={{ width: '100%', position: 'relative' }}>
@@ -215,7 +238,7 @@ const CredOverviewView = ({
           label="TOTAL COMPANY EXPENSES"
           value={totalExpenses}
           variant="danger"
-          caption="all business costs & expenses"
+          caption="all business costs & cash out"
           isActive={activeCard === 'expenses'}
           onClick={() => handleCardClick('expenses')}
         />
