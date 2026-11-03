@@ -987,32 +987,6 @@ const CredCustomersView = ({
               </div>
             );
           })}
-
-          {/* Mobile Tallied Totals Bar */}
-          <div
-            style={{
-              marginTop: '12px',
-              padding: '12px 14px',
-              borderRadius: '12px',
-              background: isDarkMode ? 'rgba(255,255,255,0.04)' : '#f8fafc',
-              border: isDarkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase' }}>
-              <span>Total ({filteredTotals.count} {filteredTotals.count === 1 ? 'Customer' : 'Customers'})</span>
-              <span>Billed: <Money value={filteredTotals.billed.toFixed(2)} /></span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 600 }}>
-              <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Collected: <Money value={filteredTotals.paid.toFixed(2)} /></span>
-              <span style={{ color: filteredTotals.due > 0.01 ? 'var(--danger, #dc2626)' : 'inherit' }}>Due: <Money value={filteredTotals.due.toFixed(2)} /></span>
-              {filteredTotals.payable > 0.01 && (
-                <span style={{ color: isDarkMode ? '#60a5fa' : '#2563eb' }}>Payable: <Money value={filteredTotals.payable.toFixed(2)} /></span>
-              )}
-            </div>
-          </div>
         </div>
       ) : (
         /* CUSTOMERS TABLE – sized to fit comfortably without horizontal scrollbar */
@@ -1256,50 +1230,6 @@ const CredCustomersView = ({
                   );
                 })}
               </tbody>
-              <tfoot>
-                <tr
-                  style={{
-                    borderTop: '2px solid var(--border, #E4E4E4)',
-                    background: isDarkMode ? '#141517' : '#f8fafc',
-                    fontWeight: 700
-                  }}
-                >
-                  <td style={{ ...bodyCellStyle, fontWeight: 700, color: 'var(--text, #0A0A0A)' }}>
-                    TOTAL ({filteredTotals.count} {filteredTotals.count === 1 ? 'Customer' : 'Customers'})
-                  </td>
-                  <td style={{ ...bodyCellStyle, color: 'var(--text-muted, #8C8C8C)' }}>—</td>
-                  <td style={{ ...bodyCellStyle, fontSize: '13px', fontWeight: 700, color: 'var(--text, #0A0A0A)' }}>
-                    <Money value={filteredTotals.billed.toFixed(2)} />
-                  </td>
-                  <td style={{ ...bodyCellStyle, fontSize: '13px', fontWeight: 700, color: 'var(--text, #0A0A0A)' }}>
-                    <Money value={filteredTotals.paid.toFixed(2)} />
-                  </td>
-                  <td 
-                    style={{ 
-                      ...bodyCellStyle, 
-                      fontSize: '13px', 
-                      fontWeight: 700, 
-                      color: filteredTotals.due > 0.01 ? 'var(--dot-danger, #E5482E)' : 'var(--text, #0A0A0A)' 
-                    }}
-                  >
-                    <Money value={filteredTotals.due.toFixed(2)} />
-                  </td>
-                  <td 
-                    style={{ 
-                      ...bodyCellStyle, 
-                      fontSize: '13px', 
-                      fontWeight: 700, 
-                      color: filteredTotals.payable > 0.01 ? (isDarkMode ? '#60a5fa' : '#2563eb') : 'var(--text, #0A0A0A)' 
-                    }}
-                  >
-                    <Money value={filteredTotals.payable.toFixed(2)} />
-                  </td>
-                  <td style={{ ...bodyCellStyle, fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
-                    {filteredTotals.due > 0.01 && filteredTotals.payable > 0.01 ? 'Mixed' : filteredTotals.due > 0.01 ? 'Credit Due' : filteredTotals.payable > 0.01 ? 'Payables Owed' : 'Settled'}
-                  </td>
-                  <td style={{ ...bodyCellStyle, textAlign: 'right' }}></td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>
