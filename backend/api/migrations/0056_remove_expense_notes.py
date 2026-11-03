@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0054_customerworkrecord_work_category'),
+        ('api', '0055_sitesettings_website'),
     ]
 
     operations = [
