@@ -105,7 +105,7 @@ const CredCustomersView = ({
     deduplicatedCustomers.forEach(c => {
       const billed = parseFloat(c.total_billed) || 0;
       const paid = parseFloat(c.paid_amount) || 0;
-      const due = Math.max(0, billed - paid);
+      const due = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, billed - paid);
       const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
 
       totalBilled += billed;
@@ -117,7 +117,8 @@ const CredCustomersView = ({
     const creditDueCustomers = deduplicatedCustomers.filter(c => {
       const billed = parseFloat(c.total_billed) || 0;
       const paid = parseFloat(c.paid_amount) || 0;
-      return (billed - paid) > 0.01;
+      const due = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, billed - paid);
+      return due > 0.01;
     });
 
     const payableDueCustomers = deduplicatedCustomers.filter(c => {
@@ -128,8 +129,9 @@ const CredCustomersView = ({
     const settledCustomers = deduplicatedCustomers.filter(c => {
       const billed = parseFloat(c.total_billed) || 0;
       const paid = parseFloat(c.paid_amount) || 0;
+      const due = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, billed - paid);
       const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
-      return (billed > 0 || payable > 0) && (billed - paid) <= 0.01 && payable <= 0.01;
+      return (billed > 0 || paid > 0 || payable > 0) && due <= 0.01 && payable <= 0.01;
     });
 
     return {
@@ -196,12 +198,12 @@ const CredCustomersView = ({
       // 2. Status tab filter
       const billed = parseFloat(c.total_billed) || 0;
       const paid = parseFloat(c.paid_amount) || 0;
-      const due = billed - paid;
+      const due = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, billed - paid);
       const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
 
       if (activeFilter === 'Credit Due' && due <= 0.01) return false;
       if (activeFilter === 'Payables Owed' && payable <= 0.01) return false;
-      if (activeFilter === 'Settled' && (due > 0.01 || payable > 0.01 || (billed <= 0 && payable <= 0))) return false;
+      if (activeFilter === 'Settled' && (due > 0.01 || payable > 0.01 || (billed <= 0 && payable <= 0 && paid <= 0))) return false;
 
       // 3. Text search query filter
       if (searchQuery.trim()) {
@@ -216,6 +218,34 @@ const CredCustomersView = ({
       return true;
     });
   }, [deduplicatedCustomers, selectedCustomerId, activeFilter, searchQuery]);
+
+  // Tallied totals for the currently filtered customer set
+  const filteredTotals = useMemo(() => {
+    let billed = 0;
+    let paid = 0;
+    let due = 0;
+    let payable = 0;
+
+    filteredCustomers.forEach(c => {
+      const b = parseFloat(c.total_billed) || 0;
+      const p = parseFloat(c.paid_amount) || 0;
+      const d = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, b - p);
+      const py = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
+
+      billed += b;
+      paid += p;
+      due += d;
+      payable += py;
+    });
+
+    return {
+      billed,
+      paid,
+      due,
+      payable,
+      count: filteredCustomers.length
+    };
+  }, [filteredCustomers]);
 
   // Pagination for customers
   const customerResetKey = `${selectedCustomerId}_${activeFilter}_${searchQuery}`;
@@ -240,20 +270,11 @@ const CredCustomersView = ({
       { header: 'STATUS', dataKey: 'status' }
     ];
 
-    let sumBilled = 0;
-    let sumPaid = 0;
-    let sumDue = 0;
-    let sumPayable = 0;
-
     const rows = filteredCustomers.map(c => {
       const b = parseFloat(c.total_billed) || 0;
       const p = parseFloat(c.paid_amount) || 0;
-      const d = Math.max(0, b - p);
+      const d = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, b - p);
       const py = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
-      sumBilled += b;
-      sumPaid += p;
-      sumDue += d;
-      sumPayable += py;
 
       const status = d > 0.01 ? 'Credit Due' : py > 0.01 ? 'Payables Owed' : 'Settled';
 
@@ -277,10 +298,10 @@ const CredCustomersView = ({
       totals: {
         name: 'TOTALS',
         contact: `${rows.length} Customers`,
-        billed: formatCurrency(sumBilled),
-        paid: formatCurrency(sumPaid),
-        due: formatCurrency(sumDue),
-        payable: formatCurrency(sumPayable),
+        billed: formatCurrency(filteredTotals.billed),
+        paid: formatCurrency(filteredTotals.paid),
+        due: formatCurrency(filteredTotals.due),
+        payable: formatCurrency(filteredTotals.payable),
         status: ''
       }
     });
@@ -710,7 +731,7 @@ const CredCustomersView = ({
           {pagedCustomers.map((c, idx) => {
             const billed = parseFloat(c.total_billed) || 0;
             const paid = parseFloat(c.paid_amount) || 0;
-            const due = Math.max(0, billed - paid);
+            const due = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, billed - paid);
             const hasDue = due > 0.01;
             const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
             const hasPayable = payable > 0.01;
@@ -966,6 +987,32 @@ const CredCustomersView = ({
               </div>
             );
           })}
+
+          {/* Mobile Tallied Totals Bar */}
+          <div
+            style={{
+              marginTop: '12px',
+              padding: '12px 14px',
+              borderRadius: '12px',
+              background: isDarkMode ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+              border: isDarkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase' }}>
+              <span>Total ({filteredTotals.count} {filteredTotals.count === 1 ? 'Customer' : 'Customers'})</span>
+              <span>Billed: <Money value={filteredTotals.billed.toFixed(2)} /></span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 600 }}>
+              <span style={{ color: 'var(--text-muted, #8C8C8C)' }}>Collected: <Money value={filteredTotals.paid.toFixed(2)} /></span>
+              <span style={{ color: filteredTotals.due > 0.01 ? 'var(--danger, #dc2626)' : 'inherit' }}>Due: <Money value={filteredTotals.due.toFixed(2)} /></span>
+              {filteredTotals.payable > 0.01 && (
+                <span style={{ color: isDarkMode ? '#60a5fa' : '#2563eb' }}>Payable: <Money value={filteredTotals.payable.toFixed(2)} /></span>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         /* CUSTOMERS TABLE – sized to fit comfortably without horizontal scrollbar */
@@ -1010,7 +1057,7 @@ const CredCustomersView = ({
                 {pagedCustomers.map((c, idx) => {
                   const billed = parseFloat(c.total_billed) || 0;
                   const paid = parseFloat(c.paid_amount) || 0;
-                  const due = Math.max(0, billed - paid);
+                  const due = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, billed - paid);
                   const hasDue = due > 0.01;
                   const payable = parseFloat(c.remaining_payable ?? c.payable_amount) || 0;
                   const hasPayable = payable > 0.01;
@@ -1209,6 +1256,50 @@ const CredCustomersView = ({
                   );
                 })}
               </tbody>
+              <tfoot>
+                <tr
+                  style={{
+                    borderTop: '2px solid var(--border, #E4E4E4)',
+                    background: isDarkMode ? '#141517' : '#f8fafc',
+                    fontWeight: 700
+                  }}
+                >
+                  <td style={{ ...bodyCellStyle, fontWeight: 700, color: 'var(--text, #0A0A0A)' }}>
+                    TOTAL ({filteredTotals.count} {filteredTotals.count === 1 ? 'Customer' : 'Customers'})
+                  </td>
+                  <td style={{ ...bodyCellStyle, color: 'var(--text-muted, #8C8C8C)' }}>—</td>
+                  <td style={{ ...bodyCellStyle, fontSize: '13px', fontWeight: 700, color: 'var(--text, #0A0A0A)' }}>
+                    <Money value={filteredTotals.billed.toFixed(2)} />
+                  </td>
+                  <td style={{ ...bodyCellStyle, fontSize: '13px', fontWeight: 700, color: 'var(--text, #0A0A0A)' }}>
+                    <Money value={filteredTotals.paid.toFixed(2)} />
+                  </td>
+                  <td 
+                    style={{ 
+                      ...bodyCellStyle, 
+                      fontSize: '13px', 
+                      fontWeight: 700, 
+                      color: filteredTotals.due > 0.01 ? 'var(--dot-danger, #E5482E)' : 'var(--text, #0A0A0A)' 
+                    }}
+                  >
+                    <Money value={filteredTotals.due.toFixed(2)} />
+                  </td>
+                  <td 
+                    style={{ 
+                      ...bodyCellStyle, 
+                      fontSize: '13px', 
+                      fontWeight: 700, 
+                      color: filteredTotals.payable > 0.01 ? (isDarkMode ? '#60a5fa' : '#2563eb') : 'var(--text, #0A0A0A)' 
+                    }}
+                  >
+                    <Money value={filteredTotals.payable.toFixed(2)} />
+                  </td>
+                  <td style={{ ...bodyCellStyle, fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
+                    {filteredTotals.due > 0.01 && filteredTotals.payable > 0.01 ? 'Mixed' : filteredTotals.due > 0.01 ? 'Credit Due' : filteredTotals.payable > 0.01 ? 'Payables Owed' : 'Settled'}
+                  </td>
+                  <td style={{ ...bodyCellStyle, textAlign: 'right' }}></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>

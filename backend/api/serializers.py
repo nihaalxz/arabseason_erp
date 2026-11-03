@@ -49,28 +49,20 @@ class CustomerSerializer(serializers.ModelSerializer):
         }
 
     def get_pending_balance(self, obj):
-        billed = getattr(obj, 'total_billed', None)
-        paid = getattr(obj, 'paid_amount', None)
-        if billed is not None and paid is not None:
-            return round(float(billed) - float(paid), 2)
+        tb = getattr(obj, 'total_billed', None)
+        pa = getattr(obj, 'paid_amount', None)
+        if tb is not None and pa is not None:
+            return max(0.0, round(float(tb) - max(0.0, float(pa)), 2))
         job_billed = sum(float(j.total_amount) for j in obj.job_orders.exclude(status='Cancelled'))
         inv_billed = sum(float(i.total_amount) for i in obj.invoices.filter(job_order__isnull=True))
         cn_credited = sum(float(c.total_amount) for c in obj.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
-        billed = job_billed + inv_billed - cn_credited
-        paid = sum(float(p.amount) for p in obj.payments.all())
-        return round(float(billed) - float(paid), 2)
+        billed = max(0.0, job_billed + inv_billed - cn_credited)
+        paid = sum(float(p.amount) for p in obj.payments.all() if getattr(p, 'payment_type', None) != 'refund')
+        return max(0.0, round(billed - paid, 2))
 
     def get_outstanding_balance(self, obj):
         """True outstanding across ALL job orders and invoices minus credit notes and payments."""
-        billed = getattr(obj, 'total_billed', None)
-        paid = getattr(obj, 'paid_amount', None)
-        if billed is not None and paid is not None:
-            return round(float(billed) - float(paid), 2)
-        total_billed = sum(float(j.total_amount) for j in obj.job_orders.exclude(status='Cancelled'))
-        inv_billed = sum(float(i.total_amount) for i in obj.invoices.filter(job_order__isnull=True))
-        cn_credited = sum(float(c.total_amount) for c in obj.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
-        total_paid = sum(float(p.amount) for p in obj.payments.all())
-        return round((total_billed + inv_billed - cn_credited) - total_paid, 2)
+        return self.get_pending_balance(obj)
 
     def get_advance_paid(self, obj):
         """Sum of payments classified as 'advance' across all jobs."""
@@ -121,29 +113,43 @@ class CustomerSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         ret['company'] = ret.get('company_name') or ''
         cn_credited = sum(float(c.total_amount) for c in instance.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
+        
+        # 1. Total Billed
         tb = getattr(instance, 'total_billed', None)
         if tb is None:
             job_billed = sum(float(j.total_amount) for j in instance.job_orders.exclude(status='Cancelled'))
             inv_billed = sum(float(i.total_amount) for i in instance.invoices.filter(job_order__isnull=True))
             tb = job_billed + inv_billed - cn_credited
-        ret['total_billed'] = round(float(tb), 2)
+        tb_val = max(0.0, round(float(tb), 2))
+        ret['total_billed'] = tb_val
         ret['credit_notes_total'] = round(float(cn_credited), 2)
 
+        # 2. Cash Collected (Positive Inflow from Customer)
         pa = getattr(instance, 'paid_amount', None)
         if pa is None:
-            pa_in = sum(float(p.amount) for p in instance.payments.all() if getattr(p, 'payment_type', None) != 'refund')
-            pa_refund = sum(float(p.amount) for p in instance.payments.all() if getattr(p, 'payment_type', None) == 'refund')
-            pa = max(0.0, pa_in - pa_refund)
-        ret['paid_amount'] = round(float(pa), 2)
+            pa = sum(float(p.amount) for p in instance.payments.all() if getattr(p, 'payment_type', None) != 'refund')
+        pa_val = max(0.0, round(float(pa), 2))
+        ret['paid_amount'] = pa_val
 
-        ret['pending_balance'] = round(ret['total_billed'] - ret['paid_amount'], 2)
-        ret['outstanding_balance'] = ret['pending_balance']
+        # 3. Credit Due (Customer Debt to Company)
+        credit_due = max(0.0, round(tb_val - pa_val, 2))
+        ret['pending_balance'] = credit_due
+        ret['outstanding_balance'] = credit_due
+        ret['credit_due'] = credit_due
 
-        pa_owed = float(instance.payable_amount or 0)
+        # 4. Total Cashed Out / Refunds Paid to Customer
         refund_sum = sum(float(p.amount) for p in instance.payments.all() if getattr(p, 'payment_type', None) == 'refund')
-        ret['payable_amount'] = round(pa_owed, 2)
         ret['total_cashed_out'] = round(refund_sum, 2)
-        ret['remaining_payable'] = round(max(0.0, pa_owed - refund_sum), 2)
+
+        # 5. Customer Payable (Company Debt / Credit owed to Customer)
+        base_payable = float(instance.payable_amount or 0)
+        customer_overpayment = max(0.0, round(pa_val - tb_val, 2))
+        gross_payable = base_payable + customer_overpayment
+        remaining_payable = max(0.0, round(gross_payable - refund_sum, 2))
+
+        ret['payable_amount'] = round(base_payable, 2)
+        ret['remaining_payable'] = remaining_payable
+        ret['customer_overpayment'] = customer_overpayment
         return ret
 
 class VendorSerializer(serializers.ModelSerializer):

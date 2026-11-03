@@ -739,11 +739,6 @@ const CredBooksView = ({
               <Plus size={16} strokeWidth={2.4} />
               <span>new book</span>
             </button>
-
-            <ExportTablePdfBtn
-              onClick={handleExportPDF}
-              isDarkMode={isDarkMode}
-            />
           </div>
 
           <div style={{ width: '100%' }}>
@@ -1321,11 +1316,6 @@ const CredBooksView = ({
             <Plus size={16} strokeWidth={2.4} />
             <span>new book</span>
           </button>
-
-          <ExportTablePdfBtn
-            onClick={handleExportPDF}
-            isDarkMode={isDarkMode}
-          />
         </div>
 
         {/* Right: search field (CredSearchInput, ~320px) */}

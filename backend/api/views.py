@@ -88,15 +88,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).exclude(status='Cancelled').values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         invs_sub = Invoice.objects.filter(customer=OuterRef('pk'), job_order__isnull=True).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         cns_sub = CreditNote.objects.filter(customer=OuterRef('pk')).exclude(status__in=['Draft', 'Cancelled']).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
-        pays_sub = CustomerPayment.objects.filter(customer=OuterRef('pk')).values('customer').annotate(
-            total=Sum(
-                Case(
-                    When(payment_type='refund', then=-F('amount')),
-                    default=F('amount'),
-                    output_field=DecimalField(max_digits=12, decimal_places=2)
-                )
-            )
-        ).values('total')[:1]
+        pays_sub = CustomerPayment.objects.filter(customer=OuterRef('pk')).exclude(payment_type='refund').values('customer').annotate(total=Sum('amount')).values('total')[:1]
 
         adv_sub = CustomerPayment.objects.filter(customer=OuterRef('pk'), payment_type='advance').values('customer').annotate(total=Sum('amount')).values('total')[:1]
 
@@ -133,50 +125,25 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        # Company-wide customer summary metrics
-        job_qs = JobOrder.objects.exclude(status='Cancelled')
-        inv_qs = Invoice.objects.filter(job_order__isnull=True)
-        cn_qs = CreditNote.objects.exclude(status__in=['Draft', 'Cancelled'])
-        pay_qs = CustomerPayment.objects.all()
+        # Company-wide customer summary metrics strictly aligned with customer balances
+        qs = self.filter_queryset(self.get_queryset())
+        ser_data = self.get_serializer(qs, many=True).data
 
-        job_total = float(job_qs.aggregate(Sum('total_amount'))['total_amount__sum'] or 0)
-        inv_total = float(inv_qs.aggregate(Sum('total_amount'))['total_amount__sum'] or 0)
-        cn_total = float(cn_qs.aggregate(Sum('total_amount'))['total_amount__sum'] or 0)
-        total_billed = (job_total + inv_total) - cn_total
-        pay_in = float(pay_qs.exclude(payment_type='refund').aggregate(Sum('amount'))['amount__sum'] or 0)
-        pay_refund = float(pay_qs.filter(payment_type='refund').aggregate(Sum('amount'))['amount__sum'] or 0)
-        total_paid = pay_in - pay_refund
-        pending_balance = total_billed - total_paid
-
-        cust_qs = Customer.objects.all()
-        total_count = cust_qs.count()
-
-        jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).exclude(status='Cancelled').values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
-        invs_sub = Invoice.objects.filter(customer=OuterRef('pk'), job_order__isnull=True).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
-        cns_sub = CreditNote.objects.filter(customer=OuterRef('pk')).exclude(status__in=['Draft', 'Cancelled']).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
-        pays_sub = CustomerPayment.objects.filter(customer=OuterRef('pk')).values('customer').annotate(
-            total=Sum(
-                Case(
-                    When(payment_type='refund', then=-F('amount')),
-                    default=F('amount'),
-                    output_field=DecimalField(max_digits=12, decimal_places=2)
-                )
-            )
-        ).values('total')[:1]
-        pending_count = cust_qs.annotate(
-            tb=Coalesce(Subquery(jobs_sub), Decimal('0'), output_field=DecimalField()) + Coalesce(Subquery(invs_sub), Decimal('0'), output_field=DecimalField()) - Coalesce(Subquery(cns_sub), Decimal('0'), output_field=DecimalField()),
-            pa=Coalesce(Subquery(pays_sub), Decimal('0'), output_field=DecimalField())
-        ).filter(tb__gt=F('pa')).count()
-
-        total_payable = max(0.0, float(cust_qs.aggregate(tot=Coalesce(Sum('payable_amount'), Decimal('0'), output_field=DecimalField()))['tot'] or 0) - pay_refund)
+        total_billed = sum(float(c.get('total_billed') or 0) for c in ser_data)
+        total_collected = sum(float(c.get('paid_amount') or 0) for c in ser_data)
+        total_credit_due = sum(float(c.get('credit_due') if c.get('credit_due') is not None else c.get('pending_balance') or 0) for c in ser_data)
+        total_payable = sum(float(c.get('remaining_payable') if c.get('remaining_payable') is not None else c.get('payable_amount') or 0) for c in ser_data)
+        total_count = len(ser_data)
+        pending_count = sum(1 for c in ser_data if float(c.get('credit_due') if c.get('credit_due') is not None else c.get('pending_balance') or 0) > 0.01)
 
         return Response({
-            'total_billed': total_billed,
-            'paid_amount': total_paid,
-            'pending_balance': pending_balance,
+            'total_billed': round(total_billed, 2),
+            'paid_amount': round(total_collected, 2),
+            'pending_balance': round(total_credit_due, 2),
+            'total_credit_due': round(total_credit_due, 2),
             'total_count': total_count,
             'pending_count': pending_count,
-            'total_payable': total_payable
+            'total_payable': round(total_payable, 2)
         })
 
 class VendorViewSet(viewsets.ModelViewSet):
