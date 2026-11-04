@@ -574,7 +574,9 @@ const RecycleBin = ({
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDark} />
+              {activeModule !== 'cashbook' && !cashbookOnly && (
+                <ExportTablePdfBtn onClick={handleExportPDF} label="PDF" isDarkMode={isDark} />
+              )}
               <button
                 type="button"
                 onClick={handleRefresh}
@@ -655,7 +657,9 @@ const RecycleBin = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDark} />
+            {activeModule !== 'cashbook' && !cashbookOnly && (
+              <ExportTablePdfBtn onClick={handleExportPDF} isDarkMode={isDark} />
+            )}
             <button
               type="button"
               onClick={handleRefresh}
@@ -684,61 +688,6 @@ const RecycleBin = ({
           </div>
         </div>
       )}
-
-      {/* 2. KPI ROW (CredCardCarousel & MoneyCard) */}
-      <CredCardCarousel
-        isMobile={isMobile}
-        desktopGridColumns="repeat(4, 1fr)"
-        style={{ marginBottom: '22px' }}
-      >
-        <MoneyCard
-          label="ACTIVE IN BIN"
-          value={kpis.activeInBin}
-          isCount={true}
-          caption={statusFilter === 'active' ? 'Viewing active deleted' : 'Click to view active'}
-          icon={Trash2}
-          iconBg={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'}
-          iconColor={isDark ? '#ffffff' : '#0f172a'}
-          isActive={statusFilter === 'active'}
-          onClick={() => setStatusFilter('active')}
-        />
-
-        <MoneyCard
-          label="RESTORED"
-          value={kpis.restored}
-          isCount={true}
-          caption={statusFilter === 'restored' ? 'Viewing restored' : 'Click to view restored'}
-          icon={RotateCcw}
-          iconBg={isDark ? 'rgba(34, 197, 94, 0.12)' : '#dcfce7'}
-          iconColor="#16a34a"
-          isActive={statusFilter === 'restored'}
-          onClick={() => setStatusFilter('restored')}
-        />
-
-        <MoneyCard
-          label="DELETED TODAY"
-          value={kpis.deletedToday}
-          isCount={true}
-          caption={duration === 'today' ? 'Filter applied: Today' : 'Deleted past 24 hours'}
-          icon={Clock}
-          iconBg={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'}
-          iconColor={isDark ? '#ffffff' : '#0f172a'}
-          isActive={duration === 'today'}
-          onClick={() => setDuration(duration === 'today' ? 'all' : 'today')}
-        />
-
-        <MoneyCard
-          label="ENTITY TYPES"
-          value={kpis.entityTypesCount}
-          isCount={true}
-          caption={`Across ${moduleMeta.id} records`}
-          icon={Layers}
-          iconBg={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'}
-          iconColor={isDark ? '#ffffff' : '#0f172a'}
-          isActive={selectedCategory !== 'all'}
-          onClick={() => setSelectedCategory('all')}
-        />
-      </CredCardCarousel>
 
       {/* 3. FILTER ROW */}
       <div
@@ -949,6 +898,141 @@ const RecycleBin = ({
         </div>
       ) : (
         <>
+          {isMobile ? (
+            /* Mobile Card Layout matching http://localhost:5174/cashbook?tab=ledger */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
+              {pageItems.map((item) => {
+                const ItemIcon = getItemIcon(item.entity_type)
+                const secondaryText = getItemSecondary(item)
+                const isRestoring = restoringId === item.id
+
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: 'var(--bg, #FFFFFF)',
+                      border: '1px solid var(--border, #E4E4E4)',
+                      borderRadius: '16px',
+                      padding: '12px 14px',
+                      boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
+                      boxSizing: 'border-box',
+                      width: '100%'
+                    }}
+                  >
+                    <div className="cred-table-mobile-card">
+                      {/* Top Metadata: Deleted Date & Time (left) and Entity Type Chip (right) */}
+                      <div className="cred-mobile-card-top">
+                        <span className="cred-mobile-card-datetime" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Calendar size={11} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                          <span>{formatDate(item.deleted_at)}</span>
+                        </span>
+                        <div className="cred-mobile-card-top-right">
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              background: isDark ? '#1e2024' : '#f1f5f9',
+                              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid var(--border, #E4E4E4)',
+                              color: 'var(--text, #0A0A0A)',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <ItemIcon size={11} style={{ color: 'var(--text-muted, #71717A)' }} />
+                            <span>{item.entity_type_display || item.entity_type}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Middle Row: Avatar + Item Name + Action Buttons */}
+                      <div className="cred-mobile-card-main">
+                        <div className="cred-mobile-card-entity">
+                          <div
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              background: isDark ? '#1e2024' : '#e2e8f0',
+                              color: isDark ? '#ffffff' : '#0f172a',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            {(item.item_name || 'R').charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div className="cred-mobile-card-title" title={item.item_name}>
+                              {item.item_name || 'Untitled Record'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {secondaryText}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <CredRowIconButton
+                            title={item.is_restored ? 'Already Restored' : 'Restore Record'}
+                            ariaLabel="Restore Record"
+                            disabled={item.is_restored || isRestoring}
+                            onClick={() => handleRestore(item)}
+                          >
+                            <RotateCcw size={14} />
+                          </CredRowIconButton>
+
+                          {isAdmin && (
+                            <CredRowIconButton
+                              tone="danger"
+                              title="Permanently Purge"
+                              ariaLabel="Permanently Purge"
+                              disabled={isRestoring}
+                              onClick={() => handlePermanentDelete(item)}
+                            >
+                              <Trash2 size={14} />
+                            </CredRowIconButton>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bottom Row: Item Summary and Deleted By */}
+                      {(item.item_summary || (isAdmin && item.deleted_by_name)) && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            paddingTop: '6px',
+                            borderTop: '1px solid var(--border, #E4E4E4)',
+                            fontSize: '11.5px',
+                            color: 'var(--text-muted, #8C8C8C)'
+                          }}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                            {item.item_summary || '—'}
+                          </span>
+                          {isAdmin && item.deleted_by_name && (
+                            <span style={{ flexShrink: 0, fontSize: '10.5px' }}>
+                              by {item.deleted_by_name}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            /* Desktop Table View */
           <div
             style={{
               background: 'var(--bg, #FFFFFF)',
@@ -1168,6 +1252,7 @@ const RecycleBin = ({
               </table>
             </div>
           </div>
+          )}
 
           <CredPagination
             page={currentPage}

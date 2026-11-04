@@ -1511,26 +1511,6 @@ export default function CashbookJobOrders({
                   >
                     <Pencil size={13} />
                   </button>
-                  <button
-                    type="button"
-                    title="Delete Job Order"
-                    aria-label="Delete Job Order"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteJob(job);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      color: 'var(--text-muted, #8C8C8C)',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
                 </div>
 
                 {/* Inset dashed separator */}
@@ -1553,7 +1533,7 @@ export default function CashbookJobOrders({
           width: '100%',
           boxSizing: 'border-box'
         }}>
-          <div style={{ width: '100%', overflowX: effectiveIsMobile ? 'auto' : 'visible' }}>
+          <div style={{ width: '100%', overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'auto' }}>
               <thead>
                 <tr style={{
@@ -1575,13 +1555,13 @@ export default function CashbookJobOrders({
                   <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '11%' }}>
                     CUSTOMER PAID
                   </th>
-                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '12%' }}>
-                    DUE AMOUNT (CUSTOMER OWED)
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '11%' }} title="Due Amount (Customer Owed)">
+                    DUE AMOUNT
                   </th>
                   <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '9%' }}>
                     CREATED DATE
                   </th>
-                  <th style={{ padding: '10px 14px 10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap', width: '15%', minWidth: '160px' }}>
+                  <th style={{ padding: '10px 18px 10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap', width: '16%', minWidth: '160px' }}>
                     ACTIONS
                   </th>
                 </tr>
@@ -1687,7 +1667,7 @@ export default function CashbookJobOrders({
                       </td>
 
                       {/* Actions ("receive payment" row text action, CredRowIconButton for edit & delete) */}
-                      <td style={{ padding: '8px 14px 8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle', width: '15%', minWidth: '160px' }}>
+                      <td style={{ padding: '8px 18px 8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle', width: '16%', minWidth: '160px' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', whiteSpace: 'nowrap' }}>
 
                           <VoucherPrintBtn
@@ -1716,14 +1696,6 @@ export default function CashbookJobOrders({
                             onClick={() => handleOpenEditModal(job)}
                           >
                             <Pencil size={13} />
-                          </CredRowIconButton>
-                          <CredRowIconButton
-                            tone="danger"
-                            title="Delete Job Order"
-                            ariaLabel="Delete Job Order"
-                            onClick={() => handleDeleteJob(job)}
-                          >
-                            <Trash2 size={13} />
                           </CredRowIconButton>
                         </div>
                       </td>

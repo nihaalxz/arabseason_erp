@@ -8,7 +8,7 @@ const getTodayStr = () => {
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Children } from 'react'
 import { 
-  Plus, Search, X, RefreshCw, AlertCircle, Trash2, 
+  Plus, Search, X, RefreshCw, AlertCircle, 
   Briefcase, User, Calendar, CreditCard, Receipt 
 } from '../icons'
 import { 
@@ -1450,26 +1450,6 @@ export default function CashbookLabour({
                           title={`Print Wage Voucher for ${l.name}`}
                           isDarkMode={isDarkMode}
                         />
-                        <button
-                          type="button"
-                          title={`Delete Labourer ${l.name}`}
-                          aria-label={`Delete Labourer ${l.name}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteLabourer(l);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            color: 'var(--dot-danger, #E5482E)',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center'
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
                       </div>
 
                       {/* Inset dashed separator */}
@@ -1634,17 +1614,6 @@ export default function CashbookLabour({
                             title={`Print Wage Voucher for ${l.name}`}
                             isDarkMode={isDarkMode}
                           />
-                          <CredRowIconButton
-                            tone="danger"
-                            title={`Delete Labourer ${l.name}`}
-                            ariaLabel={`Delete Labourer ${l.name}`}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteLabourer(l)
-                            }}
-                          >
-                            <Trash2 size={13} />
-                          </CredRowIconButton>
                         </div>
                       </td>
                     </tr>
@@ -1952,26 +1921,6 @@ export default function CashbookLabour({
                         >
                           <Pencil size={13} />
                         </button>
-                        <button
-                          type="button"
-                          title="Delete Entry"
-                          aria-label="Delete Entry"
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            handleDeleteEntry(e.id, e.name);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            color: 'var(--text-muted, #8C8C8C)',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center'
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
                       </div>
 
                       {/* Inset dashed separator */}
@@ -2108,14 +2057,6 @@ export default function CashbookLabour({
                             onClick={() => handleOpenModal(e)}
                           >
                             <Pencil size={13} />
-                          </CredRowIconButton>
-                          <CredRowIconButton
-                            tone="danger"
-                            title="Delete entry"
-                            ariaLabel="Delete entry"
-                            onClick={() => handleDeleteEntry(e.id, e.name)}
-                          >
-                            <Trash2 size={13} />
                           </CredRowIconButton>
                         </div>
                       </td>
@@ -2570,7 +2511,7 @@ export default function CashbookLabour({
                       <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500' }}>AGREED</th>
                       <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500' }}>PAID</th>
                       <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500', textAlign: 'right' }}>DUE</th>
-                      <th style={{ padding: '0.6rem 0.75rem', color: textMuted, fontSize: '0.7rem', fontWeight: '500', textAlign: 'right' }}>ACTION</th>
+                      
                     </tr>
                   </thead>
                   <tbody>
@@ -2605,29 +2546,6 @@ export default function CashbookLabour({
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: '700', color: d > 0 ? (isDarkMode ? '#f87171' : '#dc2626') : textMuted, textAlign: 'right' }}>
                             {safeFormatAmount(d)}
-                          </td>
-                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              title="Delete work order"
-                              aria-label="Delete work order"
-                              onClick={(ev) => {
-                                ev.stopPropagation()
-                                handleDeleteEntry(ent.id, statementLabourer.name)
-                              }}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: '3px 6px',
-                                color: 'var(--dot-danger, #E5482E)',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                borderRadius: '6px'
-                              }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
                           </td>
                         </tr>
                       )

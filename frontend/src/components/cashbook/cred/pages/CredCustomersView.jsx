@@ -7,7 +7,7 @@ import {
   AlertCircle, 
   Plus, 
   Pencil, 
-  Trash2, 
+  
   Search, 
   X, 
   Phone, 
@@ -938,26 +938,6 @@ const CredCustomersView = ({
                   >
                     <Pencil size={13} />
                   </button>
-                  <button
-                    type="button"
-                    title="Delete Customer"
-                    aria-label="Delete Customer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteCustomer && onDeleteCustomer(c.id, c.name);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      color: 'var(--text-muted, #8C8C8C)',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
                 </div>
 
                 {/* Inset dashed separator */}
@@ -1192,18 +1172,6 @@ const CredCustomersView = ({
                             }}
                           >
                             <Pencil size={13} />
-                          </CredRowIconButton>
-
-                          <CredRowIconButton
-                            tone="danger"
-                            title="Delete Customer"
-                            ariaLabel="Delete Customer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteCustomer && onDeleteCustomer(c.id, c.name);
-                            }}
-                          >
-                            <Trash2 size={13} />
                           </CredRowIconButton>
                         </div>
                       </td>

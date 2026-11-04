@@ -144,8 +144,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         # 5. Customer Payable (Company Debt / Credit owed to Customer)
         base_payable = float(instance.payable_amount or 0)
         customer_overpayment = max(0.0, round(pa_val - tb_val, 2))
-        gross_payable = base_payable + customer_overpayment
-        remaining_payable = max(0.0, round(gross_payable - refund_sum, 2))
+        remaining_payable = max(0.0, round(base_payable - refund_sum, 2))
 
         ret['payable_amount'] = round(base_payable, 2)
         ret['remaining_payable'] = remaining_payable

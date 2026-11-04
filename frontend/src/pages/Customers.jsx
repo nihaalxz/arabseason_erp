@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit3, Trash2, Filter, AlertCircle, Phone, Mail, User } from 'lucide-react'
+import { Plus, Edit3, Filter, AlertCircle, Phone, Mail, User } from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -554,28 +554,6 @@ const Customers = () => {
                                 >
                                   <Edit3 size={15} strokeWidth={1.8} />
                                 </button>
-                                <button
-                                  type="button"
-                                  className="cred-trash-icon-btn"
-                                  onClick={() => handleDelete(customer.id)}
-                                  title="Delete"
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    padding: '4px',
-                                    color: 'var(--text-muted, #8C8C8C)',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderRadius: '4px',
-                                    transition: 'color 0.15s ease'
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger, #DC2626)')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
-                                >
-                                  <Trash2 size={15} strokeWidth={1.8} />
-                                </button>
                               </div>
                             </td>
                           </tr>
@@ -693,14 +671,6 @@ const Customers = () => {
                               style={{ background: 'none', border: 'none', padding: '6px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
                             >
                               <Edit3 size={14} />
-                            </button>
-                            <button 
-                              type="button"
-                              onClick={() => handleDelete(customer.id)}
-                              title="Delete Customer"
-                              style={{ background: 'none', border: 'none', padding: '6px', color: 'var(--danger, #DC2626)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                            >
-                              <Trash2 size={14} />
                             </button>
                           </div>
                         </div>

@@ -12805,9 +12805,9 @@ const Cashbook = ({ currentUser = null }) => {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0, 0, 0, 0.65)',
-              backdropFilter: 'blur(4px)',
-              WebkitBackdropFilter: 'blur(4px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
               zIndex: 990
             }}
           />
@@ -12819,28 +12819,43 @@ const Cashbook = ({ currentUser = null }) => {
               transform: 'translateX(-50%)',
               width: 'calc(100% - 32px)',
               maxWidth: '380px',
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-panel)',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
-              padding: '1.25rem',
+              background: isDarkMode ? '#121417' : '#FFFFFF',
+              border: isDarkMode ? '1px solid #232528' : '1px solid #EAEAEA',
+              borderRadius: '24px',
+              boxShadow: isDarkMode ? '0 24px 64px rgba(0, 0, 0, 0.8)' : '0 20px 48px rgba(0, 0, 0, 0.12)',
+              padding: '16px 18px',
               zIndex: 1000,
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.65rem',
-              animation: 'credSlideUp 200ms cubic-bezier(0.16, 1, 0.3, 1)'
+              gap: '10px',
+              animation: 'credSlideUp 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+              boxSizing: 'border-box'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: isDarkMode ? '1px solid #232528' : '1px solid #F1F5F9' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>
                 RECORD TRANSACTION
               </span>
               <button
                 type="button"
                 onClick={() => setMobileActionMenuOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: isDarkMode ? '#1E2024' : '#F1F5F9',
+                  border: 'none',
+                  color: 'var(--text-muted, #8C8C8C)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background-color 0.15s ease'
+                }}
+                aria-label="Close"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
@@ -12856,22 +12871,37 @@ const Cashbook = ({ currentUser = null }) => {
                 alignItems: 'center',
                 gap: '12px',
                 padding: '12px 14px',
-                borderRadius: 'var(--radius-btn)',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
+                borderRadius: '16px',
+                background: isDarkMode ? '#181A1D' : '#F8FAFC',
+                border: isDarkMode ? '1px solid #26292E' : '1px solid #EDEDED',
+                color: 'var(--text, #0A0A0A)',
                 cursor: 'pointer',
-                textAlign: 'left'
+                textAlign: 'left',
+                transition: 'background-color 0.15s ease, transform 0.1s ease',
+                width: '100%',
+                boxSizing: 'border-box'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? '#22252A' : '#F1F5F9'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? '#181A1D' : '#F8FAFC'}
             >
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--tint-mint)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--positive)' }}>
-                <ArrowDownLeft size={18} strokeWidth={2.5} />
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                background: isDarkMode ? 'rgba(22, 163, 74, 0.18)' : '#DCFCE7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#16A34A',
+                flexShrink: 0
+              }}>
+                <ArrowDownLeft size={18} strokeWidth={2.4} />
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>Credit (Cash In)</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Record customer payment or capital deposit</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>Credit (Cash In)</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Record customer payment or capital deposit</div>
               </div>
-              <LucideChevronRight size={16} color="var(--text-muted)" />
+              <LucideChevronRight size={16} color="var(--text-muted, #8C8C8C)" style={{ flexShrink: 0 }} />
             </button>
 
             {/* Option 2: Debit (Expense / Cash Out) */}
@@ -12886,22 +12916,37 @@ const Cashbook = ({ currentUser = null }) => {
                 alignItems: 'center',
                 gap: '12px',
                 padding: '12px 14px',
-                borderRadius: 'var(--radius-btn)',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
+                borderRadius: '16px',
+                background: isDarkMode ? '#181A1D' : '#F8FAFC',
+                border: isDarkMode ? '1px solid #26292E' : '1px solid #EDEDED',
+                color: 'var(--text, #0A0A0A)',
                 cursor: 'pointer',
-                textAlign: 'left'
+                textAlign: 'left',
+                transition: 'background-color 0.15s ease, transform 0.1s ease',
+                width: '100%',
+                boxSizing: 'border-box'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? '#22252A' : '#F1F5F9'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? '#181A1D' : '#F8FAFC'}
             >
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--tint-pink)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
-                <ArrowUpRight size={18} strokeWidth={2.5} />
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                background: isDarkMode ? 'rgba(220, 38, 38, 0.18)' : '#FEE2E2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#DC2626',
+                flexShrink: 0
+              }}>
+                <ArrowUpRight size={18} strokeWidth={2.4} />
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>Debit (Cash Out)</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Record operational expense or payment</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>Debit (Cash Out)</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Record operational expense or payment</div>
               </div>
-              <LucideChevronRight size={16} color="var(--text-muted)" />
+              <LucideChevronRight size={16} color="var(--text-muted, #8C8C8C)" style={{ flexShrink: 0 }} />
             </button>
 
             {/* Option 3: Transfer Funds */}
@@ -12916,22 +12961,37 @@ const Cashbook = ({ currentUser = null }) => {
                 alignItems: 'center',
                 gap: '12px',
                 padding: '12px 14px',
-                borderRadius: 'var(--radius-btn)',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
+                borderRadius: '16px',
+                background: isDarkMode ? '#181A1D' : '#F8FAFC',
+                border: isDarkMode ? '1px solid #26292E' : '1px solid #EDEDED',
+                color: 'var(--text, #0A0A0A)',
                 cursor: 'pointer',
-                textAlign: 'left'
+                textAlign: 'left',
+                transition: 'background-color 0.15s ease, transform 0.1s ease',
+                width: '100%',
+                boxSizing: 'border-box'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? '#22252A' : '#F1F5F9'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? '#181A1D' : '#F8FAFC'}
             >
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--tint-lavender)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)' }}>
-                <ArrowLeftRight size={18} strokeWidth={2.5} />
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                background: isDarkMode ? 'rgba(99, 102, 241, 0.18)' : '#EEF2FF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#6366F1',
+                flexShrink: 0
+              }}>
+                <ArrowLeftRight size={18} strokeWidth={2.4} />
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>Transfer Funds</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Move money between Petty Cash & Banks</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>Transfer Funds</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Move money between Petty Cash & Banks</div>
               </div>
-              <LucideChevronRight size={16} color="var(--text-muted)" />
+              <LucideChevronRight size={16} color="var(--text-muted, #8C8C8C)" style={{ flexShrink: 0 }} />
             </button>
           </div>
         </>

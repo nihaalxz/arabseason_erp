@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Edit3, Trash2, AlertCircle, Building2 } from 'lucide-react'
+import { Edit3, AlertCircle, Building2 } from 'lucide-react'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import PageHeaderButton from '../components/common/PageHeaderButton'
@@ -296,28 +296,6 @@ const Vendors = () => {
                                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
                               >
                                 <Edit3 size={15} strokeWidth={1.8} />
-                              </button>
-                              <button
-                                type="button"
-                                className="cred-action-icon-btn delete"
-                                onClick={() => handleDelete(vendor.id)}
-                                title="Delete"
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  padding: '4px',
-                                  color: 'var(--text-muted, #8C8C8C)',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  borderRadius: '4px',
-                                  transition: 'color 0.15s ease'
-                                }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger, #DC2626)')}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
-                              >
-                                <Trash2 size={15} strokeWidth={1.8} />
                               </button>
                             </div>
                           </td>

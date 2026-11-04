@@ -629,6 +629,12 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                 cb_entry.delete()
             adv_payment.delete()
 
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Job orders cannot be deleted because they are linked to customer, vendor, and accounting records."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     @action(detail=False, methods=['get'], url_path='next-order-id')
     def next_order_id(self, request):
         """
