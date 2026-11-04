@@ -5,7 +5,6 @@ import MoneyCard from '../MoneyCard';
 import CredCardCarousel from '../CredCardCarousel';
 import CredLedgerTable from '../CredLedgerTable';
 import Money from '../Money';
-import CredViewAll from '../CredViewAll';
 import CredMobileTxList from '../CredMobileTxList';
 import { fadeFast } from '../motionTokens';
 import CredPagination from '../CredPagination';
@@ -280,10 +279,6 @@ const CredOverviewView = ({
           {sectionConfig.title} <span style={{ opacity: 0.7 }}>({sectionConfig.count})</span>
         </div>
 
-        <CredViewAll
-          onClick={sectionConfig.navigate}
-          ariaLabel={sectionConfig.ariaLabel}
-        />
       </div>
 
       {/* Task 3: One Outlined 20px Table Card on Desktop / Borderless Stack on Mobile */}

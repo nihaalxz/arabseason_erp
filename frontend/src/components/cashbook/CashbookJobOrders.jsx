@@ -516,20 +516,21 @@ export default function CashbookJobOrders({
       voucherType: 'JOB ORDER COST & DISBURSEMENT VOUCHER',
       voucherNo: `${j.order_id || `JOB-${j.id}`}`,
       date: j.created_at ? j.created_at.substring(0, 10) : (j.date || new Date().toISOString().split('T')[0]),
-      amount: paid > 0 ? paid : total,
+      amount: total,
+      totalAmount: total,
+      paidAmount: paid,
+      balanceDue: due,
       payeeName: j.customer_name || 'Project Client',
       payeeRole: 'Contract Client / Job Owner',
-      payeePhone: j.customer_phone || '-',
+      payeePhone: (j.customer_phone && j.customer_phone !== '-') ? j.customer_phone : '',
       paymentMode: 'Contract Milestone / Bank Transfer',
       jobOrder: `${j.order_id || ''} - ${j.title || ''}`,
+      reference: j.order_id || `JOB-${j.id}`,
       category: 'Job Order Execution & Direct Site Costs',
       description: `${j.title || 'Job Order Works'} - ${j.project_name ? 'Project: ' + j.project_name : 'Direct Project Execution'}`,
       particulars: [
-        { item: `Contract Scope: ${j.title || 'Works'}`, qty: '1', rate: formatCurrency(total), amount: formatCurrency(total) },
-        ...(paid > 0 ? [{ item: 'Contract Disbursements / Progress Received', qty: '1', rate: formatCurrency(paid), amount: formatCurrency(paid) }] : [])
+        { item: `Contract Scope: ${j.title || 'Works'}`, qty: '1', rate: total, amount: total }
       ],
-      paidAmount: paid,
-      balanceDue: due,
       status: (j.status || 'Active').toUpperCase(),
       notes: ''
     }

@@ -9,7 +9,7 @@ const getTodayStr = () => {
 
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
 import api from '../../api'
-import { Plus, Edit, Trash2, X, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
+import { Plus, Edit, Trash2, X, AlertCircle, CheckCircle2, Layers, Calendar, Clock, Wrench, Users, FileText, Briefcase } from 'lucide-react'
 import PlainFilterDropdown from '../common/PlainFilterDropdown'
 import CredSearchInput from '../cashbook/cred/CredSearchInput'
 import {
@@ -21,6 +21,23 @@ import {
   Textarea
 } from '../common/FormPrimitives'
 import { showConfirm, showError, showToast } from '../../utils/swal'
+
+const STATUS_BADGE_CONFIG = {
+  'Planned': { bg: 'rgba(140, 140, 140, 0.1)', color: 'var(--text-muted, #71717A)', border: 'var(--border, #E4E4E4)', label: 'Planned' },
+  'In Progress': { bg: 'rgba(59, 130, 246, 0.1)', color: '#2563EB', border: 'rgba(59, 130, 246, 0.25)', label: 'In Progress' },
+  'Completed': { bg: 'rgba(16, 185, 129, 0.1)', color: '#0F7638', border: 'rgba(16, 185, 129, 0.25)', label: 'Completed' },
+  'On Hold': { bg: 'rgba(245, 158, 11, 0.1)', color: '#D97706', border: 'rgba(245, 158, 11, 0.25)', label: 'On Hold' }
+}
+
+const calculateDuration = (start, end) => {
+  if (!start || !end) return null
+  const s = new Date(start)
+  const e = new Date(end)
+  const diffTime = e.getTime() - s.getTime()
+  if (isNaN(diffTime) || diffTime < 0) return null
+  const days = Math.round(diffTime / (1000 * 3600 * 24)) + 1
+  return `${days} day${days === 1 ? '' : 's'}`
+}
 
 const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
   const isAdmin = isCurrentUserAdmin()
@@ -42,6 +59,10 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPlanId, setEditingPlanId] = useState(null)
+
+  // Detail Modal State (opens when clicking rows, similar to Enquiries page)
+  const [selectedPlanForDetail, setSelectedPlanForDetail] = useState(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   
   // Form State
   const [formData, setFormData] = useState({
@@ -69,7 +90,12 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
       setLoading(true)
       const res = await api.get('/project-plans/')
       const data = res.data?.results ? res.data.results : res.data
-      setPlans(Array.isArray(data) ? data : [])
+      const list = Array.isArray(data) ? data : []
+      setPlans(list)
+      setSelectedPlanForDetail(prev => {
+        if (!prev) return null
+        return list.find(p => p.id === prev.id) || null
+      })
       setError(null)
     } catch (err) {
       console.error('Error fetching plans:', err)
@@ -261,6 +287,8 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
     try {
       await api.delete(`/project-plans/${planId}/`)
       setPlans(prev => prev.filter(p => p.id !== planId))
+      setSelectedPlanForDetail(prev => (prev?.id === planId ? null : prev))
+      setIsDetailModalOpen(false)
       showToast('Project plan deleted successfully')
     } catch (err) {
       console.error('Error deleting plan:', err)
@@ -490,6 +518,7 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
           </p>
         </div>
       ) : (
+        <>
         <div className="desktop-only-table" style={{ width: '100%' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <colgroup>
@@ -531,8 +560,14 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
                 <tr 
                   key={plan.id}
                   className="cred-table-row"
+                  onClick={() => {
+                    setSelectedPlanForDetail(plan)
+                    setIsDetailModalOpen(true)
+                  }}
+                  title="Click row to view plan details"
                   style={{ 
                     borderBottom: '1px solid var(--border, #E4E4E4)',
+                    cursor: 'pointer',
                     transition: 'background-color 0.15s ease'
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #FAFAFA)')}
@@ -607,7 +642,10 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
                       <button
                         type="button"
                         className="cred-icon-action-btn"
-                        onClick={() => handleOpenEditModal(plan)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenEditModal(plan)
+                        }}
                         title="Edit"
                         aria-label="Edit"
                         style={{
@@ -639,7 +677,10 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
                       <button
                         type="button"
                         className="cred-icon-action-btn"
-                        onClick={() => handleDelete(plan.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(plan.id)
+                        }}
                         title="Delete"
                         aria-label="Delete"
                         style={{
@@ -675,7 +716,380 @@ const ProjectPlanning = forwardRef(({ jobOrders = [], onRefreshJobs }, ref) => {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards View */}
+        <div className="mobile-only-cards" style={{ width: '100%', marginTop: '4px' }}>
+          {filteredPlans.map((plan) => (
+            <div 
+              key={plan.id}
+              className="mobile-entity-card clickable-card"
+              onClick={() => {
+                setSelectedPlanForDetail(plan)
+                setIsDetailModalOpen(true)
+              }}
+              style={{ marginBottom: '0.75rem', cursor: 'pointer' }}
+              title="Click to view plan details"
+            >
+              <div className="mobile-card-header">
+                <div className="mobile-card-title-group">
+                  <div className="mobile-card-avatar" style={{ background: '#f1f5f9', color: '#475569' }}>
+                    <Layers size={15} />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="mobile-card-title">{plan.title}</div>
+                    <div className="mobile-card-sub">
+                      {plan.job_order_title ? (
+                        <span>{plan.job_order_code || `#AS${plan.job_order}`} • {plan.job_order_title}</span>
+                      ) : (
+                        <span>Standalone plan</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: '0.7rem',
+                  fontWeight: '500',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '4px',
+                  background: (STATUS_BADGE_CONFIG[plan.status] || STATUS_BADGE_CONFIG.Planned).bg,
+                  color: (STATUS_BADGE_CONFIG[plan.status] || STATUS_BADGE_CONFIG.Planned).color
+                }}>
+                  {plan.status || 'Planned'}
+                </span>
+              </div>
+
+              {plan.description && (
+                <div className="mobile-card-body" style={{ padding: '0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted, #8C8C8C)' }}>
+                  <div style={{ lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    {plan.description}
+                  </div>
+                </div>
+              )}
+
+              <div className="mobile-card-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border, #E4E4E4)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '500', color: 'var(--text, #111111)' }}>
+                  {(plan.start_date || plan.end_date) ? `${plan.start_date || 'TBD'} → ${plan.end_date || 'Open'}` : 'Timeline: Flexible'}
+                </span>
+                <div style={{ display: 'flex', gap: '0.4rem' }} onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="cred-icon-action-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleOpenEditModal(plan)
+                    }}
+                    title="Edit"
+                    style={{ background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'var(--text-muted, #8C8C8C)' }}
+                  >
+                    <Edit size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="cred-icon-action-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(plan.id)
+                    }}
+                    title="Delete"
+                    style={{ background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'var(--text-muted, #8C8C8C)' }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
       )}
+
+      {/* 5. Plan Details Modal (opens on row / card click, matching Enquiries style) */}
+      <ModalShell
+        isOpen={isDetailModalOpen && !!selectedPlanForDetail}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={`Plan Details: ${selectedPlanForDetail?.title || ''}`}
+        maxWidth="760px"
+        footer={
+          selectedPlanForDetail ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="cred-modal-submit-btn"
+                  onClick={() => {
+                    const target = selectedPlanForDetail
+                    setIsDetailModalOpen(false)
+                    handleOpenEditModal(target)
+                  }}
+                  style={{ height: '36px', padding: '0 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Edit size={13} /> Edit Plan
+                </button>
+
+                <button
+                  type="button"
+                  className="cred-modal-cancel-btn"
+                  onClick={() => {
+                    const targetId = selectedPlanForDetail.id
+                    setIsDetailModalOpen(false)
+                    handleDelete(targetId)
+                  }}
+                  style={{
+                    height: '36px',
+                    padding: '0 14px',
+                    fontSize: '13px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: 'var(--danger, #DC2626)',
+                    borderColor: 'var(--border, #E4E4E4)'
+                  }}
+                >
+                  <Trash2 size={13} /> Delete Plan
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="cred-modal-cancel-btn"
+                  style={{ height: '36px', padding: '0 18px', fontSize: '13px' }}
+                  onClick={() => setIsDetailModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : null
+        }
+      >
+        {selectedPlanForDetail && (() => {
+          const stCfg = STATUS_BADGE_CONFIG[selectedPlanForDetail.status] || STATUS_BADGE_CONFIG.Planned
+          const duration = calculateDuration(selectedPlanForDetail.start_date, selectedPlanForDetail.end_date)
+          const linkedJob = selectedPlanForDetail.job_order
+            ? jobOrders.find(j => String(j.id) === String(selectedPlanForDetail.job_order))
+            : null
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' }}>
+              {/* Compact Summary Header Card */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 16px',
+                background: 'var(--fill-ghost, #F7F7F7)',
+                borderRadius: '8px',
+                border: '1px solid var(--border, #E4E4E4)',
+                gap: '16px'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text, #111111)' }}>
+                    {selectedPlanForDetail.title}
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', marginTop: '3px' }}>
+                    {selectedPlanForDetail.job_order_title ? (
+                      <span>
+                        {selectedPlanForDetail.job_order_code || `#AS${selectedPlanForDetail.job_order}`} • {selectedPlanForDetail.job_order_title}
+                        {selectedPlanForDetail.customer_name ? ` • Client: ${selectedPlanForDetail.customer_name}` : ''}
+                      </span>
+                    ) : (
+                      <span>Standalone Project Plan</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '3px 9px',
+                    borderRadius: '4px',
+                    background: stCfg.bg,
+                    color: stCfg.color,
+                    border: `1px solid ${stCfg.border}`,
+                    display: 'inline-block'
+                  }}>
+                    {stCfg.label}
+                  </span>
+                  {selectedPlanForDetail.start_date && (
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px' }}>
+                      Starts {selectedPlanForDetail.start_date}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Plan Scope & Description */}
+              {selectedPlanForDetail.description && (
+                <div style={{
+                  background: 'var(--card-bg, #FFFFFF)',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '8px',
+                  padding: '12px 14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <FileText size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Plan Scope & Description
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text, #111111)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                    {selectedPlanForDetail.description}
+                  </div>
+                </div>
+              )}
+
+              {/* Tools Required */}
+              <div style={{
+                background: 'var(--card-bg, #FFFFFF)',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '8px',
+                padding: '12px 14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Wrench size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Tools & Equipment Required
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', background: 'var(--fill-ghost, #F4F4F4)', padding: '2px 7px', borderRadius: '10px' }}>
+                    {Array.isArray(selectedPlanForDetail.tools) ? selectedPlanForDetail.tools.length : 0} items
+                  </span>
+                </div>
+
+                {Array.isArray(selectedPlanForDetail.tools) && selectedPlanForDetail.tools.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {selectedPlanForDetail.tools.map((t, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'var(--fill-ghost, #F4F4F4)',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          borderRadius: '6px',
+                          padding: '5px 10px',
+                          fontSize: '12.5px',
+                          color: 'var(--text, #111111)',
+                          fontWeight: 500
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6' }} />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', fontStyle: 'italic' }}>
+                    No specific tools recorded for this plan.
+                  </div>
+                )}
+              </div>
+
+              {/* Assigned Workers */}
+              <div style={{
+                background: 'var(--card-bg, #FFFFFF)',
+                border: '1px solid var(--border, #E4E4E4)',
+                borderRadius: '8px',
+                padding: '12px 14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Assigned Workforce & Personnel
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', background: 'var(--fill-ghost, #F4F4F4)', padding: '2px 7px', borderRadius: '10px' }}>
+                    {Array.isArray(selectedPlanForDetail.workers) ? selectedPlanForDetail.workers.length : 0} workers
+                  </span>
+                </div>
+
+                {Array.isArray(selectedPlanForDetail.workers) && selectedPlanForDetail.workers.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {selectedPlanForDetail.workers.map((w, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'var(--fill-ghost, #F4F4F4)',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          borderRadius: '6px',
+                          padding: '5px 10px',
+                          fontSize: '12.5px',
+                          color: 'var(--text, #111111)',
+                          fontWeight: 500
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                        {w}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', fontStyle: 'italic' }}>
+                    No personnel assigned to this plan.
+                  </div>
+                )}
+              </div>
+
+              {/* Associated Job Order (if linked) */}
+              {selectedPlanForDetail.job_order && (
+                <div style={{
+                  background: 'var(--card-bg, #FFFFFF)',
+                  border: '1px solid var(--border, #E4E4E4)',
+                  borderRadius: '8px',
+                  padding: '12px 14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <Briefcase size={14} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #8C8C8C)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Linked Job Order Contract
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text, #111111)' }}>
+                        {selectedPlanForDetail.job_order_code || `#AS${selectedPlanForDetail.job_order}`} - {selectedPlanForDetail.job_order_title || 'Contract Work'}
+                      </div>
+                      {selectedPlanForDetail.customer_name && (
+                        <div style={{ fontSize: '12.5px', color: 'var(--text-muted, #8C8C8C)', marginTop: '2px' }}>
+                          Customer / Client: {selectedPlanForDetail.customer_name}
+                        </div>
+                      )}
+                    </div>
+                    {linkedJob && (
+                      <div style={{ textAlign: 'right' }}>
+                        {linkedJob.status && (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: 'var(--fill-ghost, #F4F4F4)',
+                            color: 'var(--text, #111111)'
+                          }}>
+                            {linkedJob.status}
+                          </span>
+                        )}
+                        {linkedJob.total_amount && (
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text, #111111)', marginTop: '4px' }}>
+                            SAR {Number(linkedJob.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </ModalShell>
 
       {/* 6. Create / Edit Plan Modal */}
       <ModalShell

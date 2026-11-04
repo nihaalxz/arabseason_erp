@@ -443,47 +443,102 @@ export default function CashbookLabour({
       const tot = parseFloat(l.payment_amount) || 0
       const pd = parseFloat(l.paid_amount) || 0
       const bal = Math.max(0, tot - pd)
+      const jobRef = l.job_order_number || l.job_order_title || (l.job_order ? `#${l.job_order}` : 'Direct / General')
       return {
         voucherType: 'PAYMENT VOUCHER - LABOUR WAGE',
         voucherNo: `LAB-${l.id || 'PAY'}`,
         date: l.date || new Date().toISOString().split('T')[0],
-        amount: pd > 0 ? pd : tot,
+        amount: tot,
+        totalAmount: tot,
+        paidAmount: pd,
+        balanceDue: bal,
         payeeName: l.name || 'Labourer',
         payeeRole: 'Site Labour / Tradesperson',
-        payeePhone: l.phone || '-',
+        payeePhone: (l.phone && l.phone !== '-') ? l.phone : '',
         paymentMode: 'Cash / Bank Transfer',
-        jobOrder: l.job_order_number || l.job_order_title || (l.job_order ? `#${l.job_order}` : '-'),
+        jobOrder: jobRef,
+        reference: jobRef,
         category: 'Labour & Site Wages',
         description: l.work_done || l.work_description || `Labour services by ${l.name}`,
         particulars: [
-          { item: l.work_done || l.work_description || 'Labour Services', qty: '1', rate: formatCurrency(tot), amount: formatCurrency(tot) },
-          ...(pd > 0 ? [{ item: 'Amount Disbursed / Paid', qty: '1', rate: formatCurrency(pd), amount: formatCurrency(pd) }] : [])
+          { item: l.work_done || l.work_description || 'Labour Services', qty: '1', rate: tot, amount: tot }
         ],
-        paidAmount: pd,
-        balanceDue: bal,
         notes: ''
       }
     }
     // Ledger summary voucher
+    const totalWork = parseFloat(l.totalAmount) || 0
+    const totalPaid = parseFloat(l.paidAmount) || 0
+    const due = parseFloat(l.dueAmount != null ? l.dueAmount : Math.max(0, totalWork - totalPaid))
+    const jobsFormatted = (l.jobsList && l.jobsList.length > 0) ? l.jobsList.join(', ') : 'Direct / General'
+
+    let particulars = []
+    if (l.entries && l.entries.length > 0) {
+      l.entries.forEach(e => {
+        const wAmt = parseFloat(e.payment_amount) || 0
+        const pAmt = parseFloat(e.paid_amount) || 0
+        const jobStr = e.job_order_number || 'Direct / General'
+        const workTitle = e.work_done || e.work_description || 'Site Work'
+        if (wAmt > 0) {
+          particulars.push({
+            date: e.date || '',
+            description: `${workTitle} (${jobStr})`,
+            item: `${workTitle} (${jobStr})`,
+            debit: wAmt,
+            credit: 0,
+            amount: wAmt
+          })
+        }
+        if (pAmt > 0) {
+          particulars.push({
+            date: e.date || '',
+            description: `Wage Payout / Disbursement (${jobStr})`,
+            item: `Wage Payout / Disbursement (${jobStr})`,
+            debit: 0,
+            credit: pAmt,
+            amount: pAmt
+          })
+        }
+      })
+    }
+    if (particulars.length === 0) {
+      particulars = [
+        {
+          description: `Total Work Performed (${jobsFormatted})`,
+          item: `Total Work Performed (${jobsFormatted})`,
+          debit: totalWork,
+          credit: 0,
+          amount: totalWork
+        }
+      ]
+      if (totalPaid > 0) {
+        particulars.push({
+          description: `Wages Disbursed / Paid (${jobsFormatted})`,
+          item: `Wages Disbursed / Paid (${jobsFormatted})`,
+          debit: 0,
+          credit: totalPaid,
+          amount: totalPaid
+        })
+      }
+    }
+
     return {
       voucherType: 'LABOUR STATEMENT & WAGE DISBURSEMENT',
       voucherNo: `LAB-STMT-${(l.name || 'REC').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}`,
       date: l.lastDate || new Date().toISOString().split('T')[0],
-      amount: l.paidAmount || l.totalAmount || 0,
+      amount: totalWork,
+      totalAmount: totalWork,
+      paidAmount: totalPaid,
+      balanceDue: due,
+      closingBalance: due,
       payeeName: l.name || 'Labourer',
       payeeRole: 'Contract Labourer',
-      payeePhone: l.phone || '-',
-      jobOrder: l.jobsList?.join(', ') || '-',
+      payeePhone: (l.phone && l.phone !== '-') ? l.phone : '',
+      jobOrder: jobsFormatted,
+      reference: jobsFormatted,
       category: 'Labour Wages Summary',
-      description: `Wages & disbursements statement for ${l.name} (${l.entries?.length || 0} work entries)`,
-      particulars: (l.entries || []).slice(0, 10).map(e => ({
-        item: `${e.date || ''} - ${e.work_done || e.work_description || 'Site Work'} (${e.job_order_number || 'Site'})`,
-        qty: '1',
-        rate: formatCurrency(e.payment_amount || 0),
-        amount: formatCurrency(e.paid_amount || e.payment_amount || 0)
-      })),
-      paidAmount: l.paidAmount || 0,
-      balanceDue: l.dueAmount || 0,
+      description: `Wages & disbursements statement for ${l.name} (${l.entries?.length || 1} work entries)`,
+      particulars,
       notes: ''
     }
   }

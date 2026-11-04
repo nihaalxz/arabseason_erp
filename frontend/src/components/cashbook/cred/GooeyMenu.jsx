@@ -66,6 +66,36 @@ export const GooeyMenu = ({
     return () => mq.removeEventListener?.('change', handler);
   }, []);
 
+  // WebKit (Safari on macOS and iOS, as well as iOS WebViews) has a known engine bug
+  // where CSS filter: url(#svg-filter) on HTML DOM nodes breaks CSS border-radius,
+  // rendering sharp rectangular corners instead of rounded curves.
+  const [isWebKit, setIsWebKit] = useState(() => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const vendor = navigator.vendor || '';
+    const isApple = vendor.indexOf('Apple') > -1 || /iPad|iPhone|iPod|Macintosh/.test(ua);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+    return isApple || isSafari;
+  });
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+    const ua = navigator.userAgent || '';
+    const vendor = navigator.vendor || '';
+    const isApple = vendor.indexOf('Apple') > -1 || /iPad|iPhone|iPod|Macintosh/.test(ua);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+    if (isApple || isSafari) {
+      setIsWebKit(true);
+    }
+  }, []);
+
+  // SVG filter is only active when:
+  // 1. gooey prop is enabled
+  // 2. reduced motion is not requested
+  // 3. browser is not WebKit (to preserve perfect curved border-radius on iOS/macOS)
+  // 4. dropdown is actively open (never apply SVG filter when closed to keep the pill pristine!)
+  const enableGooeyFilter = gooey && !isReducedMotion && !isWebKit && open;
+
   // Normalize options array into consistent objects
   const normalizedOptions = useMemo(() => {
     if (!Array.isArray(options)) return [];
@@ -257,7 +287,8 @@ export const GooeyMenu = ({
           style={{
             width,
             height: panelY + panelHeight + 60,
-            filter: isReducedMotion ? 'none' : `url(#${filterId})`
+            filter: enableGooeyFilter ? `url(#${filterId})` : 'none',
+            WebkitFilter: enableGooeyFilter ? `url(#${filterId})` : 'none'
           }}
         >
           {/* Top Pill Solid Shape */}
@@ -266,7 +297,8 @@ export const GooeyMenu = ({
             style={{
               width,
               height: pillHeight,
-              borderRadius: pillHeight / 2
+              borderRadius: pillHeight / 2,
+              WebkitBorderRadius: pillHeight / 2
             }}
           />
 
@@ -276,20 +308,25 @@ export const GooeyMenu = ({
             style={{
               width,
               height: panelHeight,
-              borderRadius: 20
+              borderRadius: 20,
+              WebkitBorderRadius: 20,
+              ...(!enableGooeyFilter && open ? {
+                boxShadow: '0 14px 36px rgba(0, 0, 0, 0.45)',
+                border: '1px solid rgba(255, 255, 255, 0.12)'
+              } : {})
             }}
             initial={false}
             animate={
               open
-                ? { y: panelY, scaleY: 1 }
-                : { y: 0, scaleY: pillHeight / panelHeight }
+                ? { y: panelY, scaleY: 1, opacity: 1 }
+                : { y: 0, scaleY: pillHeight / panelHeight, opacity: enableGooeyFilter ? 1 : 0 }
             }
             transition={
               isReducedMotion
                 ? { duration: 0.12 }
                 : open
-                  ? { y: DROP_SPRING, scaleY: { ...GROW_SPRING, delay: 0.05 } }
-                  : { y: SNAP_SPRING, scaleY: SNAP_SPRING }
+                  ? { y: DROP_SPRING, scaleY: { ...GROW_SPRING, delay: 0.05 }, opacity: { duration: 0.1 } }
+                  : { y: SNAP_SPRING, scaleY: SNAP_SPRING, opacity: { duration: 0.12 } }
             }
           />
         </div>
@@ -307,7 +344,8 @@ export const GooeyMenu = ({
         className="cred-gooey-trigger"
         style={{
           height: pillHeight,
-          borderRadius: pillHeight / 2
+          borderRadius: pillHeight / 2,
+          WebkitBorderRadius: pillHeight / 2
         }}
       >
         <div
@@ -379,6 +417,8 @@ export const GooeyMenu = ({
               overflowY: normalizedOptions.length > maxVisibleRows ? 'auto' : 'hidden',
               overflowX: 'hidden',
               padding: `${panelPadding}px 0`,
+              borderRadius: 20,
+              WebkitBorderRadius: 20,
               ...(!gooey ? {
                 zIndex: 100
               } : {})

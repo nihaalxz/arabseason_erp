@@ -16,7 +16,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm, inch
+from PIL import Image as PILImage
 from reportlab.platypus import (
+    Flowable,
     SimpleDocTemplate, BaseDocTemplate, PageTemplate, Frame, Paragraph as _ReportLabParagraph, Spacer, Table, TableStyle, Image, KeepTogether, HRFlowable
 )
 from reportlab.pdfgen import canvas
@@ -301,6 +303,82 @@ class NumberedCanvas(canvas.Canvas):
         if getattr(self, 'is_report', False):
             self.drawString(rule_x0, footer_y - 16.02, f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
         self.restoreState()
+
+class TimelineStep(Flowable):
+    def __init__(self, step_number, card_flowable, is_first=False, is_last=False, is_status=False, status_type=None, badge_color='#111111', badge_text_color='#ffffff'):
+        super().__init__()
+        self.step_number = step_number
+        self.card = card_flowable
+        self.is_first = is_first
+        self.is_last = is_last
+        self.is_status = is_status
+        self.status_type = status_type # 'won', 'lost', 'active'
+        self.badge_color = colors.HexColor(badge_color)
+        self.badge_text_color = colors.HexColor(badge_text_color)
+        self.line_x = 12
+        self.badge_radius = 8.5
+        self.left_margin = 28
+        self.bottom_spacing = 8
+
+    def wrap(self, availWidth, availHeight):
+        card_w = availWidth - self.left_margin
+        w_card, h_card = self.card.wrap(card_w, availHeight)
+        self.card_w = w_card
+        self.card_h = h_card
+        self.width = availWidth
+        self.height = h_card + self.bottom_spacing
+        return self.width, self.height
+
+    def drawOn(self, canvas, x, y, _sW=0):
+        card_y = y + self.bottom_spacing
+        self.card.drawOn(canvas, x + self.left_margin, card_y)
+
+        cx = x + self.line_x
+        cy = card_y + self.card_h - 13
+
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor('#E4E4E4'))
+        canvas.setLineWidth(1.5)
+
+        top_y = y + self.height
+        bottom_y = y
+
+        if not self.is_first:
+            canvas.line(cx, top_y, cx, cy + self.badge_radius)
+
+        if not self.is_last:
+            canvas.line(cx, cy - self.badge_radius, cx, bottom_y)
+
+        if self.is_status:
+            if self.status_type == 'won':
+                canvas.setFillColor(colors.HexColor('#0F7638'))
+                canvas.circle(cx, cy, 8.5, stroke=0, fill=1)
+                canvas.setFillColor(colors.white)
+                canvas.setFont('Helvetica-Bold', 9)
+                canvas.drawCentredString(cx, cy - 3, 'Y')
+            elif self.status_type == 'lost':
+                canvas.setFillColor(colors.HexColor('#DC2626'))
+                canvas.circle(cx, cy, 8.5, stroke=0, fill=1)
+                canvas.setFillColor(colors.white)
+                canvas.setFont('Helvetica-Bold', 9)
+                canvas.drawCentredString(cx, cy - 3, 'X')
+            else:
+                canvas.setFillColor(colors.HexColor('#FAFAFA'))
+                canvas.setStrokeColor(colors.HexColor('#D1D5DB'))
+                canvas.setLineWidth(1.2)
+                canvas.setDash(2, 2)
+                canvas.circle(cx, cy, 7, stroke=1, fill=1)
+                canvas.setFillColor(colors.HexColor('#8C8C8C'))
+                canvas.circle(cx, cy, 2, stroke=0, fill=1)
+        else:
+            canvas.setFillColor(self.badge_color)
+            canvas.circle(cx, cy, self.badge_radius, stroke=0, fill=1)
+            canvas.setFillColor(self.badge_text_color)
+            canvas.setFont('Helvetica-Bold', 8)
+            canvas.drawCentredString(cx, cy - 2.8, str(self.step_number))
+
+        canvas.restoreState()
+
 
 class UniversalPDFGenerator:
     """
@@ -796,31 +874,29 @@ class UniversalPDFGenerator:
                 if v_str in ('', '-', 'None', 'null', 'N/A', 'Tel: -', 'Contact: -'):
                     continue
                 meta_rows.append([
-                    Paragraph(f"{lbl} :", ParagraphStyle('ML', fontName=font_reg, fontSize=10, leading=10, alignment=2, textColor=colors.HexColor('#727272'))),
-                    Paragraph(v_str, ParagraphStyle('MV', fontName=font_reg, fontSize=9, leading=10, alignment=2, textColor=colors.HexColor('#333333')))
+                    Paragraph(f"{lbl} :", ParagraphStyle('ML', fontName=font_reg, fontSize=8.5, leading=10.5, alignment=2, textColor=colors.HexColor('#727272'))),
+                    Paragraph(v_str, ParagraphStyle('MV', fontName=font_reg, fontSize=8.5, leading=10.5, alignment=2, textColor=colors.HexColor('#333333')))
                 ])
 
+        party_col_w = 230.00
+        meta_col_w = doc_width - party_col_w
         if meta_rows:
-            rhs = [19.05] * 2 if len(meta_rows) == 2 else None
-            # Check maximum string width of meta values to prevent unwanted wrapping of common values like "QUOTED RATE / AGREEMENT"
-            max_v_w = 0.0
+            # Tightened Y-axis spacing: reduced from 19.05 to 12.0
+            rhs = [12.0] * 2 if len(meta_rows) == 2 else None
+            max_l_w = 0.0
             if meta_pairs:
-                for _, mv in meta_pairs:
-                    if mv:
-                        max_v_w = max(max_v_w, stringWidth(str(mv).strip(), font_reg, 9))
+                for ml, mv in meta_pairs:
+                    if ml:
+                        max_l_w = max(max_l_w, stringWidth(f"{ml} :", font_reg, 8.5))
 
-            if max_v_w > 105.0:
-                val_col_w = min(150.0, max_v_w + 12.0)
-                lbl_col_w = 250.0 - val_col_w
-            else:
-                lbl_col_w = 140.0
-                val_col_w = 110.0
+            lbl_col_w = max(70.0, min(95.0, max_l_w + 8.0))
+            val_col_w = meta_col_w - lbl_col_w
 
             meta_table = Table(meta_rows, colWidths=[lbl_col_w, val_col_w], rowHeights=rhs)
             meta_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('TOPPADDING', (0,0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('TOPPADDING', (0,0), (-1,-1), 0.5),    # Reduced from 1.5
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0.5), # Reduced from 1.5
                 ('LEFTPADDING', (0,0), (-1,-1), 0),
                 ('RIGHTPADDING', (0,0), (-1,-1), 0.78),
             ]))
@@ -828,7 +904,7 @@ class UniversalPDFGenerator:
         else:
             meta_cell = Paragraph("", self.styles['Normal'])
 
-        party_meta_table = Table([[party_cell, meta_cell]], colWidths=[265.03, doc_width - 265.03])
+        party_meta_table = Table([[party_cell, meta_cell]], colWidths=[party_col_w, meta_col_w])
         party_meta_table.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
@@ -913,7 +989,15 @@ class UniversalPDFGenerator:
         sar_icon = Image(sar_icon_path, width=5.96, height=6.75, mask='auto') if (sar_icon_path and show_sar_symbol and os.path.exists(sar_icon_path)) else None
 
         totals_rows = []
-        if sub_total is not None:
+        omit_subtotal = False
+        if sub_total is not None and total is not None:
+            try:
+                if abs(float(sub_total) - float(total)) < 0.001:
+                    omit_subtotal = True
+            except Exception:
+                pass
+
+        if sub_total is not None and not omit_subtotal:
             sub_str = f"{sub_total:,.2f}" if isinstance(sub_total, (int, float, Decimal)) else str(sub_total)
             totals_rows.append(['', Paragraph("Sub Total", tot_lbl_style), Paragraph(sub_str, tot_val_style)])
 
@@ -2840,12 +2924,21 @@ class UniversalPDFGenerator:
             party_label = "Beneficiary"
 
         subtext_parts = []
-        if payee_role and payee_role not in ('-', 'Beneficiary / Recipient', 'Customer / Client', 'Vendor / Supplier', 'Customer', 'Vendor'):
+        contact_person = voucher_data.get('contactPerson') or voucher_data.get('contact_person') or voucher_data.get('contact')
+        if contact_person and str(contact_person).strip() not in ('', '-', 'None', 'null', 'N/A') and str(contact_person).strip().lower() != str(payee_name).strip().lower():
+            subtext_parts.append(str(contact_person).strip())
+        elif payee_role and payee_role not in ('-', 'Beneficiary / Recipient', 'Customer / Client', 'Vendor / Supplier', 'Customer', 'Vendor', 'Vendor / Subcontractor'):
             subtext_parts.append(payee_role)
-        if payee_phone and payee_phone not in ('-', 'None', 'null', 'N/A'):
-            subtext_parts.append(f"Tel: {payee_phone}")
-        addr_val = voucher_data.get('payeeAddress')
-        if addr_val and str(addr_val).strip() not in ('-', 'None', 'null', 'N/A'):
+
+        if payee_phone and str(payee_phone).strip() not in ('', '-', 'None', 'null', 'N/A'):
+            subtext_parts.append(f"Tel: {str(payee_phone).strip()}")
+
+        payee_email = voucher_data.get('payeeEmail') or voucher_data.get('email')
+        if payee_email and str(payee_email).strip() not in ('', '-', 'None', 'null', 'N/A'):
+            subtext_parts.append(f"Email: {str(payee_email).strip()}")
+
+        addr_val = voucher_data.get('payeeAddress') or voucher_data.get('address')
+        if addr_val and str(addr_val).strip() not in ('', '-', 'None', 'null', 'N/A'):
             subtext_parts.append(str(addr_val).strip())
         party_subtext = '\n'.join(subtext_parts) if subtext_parts else None
 
@@ -2853,6 +2946,9 @@ class UniversalPDFGenerator:
             ("Voucher No", str(v_no)),
             ("Date", format_doc_date(v_date))
         ]
+        job_order_ref = voucher_data.get('jobOrder') or voucher_data.get('job_order') or voucher_data.get('job')
+        if job_order_ref and str(job_order_ref).strip() not in ('', '-', 'None', 'null'):
+            meta_pairs.append(("Job Order", str(job_order_ref).strip()))
         # Status (e.g. from Job Order / project sign-off)
         status_val = voucher_data.get('status')
         if not status_val and voucher_data.get('notes'):
@@ -2916,8 +3012,12 @@ class UniversalPDFGenerator:
             # Pre-compute totals and build ledger rows
             ledger_rows = []
             for t in transactions:
-                t_date = format_doc_date(t.get('date') or v_date)
                 t_desc = t.get('description') or t.get('item') or t.get('details') or 'Transaction Entry'
+                t_desc_clean = str(t_desc).strip().lower()
+                # Skip summary lines mistakenly passed as transactions
+                if 'current net receivable' in t_desc_clean or 'balance due' in t_desc_clean or 'outstanding balance' in t_desc_clean:
+                    continue
+                t_date = format_doc_date(t.get('date') or v_date)
                 raw_deb = t.get('debit', 0)
                 raw_cred = t.get('credit', 0)
                 try:
@@ -2963,31 +3063,7 @@ class UniversalPDFGenerator:
 
             closing_bal = float(voucher_data.get('closingBalance') or voucher_data.get('amount') or curr_running)
 
-            # Render Summary Stack
-            summary_p = ParagraphStyle('SSP', fontName=font_reg, fontSize=8.5, leading=11, textColor=colors.HexColor('#333333'))
-            summary_b = ParagraphStyle('SSB', fontName=font_bold, fontSize=8.5, leading=11, textColor=colors.HexColor('#000000'))
-            period_display = period_val or f"As of {format_doc_date(v_date)}"
-
-            stack_data = [
-                [
-                    Paragraph(f"<b>Statement Period:</b> {period_display}", summary_p),
-                    Paragraph(f"<b>Opening Balance:</b> {opening_bal:,.2f} SAR", summary_p)
-                ],
-                [
-                    Paragraph(f"<b>Total Debits:</b> {float(tot_debits):,.2f} SAR  •  <b>Total Credits:</b> {float(tot_credits):,.2f} SAR", summary_p),
-                    Paragraph(f"<b>Net Outstanding Balance:</b> {closing_bal:,.2f} SAR", summary_b)
-                ]
-            ]
-            stack_table = Table(stack_data, colWidths=[270, 245.03])
-            stack_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('LEFTPADDING', (0,0), (-1,-1), 0),
-                ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                ('TOPPADDING', (0,0), (-1,-1), 2),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-            ]))
-            elements.append(stack_table)
-            elements.append(Spacer(1, 10.00))
+            # (Summary stack removed here as requested)
 
             # 3A.2 Ledger Table (repeatRows=1)
             ledger_cols = [
@@ -3002,14 +3078,47 @@ class UniversalPDFGenerator:
             elements.append(ledger_table)
             elements.append(Spacer(1, 0.75))
 
-            # 3A.3 Closing Totals Block
-            words_text = self.number_to_words(closing_bal)
+            # 3A.3 Closing Totals Block (One consistent totals rule: Total -> Paid -> Balance Due)
+            raw_grand_total = voucher_data.get('totalAmount') or voucher_data.get('grandTotal')
+            if raw_grand_total is not None:
+                try:
+                    grand_total = float(str(raw_grand_total).replace(',', '').replace('SAR', '').strip())
+                except Exception:
+                    grand_total = float(tot_debits)
+            else:
+                grand_total = float(tot_debits) if tot_debits > 0 else closing_bal
+
+            raw_paid_amt = voucher_data.get('paidAmount') or voucher_data.get('paid')
+            if raw_paid_amt is not None:
+                try:
+                    paid_amt = float(str(raw_paid_amt).replace(',', '').replace('SAR', '').strip())
+                except Exception:
+                    paid_amt = float(tot_credits)
+            else:
+                paid_amt = float(tot_credits)
+
+            raw_due_amt = voucher_data.get('balanceDue') or voucher_data.get('due') or voucher_data.get('dueAmount')
+            if raw_due_amt is not None:
+                try:
+                    due_amt = float(str(raw_due_amt).replace(',', '').replace('SAR', '').strip())
+                except Exception:
+                    due_amt = closing_bal
+            else:
+                due_amt = closing_bal
+
+            post_total_lines = []
+            if raw_paid_amt is not None or tot_credits > 0 or paid_amt > 0:
+                post_total_lines.append(("Paid", f"SAR {paid_amt:,.2f}"))
+            post_total_lines.append(("Balance Due", f"SAR {due_amt:,.2f}"))
+
+            words_text = voucher_data.get('amountWords') or self.number_to_words(grand_total)
             totals_block = self.build_reference_totals(
                 doc_width,
                 sub_total=None,
-                total=closing_bal,
+                total=grand_total,
                 words_text=words_text,
-                show_sar_symbol=True
+                show_sar_symbol=True,
+                post_total_lines=post_total_lines
             )
 
             totals_block.keepWithNext = True
@@ -3089,7 +3198,15 @@ class UniversalPDFGenerator:
             elements.append(Spacer(1, 0.75))
 
             # 4. Totals Block (Total amount appears ONCE in totals area)
-            total_val = float(amt) if amt > 0 else float(computed_subtotal)
+            raw_tot = voucher_data.get('totalAmount') or voucher_data.get('grandTotal')
+            if raw_tot is not None:
+                try:
+                    total_val = float(str(raw_tot).replace(',', '').replace('SAR', '').strip())
+                except Exception:
+                    total_val = float(amt) if amt > 0 else float(computed_subtotal)
+            else:
+                total_val = float(amt) if amt > 0 else float(computed_subtotal)
+
             words_text = voucher_data.get('amountWords') or self.number_to_words(total_val)
 
             # Check for Paid & Balance Due (e.g. Project Cost Sign-Off / Wage Payout)
@@ -3144,10 +3261,11 @@ class UniversalPDFGenerator:
         buffer.close()
         return pdf_bytes
 
+
     def generate_enquiry_pdf(self, enquiry):
         """
         Generates an official corporate Customer Enquiry Document PDF
-        strictly adhering to reference DC-00002.pdf design.
+        with a sequential lifecycle stepper / timeline chart matching the details window.
         """
         buffer = BytesIO()
         doc = BaseDocTemplate(
@@ -3170,38 +3288,43 @@ class UniversalPDFGenerator:
 
         # 1. Header
         doc_num = enquiry.enquiry_number or f"ENQ-{enquiry.id:05d}"
-        header = self.build_reference_header(doc_width, "CUSTOMER ENQUIRY", f"Enquiry# {doc_num}")
+        header = self.build_reference_header(doc_width, "CUSTOMER ENQUIRY & TIMELINE", f"Enquiry# {doc_num}")
         elements.append(header)
-        elements.append(Spacer(1, 67.66))
+        elements.append(Spacer(1, 14.00))
 
         # 2. Party & Meta
         cust = enquiry.customer
         c_name = cust.name if cust else (enquiry.customer_name or 'Prospect Client')
-        c_contact = enquiry.contact_person or getattr(cust, 'contact_person', '') or ''
+        c_contact = getattr(enquiry, 'contact_person', None) or getattr(cust, 'contact_person', None) or ''
         c_phone = enquiry.phone or getattr(cust, 'phone', '') or ''
         c_email = enquiry.email or getattr(cust, 'email', '') or ''
 
         sub_parts = []
-        if c_contact and c_contact != c_name:
-            sub_parts.append(f"Attn: {c_contact}")
-        if c_phone:
-            sub_parts.append(f"Tel: {c_phone}")
-        if c_email:
-            sub_parts.append(f"Email: {c_email}")
+        if c_contact and str(c_contact).strip() and str(c_contact).strip() != c_name:
+            sub_parts.append(f"Attn: {str(c_contact).strip()}")
+        if c_phone and str(c_phone).strip() not in ('', '-', 'None'):
+            sub_parts.append(f"Tel: {str(c_phone).strip()}")
+        if c_email and str(c_email).strip() not in ('', '-', 'None'):
+            sub_parts.append(f"Email: {str(c_email).strip()}")
         party_sub = '\n'.join(sub_parts) if sub_parts else None
 
-        enq_date = format_doc_date(enquiry.enquiry_date or enquiry.created_at)
-        sp_name = enquiry.salesperson.name if enquiry.salesperson else None
+        enq_date_raw = getattr(enquiry, 'date', None) or getattr(enquiry, 'created_at', None)
+        enq_date = format_doc_date(enq_date_raw)
+        sp_name = (enquiry.salesperson.name if enquiry.salesperson else None) or getattr(enquiry, 'salesperson_name', None)
+
+        status_display = enquiry.get_status_display() if hasattr(enquiry, 'get_status_display') else (enquiry.status or "Active")
+        channel_display = enquiry.get_channel_display() if hasattr(enquiry, 'get_channel_display') else (enquiry.channel or "Direct")
 
         meta_pairs = [
+            ("Enquiry No", doc_num),
             ("Enquiry Date", enq_date),
-            ("Status", enquiry.status or "Active"),
-            ("Priority", enquiry.priority or "Medium")
+            ("Status", status_display),
+            ("Channel", channel_display)
         ]
-        if sp_name:
-            meta_pairs.append(("Sales Rep", sp_name))
-        if enquiry.source:
-            meta_pairs.append(("Source", enquiry.source))
+        if sp_name and str(sp_name).strip():
+            meta_pairs.append(("Lead Owner", str(sp_name).strip()))
+        if hasattr(enquiry, 'next_follow_up_date') and enquiry.next_follow_up_date:
+            meta_pairs.append(("Next Follow-up", format_doc_date(enquiry.next_follow_up_date)))
 
         party_meta = self.build_reference_party_and_meta(
             doc_width,
@@ -3211,39 +3334,287 @@ class UniversalPDFGenerator:
             meta_pairs=meta_pairs
         )
         elements.append(party_meta)
-        elements.append(Spacer(1, 15.10))
+        elements.append(Spacer(1, 14.00))
 
-        # 3. Requirements Table
-        columns = [
-            ("#", "center"),
-            ("Item / Requirement Description", "left"),
-            ("Scope / Location", "left"),
-            ("Est. Budget (SAR)", "right")
-        ]
-        col_widths = [25.73, 269.30, 120.00, 100.00]
-        table_rows = []
+        # 3. Compact Summary Card (Enquiry Title / Scope & Est Budget)
         font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
+        budget_val = float(getattr(enquiry, 'estimated_value', None) or getattr(enquiry, 'estimated_budget', 0) or 0)
+        title_text = enquiry.title or "General Inquiry"
+        desc_text = enquiry.description or getattr(enquiry, 'requirements', None) or ""
 
-        budget_val = float(enquiry.estimated_budget or 0)
-        req_text = enquiry.requirements or enquiry.title or "General Project Inquiry & Scope"
-        req_parts = [p.strip() for p in str(req_text).split('\n') if p.strip()]
-        if len(req_parts) > 1:
-            req_html = f'<font color="#333333">{req_parts[0]}</font><br/><font color="#727272">{req_parts[1]}</font>'
+        summary_left = [
+            Paragraph(f"<b>Requirement Scope:</b> {title_text}", ParagraphStyle('SumTitle', fontName=font_bold, fontSize=9.5, leading=12, textColor=colors.HexColor('#111111')))
+        ]
+        if desc_text:
+            summary_left.append(Paragraph(f"<font color='#555555'>{desc_text}</font>", ParagraphStyle('SumDesc', fontName=font_reg, fontSize=8.5, leading=11, textColor=colors.HexColor('#555555'))))
+
+        summary_right = []
+        if budget_val > 0:
+            summary_right.append(Paragraph(f"<b>Est. Budget:</b> SAR {budget_val:,.2f}", ParagraphStyle('SumBudget', fontName=font_bold, fontSize=9.5, leading=12, alignment=2, textColor=colors.HexColor('#111111'))))
+        summary_right.append(Paragraph(f"<font color='#0F7638'><b>Status: {status_display}</b></font>", ParagraphStyle('SumSt', fontName=font_bold, fontSize=8.5, leading=11, alignment=2)))
+
+        summary_table = Table([[summary_left, summary_right]], colWidths=[335.03, 180.00])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8F9FA')),
+            ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#E4E4E4')),
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 12),
+            ('RIGHTPADDING', (0,0), (-1,-1), 12),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        elements.append(summary_table)
+        elements.append(Spacer(1, 14.00))
+
+        # Section Heading
+        elements.append(Paragraph("<b>ENQUIRY LIFECYCLE & TIMELINE HISTORY</b>", ParagraphStyle('SectionHeading', fontName=font_bold, fontSize=9, leading=11, textColor=colors.HexColor('#71717A'))))
+        elements.append(Spacer(1, 8.00))
+
+        # 4. Sequential Lifecycle Stepper / Timeline Cards
+        card_w = doc_width - 28.0 # 487.03 pt
+        col0_w = card_w - 120.0
+        col1_w = 120.0
+
+        CHANNEL_COLORS = {
+            'whatsapp': '#0F7638',
+            'phone_call': '#2563EB',
+            'email': '#7C3AED',
+            'walk_in': '#D97706',
+            'website': '#0891B2',
+            'other': '#4B5563'
+        }
+        OUTCOME_CONFIG = {
+            'interested': ('#1D4ED8', '#EFF6FF', 'Interested / Considering'),
+            'requested_discount': ('#B45309', '#FEF3C7', 'Requested Price Discount'),
+            'will_revert': ('#4B5563', '#F3F4F6', 'Will Revert Later'),
+            'quotation_requested': ('#7E22CE', '#F3E8FF', 'Asked for Formal Quotation'),
+            'ready_to_close': ('#047857', '#ECFDF5', 'Ready to Confirm / Won'),
+            'not_interested': ('#B91C1C', '#FEE2E2', 'Declined / Not Interested'),
+            'unreachable': ('#6B7280', '#F3F4F6', 'Unreachable / No Answer'),
+            'other': ('#4B5563', '#F3F4F6', 'Other')
+        }
+
+        timeline_steps = []
+
+        # ── STEP 1: INCEPTION / ENQUIRY RECEIVED ──
+        ch_key = enquiry.channel or 'other'
+        ch_color = CHANNEL_COLORS.get(ch_key, '#0F7638')
+        step1_rows = [
+            [
+                Paragraph("<b>Enquiry Received</b>", ParagraphStyle('S1Title', fontName=font_bold, fontSize=9.5, leading=12, textColor=colors.HexColor('#111111'))),
+                Paragraph(f"<font color='#71717A'>{enq_date}</font>", ParagraphStyle('S1Date', fontName=font_reg, fontSize=8.5, leading=11, alignment=2))
+            ]
+        ]
+
+        # Attribution line
+        attr_parts = [f"Received via <font color='{ch_color}'><b>{channel_display}</b></font>"]
+        created_by_name = getattr(enquiry.created_by, 'username', None) or getattr(enquiry, 'created_by_name', None)
+        if created_by_name:
+            attr_parts.append(f"Logged by {created_by_name}")
+        if sp_name:
+            attr_parts.append(f"Lead owner: {sp_name}")
+        attr_line = " • ".join(attr_parts)
+
+        step1_body = [
+            Paragraph(attr_line, ParagraphStyle('S1Attr', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#71717A')))
+        ]
+
+        # If title or description exists
+        if title_text or desc_text:
+            req_line = f"<b>Details:</b> {title_text}"
+            if desc_text:
+                req_line += f" • {desc_text}"
+            step1_body.append(Spacer(1, 3))
+            step1_body.append(Paragraph(req_line, ParagraphStyle('S1Req', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#333333'))))
+
+        # Attached Image / File
+        if enquiry.attachment:
+            att = enquiry.attachment.strip()
+            att_name = enquiry.attachment_name or "spec-photo"
+            try:
+                raw_b64 = att.split(',', 1)[1] if ',' in att else att
+                data_bytes = base64.b64decode(raw_b64)
+                img = PILImage.open(BytesIO(data_bytes))
+                out_buf = BytesIO()
+                if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+                    img.save(out_buf, format='PNG')
+                else:
+                    img.convert('RGB').save(out_buf, format='JPEG', quality=90)
+                out_buf.seek(0)
+                orig_w, orig_h = img.size
+                max_w, max_h = 220.0, 110.0
+                ratio = min(max_w / orig_w, max_h / orig_h, 1.0)
+                img_w = orig_w * ratio
+                img_h = orig_h * ratio
+                rli = Image(out_buf, width=img_w, height=img_h)
+
+                step1_body.append(Spacer(1, 5))
+                step1_body.append(Paragraph(f"<b>Attached Reference File:</b> <font color='#555555'>{att_name}</font>", ParagraphStyle('AttLbl', fontName=font_reg, fontSize=7.5, leading=10, textColor=colors.HexColor('#111111'))))
+                step1_body.append(Spacer(1, 3))
+                step1_body.append(rli)
+            except Exception as e:
+                step1_body.append(Spacer(1, 4))
+                step1_body.append(Paragraph(f"<b>Attached File:</b> {att_name}", ParagraphStyle('AttFallback', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#2563EB'))))
+
+        step1_rows.append([step1_body, ''])
+
+        s1_table = Table(step1_rows, colWidths=[col0_w, col1_w])
+        s1_table.setStyle(TableStyle([
+            ('SPAN', (0, 1), (1, 1)),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFFFF')),
+            ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#E4E4E4')),
+            ('TOPPADDING', (0,0), (-1,-1), 7),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+            ('LEFTPADDING', (0,0), (-1,-1), 10),
+            ('RIGHTPADDING', (0,0), (-1,-1), 10),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]))
+        timeline_steps.append((1, s1_table, False, None))
+
+        # ── STEPS 2..N: FOLLOW-UP CALLS & INTERACTIONS ──
+        follow_ups = list(enquiry.follow_ups.all().order_by('date', 'created_at')) if hasattr(enquiry, 'follow_ups') else []
+        for idx, fu in enumerate(follow_ups, 2):
+            fu_mode = fu.get_contact_mode_display() if hasattr(fu, 'get_contact_mode_display') else (fu.contact_mode or 'Call')
+            fu_outcome_raw = fu.outcome or 'other'
+            out_cfg = OUTCOME_CONFIG.get(fu_outcome_raw, ('#4B5563', '#F3F4F6', fu.get_outcome_display() if hasattr(fu, 'get_outcome_display') else fu_outcome_raw))
+            out_color, out_bg, out_label = out_cfg
+
+            fu_date_str = fu.date.strftime('%b %d, %Y, %I:%M %p') if hasattr(fu.date, 'strftime') else str(fu.date)
+
+            fu_title_p = Paragraph(
+                f"<b>Via {fu_mode}</b> &nbsp;&nbsp; <font color='{out_color}'><b>[{out_label}]</b></font>",
+                ParagraphStyle('FUTitle', fontName=font_bold, fontSize=9, leading=12, textColor=colors.HexColor('#111111'))
+            )
+            fu_date_p = Paragraph(f"<font color='#71717A'>{fu_date_str}</font>", ParagraphStyle('FUDate', fontName=font_reg, fontSize=8.5, leading=11, alignment=2))
+
+            fu_body_rows = [[fu_title_p, fu_date_p]]
+            if fu.notes:
+                fu_body_rows.append([
+                    Paragraph(fu.notes, ParagraphStyle('FUNotes', fontName=font_reg, fontSize=8.5, leading=11, textColor=colors.HexColor('#333333'))),
+                    ''
+                ])
+
+            fu_table = Table(fu_body_rows, colWidths=[col0_w, col1_w])
+            fu_table.setStyle(TableStyle([
+                ('SPAN', (0, 1), (1, 1)) if len(fu_body_rows) > 1 else ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFFFF')),
+                ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#E4E4E4')),
+                ('TOPPADDING', (0,0), (-1,-1), 7),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+                ('LEFTPADDING', (0,0), (-1,-1), 10),
+                ('RIGHTPADDING', (0,0), (-1,-1), 10),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ]))
+            timeline_steps.append((idx, fu_table, False, None))
+
+        # ── FINAL STEP: RESOLUTION OR ACTIVE STATUS ──
+        st = enquiry.status
+        if st == 'converted':
+            conv_date = format_doc_date(enquiry.converted_at) if enquiry.converted_at else 'Won'
+            status_table = Table([
+                [
+                    Paragraph("<b>Deal Won (Converted)</b>", ParagraphStyle('WonTitle', fontName=font_bold, fontSize=9.5, leading=12, textColor=colors.HexColor('#0F7638'))),
+                    Paragraph(f"<font color='#0F7638'><b>{conv_date}</b></font>", ParagraphStyle('WonDate', fontName=font_bold, fontSize=8.5, leading=11, alignment=2))
+                ],
+                [
+                    Paragraph("Client confirmed order. Converted to Job Order / Confirmed Booking.", ParagraphStyle('WonSub', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#0F7638'))),
+                    ''
+                ]
+            ], colWidths=[col0_w, col1_w])
+            status_table.setStyle(TableStyle([
+                ('SPAN', (0, 1), (1, 1)),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F0FDF4')),
+                ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#BBF7D0')),
+                ('TOPPADDING', (0,0), (-1,-1), 7),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+                ('LEFTPADDING', (0,0), (-1,-1), 10),
+                ('RIGHTPADDING', (0,0), (-1,-1), 10),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ]))
+            timeline_steps.append(('✓', status_table, True, 'won'))
+        elif st == 'cancelled':
+            reason_label = enquiry.get_cancellation_reason_display() if hasattr(enquiry, 'get_cancellation_reason_display') else (enquiry.cancellation_reason or 'Cancelled')
+            status_table = Table([
+                [
+                    Paragraph("<b>Closed / Lost</b>", ParagraphStyle('LostTitle', fontName=font_bold, fontSize=9.5, leading=12, textColor=colors.HexColor('#DC2626'))),
+                    Paragraph(f"<font color='#DC2626'><b>[{reason_label}]</b></font>", ParagraphStyle('LostReason', fontName=font_bold, fontSize=8.5, leading=11, alignment=2))
+                ],
+                [
+                    Paragraph(enquiry.cancellation_notes or "Enquiry marked as lost.", ParagraphStyle('LostNotes', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#DC2626'))),
+                    ''
+                ]
+            ], colWidths=[col0_w, col1_w])
+            status_table.setStyle(TableStyle([
+                ('SPAN', (0, 1), (1, 1)),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')),
+                ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#FECACA')),
+                ('TOPPADDING', (0,0), (-1,-1), 7),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+                ('LEFTPADDING', (0,0), (-1,-1), 10),
+                ('RIGHTPADDING', (0,0), (-1,-1), 10),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ]))
+            timeline_steps.append(('✕', status_table, True, 'lost'))
         else:
-            req_html = f'<font color="#333333">{req_parts[0]}</font>'
+            # Active status
+            next_date = format_doc_date(enquiry.next_follow_up_date) if enquiry.next_follow_up_date else None
+            due_badge = f"<font color='#0F7638'><b>Due: {next_date}</b></font>" if next_date else "<font color='#71717A'>Active</font>"
+            sub_text = f"Next contact scheduled for: {next_date}" if next_date else "Awaiting next follow-up action"
 
-        table_rows.append([
-            "1",
-            Paragraph(req_html, ParagraphStyle('EnqDesc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#333333'))),
-            Paragraph(enquiry.project_name or enquiry.location or "Standard Scope", ParagraphStyle('EnqLoc', fontName=font_reg, fontSize=9, leading=10.39, textColor=colors.HexColor('#727272'))),
-            f"{budget_val:,.2f}" if budget_val > 0 else "-"
-        ])
+            status_table = Table([
+                [
+                    Paragraph(f"<b>Current Status: {status_display}</b>", ParagraphStyle('ActTitle', fontName=font_bold, fontSize=9.5, leading=12, textColor=colors.HexColor('#111111'))),
+                    Paragraph(due_badge, ParagraphStyle('ActDue', fontName=font_bold, fontSize=8.5, leading=11, alignment=2))
+                ],
+                [
+                    Paragraph(sub_text, ParagraphStyle('ActSub', fontName=font_reg, fontSize=8, leading=11, textColor=colors.HexColor('#71717A'))),
+                    ''
+                ]
+            ], colWidths=[col0_w, col1_w])
+            status_table.setStyle(TableStyle([
+                ('SPAN', (0, 1), (1, 1)),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FAFAFA')),
+                ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#E4E4E4')),
+                ('TOPPADDING', (0,0), (-1,-1), 7),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+                ('LEFTPADDING', (0,0), (-1,-1), 10),
+                ('RIGHTPADDING', (0,0), (-1,-1), 10),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ]))
+            timeline_steps.append(('•', status_table, True, 'active'))
 
-        items_table = self.build_reference_items_table(doc_width, columns, table_rows, col_widths=col_widths)
-        elements.append(items_table)
-        elements.append(Spacer(1, 23.00))
+        # Assemble Timeline Flowables
+        total_steps = len(timeline_steps)
+        for idx, (step_lbl, card_tbl, is_st, st_type) in enumerate(timeline_steps):
+            is_first = (idx == 0)
+            is_last = (idx == total_steps - 1)
+            elements.append(TimelineStep(
+                step_lbl,
+                card_tbl,
+                is_first=is_first,
+                is_last=is_last,
+                is_status=is_st,
+                status_type=st_type
+            ))
 
-        # 4. Signatures (Notes removed per design standard)
+        elements.append(Spacer(1, 10.00))
+
+        # 5. Totals Block if estimated_value > 0
+        if budget_val > 0:
+            words_text = self.number_to_words(budget_val)
+            totals_block = self.build_reference_totals(
+                doc_width,
+                sub_total=None,
+                total=budget_val,
+                words_text=words_text,
+                show_sar_symbol=True
+            )
+            totals_block.keepWithNext = True
+            elements.append(totals_block)
+            elements.append(Spacer(1, 12.00))
+
+        # 6. Signatures
         sigs = self.build_reference_signatures_and_notes(
             doc_width,
             notes=None,
@@ -3257,5 +3628,3 @@ class UniversalPDFGenerator:
         return pdf_bytes
 
 universal_pdf_generator = UniversalPDFGenerator()
-
-

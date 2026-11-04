@@ -33,23 +33,46 @@
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--black);
+  background: var(--bg, #FFFFFF);
   position: relative;
-  overflow-x: hidden;
+  overflow-x: clip;
+  width: 100%;
+}
+
+.dark .cred-shell-mobile,
+[data-theme='dark'] .cred-shell-mobile,
+.cashbook-dark .cred-shell-mobile,
+.cb-dark-bw .cred-shell-mobile {
+  background: var(--black, #0A0A0A);
 }
 
 .cred-shell-mobile-content {
   flex: 1;
-  background: var(--bg);
-  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
-  padding: 0 var(--page-padding-mobile) calc(82px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg, #FFFFFF);
+  border-radius: 0 !important;
+  -webkit-border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 var(--page-padding-mobile) calc(96px + env(safe-area-inset-bottom, 24px));
   position: relative;
   z-index: 1;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  overflow-y: auto;
+  min-height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.dark .cred-shell-mobile-content,
+[data-theme='dark'] .cred-shell-mobile-content,
+.cashbook-dark .cred-shell-mobile-content,
+.cb-dark-bw .cred-shell-mobile-content {
+  background: var(--black, #0A0A0A);
 }
 
 .cred-shell-mobile-content::-webkit-scrollbar {
@@ -134,9 +157,17 @@
   flex: 1;
   background: var(--bg);
   border-top-left-radius: var(--radius-panel);
+  -webkit-border-top-left-radius: var(--radius-panel);
   position: relative;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: var(--space-32) var(--space-32) 80px;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .cred-shell-desktop-container {
@@ -152,13 +183,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 0 16px;
+  padding: max(14px, env(safe-area-inset-top, 0px)) 0 16px;
   gap: var(--space-12);
   width: 100%;
   position: sticky;
   top: 0;
   background: var(--bg);
   z-index: 70;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .cred-topbar.has-open-dropdown {
@@ -273,18 +308,22 @@
    3. BOTTOM NAV (MOBILE) & SIDE RAIL (DESKTOP)
    ========================================================================== */
 .cred-bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: calc(64px + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--black);
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  z-index: 100;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: calc(64px + env(safe-area-inset-bottom, 16px)) !important;
+  padding-bottom: env(safe-area-inset-bottom, 16px) !important;
+  background: var(--black, #0A0A0A) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-around !important;
+  z-index: 9999 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  -webkit-transform: translate3d(0, 0, 0) !important;
+  transform: translate3d(0, 0, 0) !important;
+  -webkit-backface-visibility: hidden !important;
+  backface-visibility: hidden !important;
 }
 
 .cred-nav-item {
@@ -2218,6 +2257,7 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   left: 0;
   pointer-events: none;
   transform: translateZ(0);
+  -webkit-transform: translateZ(0);
   isolation: isolate;
   z-index: 1;
 }
@@ -2227,6 +2267,10 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   top: 0;
   left: 0;
   background: var(--goo-bg, #0A0A0A);
+  border-radius: 9999px !important;
+  -webkit-border-radius: 9999px !important;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  overflow: hidden;
 }
 
 .cred-gooey-panel-shape {
@@ -2234,6 +2278,10 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   top: 0;
   left: 0;
   background: var(--goo-bg, #0A0A0A);
+  border-radius: 20px !important;
+  -webkit-border-radius: 20px !important;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  overflow: hidden;
   transform-origin: 50% 0%;
   will-change: transform;
 }
@@ -2253,12 +2301,28 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   padding: 0 16px;
   box-sizing: border-box;
   outline: none;
-  border-radius: 9999px;
+  border-radius: 9999px !important;
+  -webkit-border-radius: 9999px !important;
   font-family: var(--font-ui, system-ui, sans-serif);
   z-index: 20;
   user-select: none !important;
   -webkit-user-select: none !important;
   -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Fallback for WebKit (iOS Safari & macOS Safari): disable SVG filter on HTML DOM */
+@supports (-webkit-touch-callout: none) {
+  .cred-gooey-surface {
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+}
+
+@supports (-webkit-hyphens: none) and (not (-ms-ime-align: auto)) {
+  .cred-gooey-surface {
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
 }
 
 .cred-gooey-trigger:focus-visible,
@@ -3192,11 +3256,36 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-gooey-trigger:focus:not(:focu
    ========================================================================== */
 @media (max-width: 768px), ((hover: none) and (pointer: coarse)) {
   /* 1. Remove nested vertical scrollers in Cashbook */
+  .dashboard-wrapper.is-cashbook {
+    background: var(--bg, #FFFFFF) !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    overflow-x: clip !important;
+  }
+
+  .dark .dashboard-wrapper.is-cashbook,
+  [data-theme='dark'] .dashboard-wrapper.is-cashbook,
+  .cashbook-dark .dashboard-wrapper.is-cashbook,
+  .cb-dark-bw .dashboard-wrapper.is-cashbook {
+    background: var(--black, #0A0A0A) !important;
+  }
+
   .dashboard-wrapper.is-cashbook .dashboard-body,
   .dashboard-wrapper.is-cashbook .main-content,
   .dashboard-wrapper.is-cashbook .content-area {
     overflow: visible !important;
     height: auto !important;
+    background: transparent !important;
+  }
+
+  .cred-card-carousel,
+  .cred-money-cards-scroll,
+  .cred-animated-tabs {
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth !important;
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+    overscroll-behavior-x: contain !important;
   }
 
   .cred-overview-page,

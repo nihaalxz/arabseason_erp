@@ -54,24 +54,38 @@ const CredVendorsView = ({
     const billed = parseFloat(v.total_billed) || 0;
     const paid = parseFloat(v.paid_amount) || 0;
     const due = Math.max(0, billed - paid);
+
+    const supplierCompany = (v.company || '').trim();
+    const contactPerson = (v.name || '').trim();
+    // Party name = the Supplier/Company in bold; fallback to contact name if no company
+    const partyTitle = supplierCompany || contactPerson || 'Vendor / Supplier';
+    const contactLine = (supplierCompany && contactPerson && supplierCompany.toLowerCase() !== contactPerson.toLowerCase())
+      ? contactPerson
+      : '';
+
     return {
       voucherType: 'VENDOR PAYMENT VOUCHER & ADVICE',
       voucherNo: `VND-PV-${v.id || Date.now().toString().slice(-6)}`,
       date: new Date().toISOString().split('T')[0],
-      amount: due > 0 ? due : paid,
-      payeeName: v.name || v.company_name || 'Vendor / Supplier',
+      amount: billed,
+      totalAmount: billed,
+      paidAmount: paid,
+      balanceDue: due,
+      closingBalance: due,
+      payeeName: partyTitle,
+      contactPerson: contactLine,
       payeeRole: 'Vendor / Subcontractor',
       payeePhone: v.phone || v.mobile || '',
+      payeeEmail: v.email || '',
+      payeeAddress: v.address || '',
       payeeId: v.tax_number || v.cr_number || '',
       paymentMode: 'BANK TRANSFER / CHEQUE',
       referenceNo: `VND-ID-${v.id}`,
       accountName: 'Accounts Payable',
       category: 'Vendor Disbursement',
-      description: `Disbursement advice & account settlement for vendor: ${v.name || 'Vendor'}. Outstanding payables: SAR ${due.toFixed(2)}.`,
+      description: `Disbursement advice & account settlement for vendor: ${partyTitle}. Outstanding payables: SAR ${due.toFixed(2)}.`,
       particulars: [
-        { item: 'Total Purchases / Services Invoiced', qty: '1', rate: billed, amount: billed },
-        { item: 'Disbursements / Payments Paid to Date', qty: '1', rate: -paid, amount: -paid },
-        { item: 'Outstanding Balance Payable', qty: '1', rate: due, amount: due }
+        { item: 'Total Purchases / Services Invoiced', qty: '1', rate: billed, amount: billed }
       ],
       preparedBy: 'Accounts Payable Officer',
       approvedBy: 'General Manager',

@@ -57,26 +57,41 @@ const CredCustomersView = ({
     if (!c) return null;
     const billed = parseFloat(c.total_billed) || 0;
     const paid = parseFloat(c.paid_amount) || 0;
-    const due = Math.max(0, billed - paid);
+    const due = c.credit_due != null ? parseFloat(c.credit_due) : Math.max(0, billed - paid);
+    const company = (c.company_name || c.company || '').trim();
+    const name = (c.name || '').trim();
+    const partyTitle = company || name || 'Valued Customer';
+    const contactLine = (company && name && company.toLowerCase() !== name.toLowerCase()) ? name : '';
+
+    const particulars = [
+      { item: 'Total Invoiced / Work Billed', qty: '1', rate: billed, amount: billed, debit: billed, credit: 0 }
+    ];
+    if (paid > 0) {
+      particulars.push({ item: 'Total Payments Received & Credited', qty: '1', rate: paid, amount: paid, debit: 0, credit: paid });
+    }
+
     return {
       voucherType: 'CUSTOMER ACCOUNT STATEMENT',
       voucherNo: `CUST-STMT-${c.id || Date.now().toString().slice(-6)}`,
       date: new Date().toISOString().split('T')[0],
-      amount: due,
-      payeeName: c.name || c.company_name || 'Valued Customer',
+      amount: billed,
+      totalAmount: billed,
+      paidAmount: paid,
+      balanceDue: due,
+      closingBalance: due,
+      payeeName: partyTitle,
+      contactPerson: contactLine,
       payeeRole: 'Customer / Client',
       payeePhone: c.phone || c.mobile || '',
+      payeeEmail: c.email || '',
+      payeeAddress: c.address || '',
       payeeId: c.tax_number || c.cr_number || '',
       paymentMode: 'ACCOUNT BALANCE',
       referenceNo: `CUST-ID-${c.id || ''}`,
       accountName: 'Accounts Receivable',
       category: 'Customer Statement',
-      description: `Official balance confirmation statement for ${c.name || 'Customer'}. Outstanding balance: SAR ${due.toFixed(2)}.`,
-      particulars: [
-        { item: 'Total Invoiced / Work Billed', qty: '1', rate: billed, amount: billed },
-        { item: 'Total Payments Received & Credited', qty: '1', rate: -paid, amount: -paid },
-        { item: 'Current Net Receivable / Balance Due', qty: '1', rate: due, amount: due }
-      ],
+      description: `Official balance confirmation statement for ${partyTitle}. Outstanding balance: SAR ${due.toFixed(2)}.`,
+      particulars,
       preparedBy: 'Billing Department',
       approvedBy: 'Financial Controller',
       notes: ''
@@ -902,42 +917,72 @@ const CredCustomersView = ({
                   </div>
                 </div>
 
-                {/* Row actions: one small right-aligned line of minimal text-or-icon buttons */}
+                {/* Row actions: Payable column on left, minimal print and edit buttons on right */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'flex-end',
+                  justifyContent: 'space-between',
                   gap: '12px',
                   padding: '4px 0 10px 56px'
                 }}>
-
-                  <VoucherPrintBtn
-                    title="Customer Balance Statement & Voucher"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      printPaymentVoucher(mapCustomerToVoucher(c));
-                    }}
-                  />
-                  <button
-                    type="button"
-                    title="Edit Customer"
-                    aria-label="Edit Customer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditCustomer && onEditCustomer(c);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
+                  {/* PAYABLE column */}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '9px',
+                      fontWeight: 500,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
                       color: 'var(--text-muted, #8C8C8C)',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Pencil size={13} />
-                  </button>
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      marginBottom: '2px'
+                    }}>
+                      Payable
+                    </div>
+                    <div style={{ 
+                      fontSize: getAmountFontSize(payable), 
+                      fontWeight: 500, 
+                      fontVariantNumeric: 'tabular-nums',
+                      color: hasPayable ? 'var(--text, #0A0A0A)' : 'var(--text-muted, #8C8C8C)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      <Money value={payable.toFixed(2)} />
+                    </div>
+                  </div>
+
+                  {/* Actions: Print and Edit buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <VoucherPrintBtn
+                      title="Customer Balance Statement & Voucher"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        printPaymentVoucher(mapCustomerToVoucher(c));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      title="Edit Customer"
+                      aria-label="Edit Customer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditCustomer && onEditCustomer(c);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--text-muted, #8C8C8C)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Inset dashed separator */}
