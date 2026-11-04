@@ -748,7 +748,23 @@ export default function JobOrderModal({
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px 20px', padding: '4px 0' }}>
+          <style>{`
+          .job-order-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px 20px;
+          }
+          @media (max-width: 640px) {
+            .job-order-form-grid {
+              grid-template-columns: 1fr !important;
+              gap: 14px !important;
+            }
+            .job-order-form-grid > div {
+              grid-column: 1 / -1 !important;
+            }
+          }
+        `}</style>
+          <div className="job-order-form-grid" style={{ padding: '4px 0' }}>
             {/* 1. Job Title (required, full width) */}
             <div style={{ gridColumn: '1 / -1' }}>
               <Field label="Job Title" required>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Children } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useSearchParams, Navigate, useNavigate } from 'react-router-dom'
+import { Link, useSearchParams, Navigate, useNavigate, useOutletContext } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
 import { getIsDarkMode, applyTheme, toggleTheme } from '../utils/theme'
 import { 
@@ -502,6 +502,12 @@ const MobileCardCarousel = ({
 }
 
 const Cashbook = ({ currentUser = null }) => {
+  const outletCtx = useOutletContext() || {}
+  const onLogout = outletCtx.onLogout || (() => {
+    localStorage.clear()
+    window.location.href = '/login'
+  })
+
   // Security Guard: Cashbook module is strictly accessible to role = Admin only
   const user = currentUser || (() => {
     try {
@@ -12324,8 +12330,7 @@ const Cashbook = ({ currentUser = null }) => {
       // notifications/filter info
     },
     onSearchClick: () => setActiveTab('more'),
-    onNotificationClick: () => {},
-    onProfileClick: () => {},
+    onLogout,
     isDarkMode,
     onToggleTheme: handleToggleDarkMode,
     unreadCount: 0
@@ -12814,24 +12819,38 @@ const Cashbook = ({ currentUser = null }) => {
           <div
             style={{
               position: 'fixed',
-              bottom: isMobileScreen ? 'calc(76px + env(safe-area-inset-bottom, 0px))' : '40px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 'calc(100% - 32px)',
-              maxWidth: '380px',
+              bottom: isMobileScreen ? 0 : '40px',
+              left: isMobileScreen ? 0 : '50%',
+              right: isMobileScreen ? 0 : 'auto',
+              transform: isMobileScreen ? 'none' : 'translateX(-50%)',
+              width: isMobileScreen ? '100%' : 'calc(100% - 32px)',
+              maxWidth: isMobileScreen ? '100%' : '380px',
               background: isDarkMode ? '#121417' : '#FFFFFF',
               border: isDarkMode ? '1px solid #232528' : '1px solid #EAEAEA',
-              borderRadius: '24px',
-              boxShadow: isDarkMode ? '0 24px 64px rgba(0, 0, 0, 0.8)' : '0 20px 48px rgba(0, 0, 0, 0.12)',
-              padding: '16px 18px',
+              borderRadius: isMobileScreen ? '24px 24px 0 0' : '24px',
+              boxShadow: isDarkMode ? '0 -8px 40px rgba(0, 0, 0, 0.8)' : '0 -8px 32px rgba(0, 0, 0, 0.12)',
+              padding: isMobileScreen ? '12px 18px calc(24px + env(safe-area-inset-bottom, 0px))' : '16px 18px',
               zIndex: 1000,
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
-              animation: 'credSlideUp 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+              animation: isMobileScreen 
+                ? 'credMobileSheetSlideUp 300ms cubic-bezier(0.32, 0.72, 0, 1)' 
+                : 'credDesktopSheetSlideUp 200ms cubic-bezier(0.16, 1, 0.3, 1)',
               boxSizing: 'border-box'
             }}
           >
+            {/* Grab handle for mobile */}
+            {isMobileScreen && (
+              <div style={{
+                width: '36px',
+                height: '4px',
+                borderRadius: '2px',
+                background: isDarkMode ? '#282B32' : '#E2E8F0',
+                margin: '0 auto 8px',
+                flexShrink: 0
+              }} />
+            )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: isDarkMode ? '1px solid #232528' : '1px solid #F1F5F9' }}>
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #8C8C8C)' }}>
                 RECORD TRANSACTION

@@ -322,7 +322,7 @@ const RecycleBin = ({
     const confirmed = await showConfirm({
       title: 'Delete Record Permanently?',
       text: `Are you sure you want to permanently delete "${item.item_name}"? This action cannot be undone.`,
-      confirmButtonText: 'Permanent Purge',
+      confirmButtonText: 'Delete Permanently',
       isDangerous: true,
       allowPermanent: false
     })
@@ -978,28 +978,30 @@ const RecycleBin = ({
                           </div>
                         </div>
 
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                          <CredRowIconButton
-                            title={item.is_restored ? 'Already Restored' : 'Restore Record'}
-                            ariaLabel="Restore Record"
-                            disabled={item.is_restored || isRestoring}
-                            onClick={() => handleRestore(item)}
-                          >
-                            <RotateCcw size={14} />
-                          </CredRowIconButton>
-
-                          {isAdmin && (
+                        {!item.is_restored && statusFilter !== 'restored' && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                             <CredRowIconButton
-                              tone="danger"
-                              title="Permanently Purge"
-                              ariaLabel="Permanently Purge"
+                              title="Restore Record"
+                              ariaLabel="Restore Record"
                               disabled={isRestoring}
-                              onClick={() => handlePermanentDelete(item)}
+                              onClick={() => handleRestore(item)}
                             >
-                              <Trash2 size={14} />
+                              <RotateCcw size={14} />
                             </CredRowIconButton>
-                          )}
-                        </div>
+
+                            {isAdmin && (
+                              <CredRowIconButton
+                                tone="danger"
+                                title="Delete Permanently"
+                                ariaLabel="Delete Permanently"
+                                disabled={isRestoring}
+                                onClick={() => handlePermanentDelete(item)}
+                              >
+                                <Trash2 size={14} />
+                              </CredRowIconButton>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Bottom Row: Item Summary and Deleted By */}
@@ -1222,28 +1224,32 @@ const RecycleBin = ({
 
                         {/* ACTIONS: Icon-only buttons */}
                         <td style={{ ...bodyCellStyle, textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                            <CredRowIconButton
-                              title={item.is_restored ? 'Already Restored' : 'Restore Record'}
-                              ariaLabel="Restore Record"
-                              disabled={item.is_restored || isRestoring}
-                              onClick={() => handleRestore(item)}
-                            >
-                              <RotateCcw size={13} />
-                            </CredRowIconButton>
-
-                            {isAdmin && (
+                          {!item.is_restored && statusFilter !== 'restored' ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                               <CredRowIconButton
-                                tone="danger"
-                                title="Permanently Purge"
-                                ariaLabel="Permanently Purge"
+                                title="Restore Record"
+                                ariaLabel="Restore Record"
                                 disabled={isRestoring}
-                                onClick={() => handlePermanentDelete(item)}
+                                onClick={() => handleRestore(item)}
                               >
-                                <Trash2 size={13} />
+                                <RotateCcw size={13} />
                               </CredRowIconButton>
-                            )}
-                          </div>
+
+                              {isAdmin && (
+                                <CredRowIconButton
+                                  tone="danger"
+                                  title="Delete Permanently"
+                                  ariaLabel="Delete Permanently"
+                                  disabled={isRestoring}
+                                  onClick={() => handlePermanentDelete(item)}
+                                >
+                                  <Trash2 size={13} />
+                                </CredRowIconButton>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12px' }}>—</span>
+                          )}
                         </td>
                       </tr>
                     )

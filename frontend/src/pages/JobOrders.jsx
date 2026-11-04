@@ -2213,61 +2213,8 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
 
                               {/* Engagement Title (Client-facing Title) */}
                               <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {(() => {
-                                    const att = job.attachment || job.custom_fields?.attachment
-                                    const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
-                                    const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
-                                    if (!att) return null
-                                    const isImg = att.startsWith('data:image/') || attType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(attName)
-                                    if (isImg) {
-                                      return (
-                                        <img
-                                          src={att}
-                                          alt=""
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleOpenAttachmentPreview(att, attName, attType)
-                                          }}
-                                          title="Click to view image"
-                                          style={{
-                                            width: '24px',
-                                            height: '24px',
-                                            objectFit: 'cover',
-                                            borderRadius: '4px',
-                                            border: '1px solid var(--border, #E4E4E4)',
-                                            cursor: 'pointer',
-                                            flexShrink: 0
-                                          }}
-                                        />
-                                      )
-                                    }
-                                    return (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleOpenAttachmentPreview(att, attName, attType)
-                                        }}
-                                        title={attName || 'View Attachment'}
-                                        style={{
-                                          background: 'none',
-                                          border: 'none',
-                                          padding: 0,
-                                          color: 'var(--text-muted, #8C8C8C)',
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          flexShrink: 0
-                                        }}
-                                      >
-                                        <Paperclip size={14} />
-                                      </button>
-                                    )
-                                  })()}
-                                  <div style={{ fontWeight: 400, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {job.title}
-                                  </div>
+                                <div style={{ fontWeight: 400, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {job.title}
                                 </div>
                               </td>
 

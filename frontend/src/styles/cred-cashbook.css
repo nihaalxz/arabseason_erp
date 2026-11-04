@@ -3280,3 +3280,23 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-gooey-trigger:focus:not(:focu
 
 
 
+
+@keyframes credMobileSheetSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes credDesktopSheetSlideUp {
+  from {
+    transform: translate(-50%, 20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}

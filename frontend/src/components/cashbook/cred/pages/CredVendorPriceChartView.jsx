@@ -155,6 +155,36 @@ const CredVendorPriceChartView = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCustomUnit, setIsCustomUnit] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [addingCategoryLoading, setAddingCategoryLoading] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
+
+  const handleCreateCategory = async () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      setCategoryError('Category name cannot be empty');
+      return;
+    }
+    try {
+      setAddingCategoryLoading(true);
+      setCategoryError('');
+      const res = await api.post('material-categories/', { name: trimmed });
+      const created = res.data;
+      setMaterialCategories(prev => {
+        const next = [...prev, created];
+        return next.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      });
+      setModalForm(prev => ({ ...prev, category_id: String(created.id) }));
+      setNewCategoryName('');
+      setIsAddingCategory(false);
+    } catch (err) {
+      console.error('Failed to create material category:', err);
+      setCategoryError(err.response?.data?.name?.[0] || err.response?.data?.detail || 'Failed to create category');
+    } finally {
+      setAddingCategoryLoading(false);
+    }
+  };
   const [modalForm, setModalForm] = useState({
     material_id: '',
     custom_material_name: '',
@@ -385,10 +415,38 @@ const CredVendorPriceChartView = ({
     setIsSubmitting(true);
     try {
       let targetMat = materials.find(m => String(m.id) === String(modalForm.material_id));
-      const matName = targetMat ? targetMat.name : (modalForm.custom_material_name.trim() || 'Material');
       const finalUnit = (modalForm.unit === '__custom__' || !modalForm.unit?.trim())
         ? (targetMat?.unit || 'pcs')
         : modalForm.unit.trim();
+
+      // Persist new material to backend materials/ API if creating custom material
+      if (!targetMat && modalForm.custom_material_name.trim()) {
+        const customName = modalForm.custom_material_name.trim();
+        const existingMat = materials.find(m => m.name.toLowerCase() === customName.toLowerCase());
+        if (existingMat) {
+          targetMat = existingMat;
+        } else {
+          try {
+            const newMatRes = await api.post('materials/', {
+              name: customName,
+              category: modalForm.category_id ? parseInt(modalForm.category_id) : null,
+              unit: finalUnit,
+              customer_price: parseFloat(modalForm.price) || 0
+            });
+            targetMat = newMatRes.data;
+            if (targetMat) {
+              setMaterials(prev => {
+                const next = [...prev, targetMat];
+                return next.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+              });
+            }
+          } catch (mErr) {
+            console.warn('Could not auto-create material record:', mErr);
+          }
+        }
+      }
+
+      const matName = targetMat ? targetMat.name : (modalForm.custom_material_name.trim() || 'Material');
 
       let categoryName = 'General';
       if (modalForm.category_id) {
@@ -1321,7 +1379,7 @@ const CredVendorPriceChartView = ({
                 <select
                   value={modalForm.material_id}
                   onChange={(e) => {
-                    const mId = e.target.value;
+                    const mId = e.target.value === '__new__' ? '' : e.target.value;
                     const mat = materials.find(m => String(m.id) === String(mId));
                     const matUnit = mat ? (mat.unit || 'pcs') : modalForm.unit;
                     setIsCustomUnit(!COMMON_UNITS.includes((matUnit || '').toLowerCase()) && !!matUnit && matUnit !== 'pcs');
@@ -1345,6 +1403,7 @@ const CredVendorPriceChartView = ({
                   }}
                 >
                   <option value="">-- Choose existing material or enter new below --</option>
+                  <option value="__new__" style={{ fontWeight: 600, color: 'var(--primary, #5B4BDB)' }}>+ Add New Material...</option>
                   {materials.map(m => (
                     <option key={m.id} value={m.id}>{m.name} {m.measurements ? `(${m.measurements})` : ''}</option>
                   ))}
@@ -1377,28 +1436,140 @@ const CredVendorPriceChartView = ({
 
                   {/* Material Category Dropdown */}
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Material Category</label>
-                    <select
-                      value={modalForm.category_id}
-                      onChange={(e) => setModalForm(prev => ({ ...prev, category_id: e.target.value }))}
-                      style={{
-                        width: '100%',
-                        height: '38px',
-                        padding: '0 10px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border, #E4E4E4)',
-                        background: 'var(--card-bg, #FFFFFF)',
-                        color: 'var(--text)',
-                        fontSize: '13px',
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <option value="">-- Select Material Category --</option>
-                      {materialCategories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600 }}>Material Category</label>
+                      {!isAddingCategory && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingCategory(true);
+                            setCategoryError('');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary, #5B4BDB)',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
+                        >
+                          + Add New
+                        </button>
+                      )}
+                    </div>
+
+                    {isAddingCategory ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            placeholder="Enter new category name..."
+                            autoFocus
+                            style={{
+                              flex: 1,
+                              height: '38px',
+                              padding: '0 10px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border, #E4E4E4)',
+                              background: 'var(--card-bg, #FFFFFF)',
+                              color: 'var(--text)',
+                              fontSize: '13px',
+                              outline: 'none'
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleCreateCategory();
+                              } else if (e.key === 'Escape') {
+                                setIsAddingCategory(false);
+                                setNewCategoryName('');
+                                setCategoryError('');
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            disabled={addingCategoryLoading || !newCategoryName.trim()}
+                            onClick={handleCreateCategory}
+                            style={{
+                              height: '38px',
+                              padding: '0 12px',
+                              borderRadius: '8px',
+                              background: 'var(--black, #0A0A0A)',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              opacity: (addingCategoryLoading || !newCategoryName.trim()) ? 0.6 : 1,
+                              flexShrink: 0
+                            }}
+                          >
+                            {addingCategoryLoading ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingCategory(false);
+                              setNewCategoryName('');
+                              setCategoryError('');
+                            }}
+                            style={{
+                              height: '38px',
+                              padding: '0 10px',
+                              borderRadius: '8px',
+                              background: 'none',
+                              border: '1px solid var(--border, #E4E4E4)',
+                              color: 'var(--text-muted, #8C8C8C)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              flexShrink: 0
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {categoryError && (
+                          <div style={{ fontSize: '11px', color: '#DC2626' }}>{categoryError}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <select
+                        value={modalForm.category_id}
+                        onChange={(e) => {
+                          if (e.target.value === '__new__') {
+                            setIsAddingCategory(true);
+                            setCategoryError('');
+                          } else {
+                            setModalForm(prev => ({ ...prev, category_id: e.target.value }));
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          height: '38px',
+                          padding: '0 10px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border, #E4E4E4)',
+                          background: 'var(--card-bg, #FFFFFF)',
+                          color: 'var(--text)',
+                          fontSize: '13px',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="">-- Select Material Category --</option>
+                        <option value="__new__" style={{ fontWeight: 600, color: 'var(--primary, #5B4BDB)' }}>
+                          + Add New Category...
+                        </option>
+                        {materialCategories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </>
               )}

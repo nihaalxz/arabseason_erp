@@ -4916,8 +4916,25 @@ body.cb-dark-bw .erp-swal-title {
 }
 [data-theme='dark'] .erp-swal-cancel-btn,
 body.cb-dark-bw .erp-swal-cancel-btn {
+  background: transparent !important;
   color: #FFFFFF !important;
-  border-color: #282B32 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+[data-theme='dark'] .erp-swal-cancel-btn:hover,
+body.cb-dark-bw .erp-swal-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.erp-swal-btn-danger,
+[data-theme='dark'] .erp-swal-btn-danger,
+body.cb-dark-bw .erp-swal-btn-danger {
+  background: #DC2626 !important;
+  color: #FFFFFF !important;
+  border: none !important;
+}
+.erp-swal-btn-danger:hover,
+[data-theme='dark'] .erp-swal-btn-danger:hover,
+body.cb-dark-bw .erp-swal-btn-danger:hover {
+  background: #B91C1C !important;
 }
 [data-theme='dark'] .erp-swal-confirm-btn:not(.erp-swal-btn-danger),
 body.cb-dark-bw .erp-swal-confirm-btn:not(.erp-swal-btn-danger) {

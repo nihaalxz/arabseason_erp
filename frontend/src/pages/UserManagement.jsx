@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import PageHeaderButton from '../components/common/PageHeaderButton'
 import {
-  Plus, Edit, Trash2, AlertCircle, Check, Users
+  Plus, Edit, Trash2, AlertCircle, Check, Users, Eye, EyeOff
 } from 'lucide-react'
 import api from '../api'
 import { ModalShell, Field, TextInput, Select as CredSelect } from '../components/common/FormPrimitives'
@@ -72,6 +72,7 @@ const UserManagement = () => {
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const fetchUsers = async () => {
     try {
@@ -544,10 +545,30 @@ const UserManagement = () => {
               tooltip={editingUser ? 'Leave blank to keep current password' : null}
             >
               <TextInput
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={e => setFormData({ ...formData, password: e.target.value })}
                 placeholder={editingUser ? '•••••••• (leave blank to keep)' : 'Enter password'}
+                suffix={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: 'var(--text-muted, #8C8C8C)',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                }
               />
             </Field>
 
