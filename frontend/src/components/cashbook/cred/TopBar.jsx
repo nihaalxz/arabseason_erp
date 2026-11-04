@@ -160,9 +160,50 @@ const TopBar = ({
   };
 
   return (
-    <header className={`cred-topbar ${className}`} style={{ ...style, position: 'relative' }}>
+    <header 
+      className={`cred-topbar ${className} ${(showProfile || showNotifications) ? 'has-open-dropdown' : ''}`} 
+      style={{ 
+        position: 'sticky',
+        top: 0,
+        zIndex: (showProfile || showNotifications) ? 1050 : 70,
+        background: 'var(--bg)',
+        ...style 
+      }}
+    >
+      {/* Dimmed Underlay Backdrop for Profile & Notification dropdowns */}
+      {(showProfile || showNotifications) && (
+        <div 
+          className="cred-topbar-underlay"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowProfile(false);
+            setShowNotifications(false);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            setShowProfile(false);
+            setShowNotifications(false);
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 9990,
+            background: isDarkMode ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.2)',
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+            animation: 'credUnderlayFadeIn 0.15s ease-out',
+            cursor: 'pointer'
+          }}
+        />
+      )}
+
       {/* 1. Left Avatar with Thin Ring and Red Dot */}
-      <div ref={profileRef} style={{ position: 'relative' }}>
+      <div ref={profileRef} style={{ position: 'relative', zIndex: showProfile ? 9999 : 1 }}>
         <div 
           className="cred-avatar-wrap" 
           onClick={handleAvatarClick}
@@ -296,7 +337,7 @@ const TopBar = ({
 
 
         {/* Notifications Button & Dropdown */}
-        <div ref={notifRef} style={{ position: 'relative' }}>
+        <div ref={notifRef} style={{ position: 'relative', zIndex: showNotifications ? 9999 : 1 }}>
           <button
             type="button"
             className="cred-icon-btn"
@@ -525,6 +566,14 @@ const TopBar = ({
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+        @keyframes credUnderlayFadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
           }
         }
       `}</style>

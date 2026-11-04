@@ -158,7 +158,11 @@
   position: sticky;
   top: 0;
   background: var(--bg);
-  z-index: 20;
+  z-index: 70;
+}
+
+.cred-topbar.has-open-dropdown {
+  z-index: 1050;
 }
 
 .cred-avatar-wrap {

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { 
-  Menu, LogOut, Settings, ChevronDown, Plus, 
+  Menu, LogOut, ChevronDown, Plus, 
   Building2, Users, Briefcase, CreditCard, Receipt, FileSpreadsheet, 
-  ShieldCheck, Banknote, X, Bell, BookOpen, Check, Landmark, FileText
+  ShieldCheck, Banknote, X, Bell, BookOpen, Check, FileText
 } from '../icons'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useModule } from '../../contexts/ModuleContext'
@@ -426,35 +426,6 @@ const Header = ({ onToggleSidebar, onLogout, isMobile, currentUser, onOpenMenuSh
                 <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-main)' }}>{displayName}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{currentUser?.email || displayRole}</div>
               </div>
-              <Link
-                to="/settings?tab=profile"
-                className="dropdown-item"
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '0.65rem',
-                  padding: '0.55rem 0.75rem', borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-main)', background: 'transparent', border: 'none',
-                  fontSize: '0.825rem', fontWeight: '500', cursor: 'pointer', textDecoration: 'none'
-                }}
-                onClick={() => setShowDropdown(false)}
-              >
-                <Settings size={15} />
-                My Profile
-              </Link>
-              <Link
-                to="/settings?tab=manage-banks-cash"
-                className="dropdown-item"
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '0.65rem',
-                  padding: '0.55rem 0.75rem', borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-main)', background: 'transparent', border: 'none',
-                  fontSize: '0.825rem', fontWeight: '500', cursor: 'pointer', textDecoration: 'none'
-                }}
-                onClick={() => setShowDropdown(false)}
-              >
-                <Landmark size={15} />
-                Manage Banks and Petty Cash
-              </Link>
-              <div className="profile-dropdown-divider" />
               <button
                 type="button"
                 className="dropdown-item"

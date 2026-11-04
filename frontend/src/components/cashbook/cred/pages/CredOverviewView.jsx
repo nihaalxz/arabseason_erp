@@ -8,7 +8,8 @@ import Money from '../Money';
 import CredViewAll from '../CredViewAll';
 import CredMobileTxList from '../CredMobileTxList';
 import { fadeFast } from '../motionTokens';
-import { sortNewestFirst } from '../usePagination';
+import CredPagination from '../CredPagination';
+import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst } from '../usePagination';
 
 /**
  * CredOverviewView (Dashboard Page)
@@ -174,15 +175,24 @@ const CredOverviewView = ({
 
   const isCustomerMode = activeCard === 'credit_due' || activeCard === 'customers';
 
-  const latestTxEntries = useMemo(() => {
-    return sortNewestFirst(
-      activeCard === 'inflows' 
-        ? cashInTransactions 
-        : activeCard === 'expenses' 
-          ? cashOutTransactions 
-          : cleanLatestTransactions
-    ).slice(0, 10);
-  }, [activeCard, cashInTransactions, cashOutTransactions, cleanLatestTransactions]);
+  const activeEntriesList = useMemo(() => {
+    if (activeCard === 'inflows') return sortNewestFirst(cashInTransactions);
+    if (activeCard === 'expenses') return sortNewestFirst(cashOutTransactions);
+    if (activeCard === 'credit_due') return customersWithCreditDue;
+    if (activeCard === 'customers') return customers;
+    return sortNewestFirst(cleanLatestTransactions);
+  }, [activeCard, cashInTransactions, cashOutTransactions, customersWithCreditDue, customers, cleanLatestTransactions]);
+
+  const resetKey = `${activeCard}`;
+  const {
+    pageItems,
+    page,
+    setPage,
+    totalPages,
+    rangeStart,
+    rangeEnd,
+    total
+  } = usePagination(activeEntriesList, isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, resetKey);
 
   return (
     <div className="cred-overview-page" style={{ width: '100%', position: 'relative' }}>
@@ -330,14 +340,14 @@ const CredOverviewView = ({
                       />
                     ))}
                   </div>
-                ) : (activeCard === 'credit_due' ? customersWithCreditDue : customers).length === 0 ? (
+                ) : total === 0 ? (
                   <div style={{ padding: '60px 24px', textAlign: 'center' }}>
                     <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text, #0A0A0A)' }}>
                       {activeCard === 'credit_due' ? 'no customers with credit due' : 'no customers recorded'}
                     </div>
                   </div>
                 ) : (
-                  (activeCard === 'credit_due' ? customersWithCreditDue : customers).slice(0, 10).map((customer) => {
+                  pageItems.map((customer) => {
                     const dueAmount = customer.payable_amount || customer.pending_balance || '0.00';
                     const isDue = parseFloat(dueAmount || 0) > 0;
                     const initial = (customer.name || 'C')[0].toUpperCase();
@@ -405,7 +415,7 @@ const CredOverviewView = ({
             ) : isMobile ? (
               /* Mobile Transaction List: extracted shared CredMobileTxList sitting directly on page background */
               <CredMobileTxList
-                entries={latestTxEntries}
+                entries={pageItems}
                 isClickable={false}
                 showBalance={false}
                 isLoading={isLoading}
@@ -420,7 +430,7 @@ const CredOverviewView = ({
             ) : (
               /* Desktop Transaction Table */
               <CredLedgerTable
-                entries={latestTxEntries}
+                entries={pageItems}
                 columns={['date', 'particulars', 'relation', 'flow', 'amount']}
                 isClickable={false}
                 isLoading={isLoading}
@@ -436,6 +446,17 @@ const CredOverviewView = ({
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Pagination (view all entries, matching cash ledger) */}
+      <CredPagination
+        page={page}
+        totalPages={totalPages}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        total={total}
+        onPageChange={setPage}
+        isMobile={isMobile}
+      />
     </div>
   );
 };
