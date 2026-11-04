@@ -2662,7 +2662,7 @@ const Cashbook = ({ currentUser = null }) => {
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayStr = yesterday.toISOString().split('T')[0]
 
-    return entries.filter(e => {
+    return baseEntries.filter(e => {
       if (duration === 'today') return e.date === todayStr
       if (duration === 'yesterday') return e.date === yesterdayStr
       if (duration === 'this_week') {
@@ -3443,6 +3443,9 @@ const Cashbook = ({ currentUser = null }) => {
             advance_amount: 0, // Recorded by the CashBookEntry being saved immediately below
             payment_type: 'advance',
             description: entryFormData.rough_job_description?.trim() || '',
+            attachment: entryFormData.rough_job_attachment || '',
+            attachment_name: entryFormData.rough_job_attachment_name || '',
+            attachment_type: entryFormData.rough_job_attachment_type || '',
             custom_fields: {
               ...(entryFormData.rough_job_attachment ? {
                 attachment: entryFormData.rough_job_attachment,
@@ -3668,29 +3671,48 @@ const Cashbook = ({ currentUser = null }) => {
 
   // Export CSV / Report
   const handleExportCSV = () => {
-    if (!filteredEntries || filteredEntries.length === 0) {
+    const sourceEntries = (activeTab === 'ledger' || activeTab === 'home')
+      ? (credHomeKpi?.filteredTransactions || allCashEntries || [])
+      : (filteredEntries && filteredEntries.length > 0 ? filteredEntries : (selectedBook ? entries : allCashEntries || []))
+
+    if (!sourceEntries || sourceEntries.length === 0) {
       showWarning('No Entries', 'No entries to export')
       return
     }
-    const headers = ['Date', 'Time', 'Remark', 'Category', 'Mode', 'Cash In (SAR)', 'Cash Out (SAR)', 'Balance (SAR)']
-    const rows = filteredEntries.map(e => [
-      e.date,
-      e.time || '',
-      `"${(e.remark || '').replace(/"/g, '""')}"`,
-      `"${e.category || ''}"`,
-      e.payment_mode || 'Cash',
-      e.entry_type === 'in' ? e.amount : '',
-      e.entry_type === 'out' ? e.amount : '',
-      e.running_balance
-    ])
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-    const encodedUri = encodeURI(csvContent)
+    const headers = ['Date', 'Time', 'Type', 'Party / Name', 'Remark / Description', 'Category', 'Payment Mode', 'Account / Channel', 'Cash In (SAR)', 'Cash Out (SAR)', 'Balance (SAR)', 'Reference']
+    const escapeCsv = (str) => `"${String(str || '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`
+    const rows = sourceEntries.map(e => {
+      const isIn = e.entry_type === 'in' || e.type === 'in'
+      const isOut = e.entry_type === 'out' || e.type === 'out'
+      const amt = parseFloat(e.amount) || 0
+      const channel = e.petty_cash_account_name || e.bank_account_name || e.payment_mode || 'Cash'
+      const bal = e.display_running_balance ?? e.running_balance ?? e.calculated_running_balance ?? ''
+      return [
+        e.date || '',
+        e.time || '',
+        isIn ? 'Cash In' : (isOut ? 'Cash Out' : ''),
+        escapeCsv(e.party_name || e.customer_name || e.vendor_name || e.staff_name || ''),
+        escapeCsv(e.remark || ''),
+        escapeCsv(e.category || ''),
+        escapeCsv(e.payment_mode || 'Cash'),
+        escapeCsv(channel),
+        isIn ? amt.toFixed(2) : '',
+        isOut ? amt.toFixed(2) : '',
+        bal !== '' && !isNaN(parseFloat(bal)) ? parseFloat(bal).toFixed(2) : '',
+        escapeCsv(e.reference_number || '')
+      ].join(',')
+    })
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `${selectedBook?.name || 'Cashbook'}_Report.csv`)
+    link.href = url
+    link.setAttribute('download', `${selectedBook?.name || 'Cash_Ledger'}_Report_${new Date().toISOString().split('T')[0]}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    showSuccess('Exported CSV successfully!')
   }
 
   // Export Bank Flow CSV
@@ -12691,7 +12713,7 @@ const Cashbook = ({ currentUser = null }) => {
             />
           </div>
         ) : activeTab === 'job_orders' ? (
-          <div style={{ padding: isMobileScreen ? '0 0 80px' : '0 0 60px' }}>
+          <div style={{ padding: isMobileScreen ? '0 0 80px' : '0 0 60px', width: '100%', boxSizing: 'border-box' }}>
             <CashbookJobOrders
               isDarkMode={isDarkMode}
               isMobileScreen={isMobileScreen}

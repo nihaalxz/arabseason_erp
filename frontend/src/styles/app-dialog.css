@@ -1,0 +1,476 @@
+/* ==========================================================================
+   Arab Season ERP - Universal Themed Dialog & Toast Styles
+   Matches Cashbook, Accounting & ERP Index Pages Design Language
+   ========================================================================== */
+
+:root {
+  --ad-bg: #FFFFFF;
+  --ad-border: #E5E7EB;
+  --ad-title: #09090B;
+  --ad-text: #52525B;
+  --ad-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.18), 0 8px 16px -6px rgba(0, 0, 0, 0.08);
+  
+  --ad-btn-primary-bg: #09090B;
+  --ad-btn-primary-text: #FFFFFF;
+  --ad-btn-primary-hover: #27272A;
+  
+  --ad-btn-danger-bg: #DC2626;
+  --ad-btn-danger-text: #FFFFFF;
+  --ad-btn-danger-hover: #B91C1C;
+  
+  --ad-btn-cancel-bg: #FFFFFF;
+  --ad-btn-cancel-text: #27272A;
+  --ad-btn-cancel-border: #E4E4E7;
+  --ad-btn-cancel-hover: #F4F4F5;
+  
+  --ad-input-bg: #F9FAFB;
+  --ad-input-border: #E5E7EB;
+  --ad-input-text: #111827;
+  --ad-input-focus: #09090B;
+}
+
+[data-theme="dark"],
+.cb-dark-bw,
+.dark,
+.app-dialog-dark,
+.app-dialog-popup.is-dark,
+.app-toast-popup.is-dark {
+  --ad-bg: #141518;
+  --ad-border: rgba(255, 255, 255, 0.08);
+  --ad-title: #F4F4F5;
+  --ad-text: #A1A1AA;
+  --ad-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  
+  --ad-btn-primary-bg: #FFFFFF;
+  --ad-btn-primary-text: #09090B;
+  --ad-btn-primary-hover: #E4E4E7;
+  
+  --ad-btn-danger-bg: #DC2626;
+  --ad-btn-danger-text: #FFFFFF;
+  --ad-btn-danger-hover: #B91C1C;
+  
+  --ad-btn-cancel-bg: transparent;
+  --ad-btn-cancel-text: #E4E4E7;
+  --ad-btn-cancel-border: rgba(255, 255, 255, 0.14);
+  --ad-btn-cancel-hover: rgba(255, 255, 255, 0.08);
+  
+  --ad-input-bg: #1B1D22;
+  --ad-input-border: rgba(255, 255, 255, 0.12);
+  --ad-input-text: #F4F4F5;
+  --ad-input-focus: #FFFFFF;
+}
+
+/* --------------------------------------------------------------------------
+   Modal Backdrop & Container
+   -------------------------------------------------------------------------- */
+.app-dialog-container {
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  z-index: 999999 !important;
+  padding: 16px !important;
+}
+
+.app-dialog-popup {
+  background: var(--ad-bg) !important;
+  border: 1px solid var(--ad-border) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--ad-shadow) !important;
+  padding: 24px 24px 20px !important;
+  max-width: 420px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  font-family: inherit !important;
+  color: var(--ad-text) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+/* Hide default SweetAlert icon markup completely */
+.app-dialog-popup .swal2-icon {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Custom Lucide Icon Badges
+   -------------------------------------------------------------------------- */
+.app-dialog-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.app-dialog-badge svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* Success Tint (Emerald) */
+.app-dialog-badge-success {
+  background: #ECFDF5;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+}
+[data-theme="dark"] .app-dialog-badge-success,
+.cb-dark-bw .app-dialog-badge-success,
+.app-dialog-popup.is-dark .app-dialog-badge-success {
+  background: rgba(5, 150, 105, 0.16);
+  color: #34D399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+/* Error & Delete Tint (Rose / Red) */
+.app-dialog-badge-error,
+.app-dialog-badge-delete {
+  background: #FFF1F2;
+  color: #E11D48;
+  border: 1px solid #FECDD3;
+}
+[data-theme="dark"] .app-dialog-badge-error,
+.cb-dark-bw .app-dialog-badge-error,
+.app-dialog-popup.is-dark .app-dialog-badge-error,
+[data-theme="dark"] .app-dialog-badge-delete,
+.cb-dark-bw .app-dialog-badge-delete,
+.app-dialog-popup.is-dark .app-dialog-badge-delete {
+  background: rgba(225, 29, 72, 0.16);
+  color: #FB7185;
+  border: 1px solid rgba(251, 113, 133, 0.25);
+}
+
+/* Warning Tint (Amber) */
+.app-dialog-badge-warning {
+  background: #FFFBEB;
+  color: #D97706;
+  border: 1px solid #FDE68A;
+}
+[data-theme="dark"] .app-dialog-badge-warning,
+.cb-dark-bw .app-dialog-badge-warning,
+.app-dialog-popup.is-dark .app-dialog-badge-warning {
+  background: rgba(217, 119, 6, 0.16);
+  color: #FBBF24;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+/* Info Tint (Sky) */
+.app-dialog-badge-info {
+  background: #F0F9FF;
+  color: #0284C7;
+  border: 1px solid #BAE6FD;
+}
+[data-theme="dark"] .app-dialog-badge-info,
+.cb-dark-bw .app-dialog-badge-info,
+.app-dialog-popup.is-dark .app-dialog-badge-info {
+  background: rgba(2, 132, 199, 0.16);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+/* Loading Tint (Neutral) */
+.app-dialog-badge-loading {
+  background: #F4F4F5;
+  color: #18181B;
+  border: 1px solid #E4E4E7;
+}
+[data-theme="dark"] .app-dialog-badge-loading,
+.cb-dark-bw .app-dialog-badge-loading,
+.app-dialog-popup.is-dark .app-dialog-badge-loading {
+  background: rgba(255, 255, 255, 0.08);
+  color: #F4F4F5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.app-dialog-spinner {
+  animation: app-dialog-spin 0.9s linear infinite;
+}
+
+@keyframes app-dialog-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   Typography: Title & Body
+   -------------------------------------------------------------------------- */
+.app-dialog-title {
+  color: var(--ad-title) !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  margin: 0 0 8px 0 !important;
+  padding: 0 !important;
+  word-break: break-word !important;
+}
+
+.app-dialog-html {
+  color: var(--ad-text) !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.55 !important;
+  margin: 0 0 20px 0 !important;
+  padding: 0 !important;
+  word-break: break-word !important;
+}
+
+/* --------------------------------------------------------------------------
+   Action Buttons (Black rounded, Outlined cancel, Red delete)
+   -------------------------------------------------------------------------- */
+.app-dialog-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 4px 0 0 !important;
+  box-sizing: border-box !important;
+}
+
+.app-dialog-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 40px !important;
+  padding: 0 20px !important;
+  border-radius: 9999px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease-in-out !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+}
+
+.app-dialog-btn:focus-visible {
+  outline: 2px solid #3B82F6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Primary (Black in light, White in dark) */
+.app-dialog-btn-primary {
+  background: var(--ad-btn-primary-bg) !important;
+  color: var(--ad-btn-primary-text) !important;
+  border: 1px solid var(--ad-btn-primary-bg) !important;
+}
+
+.app-dialog-btn-primary:hover {
+  background: var(--ad-btn-primary-hover) !important;
+  border-color: var(--ad-btn-primary-hover) !important;
+}
+
+/* Danger / Delete (Red) */
+.app-dialog-btn-danger {
+  background: var(--ad-btn-danger-bg) !important;
+  color: var(--ad-btn-danger-text) !important;
+  border: 1px solid var(--ad-btn-danger-bg) !important;
+}
+
+.app-dialog-btn-danger:hover {
+  background: var(--ad-btn-danger-hover) !important;
+  border-color: var(--ad-btn-danger-hover) !important;
+}
+
+/* Cancel / Ghost */
+.app-dialog-btn-cancel {
+  background: var(--ad-btn-cancel-bg) !important;
+  color: var(--ad-btn-cancel-text) !important;
+  border: 1px solid var(--ad-btn-cancel-border) !important;
+}
+
+.app-dialog-btn-cancel:hover {
+  background: var(--ad-btn-cancel-hover) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Input Prompt Field
+   -------------------------------------------------------------------------- */
+.app-dialog-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 42px !important;
+  padding: 8px 14px !important;
+  background: var(--ad-input-bg) !important;
+  border: 1px solid var(--ad-input-border) !important;
+  border-radius: 12px !important;
+  color: var(--ad-input-text) !important;
+  font-size: 13.5px !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  margin: 4px 0 16px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.app-dialog-input:focus {
+  border-color: var(--ad-input-focus) !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="dark"] .app-dialog-input:focus,
+.cb-dark-bw .app-dialog-input:focus,
+.app-dialog-popup.is-dark .app-dialog-input:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Permanent Delete Checkbox
+   -------------------------------------------------------------------------- */
+.app-dialog-checkbox-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  background: rgba(220, 38, 38, 0.06) !important;
+  border: 1px solid rgba(220, 38, 38, 0.16) !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  margin: 0 0 16px 0 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+.app-dialog-checkbox-wrapper input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 17px !important;
+  height: 17px !important;
+  border: 1.5px solid #DC2626 !important;
+  border-radius: 5px !important;
+  margin: 0 10px 0 0 !important;
+  outline: none !important;
+  cursor: pointer !important;
+  display: grid !important;
+  place-content: center !important;
+  background: transparent !important;
+  flex-shrink: 0 !important;
+}
+
+.app-dialog-checkbox-wrapper input[type="checkbox"]:checked {
+  background: #DC2626 !important;
+}
+
+.app-dialog-checkbox-wrapper input[type="checkbox"]:checked::before {
+  content: "" !important;
+  width: 9px !important;
+  height: 5px !important;
+  border-left: 2px solid #FFF !important;
+  border-bottom: 2px solid #FFF !important;
+  transform: rotate(-45deg) translate(1px, -1px) !important;
+}
+
+.app-dialog-checkbox-wrapper label {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #DC2626 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  margin: 0 !important;
+  line-height: 1.3 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Universal Non-Blocking Toast
+   -------------------------------------------------------------------------- */
+.app-toast-container {
+  z-index: 9999999 !important;
+  padding: 16px !important;
+  pointer-events: none !important;
+}
+
+.app-toast-popup {
+  pointer-events: auto !important;
+  background: var(--ad-bg) !important;
+  border: 1px solid var(--ad-border) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--ad-shadow) !important;
+  padding: 12px 16px !important;
+  min-width: 300px !important;
+  max-width: 420px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  color: var(--ad-text) !important;
+  font-family: inherit !important;
+  margin-bottom: 8px !important;
+}
+
+.app-toast-popup .swal2-icon {
+  display: none !important;
+}
+
+.app-toast-badge {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.app-toast-badge svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.app-toast-content {
+  flex: 1 1 auto !important;
+  text-align: left !important;
+}
+
+.app-toast-title {
+  color: var(--ad-title) !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.35 !important;
+}
+
+.app-toast-text {
+  color: var(--ad-text) !important;
+  font-size: 12.5px !important;
+  margin: 2px 0 0 0 !important;
+  padding: 0 !important;
+  line-height: 1.35 !important;
+}
+
+.app-toast-timer-progress-bar {
+  background: var(--ad-btn-primary-bg) !important;
+  opacity: 0.15 !important;
+  height: 3px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile Responsiveness (390px and small viewports)
+   -------------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .app-dialog-popup {
+    margin: 12px !important;
+    padding: 20px 18px 16px !important;
+    max-width: calc(100vw - 24px) !important;
+    border-radius: 18px !important;
+  }
+
+  .app-dialog-actions {
+    flex-direction: column-reverse !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .app-dialog-btn {
+    width: 100% !important;
+  }
+
+  .app-toast-popup {
+    min-width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px) !important;
+    margin: 0 0 8px 0 !important;
+  }
+}

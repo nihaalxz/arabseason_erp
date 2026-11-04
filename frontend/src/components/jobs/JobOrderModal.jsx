@@ -329,9 +329,9 @@ export default function JobOrderModal({
         payment_collected_by: editingJob.payment_collected_by || '',
         assigned_to: editingJob.assigned_to || '',
         custom_fields: editingJob.custom_fields || {},
-        attachment: editingJob.attachment || '',
-        attachment_name: editingJob.attachment_name || '',
-        attachment_type: editingJob.attachment_type || ''
+        attachment: editingJob.attachment || editingJob.custom_fields?.attachment || '',
+        attachment_name: editingJob.attachment_name || editingJob.custom_fields?.attachment_name || '',
+        attachment_type: editingJob.attachment_type || editingJob.custom_fields?.attachment_type || ''
       })
       setCustomerPriorBalance(parseFloat(editingJob.prior_balance || 0))
     } else if (selectedPendingForCreation) {

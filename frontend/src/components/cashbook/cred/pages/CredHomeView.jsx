@@ -11,6 +11,7 @@ import Money from '../Money';
 import CredCardCarousel from '../CredCardCarousel';
 import CredPagination from '../CredPagination';
 import CredMobileTxList from '../CredMobileTxList';
+import { showWarning, showSuccess } from '../../../../utils/swal';
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, sortNewestFirst } from '../usePagination';
 import { 
   Coins, 
@@ -247,16 +248,75 @@ const CredHomeView = ({
     { value: 'expense', id: 'expense', label: 'expenses', icon: Receipt },
   ], []);
 
+  const handleExportLedgerCSV = () => {
+    const listToExport = entriesWithBalance && entriesWithBalance.length > 0 ? entriesWithBalance : tableEntries;
+    if (!listToExport || listToExport.length === 0) {
+      showWarning('No Entries', 'No ledger transactions to export');
+      return;
+    }
+
+    const headers = [
+      'Date',
+      'Time',
+      'Type',
+      'Party / Name',
+      'Remark / Description',
+      'Category',
+      'Payment Mode',
+      'Account / Channel',
+      'Cash In (SAR)',
+      'Cash Out (SAR)',
+      'Balance (SAR)',
+      'Reference'
+    ];
+
+    const escapeCsv = (str) => `"${String(str || '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`;
+
+    const rows = listToExport.map(e => {
+      const isIn = e.entry_type === 'in' || e.type === 'in';
+      const isOut = e.entry_type === 'out' || e.type === 'out';
+      const amt = parseFloat(e.amount) || 0;
+      const channel = e.petty_cash_account_name || e.bank_account_name || e.payment_mode || 'Cash';
+      const bal = e.display_running_balance ?? e.running_balance ?? e.calculated_running_balance ?? '';
+      
+      return [
+        e.date || '',
+        e.time || '',
+        isIn ? 'Cash In' : (isOut ? 'Cash Out' : ''),
+        escapeCsv(e.party_name || e.customer_name || e.vendor_name || e.staff_name || ''),
+        escapeCsv(e.remark || ''),
+        escapeCsv(e.category || ''),
+        escapeCsv(e.payment_mode || ''),
+        escapeCsv(channel),
+        isIn ? amt.toFixed(2) : '',
+        isOut ? amt.toFixed(2) : '',
+        bal !== '' && !isNaN(parseFloat(bal)) ? parseFloat(bal).toFixed(2) : '',
+        escapeCsv(e.reference_number || '')
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const filterSuffix = paymentTypeFilter !== 'all' ? `_${paymentTypeFilter}` : (cardFilter ? `_${cardFilter}` : '');
+    link.setAttribute('download', `Cash_Ledger${filterSuffix}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showSuccess('Cash ledger CSV exported successfully!');
+  };
+
   return (
     <div className="cred-home-page" style={{ width: '100%', boxSizing: 'border-box' }}>
       {/* 1. SHARED PAGE HEADER (TASK B) */}
       <CredPageHeader
         title="cash ledger"
         isMobile={isMobile}
-        selectedScope={selectedScope}
-        onScopeChange={onScopeChange}
-        pettyCashAccounts={pettyCashAccounts}
-        onExport={onExport}
+        showScope={false}
+        onExport={handleExportLedgerCSV}
         onOpenCashIn={onOpenCashIn}
         onOpenCashOut={onOpenCashOut}
         onOpenTransfer={onOpenTransfer}

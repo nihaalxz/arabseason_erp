@@ -446,6 +446,16 @@ class JobOrderSerializer(serializers.ModelSerializer):
             return {'id': None, 'title': obj.project_name, 'status': 'Linked'}
         return None
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not data.get('attachment') and isinstance(instance.custom_fields, dict):
+            cf = instance.custom_fields
+            if cf.get('attachment'):
+                data['attachment'] = cf.get('attachment')
+                data['attachment_name'] = data.get('attachment_name') or cf.get('attachment_name', '')
+                data['attachment_type'] = data.get('attachment_type') or cf.get('attachment_type', '')
+        return data
+
 class CustomerPaymentSerializer(serializers.ModelSerializer):
     customer_name = serializers.ReadOnlyField(source='customer.name')
     job_order_title = serializers.ReadOnlyField(source='job_order.title')

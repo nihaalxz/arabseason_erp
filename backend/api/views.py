@@ -376,6 +376,16 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             User = get_user_model()
             assigned_to_user = User.objects.filter(id=assigned_to_id).first()
 
+        # Ensure attachment in custom_fields is synced to top-level fields if top-level is empty
+        custom_fields = serializer.validated_data.get('custom_fields') or {}
+        attachment = serializer.validated_data.get('attachment')
+        attachment_name = serializer.validated_data.get('attachment_name')
+        attachment_type = serializer.validated_data.get('attachment_type')
+        if not attachment and isinstance(custom_fields, dict) and custom_fields.get('attachment'):
+            attachment = custom_fields.get('attachment', '')
+            attachment_name = attachment_name or custom_fields.get('attachment_name', '')
+            attachment_type = attachment_type or custom_fields.get('attachment_type', '')
+
         job = serializer.save(
             order_id=order_id,
             created_by=user,
@@ -385,7 +395,10 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             assigned_by=user if assigned_to_user else None,
             original_creator_name=created_by_staff if assigned_to_user else None,
             assignment_status='pending' if assigned_to_user else 'unassigned',
-            assigned_at=timezone.now() if assigned_to_user else None
+            assigned_at=timezone.now() if assigned_to_user else None,
+            attachment=attachment or '',
+            attachment_name=attachment_name or '',
+            attachment_type=attachment_type or ''
         )
 
         # Notify assigned admin

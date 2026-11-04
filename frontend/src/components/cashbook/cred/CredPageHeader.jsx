@@ -20,6 +20,7 @@ const CredPageHeader = ({
   caption = null,
   dateHeadline = null,
   actions = undefined, // Allows overriding right actions if needed (null = no buttons)
+  showScope = true,
   selectedScope = '__all__',
   onScopeChange = () => {},
   scopeOptions = [],
@@ -121,17 +122,19 @@ const CredPageHeader = ({
           }}
         >
           {/* 1. LEDGER SCOPE DROPDOWN (GooeyMenu liquid dropdown) */}
-          <GooeyMenu
-            id="cred-scope-dropdown-btn"
-            className="cred-header-scope-dropdown"
-            value={selectedScope}
-            onSelect={(opt) => onScopeChange(opt.id || opt.value || opt)}
-            options={normalizedScopeOptions}
-            width={260}
-            pillHeight={40}
-            maxVisibleRows={7}
-            ariaLabel="Select Ledger Scope"
-          />
+          {showScope && (
+            <GooeyMenu
+              id="cred-scope-dropdown-btn"
+              className="cred-header-scope-dropdown"
+              value={selectedScope}
+              onSelect={(opt) => onScopeChange(opt.id || opt.value || opt)}
+              options={normalizedScopeOptions}
+              width={260}
+              pillHeight={40}
+              maxVisibleRows={7}
+              ariaLabel="Select Ledger Scope"
+            />
+          )}
 
           {/* 2. EXPORT (OUTLINED PILL) */}
           <button

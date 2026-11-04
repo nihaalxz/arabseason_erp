@@ -17,7 +17,7 @@ import GooeyMenu from './cred/GooeyMenu'
 import CredStatus from './cred/CredStatus'
 import CredRowIconButton from './cred/CredRowIconButton'
 import CredPagination from './cred/CredPagination'
-import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef } from './cred/usePagination'
+import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef, formatCompactKpi, getAmountFontSize } from './cred/usePagination'
 import { showConfirm, showError, showSuccess, showWarning } from '../../utils/swal';
 import ExportTablePdfBtn from './common/ExportTablePdfBtn'
 import VoucherPrintBtn from './common/VoucherPrintBtn'
@@ -164,6 +164,40 @@ export default function CashbookJobOrders({
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingJob, setEditingJob] = useState(null)
+  const [previewAttachment, setPreviewAttachment] = useState(null)
+
+  const handleOpenAttachmentPreview = (dataUrl, fileName, mimeType) => {
+    if (!dataUrl) return
+    try {
+      const arr = dataUrl.split(',')
+      if (arr.length > 1) {
+        const bstr = atob(arr[1])
+        let n = bstr.length
+        const u8arr = new Uint8Array(n)
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n)
+        }
+        const type = mimeType || (fileName?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
+        const blob = new Blob([u8arr], { type })
+        const blobUrl = URL.createObjectURL(blob)
+        setPreviewAttachment({
+          blobUrl,
+          dataUrl,
+          name: fileName || 'Attachment',
+          type
+        })
+        return
+      }
+    } catch (err) {
+      console.error('Preview error:', err)
+    }
+    setPreviewAttachment({
+      blobUrl: dataUrl,
+      dataUrl,
+      name: fileName || 'Attachment',
+      type: mimeType || 'image/jpeg'
+    })
+  }
   const [modalSubmitting, setModalSubmitting] = useState(false)
   const [modalError, setModalError] = useState('')
   const [formData, setFormData] = useState({
@@ -802,8 +836,8 @@ export default function CashbookJobOrders({
 
   return (
     <div style={{
-      padding: effectiveIsMobile ? '0.75rem 0.75rem 5rem' : '1.25rem 2rem 3rem',
-      maxWidth: '1440px',
+      padding: effectiveIsMobile ? '0.75rem 0.75rem 5rem' : '1.25rem 0.75rem 3rem',
+      maxWidth: '100%',
       width: '100%',
       margin: '0 auto',
       boxSizing: 'border-box',
@@ -1408,35 +1442,47 @@ export default function CashbookJobOrders({
                   padding: '4px 0 10px 56px'
                 }}>
 
-                  {job.attachment && (
-                    <button
-                      type="button"
-                      title={job.attachment_name || 'View Attachment'}
-                      onClick={() => {
-                        const w = window.open('')
-                        if (job.attachment_type?.includes('pdf') || job.attachment_name?.toLowerCase().endsWith('.pdf')) {
-                          w.document.write(`<iframe src="${job.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
-                        } else {
-                          w.document.write(`<img src="${job.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
-                        }
-                      }}
-                      style={{
-                        background: isDarkMode ? '#1e2025' : '#eef2ff',
-                        border: `1px solid ${isDarkMode ? '#4f46e5' : '#c7d2fe'}`,
-                        borderRadius: '8px',
-                        padding: '0.35rem 0.65rem',
-                        color: '#6366f1',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Paperclip size={12} /> File
-                    </button>
-                  )}
+                  {(() => {
+                    const att = job.attachment || job.custom_fields?.attachment
+                    const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
+                    const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
+                    if (!att) return null
+                    const isImg = att.startsWith('data:image/') || attType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(attName)
+                    return (
+                      <button
+                        type="button"
+                        title={attName || 'View Attachment'}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenAttachmentPreview(att, attName, attType)
+                        }}
+                        style={{
+                          background: isDarkMode ? '#1e2025' : '#eef2ff',
+                          border: `1px solid ${isDarkMode ? '#4f46e5' : '#c7d2fe'}`,
+                          borderRadius: '8px',
+                          padding: '0.35rem 0.65rem',
+                          color: '#6366f1',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        {isImg ? (
+                          <img
+                            src={att}
+                            alt=""
+                            style={{ width: '16px', height: '16px', objectFit: 'cover', borderRadius: '3px' }}
+                          />
+                        ) : (
+                          <Paperclip size={12} />
+                        )}
+                        <span>{isImg ? 'Image' : 'File'}</span>
+                      </button>
+                    )
+                  })()}
                   <VoucherPrintBtn
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1507,20 +1553,20 @@ export default function CashbookJobOrders({
           width: '100%',
           boxSizing: 'border-box'
         }}>
-          <div style={{ width: '100%', overflowX: effectiveIsMobile ? 'auto' : 'hidden' }}>
+          <div style={{ width: '100%', overflowX: effectiveIsMobile ? 'auto' : 'visible' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'auto' }}>
               <thead>
                 <tr style={{
                   borderBottom: `1px solid ${borderColor}`,
                   background: isDarkMode ? '#141517' : '#f8fafc'
                 }}>
-                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '23%' }}>
+                  <th style={{ padding: '10px 10px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '20%' }}>
                     JOB ORDER / TITLE
                   </th>
-                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '15%' }}>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '13%' }}>
                     CUSTOMER
                   </th>
-                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '10%' }}>
+                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '9%' }}>
                     STATUS
                   </th>
                   <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '11%' }}>
@@ -1535,7 +1581,7 @@ export default function CashbookJobOrders({
                   <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '9%' }}>
                     CREATED DATE
                   </th>
-                  <th style={{ padding: '10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap', width: '9%' }}>
+                  <th style={{ padding: '10px 14px 10px 8px', fontSize: '11px', fontWeight: '500', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap', width: '15%', minWidth: '160px' }}>
                     ACTIONS
                   </th>
                 </tr>
@@ -1573,7 +1619,7 @@ export default function CashbookJobOrders({
                             {job.title}
                           </span>
                           <span className="cred-cell-2l__secondary">
-                            {orderIdCode}{job.project_name ? ` · ${job.project_name}` : ''}
+                            {orderIdCode}{job.project_name ? ` • ${job.project_name}` : ''}
                           </span>
                         </div>
                       </td>
@@ -1641,30 +1687,29 @@ export default function CashbookJobOrders({
                       </td>
 
                       {/* Actions ("receive payment" row text action, CredRowIconButton for edit & delete) */}
-                      <td style={{ padding: '8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '8px 14px 8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle', width: '15%', minWidth: '160px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', whiteSpace: 'nowrap' }}>
 
                           <VoucherPrintBtn
                             onClick={() => printPaymentVoucher(mapJobToVoucher(job))}
                             title={`Print Job Voucher for ${job.title}`}
                             isDarkMode={isDarkMode}
                           />
-                          {job.attachment && (
-                            <CredRowIconButton
-                              title={job.attachment_name || 'View Attachment'}
-                              ariaLabel="View Attachment"
-                              onClick={() => {
-                                const w = window.open('')
-                                if (job.attachment_type?.includes('pdf') || job.attachment_name?.toLowerCase().endsWith('.pdf')) {
-                                  w.document.write(`<iframe src="${job.attachment}" style="width:100%;height:100%;border:none;"></iframe>`)
-                                } else {
-                                  w.document.write(`<img src="${job.attachment}" style="max-width:100%;height:auto;display:block;margin:auto;" />`)
-                                }
-                              }}
-                            >
-                              <Paperclip size={13} />
-                            </CredRowIconButton>
-                          )}
+                          {(() => {
+                            const att = job.attachment || job.custom_fields?.attachment
+                            const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
+                            const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
+                            if (!att) return null
+                            return (
+                              <CredRowIconButton
+                                title={attName || 'View Attachment'}
+                                ariaLabel="View Attachment"
+                                onClick={() => handleOpenAttachmentPreview(att, attName, attType)}
+                              >
+                                <Paperclip size={13} />
+                              </CredRowIconButton>
+                            )
+                          })()}
                           <CredRowIconButton
                             title="Edit Job Order"
                             ariaLabel="Edit Job Order"
@@ -1703,6 +1748,66 @@ export default function CashbookJobOrders({
       />
 
       {/* ========================================================= */}
+      {/* Attachment Preview Modal */}
+      {previewAttachment && (
+        <Modal
+          isOpen={true}
+          onClose={() => setPreviewAttachment(null)}
+          title={previewAttachment.name || 'Attachment Preview'}
+          maxWidth="720px"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+            <div style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              background: isDarkMode ? '#1e2025' : '#f8fafc',
+              borderRadius: '12px',
+              padding: '0.75rem',
+              border: isDarkMode ? '1px solid #2d3139' : '1px solid #e2e8f0',
+              overflow: 'hidden'
+            }}>
+              {previewAttachment.type?.includes('pdf') || previewAttachment.name?.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewAttachment.blobUrl || previewAttachment.dataUrl}
+                  style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '8px' }}
+                  title={previewAttachment.name}
+                />
+              ) : (
+                <img
+                  src={previewAttachment.blobUrl || previewAttachment.dataUrl}
+                  alt={previewAttachment.name}
+                  style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', borderRadius: '8px' }}
+                />
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', gap: '8px' }}>
+              <a
+                href={previewAttachment.blobUrl || previewAttachment.dataUrl}
+                download={previewAttachment.name || 'attachment'}
+                className="cred-action-btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '999px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  background: isDarkMode ? '#282a2e' : '#f1f5f9',
+                  color: isDarkMode ? '#f1f5f9' : '#0f172a',
+                  border: isDarkMode ? '1px solid #374151' : '1px solid #cbd5e1'
+                }}
+              >
+                Download
+              </a>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* ADD / EDIT JOB ORDER MODAL — uses shared JobOrderModal component */}
       {/* ========================================================= */}
       <JobOrderModal

@@ -781,9 +781,9 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
         payment_collected_by: job.payment_collected_by || '',
         assigned_to: job.assigned_to || '',
         custom_fields: job.custom_fields || {},
-        attachment: job.attachment || '',
-        attachment_name: job.attachment_name || '',
-        attachment_type: job.attachment_type || ''
+        attachment: job.attachment || job.custom_fields?.attachment || '',
+        attachment_name: job.attachment_name || job.custom_fields?.attachment_name || '',
+        attachment_type: job.attachment_type || job.custom_fields?.attachment_type || ''
       })
       setCustomerPriorBalance(parseFloat(job.prior_balance || 0))
       api.get('expenses/', { params: { job_order: job.id } }).then(res => {
@@ -1733,29 +1733,51 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                           >
                             {item.description || '—'}
                           </div>
-                          {item.attachment && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenAttachmentPreview(item.attachment, item.attachment_name, item.attachment_type)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  padding: 0,
-                                  fontSize: '11px',
-                                  color: 'var(--text-muted, #8C8C8C)',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  textDecoration: 'underline'
-                                }}
-                                title={item.attachment_name || 'View file'}
-                              >
-                                <Paperclip size={11} /> {item.attachment_name || 'View Attachment'}
-                              </button>
-                            </div>
-                          )}
+                          {(() => {
+                            const att = item.attachment || item.custom_fields?.attachment
+                            const attName = item.attachment_name || item.custom_fields?.attachment_name || ''
+                            const attType = item.attachment_type || item.custom_fields?.attachment_type || ''
+                            if (!att) return null
+                            const isImg = att.startsWith('data:image/') || attType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(attName)
+                            return (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                {isImg && (
+                                  <img
+                                    src={att}
+                                    alt=""
+                                    onClick={() => handleOpenAttachmentPreview(att, attName, attType)}
+                                    style={{
+                                      width: '24px',
+                                      height: '24px',
+                                      objectFit: 'cover',
+                                      borderRadius: '4px',
+                                      border: '1px solid var(--border, #E4E4E4)',
+                                      cursor: 'pointer'
+                                    }}
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAttachmentPreview(att, attName, attType)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: 0,
+                                    fontSize: '11px',
+                                    color: 'var(--text-muted, #8C8C8C)',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    textDecoration: 'underline'
+                                  }}
+                                  title={attName || 'View file'}
+                                >
+                                  <Paperclip size={11} /> {attName || 'View Attachment'}
+                                </button>
+                              </div>
+                            )
+                          })()}
                         </td>
 
                         {/* Deposit Received (Right aligned, Cashbook amount) */}
@@ -2189,7 +2211,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                 </span>
                               </td>
 
-                              {/* Engagement Title (Title only - no folder icon, no second line) */}
+                              {/* Engagement Title (Client-facing Title) */}
                               <td style={{ padding: '10px 12px', verticalAlign: 'middle', overflow: 'hidden' }}>
                                 <div style={{ fontWeight: 400, fontSize: '13px', color: 'var(--text, #111111)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {job.title}
@@ -2458,8 +2480,57 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                       {orderId}
                                     </span>
                                   </div>
-                                  <div className="mobile-card-title" style={{ fontSize: '0.95rem', fontWeight: 500 }}>
-                                    {job.title}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {(() => {
+                                      const att = job.attachment || job.custom_fields?.attachment
+                                      const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
+                                      const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
+                                      if (!att) return null
+                                      const isImg = att.startsWith('data:image/') || attType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(attName)
+                                      if (isImg) {
+                                        return (
+                                          <img
+                                            src={att}
+                                            alt=""
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleOpenAttachmentPreview(att, attName, attType)
+                                            }}
+                                            style={{
+                                              width: '28px',
+                                              height: '28px',
+                                              objectFit: 'cover',
+                                              borderRadius: '6px',
+                                              border: '1px solid var(--border, #E4E4E4)',
+                                              flexShrink: 0
+                                            }}
+                                          />
+                                        )
+                                      }
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleOpenAttachmentPreview(att, attName, attType)
+                                          }}
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            padding: 0,
+                                            color: 'var(--text-muted, #8C8C8C)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            flexShrink: 0
+                                          }}
+                                        >
+                                          <Paperclip size={13} />
+                                        </button>
+                                      )
+                                    })()}
+                                    <div className="mobile-card-title" style={{ fontSize: '0.95rem', fontWeight: 500 }}>
+                                      {job.title}
+                                    </div>
                                   </div>
                                   <div className="mobile-card-sub">
                                     <span style={{ fontWeight: 500, color: 'var(--text, #111111)' }}>{job.customer_name}</span>
