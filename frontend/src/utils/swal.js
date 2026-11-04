@@ -18,23 +18,7 @@ const MySwal = Swal.mixin({
 
 /**
  * Show a sleek confirmation dialog (replacing window.confirm)
- * @param {Object} options
- * @param {string} options.title - Header text
- * @param {string} options.text - Detailed message
- * @param {string} [options.confirmButtonText='Yes, Proceed'] - Confirm button label
- * @param {string} [options.cancelButtonText='Cancel'] - Cancel button label
- * @param {boolean} [options.isDangerous=true] - If true, confirm button is red
- * @param {string} [options.icon='warning'] - 'warning' | 'question' | 'info'
- * @returns {Promise<boolean>} Resolves to true if user clicks confirm, false otherwise
- */
-/**
- * Show a sleek confirmation dialog (replacing window.confirm)
  * Supports permanent delete option via a checkbox.
- * @param {Object|string} optionsOrTitle
- * @param {string} [maybeText='']
- * @param {string} [maybeBtnText='']
- * @param {boolean} [maybeDangerous=true]
- * @returns {Promise<boolean|'permanent'|'recycle'>} Resolves to 'permanent', 'recycle' (or true), or false
  */
 export const showConfirm = async (optionsOrTitle = {}, maybeText = '', maybeBtnText = '', maybeDangerous = true) => {
   let title = 'Confirmation'
@@ -145,9 +129,6 @@ export const showDeleteConfirm = async (optionsOrTitle = {}, maybeText = '') => 
 
 /**
  * Show an alert modal (replacing window.alert)
- * @param {string} title
- * @param {string} [text='']
- * @param {'success'|'error'|'warning'|'info'|'question'} [icon='info']
  */
 export const showAlert = async (title, text = '', icon = 'info', confirmButtonText = 'OK') => {
   return await MySwal.fire({
@@ -176,27 +157,19 @@ export const showSuccess = async (title = 'Success!', text = '', confirmButtonTe
 /**
  * Show an error modal
  */
-export const showError = async (title = 'Error Occurred', text = '') => {
+export const showError = async (title = 'Error Occurred', text = '', confirmButtonText = 'OK') => {
   return await showAlert(title, text, 'error', confirmButtonText)
 }
 
 /**
  * Show a warning modal
  */
-export const showWarning = async (title = 'Attention', text = '') => {
+export const showWarning = async (title = 'Attention', text = '', confirmButtonText = 'OK') => {
   return await showAlert(title, text, 'warning', confirmButtonText)
 }
 
 /**
  * Show an input prompt modal (replacing window.prompt)
- * @param {Object} options
- * @param {string} options.title
- * @param {string} [options.text='']
- * @param {string} [options.inputPlaceholder='']
- * @param {string} [options.inputValue='']
- * @param {'text'|'number'|'email'|'password'|'textarea'} [options.inputType='text']
- * @param {string} [options.confirmButtonText='Submit']
- * @returns {Promise<string|null>} User input value, or null if cancelled
  */
 export const showPrompt = async ({
   title = 'Please Enter Value',
@@ -241,7 +214,30 @@ export const showPrompt = async ({
 }
 
 /**
- * Toast notifications - disabled per request
+ * Show loading dialog
+ */
+export const showLoading = (title = 'Loading...', text = '') => {
+  MySwal.fire({
+    title,
+    text,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading()
+    }
+  })
+}
+
+/**
+ * Close any active Swal dialog
+ */
+export const closeDialog = () => {
+  Swal.close()
+}
+
+/**
+ * Toast notifications - disabled
  */
 export const showToast = () => {
   // Toast notifications removed
@@ -253,6 +249,11 @@ if (typeof window !== 'undefined') {
   window.erpConfirm = showConfirm
   window.erpPrompt = showPrompt
   window.erpToast = showToast
+  window.showSuccess = showSuccess
+  window.showError = showError
+  window.showWarning = showWarning
+  window.showLoading = showLoading
+  window.closeDialog = closeDialog
 }
 
 export default MySwal

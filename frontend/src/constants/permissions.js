@@ -151,9 +151,11 @@ export const canAccessPermission = (user, permissionKey) => {
 export const hasModuleAccess = (user, moduleId) => {
   if (!user) return false
   if (isUserAdmin(user)) return true
-  if (moduleId && moduleId.toLowerCase() === 'cashbook') return false
+  const mod = moduleId ? moduleId.toLowerCase() : ''
+  const list = (user.access_list || []).map(m => String(m).toLowerCase())
+  if (list.includes(mod)) return true
 
-  const group = MODULE_PERMISSION_GROUPS.find(g => g.moduleId.toLowerCase() === moduleId.toLowerCase())
+  const group = MODULE_PERMISSION_GROUPS.find(g => g.moduleId.toLowerCase() === mod)
   if (!group) return false
 
   return group.permissions.some(p => canAccessPermission(user, p.key))

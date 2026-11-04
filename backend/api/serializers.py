@@ -1514,6 +1514,7 @@ class RecycleBinItemSerializer(serializers.ModelSerializer):
     entity_type_display = serializers.CharField(source='get_entity_type_display', read_only=True)
     deleted_by_name = serializers.SerializerMethodField()
     restored_by_name = serializers.SerializerMethodField()
+    modules = serializers.SerializerMethodField()
 
     class Meta:
         model = RecycleBinItem
@@ -1521,6 +1522,7 @@ class RecycleBinItemSerializer(serializers.ModelSerializer):
             'id',
             'entity_type',
             'entity_type_display',
+            'modules',
             'model_name',
             'original_id',
             'item_name',
@@ -1535,7 +1537,11 @@ class RecycleBinItemSerializer(serializers.ModelSerializer):
             'restored_by',
             'restored_by_name',
         ]
-        read_only_fields = ['id', 'deleted_at', 'restored_at', 'deleted_by_name', 'restored_by_name']
+        read_only_fields = ['id', 'deleted_at', 'restored_at', 'deleted_by_name', 'restored_by_name', 'modules']
+
+    def get_modules(self, obj):
+        from .recycle_bin import get_modules_for_entity_type
+        return get_modules_for_entity_type(obj.entity_type)
 
     def get_deleted_by_name(self, obj):
         if obj.deleted_by:

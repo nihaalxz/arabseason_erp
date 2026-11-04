@@ -26,6 +26,62 @@ def should_bypass_recycle_bin():
     return getattr(_thread_locals, 'bypass_recycle_bin', False)
 
 
+# Single source of truth for mapping entity types to modules (list of module keys)
+ENTITY_MODULE_MAP = {
+    # Cashbook entities
+    'cashbook': ['cashbook'],
+    'cashbook_entry': ['cashbook'],
+    'bank_account': ['cashbook'],
+    'petty_cash': ['cashbook'],
+    'labour': ['cashbook'],
+    'expense': ['cashbook'],
+
+    # Accounting entities
+    'invoice': ['accounting'],
+    'quotation': ['accounting'],
+    'estimation': ['accounting'],
+    'credit_note': ['accounting'],
+    'customer_payment': ['accounting'],
+    'vendor_payment': ['accounting'],
+    'payment_request': ['accounting'],
+    'salary_payment': ['accounting'],
+
+    # ERP Operations entities
+    'project_plan': ['erp'],
+    'delivery_note': ['erp'],
+    'enquiry': ['erp'],
+    'material': ['erp'],
+    'staff_timesheet': ['erp'],
+
+    # Dual-module entities (explicitly mapped)
+    'customer': ['accounting', 'cashbook'],
+    'vendor': ['accounting', 'cashbook'],
+    'job_order': ['erp', 'cashbook'],
+
+    # Unmapped / Other
+    'other': ['other'],
+}
+
+VALID_MODULES = {'erp', 'accounting', 'cashbook', 'other'}
+
+def get_entity_types_for_module(module):
+    """
+    Returns a list of entity_types that map to the given module.
+    For module='other', returns unmapped entity types or 'other'.
+    """
+    if module == 'other':
+        return [etype for etype, mods in ENTITY_MODULE_MAP.items() if 'other' in mods] or ['other']
+    return [etype for etype, mods in ENTITY_MODULE_MAP.items() if module in mods]
+
+def get_modules_for_entity_type(entity_type):
+    """
+    Returns list of modules for a given entity_type.
+    Defaults to ['other'] if not found in ENTITY_MODULE_MAP.
+    """
+    return ENTITY_MODULE_MAP.get(entity_type, ['other'])
+
+
+
 def _json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
     if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):

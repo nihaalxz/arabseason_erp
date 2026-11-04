@@ -25,7 +25,7 @@ import CredStatus from './cred/CredStatus'
 import CredRowIconButton from './cred/CredRowIconButton'
 import CredPagination from './cred/CredPagination'
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef, formatCompactKpi, getAmountFontSize } from './cred/usePagination'
-import { showConfirm, showError, showToast, showSuccess } from '../../utils/swal'
+import { showConfirm, showError, showSuccess, showWarning } from '../../utils/swal';
 import ExportTablePdfBtn from './common/ExportTablePdfBtn'
 import VoucherPrintBtn from './common/VoucherPrintBtn'
 import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../utils/cashbookPdfGenerator'
@@ -645,10 +645,10 @@ export default function CashbookLabour({
 
       if (editingEntry) {
         await api.put(`labours/${editingEntry.id}/`, payload)
-        showToast('Labour entry updated', 'success')
+        showSuccess('Labour entry updated')
       } else {
         await api.post('labours/', payload)
-        showToast('Labour entry recorded', 'success')
+        showSuccess('Labour entry recorded')
       }
 
       setIsModalOpen(false)
@@ -677,7 +677,7 @@ export default function CashbookLabour({
       if (labourer.entries && labourer.entries.length > 0) {
         await Promise.all(labourer.entries.map(e => api.delete(`labours/${e.id}/`)))
       }
-      showToast(`Labourer "${labourer.name}" deleted`, 'info')
+      showSuccess(`Labourer "${labourer.name}" deleted`)
       fetchLabourEntries()
       if (statementLabourer?.name === labourer.name) {
         setStatementLabourer(null)
@@ -698,7 +698,7 @@ export default function CashbookLabour({
 
     try {
       await api.delete(`labours/${id}/`)
-      showToast('Labour entry deleted', 'info')
+      showSuccess('Labour entry deleted')
       fetchLabourEntries()
       if (statementLabourer) {
         // Refresh statement modal data live
@@ -739,7 +739,7 @@ export default function CashbookLabour({
     try {
       setPaySubmitting(true)
       await api.post(`labours/${payingEntry.id}/record-payment/`, { amount: amt })
-      showToast(`Payment of SAR ${safeFormatAmount(amt)} recorded`, 'success')
+      showSuccess(`Payment of SAR ${safeFormatAmount(amt)} recorded`, 'success')
       setIsPayModalOpen(false)
       fetchLabourEntries()
     } catch (err) {

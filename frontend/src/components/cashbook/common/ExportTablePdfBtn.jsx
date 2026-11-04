@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer } from 'lucide-react';
 import { exportTableToPdf } from '../../../utils/cashbookPdfGenerator';
+import { showWarning } from '../../../utils/swal';
 
 export default function ExportTablePdfBtn({
   title,
@@ -22,7 +23,7 @@ export default function ExportTablePdfBtn({
     e?.preventDefault?.();
     if (onClick) { onClick(e); return; }
     if (!columns || !columns.length || !rows) {
-      alert('No data available to export.');
+      showWarning('No Data', 'No data available to export.');
       return;
     }
     try {

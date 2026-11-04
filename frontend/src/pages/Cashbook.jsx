@@ -46,7 +46,7 @@ import CustomerCombobox from '../components/common/CustomerCombobox'
 import VendorCombobox from '../components/common/VendorCombobox'
 import BankNameCombobox from '../components/common/BankNameCombobox'
 import { handlePdfResponse } from '../utils/pdfDownload'
-import { showConfirm, showError, showToast, showWarning } from '../utils/swal'
+import { showConfirm, showError, showWarning, showSuccess } from '../utils/swal'
 import RecycleBin from './RecycleBin'
 import { canAccessPermission, hasModuleAccess, isUserAdmin } from '../constants/permissions'
 import CashbookJobOrders from '../components/cashbook/CashbookJobOrders'
@@ -513,10 +513,6 @@ const Cashbook = ({ currentUser = null }) => {
   const isAdmin = isUserAdmin(user)
   const hasAccess = isAdmin || hasModuleAccess(user, 'cashbook')
 
-  if (!hasAccess) {
-    return <Navigate to="/" replace />
-  }
-
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [books, setBooks] = useState([])
@@ -531,6 +527,27 @@ const Cashbook = ({ currentUser = null }) => {
   const [loading, setLoading] = useState(true)
   const [entriesLoading, setEntriesLoading] = useState(false)
   const [error, setError] = useState('')
+  const [cashbookRecycleCount, setCashbookRecycleCount] = useState(0)
+
+  useEffect(() => {
+    let isMounted = true
+    const fetchRecycleCount = async () => {
+      try {
+        const res = await api.get('recycle-bin/stats/?module=cashbook')
+        if (isMounted && res.data) {
+          setCashbookRecycleCount(res.data.cashbook?.total_active ?? res.data.total_active ?? 0)
+        }
+      } catch (err) {
+      }
+    }
+    fetchRecycleCount()
+    const handleUpdate = () => fetchRecycleCount()
+    window.addEventListener('recycle-bin-updated', handleUpdate)
+    return () => {
+      isMounted = false
+      window.removeEventListener('recycle-bin-updated', handleUpdate)
+    }
+  }, [])
 
   // Scopes all modals, portals, SweetAlert2 popups to Cashbook design language
   useEffect(() => {
@@ -551,6 +568,7 @@ const Cashbook = ({ currentUser = null }) => {
 
   const getPermittedTab = useCallback((reqTab) => {
     if (isAdmin) return reqTab || 'ledger'
+    if (reqTab === 'recycle_bin') return 'recycle_bin'
     const tabMap = {
       expenses: 'expenses',
       labour: 'labour',
@@ -692,7 +710,7 @@ const Cashbook = ({ currentUser = null }) => {
       setStatementData(res.data)
     } catch (err) {
       console.error('Fetch statement error:', err)
-      showToast('Failed to load statement details', 'error')
+      showError('Failed to load statement details')
     } finally {
       setStatementLoading(false)
     }
@@ -757,7 +775,7 @@ const Cashbook = ({ currentUser = null }) => {
 
   const handleExportStatementCSV = () => {
     if (!statementData || !statementData.transactions || statementData.transactions.length === 0) {
-      showToast('No statement transactions to export', 'info')
+      showSuccess('No statement transactions to export')
       return
     }
     const acc = statementData.bank || statementData.account || selectedAccountForStatement?.account || {}
@@ -783,7 +801,7 @@ const Cashbook = ({ currentUser = null }) => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    showToast('Statement exported successfully', 'success')
+    showSuccess('Statement exported successfully')
   }
 
   const fetchCustomColumns = useCallback(async () => {
@@ -886,7 +904,7 @@ const Cashbook = ({ currentUser = null }) => {
     setExpenseFormData(prev => ({ ...prev, category: trimmed }))
     setNewExpenseCategoryInput('')
     setIsAddingExpenseCategory(false)
-    showToast(`Category "${trimmed}" added!`, 'success')
+    showSuccess(`Category "${trimmed}" added!`)
   }
 
   const isTransferExpense = useCallback((item) => {
@@ -1099,11 +1117,11 @@ const Cashbook = ({ currentUser = null }) => {
       if (editingCustomer) {
         const res = await api.put(`customers/${editingCustomer.id}/`, payload)
         setCustomers(prev => prev.map(c => c.id === editingCustomer.id ? { ...c, ...res.data } : c))
-        showToast(`Customer "${customerFormData.name}" updated successfully!`, 'success')
+        showSuccess(`Customer "${customerFormData.name}" updated successfully!`)
       } else {
         const res = await api.post('customers/', payload)
         setCustomers(prev => [res.data, ...prev.filter(c => c.id !== res.data.id)])
-        showToast(`Customer "${customerFormData.name}" created successfully!`, 'success')
+        showSuccess(`Customer "${customerFormData.name}" created successfully!`)
       }
       fetchCustomersSummary()
       setIsCustomerModalOpen(false)
@@ -1130,7 +1148,7 @@ const Cashbook = ({ currentUser = null }) => {
       await api.delete(`customers/${id}/`)
       setCustomers(prev => prev.filter(c => c.id !== id))
       fetchCustomersSummary()
-      showToast(`Customer "${name}" deleted.`, 'success')
+      showSuccess(`Customer "${name}" deleted.`)
     } catch (err) {
       console.error('Failed to delete customer:', err)
       showError('Failed to delete customer.')
@@ -1212,12 +1230,12 @@ const Cashbook = ({ currentUser = null }) => {
         const res = await api.put(`vendors/${editingVendor.id}/`, payload)
         setVendors(prev => prev.map(v => v.id === editingVendor.id ? { ...v, ...res.data } : v))
         fetchVendorsList()
-        showToast(`Vendor "${payload.company || payload.name}" updated successfully!`, 'success')
+        showSuccess(`Vendor "${payload.company || payload.name}" updated successfully!`)
       } else {
         const res = await api.post('vendors/', payload)
         setVendors(prev => [res.data, ...prev.filter(v => v.id !== res.data.id)])
         fetchVendorsList()
-        showToast(`Vendor "${payload.company || payload.name}" created successfully!`, 'success')
+        showSuccess(`Vendor "${payload.company || payload.name}" created successfully!`)
       }
       setIsVendorModalOpen(false)
       setVendorFormData({ name: '', company: '', email: '', phone: '', address: '', opening_balance: '' })
@@ -1242,7 +1260,7 @@ const Cashbook = ({ currentUser = null }) => {
     try {
       await api.delete(`vendors/${id}/`)
       setVendors(prev => prev.filter(v => v.id !== id))
-      showToast(`Vendor "${name}" deleted.`, 'success')
+      showSuccess(`Vendor "${name}" deleted.`)
     } catch (err) {
       console.error('Failed to delete vendor:', err)
       showError('Failed to delete vendor.')
@@ -1382,7 +1400,7 @@ const Cashbook = ({ currentUser = null }) => {
         }
       }
 
-      showToast('Expense recorded successfully!', 'success')
+      showSuccess('Expense recorded successfully!')
       setIsExpenseModalOpen(false)
 
       if (res.data) {
@@ -1427,7 +1445,7 @@ const Cashbook = ({ currentUser = null }) => {
     try {
       await api.delete(`expenses/${id}/${isPermanent ? '?permanent=true' : ''}`)
       setExpensesList(prev => prev.filter(item => item.id !== id))
-      showToast(isPermanent ? 'Expense permanently deleted.' : 'Expense moved to Recycle Bin.', 'success')
+      showSuccess(isPermanent ? 'Expense permanently deleted.' : 'Expense moved to Recycle Bin.')
     } catch (err) {
       console.error('Failed to delete expense:', err)
       showError('Failed to delete expense record.')
@@ -2013,7 +2031,7 @@ const Cashbook = ({ currentUser = null }) => {
       }
 
       await api.post('labours/', payload)
-      showToast(`Labourer "${trimmedName}" created successfully!`, 'success')
+      showSuccess(`Labourer "${trimmedName}" created successfully!`)
       await fetchLabourList()
 
       setEntryFormData(prev => ({
@@ -2621,7 +2639,7 @@ const Cashbook = ({ currentUser = null }) => {
         fetchBooks(targetBook.id)
         fetchLedger(targetBook.id)
       }
-      showToast(`${selectedMonths.length} entr${selectedMonths.length > 1 ? 'ies' : 'y'} added to "${targetBook.name}" successfully`)
+      showSuccess(`${selectedMonths.length} entr${selectedMonths.length > 1 ? 'ies' : 'y'} added to "${targetBook.name}" successfully`)
     } catch (err) {
       const detail = err.response?.data
         ? Object.entries(err.response.data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('; ')
@@ -2975,7 +2993,7 @@ const Cashbook = ({ currentUser = null }) => {
       setIsAddingPettyCashAccount(false)
       setNewPettyCashAccountName('')
       setNewPettyCashAccountHolder('')
-      showToast({ icon: 'success', title: `Created "${createdAccount.name}"` })
+      showSuccess('Created', `Created "${createdAccount.name}"`)
     } catch (err) {
       console.error(err)
       const detail = err.response?.data?.name?.[0] || err.response?.data?.detail || err.message || 'Failed to create petty cash account'
@@ -3551,7 +3569,7 @@ const Cashbook = ({ currentUser = null }) => {
       }
       fetchBanks()
       fetchBankFlow()
-      showToast(isPermanent ? 'Transaction permanently deleted' : 'Transaction moved to Recycle Bin')
+      showSuccess(isPermanent ? 'Transaction permanently deleted' : 'Transaction moved to Recycle Bin')
     } catch (err) {
       showError('Action Failed', 'Failed to delete transaction')
     }
@@ -3642,7 +3660,7 @@ const Cashbook = ({ currentUser = null }) => {
       setEditingBook(null)
       fetchBooks()
       fetchMonthEntries(monthYearView)
-      showToast(isPermanent ? 'Cashbook permanently deleted' : 'Cashbook moved to Recycle Bin')
+      showSuccess(isPermanent ? 'Cashbook permanently deleted' : 'Cashbook moved to Recycle Bin')
     } catch (err) {
       showError('Action Failed', 'Failed to delete cashbook')
     }
@@ -3749,7 +3767,23 @@ const Cashbook = ({ currentUser = null }) => {
       handlePdfResponse(res, `cashbook_${bookSlug}_${new Date().toISOString().slice(0, 10)}.pdf`)
     } catch (err) {
       console.error('Failed to export cashbook PDF:', err)
-      showError('Export Failed', 'Failed to generate cashbook PDF ledger from server.')
+      const statusPrefix = err.response?.status ? `[HTTP ${err.response.status}] ` : ''
+      let serverMessage = err.message || 'Unknown network error'
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          try {
+            const json = JSON.parse(text)
+            serverMessage = json.detail || json.error || text
+          } catch (_) {
+            serverMessage = text.slice(0, 300)
+          }
+        } catch (_) {}
+      } else if (err.response?.data) {
+        const d = err.response.data
+        serverMessage = typeof d === 'object' ? (d.detail || d.error || JSON.stringify(d)) : String(d)
+      }
+      showError('Export Failed', `Failed to generate cashbook PDF ledger from server: ${statusPrefix}${serverMessage}`)
     } finally {
       setCashbookPdfLoading(false)
     }
@@ -3803,7 +3837,23 @@ const Cashbook = ({ currentUser = null }) => {
       handlePdfResponse(res, `cashbook_bank_flow_${new Date().toISOString().slice(0, 10)}.pdf`)
     } catch (err) {
       console.error('Failed to export bank flow PDF:', err)
-      showError('Export Failed', 'Failed to generate bank flow PDF from server.')
+      const statusPrefix = err.response?.status ? `[HTTP ${err.response.status}] ` : ''
+      let serverMessage = err.message || 'Unknown network error'
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          try {
+            const json = JSON.parse(text)
+            serverMessage = json.detail || json.error || text
+          } catch (_) {
+            serverMessage = text.slice(0, 300)
+          }
+        } catch (_) {}
+      } else if (err.response?.data) {
+        const d = err.response.data
+        serverMessage = typeof d === 'object' ? (d.detail || d.error || JSON.stringify(d)) : String(d)
+      }
+      showError('Export Failed', `Failed to generate bank flow PDF from server: ${statusPrefix}${serverMessage}`)
     } finally {
       setBankFlowPdfLoading(false)
     }
@@ -3868,10 +3918,10 @@ const Cashbook = ({ currentUser = null }) => {
 
       if (editingBank) {
         await api.put(`banks/${editingBank.id}/`, payload)
-        showToast('Bank account updated successfully', 'success')
+        showSuccess('Bank account updated successfully')
       } else {
         await api.post('banks/', payload)
-        showToast('New bank account added successfully', 'success')
+        showSuccess('New bank account added successfully')
       }
 
       setIsBankModalOpen(false)
@@ -3907,7 +3957,7 @@ const Cashbook = ({ currentUser = null }) => {
       }
       fetchBanks()
       fetchBankFlow()
-      showToast(`Bank account "${name}" deleted`, 'success')
+      showSuccess(`Bank account "${name}" deleted`)
     } catch (err) {
       console.error('Delete bank error:', err)
       showError('Delete Failed', 'Failed to delete bank account.')
@@ -3965,10 +4015,10 @@ const Cashbook = ({ currentUser = null }) => {
 
       if (editingPettyCashAccount) {
         await api.put(`petty-cash-accounts/${editingPettyCashAccount.id}/`, payload)
-        showToast('Petty cash account updated successfully', 'success')
+        showSuccess('Petty cash account updated successfully')
       } else {
         await api.post('petty-cash-accounts/', payload)
-        showToast('New petty cash account created successfully', 'success')
+        showSuccess('New petty cash account created successfully')
       }
 
       setIsPettyCashAccountModalOpen(false)
@@ -4002,7 +4052,7 @@ const Cashbook = ({ currentUser = null }) => {
         setSelectedAccountForStatement(null)
       }
       fetchPettyCashAccounts()
-      showToast(`Petty cash account "${name}" deleted`, 'success')
+      showSuccess(`Petty cash account "${name}" deleted`)
     } catch (err) {
       console.error('Delete petty cash account error:', err)
       showError('Delete Failed', 'Failed to delete petty cash account.')
@@ -4261,7 +4311,7 @@ const Cashbook = ({ currentUser = null }) => {
         fetchAccountStatement(selectedAccountForStatement)
       }
 
-      showToast('Funds transferred successfully', 'success')
+      showSuccess('Funds transferred successfully')
     } catch (err) {
       console.error('Transfer funds error:', err)
       const data = err.response?.data
@@ -12249,14 +12299,18 @@ const Cashbook = ({ currentUser = null }) => {
       const idx = DURATION_CHOICES.findIndex(d => d.id === duration)
       const nextChoice = DURATION_CHOICES[(idx + 1) % DURATION_CHOICES.length]
       setDuration(nextChoice.id)
-      if (showToast) showToast(`Ledger filter: ${nextChoice.label}`, 'info')
+      // notifications/filter info
     },
     onSearchClick: () => setActiveTab('more'),
-    onNotificationClick: () => { if (showToast) showToast('All notifications verified', 'info') },
+    onNotificationClick: () => {},
     onProfileClick: () => {},
     isDarkMode,
     onToggleTheme: handleToggleDarkMode,
     unreadCount: 0
+  }
+
+  if (!hasAccess) {
+    return <Navigate to="/" replace />
   }
 
   return (
@@ -12295,7 +12349,7 @@ const Cashbook = ({ currentUser = null }) => {
         onToggleTheme={handleToggleDarkMode}
         onOpenMembers={() => setIsMembersModalOpen(true)}
         onOpenRecycleBin={() => navigateToTab('recycle_bin')}
-        recycleBinCount={0}
+        recycleBinCount={cashbookRecycleCount}
         topBarProps={credTopBarProps}
         counts={{
           expenses: expensesList.length,
@@ -12304,7 +12358,7 @@ const Cashbook = ({ currentUser = null }) => {
           labour: labourList.length || 12,
           jobOrders: jobOrdersList.length,
           accounts: banks.length + pettyCashAccounts.length,
-          recycleBin: 0
+          recycleBin: cashbookRecycleCount
         }}
         booksCount={books.length}
         books={books}
@@ -12401,7 +12455,7 @@ const Cashbook = ({ currentUser = null }) => {
             isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
             onOpenMembers={() => setIsMembersModalOpen(true)}
             onOpenRecycleBin={() => navigateToTab('recycle_bin')}
-            recycleBinCount={0}
+            recycleBinCount={cashbookRecycleCount}
             selectedScope={selectedPettyCashAccountId || '__all__'}
             onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
             isLoading={allEntriesLoading}
@@ -12452,7 +12506,7 @@ const Cashbook = ({ currentUser = null }) => {
             isDarkMode={isDarkMode}
             onToggleTheme={handleToggleDarkMode}
             onOpenRecycleBin={() => navigateToTab('recycle_bin')}
-            recycleBinCount={0}
+            recycleBinCount={cashbookRecycleCount}
             pettyCashAccounts={pettyCashAccounts}
             selectedScope={selectedPettyCashAccountId || '__all__'}
             onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
@@ -12506,7 +12560,7 @@ const Cashbook = ({ currentUser = null }) => {
             onToggleTheme={handleToggleDarkMode}
             onOpenMembers={() => setIsMembersModalOpen(true)}
             onOpenRecycleBin={() => navigateToTab('recycle_bin')}
-            recycleBinCount={0}
+            recycleBinCount={cashbookRecycleCount}
             pettyCashAccounts={pettyCashAccounts}
             selectedScope={selectedPettyCashAccountId || '__all__'}
             onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
@@ -12521,7 +12575,7 @@ const Cashbook = ({ currentUser = null }) => {
               labour: labourList.length || 12,
               jobOrders: jobOrdersList.length,
               accounts: banks.length + pettyCashAccounts.length,
-              recycleBin: 0
+              recycleBin: cashbookRecycleCount
             }}
             onNavigateTab={(tabId) => navigateToTab(tabId)}
             onSearch={(term) => {
@@ -12675,7 +12729,8 @@ const Cashbook = ({ currentUser = null }) => {
           <div style={{ padding: isMobileScreen ? '0 0 80px' : '0 0 60px' }}>
             <RecycleBin 
               embedded={true} 
-              cashbookOnly={true} 
+              cashbookOnly={true}
+              module="cashbook" 
               isDarkMode={isDarkMode} 
               isMobile={isMobileScreen}
               onBack={() => setActiveTab('more')}
@@ -12706,7 +12761,7 @@ const Cashbook = ({ currentUser = null }) => {
             isRefreshing={isUniversalRefreshing || bankFlowLoading || customersLoading || statementLoading || expensesLoading || vendorsLoading || allEntriesLoading}
             onOpenMembers={() => setIsMembersModalOpen(true)}
             onOpenRecycleBin={() => navigateToTab('recycle_bin')}
-            recycleBinCount={0}
+            recycleBinCount={cashbookRecycleCount}
             selectedScope={selectedPettyCashAccountId || '__all__'}
             onScopeChange={(id) => setSelectedPettyCashAccountId(id)}
             isLoading={allEntriesLoading}
@@ -14224,7 +14279,8 @@ const Cashbook = ({ currentUser = null }) => {
           <div style={{ padding: isMobileScreen ? '0 0 80px' : '1.25rem 1.75rem', maxWidth: '1440px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
             <RecycleBin 
               embedded={true} 
-              cashbookOnly={true} 
+              cashbookOnly={true}
+              module="cashbook" 
               isDarkMode={isDarkMode} 
               isMobile={isMobileScreen}
               onBack={() => setActiveTab('more')}

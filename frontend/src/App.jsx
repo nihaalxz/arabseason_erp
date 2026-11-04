@@ -30,7 +30,7 @@ import api from './api'
 import { useEffect } from 'react'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { ModuleProvider } from './contexts/ModuleContext'
+import { ModuleProvider, useModule } from './contexts/ModuleContext'
 import { WorkspaceProvider } from './contexts/WorkspaceContext'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import RouteGuard from './components/common/RouteGuard'
@@ -40,6 +40,18 @@ import { canAccessPermission, isUserAdmin } from './constants/permissions'
 const RedirectToAccounting = () => {
   const location = useLocation()
   return <Navigate to={`/accounting${location.pathname}${location.search}`} replace />
+}
+
+// Redirect /recycle-bin to the recycle bin of user's active module
+const RedirectToActiveRecycleBin = () => {
+  const { activeModule } = useModule()
+  if (activeModule === 'accounting') {
+    return <Navigate to="/accounting/recycle-bin" replace />
+  }
+  if (activeModule === 'cashbook') {
+    return <Navigate to="/cashbook?tab=recycle_bin" replace />
+  }
+  return <Navigate to="/erp/recycle-bin" replace />
 }
 
 function App() {
@@ -259,6 +271,11 @@ function App() {
                   <Settings mode="accounting" />
                 </RouteGuard>
               } />
+              <Route path="accounting/recycle-bin" element={
+                <RouteGuard moduleId="accounting" permission="accounting" currentUser={currentUser}>
+                  <RecycleBin module="accounting" currentUser={currentUser} />
+                </RouteGuard>
+              } />
 
               {/* ERP Operations Routes */}
               <Route path="enquiries" element={
@@ -323,9 +340,9 @@ function App() {
                 </RouteGuard>
               } />
 
-              {/* Cashbook Module (Admin only) */}
+              {/* Cashbook Module */}
               <Route path="cashbook" element={
-                <RouteGuard adminOnly currentUser={currentUser}>
+                <RouteGuard moduleId="cashbook" currentUser={currentUser}>
                   <Cashbook currentUser={currentUser} />
                 </RouteGuard>
               } />
@@ -354,8 +371,13 @@ function App() {
                 </RouteGuard>
               } />
               <Route path="recycle-bin" element={
-                <RouteGuard adminOnly currentUser={currentUser}>
-                  <Navigate to="/cashbook?tab=recycle_bin" replace />
+                <RouteGuard currentUser={currentUser}>
+                  <RedirectToActiveRecycleBin />
+                </RouteGuard>
+              } />
+              <Route path="erp/recycle-bin" element={
+                <RouteGuard moduleId="erp" permission="dashboard" currentUser={currentUser}>
+                  <RecycleBin module="erp" currentUser={currentUser} />
                 </RouteGuard>
               } />
 

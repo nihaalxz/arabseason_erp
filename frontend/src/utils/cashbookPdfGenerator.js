@@ -13,6 +13,7 @@
 import api from '../api';
 import { handlePdfResponse } from './pdfDownload';
 import { numberToWords } from './numberToWords.js';
+import { showError } from './swal';
 
 export { numberToWords };
 
@@ -74,7 +75,7 @@ export async function exportTableToPdf({
       serverMessage = typeof d === 'object' ? (d.detail || d.error || JSON.stringify(d)) : String(d);
     }
     const statusPrefix = err.response?.status ? `[HTTP ${err.response.status}] ` : '';
-    alert(`Failed to generate PDF report from server: ${statusPrefix}${serverMessage}`);
+    await showError('PDF Export Failed', `Failed to generate PDF report from server: ${statusPrefix}${serverMessage}`);
     throw err;
   }
 }
@@ -95,7 +96,23 @@ export async function printPaymentVoucher(voucherData) {
     return true;
   } catch (err) {
     console.error('Failed to generate server-side payment voucher PDF:', err);
-    alert('Failed to generate voucher PDF from server. Please check your network connection.');
+    let serverMessage = err.message || 'Unknown network error';
+    if (err.response?.data instanceof Blob) {
+      try {
+        const text = await err.response.data.text();
+        try {
+          const json = JSON.parse(text);
+          serverMessage = json.detail || json.error || text;
+        } catch (_) {
+          serverMessage = text.slice(0, 300);
+        }
+      } catch (_) {}
+    } else if (err.response?.data) {
+      const d = err.response.data;
+      serverMessage = typeof d === 'object' ? (d.detail || d.error || JSON.stringify(d)) : String(d);
+    }
+    const statusPrefix = err.response?.status ? `[HTTP ${err.response.status}] ` : '';
+    await showError('Voucher Export Failed', `Failed to generate voucher PDF from server: ${statusPrefix}${serverMessage}`);
     throw err;
   }
 }

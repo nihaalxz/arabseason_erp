@@ -3,7 +3,7 @@ import { useSearchParams, useLocation } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { 
-  Shield, Globe, Save, LogOut, 
+  Shield, Save, LogOut, 
   AlertCircle, CheckCircle, User, Sliders, Check, 
   RotateCcw, CheckCircle2, Landmark, Lock,
   Eye, EyeOff
@@ -20,8 +20,8 @@ const Settings = ({ mode }) => {
   const isAccounting = mode === 'accounting' || location.pathname.startsWith('/accounting')
 
   const validTabs = isAccounting
-    ? ['manage-banks-cash', 'localization', 'workspace', 'profile', 'security']
-    : ['workspace', 'profile', 'security', 'localization']
+    ? ['manage-banks-cash', 'workspace', 'profile', 'security']
+    : ['workspace', 'profile', 'security']
 
   const defaultTab = isAccounting ? 'manage-banks-cash' : 'workspace'
 
@@ -77,7 +77,6 @@ const Settings = ({ mode }) => {
   const tabs = useMemo(() => isAccounting
     ? [
         { id: 'manage-banks-cash', name: 'Manage Banks & Petty Cash', icon: Landmark },
-        { id: 'localization', name: 'Localization & Currency', icon: Globe },
         { id: 'workspace', name: 'Financial Modules', icon: Sliders },
         { id: 'profile', name: 'My Profile', icon: User },
         { id: 'security', name: 'Security', icon: Shield },
@@ -86,7 +85,6 @@ const Settings = ({ mode }) => {
         { id: 'workspace', name: 'Operations Modules', icon: Sliders },
         { id: 'profile', name: 'My Profile', icon: User },
         { id: 'security', name: 'Security', icon: Shield },
-        { id: 'localization', name: 'Localization', icon: Globe },
       ], [isAccounting])
 
   const animatedTabList = useMemo(() => tabs.map(tab => ({
@@ -237,7 +235,7 @@ const Settings = ({ mode }) => {
           </h1>
           <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
             {isAccounting
-              ? 'Configure company bank accounts, petty cash custody, localization, and module visibility'
+              ? 'Configure company bank accounts, petty cash custody, and module visibility'
               : 'Configure system preferences, operations module visibility, and security settings'}
           </p>
         </div>
@@ -397,7 +395,7 @@ const Settings = ({ mode }) => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {activeFeatureDefs.map((cat, catIdx) => {
-              const enabledCount = cat.items.filter(it => Boolean(features[it.key])).length
+              const enabledCount = cat.items.filter(it => (features && features[it.key] !== undefined ? Boolean(features[it.key]) : true)).length
               return (
                 <div key={catIdx}>
                   <div style={{
@@ -422,10 +420,13 @@ const Settings = ({ mode }) => {
                     gap: '8px'
                   }}>
                     {cat.items.map((item) => {
-                      const isEnabled = Boolean(features[item.key])
+                      const isEnabled = features && features[item.key] !== undefined ? Boolean(features[item.key]) : true
                       return (
                         <div
                           key={item.key}
+                          id={`toggle-feature-${item.key}`}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => toggleFeature(item.key)}
                           style={{
                             background: isEnabled ? 'var(--fill-ghost, #F7F7F7)' : 'transparent',
@@ -691,124 +692,6 @@ const Settings = ({ mode }) => {
                 icon={Save}
               >
                 {saving ? 'Saving...' : 'Save Profile Changes'}
-              </PageHeaderButton>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Localization */}
-      {activeTab === 'localization' && (
-        <div style={{ maxWidth: '700px' }}>
-          <div style={{
-            background: 'var(--card-bg, #FFFFFF)',
-            border: '1px solid var(--border, #E4E4E4)',
-            borderRadius: '20px',
-            padding: '28px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 6px 0', color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>
-              Localization & Business Preferences
-            </h2>
-            <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '0 0 24px 0', lineHeight: '1.45' }}>
-              Configure company operational currency, timezone alignment, and default document date formatting.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                  Default Base Currency
-                </label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                  style={{
-                    width: '100%',
-                    height: '40px',
-                    padding: '0 14px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #0A0A0A)',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="AED" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>UAE Dirham (AED)</option>
-                  <option value="SAR" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Saudi Riyal (SAR)</option>
-                  <option value="USD" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>US Dollar ($)</option>
-                  <option value="EUR" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Euro (€)</option>
-                  <option value="GBP" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>British Pound (£)</option>
-                </select>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', marginTop: '4px', display: 'block' }}>
-                  Applied across invoices, quotations, cashbook ledgers, and accounts.
-                </span>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                  Business Time Zone
-                </label>
-                <select
-                  value={formData.timezone}
-                  onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                  style={{
-                    width: '100%',
-                    height: '40px',
-                    padding: '0 14px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #0A0A0A)',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="AST" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Riyadh (AST +3)</option>
-                  <option value="GST" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>Dubai (GST +4)</option>
-                  <option value="UTC" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>UTC / GMT</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
-                  Preferred Date Format
-                </label>
-                <select
-                  value={formData.date_format}
-                  onChange={(e) => setFormData({ ...formData, date_format: e.target.value })}
-                  style={{
-                    width: '100%',
-                    height: '40px',
-                    padding: '0 14px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border, #E4E4E4)',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #0A0A0A)',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="DD/MM/YYYY" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>DD/MM/YYYY (e.g. 01/11/2026)</option>
-                  <option value="MM/DD/YYYY" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>MM/DD/YYYY (e.g. 11/01/2026)</option>
-                  <option value="YYYY-MM-DD" style={{ background: 'var(--card-bg, #FFFFFF)', color: 'var(--text, #0A0A0A)' }}>YYYY-MM-DD (e.g. 2026-11-01)</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <PageHeaderButton
-                onClick={handleSave}
-                disabled={saving}
-                icon={Save}
-              >
-                {saving ? 'Saving...' : 'Save Preferences'}
               </PageHeaderButton>
             </div>
           </div>

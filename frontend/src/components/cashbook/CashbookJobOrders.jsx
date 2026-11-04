@@ -18,7 +18,7 @@ import CredStatus from './cred/CredStatus'
 import CredRowIconButton from './cred/CredRowIconButton'
 import CredPagination from './cred/CredPagination'
 import { usePagination, PAGE_SIZE_DESKTOP, PAGE_SIZE_MOBILE, formatJobRef } from './cred/usePagination'
-import { showConfirm, showError, showToast } from '../../utils/swal'
+import { showConfirm, showError, showSuccess, showWarning } from '../../utils/swal';
 import ExportTablePdfBtn from './common/ExportTablePdfBtn'
 import VoucherPrintBtn from './common/VoucherPrintBtn'
 import { exportTableToPdf, printPaymentVoucher, formatCurrency } from '../../utils/cashbookPdfGenerator'
@@ -210,7 +210,7 @@ export default function CashbookJobOrders({
       setFormData(prev => ({ ...prev, customer: newCust.id }))
       setIsCustomerModalOpen(false)
       setCustomerForm({ name: '', company_name: '', phone: '', email: '' })
-      showToast('Customer created successfully', 'success')
+      showSuccess('Customer created successfully')
     } catch (err) {
       console.error('Failed to create customer:', err)
       showError('Failed to create customer.')
@@ -630,11 +630,11 @@ export default function CashbookJobOrders({
       if (editingJob) {
         const res = await api.put(`job-orders/${editingJob.id}/`, payload)
         setJobOrders(prev => prev.map(j => j.id === editingJob.id ? { ...j, ...res.data } : j))
-        showToast('Job order updated successfully', 'success')
+        showSuccess('Job order updated successfully')
       } else {
         const res = await api.post('job-orders/', payload)
         setJobOrders(prev => [res.data, ...prev])
-        showToast('Job order created successfully', 'success')
+        showSuccess('Job order created successfully')
       }
       setIsModalOpen(false)
       fetchJobOrders()
@@ -706,7 +706,7 @@ export default function CashbookJobOrders({
       }
 
       await api.post('cashbook-entries/', payload)
-      showToast('Payment received and recorded successfully', 'success')
+      showSuccess('Payment received and recorded successfully')
       setIsPaymentModalOpen(false)
       setSelectedJobForPayment(null)
       fetchJobOrders()
@@ -731,7 +731,7 @@ export default function CashbookJobOrders({
       await api.delete(`job-orders/${job.id}/`)
       setJobOrders(prev => prev.filter(j => j.id !== job.id))
       fetchJobSummary()
-      showToast('Job order deleted', 'info')
+      showSuccess('Job order deleted')
     } catch (err) {
       console.error('Failed to delete job order:', err)
       showError('Failed to delete job order.')

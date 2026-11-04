@@ -769,3 +769,240 @@ class CashbookExportTablePdfSmokeTests(TestCase):
         self._assert_valid_pdf_response(res)
         doc = fitz.open(stream=res.content, filetype='pdf')
         self.assertGreater(len(doc), 1, "55 rows must span across multiple pages")
+
+
+from api.models import RecycleBinItem
+from api.recycle_bin import archive_to_recycle_bin
+
+class RecycleBinRoleAndModuleTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_user(
+            username='rb_admin',
+            password='password123',
+            role='Admin',
+            is_staff=True,
+            is_superuser=True
+        )
+        self.user_cashbook = User.objects.create_user(
+            username='rb_user_cb',
+            password='password123',
+            role='User',
+            access_list=['cashbook']
+        )
+        self.user_dual = User.objects.create_user(
+            username='rb_user_dual',
+            password='password123',
+            role='User',
+            access_list=['cashbook', 'accounting']
+        )
+        self.user_erp = User.objects.create_user(
+            username='rb_user_erp',
+            password='password123',
+            role='User',
+            access_list=['erp', 'jobs']
+        )
+        self.user_no_access = User.objects.create_user(
+            username='rb_user_none',
+            password='password123',
+            role='User',
+            access_list=[]
+        )
+
+        # Create RecycleBinItem directly for controlled test states
+        self.item_cb_by_cb_user = RecycleBinItem.objects.create(
+            entity_type='cashbook_entry',
+            model_name='CashBookEntry',
+            original_id=101,
+            item_name='Outflow Tx 101',
+            deleted_by=self.user_cashbook,
+            deleted_by_name=self.user_cashbook.username
+        )
+        self.item_cb_by_dual_user = RecycleBinItem.objects.create(
+            entity_type='expense',
+            model_name='Expense',
+            original_id=102,
+            item_name='Expense 102',
+            deleted_by=self.user_dual,
+            deleted_by_name=self.user_dual.username
+        )
+        self.item_acc_by_dual_user = RecycleBinItem.objects.create(
+            entity_type='invoice',
+            model_name='Invoice',
+            original_id=103,
+            item_name='Invoice 103',
+            deleted_by=self.user_dual,
+            deleted_by_name=self.user_dual.username
+        )
+        self.item_erp_by_erp_user = RecycleBinItem.objects.create(
+            entity_type='job_order',
+            model_name='JobOrder',
+            original_id=104,
+            item_name='JobOrder 104',
+            deleted_by=self.user_erp,
+            deleted_by_name=self.user_erp.username
+        )
+        self.item_unmapped_by_admin = RecycleBinItem.objects.create(
+            entity_type='other',
+            model_name='PlanningWorker',
+            original_id=105,
+            item_name='Worker 105',
+            deleted_by=self.admin,
+            deleted_by_name=self.admin.username
+        )
+        self.item_system_deleted = RecycleBinItem.objects.create(
+            entity_type='cashbook',
+            model_name='CashBook',
+            original_id=106,
+            item_name='CashBook 106',
+            deleted_by=None,
+            deleted_by_name='System User'
+        )
+
+    def test_admin_sees_all_modules_and_items(self):
+        client = APIClient()
+        client.force_authenticate(user=self.admin)
+
+        # Admin without module filter sees all items (including deleted_by=None)
+        res = client.get('/api/recycle-bin/')
+        self.assertEqual(res.status_code, 200)
+        self.assertGreaterEqual(res.data['count'] if 'count' in res.data else len(res.data), 6)
+
+        # Admin with module=cashbook sees cashbook items (including dual-mapped job_order)
+        res_cb = client.get('/api/recycle-bin/?module=cashbook')
+        self.assertEqual(res_cb.status_code, 200)
+        results = res_cb.data.get('results', res_cb.data)
+        entity_types = {it['entity_type'] for it in results}
+        self.assertTrue(entity_types.issubset({'cashbook_entry', 'cashbook', 'bank_account', 'petty_cash', 'labour', 'expense', 'customer', 'vendor', 'job_order'}))
+
+        # Admin with module=other sees unmapped items
+        res_other = client.get('/api/recycle-bin/?module=other')
+        self.assertEqual(res_other.status_code, 200)
+        results_other = res_other.data.get('results', res_other.data)
+        ids = [it['id'] for it in results_other]
+        self.assertIn(self.item_unmapped_by_admin.id, ids)
+
+    def test_user_sees_only_own_items_scoped_to_module(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user_cashbook)
+
+        # User cashbook can only see items they deleted in cashbook
+        res = client.get('/api/recycle-bin/?module=cashbook')
+        self.assertEqual(res.status_code, 200)
+        results = res.data.get('results', res.data)
+        ids = [it['id'] for it in results]
+        self.assertIn(self.item_cb_by_cb_user.id, ids)
+        self.assertNotIn(self.item_cb_by_dual_user.id, ids)
+        self.assertNotIn(self.item_system_deleted.id, ids)
+
+    def test_user_module_access_check_returns_403(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user_cashbook)
+
+        # User cashbook does NOT have access to accounting or erp
+        res_acc = client.get('/api/recycle-bin/?module=accounting')
+        self.assertEqual(res_acc.status_code, 403)
+
+        # User cashbook cannot access module=other
+        res_other = client.get('/api/recycle-bin/?module=other')
+        self.assertEqual(res_other.status_code, 403)
+
+        # Invalid module name returns 400
+        res_invalid = client.get('/api/recycle-bin/?module=invalid_mod')
+        self.assertEqual(res_invalid.status_code, 400)
+
+    def test_user_cannot_read_restore_or_purge_other_user_item(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user_cashbook)
+
+        other_id = self.item_cb_by_dual_user.id
+        # Retrieve returns 404
+        res_get = client.get(f'/api/recycle-bin/{other_id}/')
+        self.assertEqual(res_get.status_code, 404)
+
+        # Restore returns 404
+        res_restore = client.post(f'/api/recycle-bin/{other_id}/restore/')
+        self.assertEqual(res_restore.status_code, 404)
+
+        # Destroy returns 404
+        res_del = client.delete(f'/api/recycle-bin/{other_id}/')
+        self.assertEqual(res_del.status_code, 404)
+
+    def test_user_cannot_purge_own_item(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user_cashbook)
+
+        own_id = self.item_cb_by_cb_user.id
+        # Destroy own item returns 403
+        res = client.delete(f'/api/recycle-bin/{own_id}/')
+        self.assertEqual(res.status_code, 403)
+
+        # Admin can purge it
+        admin_client = APIClient()
+        admin_client.force_authenticate(user=self.admin)
+        res_admin = admin_client.delete(f'/api/recycle-bin/{own_id}/')
+        self.assertEqual(res_admin.status_code, 200)
+        self.assertFalse(RecycleBinItem.objects.filter(id=own_id).exists())
+
+    def test_stats_follow_scoping(self):
+        admin_client = APIClient()
+        admin_client.force_authenticate(user=self.admin)
+        admin_stats = admin_client.get('/api/recycle-bin/stats/')
+        self.assertEqual(admin_stats.status_code, 200)
+        self.assertIn('cashbook', admin_stats.data)
+        self.assertIn('accounting', admin_stats.data)
+        self.assertIn('erp', admin_stats.data)
+        self.assertIn('other', admin_stats.data)
+
+        # Non-admin user stats
+        user_client = APIClient()
+        user_client.force_authenticate(user=self.user_cashbook)
+        user_stats = user_client.get('/api/recycle-bin/stats/')
+        self.assertEqual(user_stats.status_code, 200)
+        # Cashbook active count reflects only their own items
+        self.assertEqual(user_stats.data['cashbook']['total_active'], 1)
+        # Accounting has 0 because they don't have access
+        self.assertEqual(user_stats.data['accounting']['total_active'], 0)
+        self.assertNotIn('other', user_stats.data)
+
+    def test_dual_module_customer_visible_in_cashbook_and_accounting_and_restore_removes_from_both(self):
+        # Create a Customer and archive it as user_dual
+        cust = Customer.objects.create(name='Dual Module Customer Corp', created_by=self.user_dual)
+        cust_id = cust.id
+        cust_item = archive_to_recycle_bin(cust, user=self.user_dual)
+        self.assertIsNotNone(cust_item)
+
+        client = APIClient()
+        client.force_authenticate(user=self.user_dual)
+
+        # Visible in cashbook bin
+        res_cb = client.get('/api/recycle-bin/?module=cashbook')
+        self.assertEqual(res_cb.status_code, 200)
+        cb_results = res_cb.data.get('results', res_cb.data)
+        cb_ids = [it['id'] for it in cb_results]
+        self.assertIn(cust_item.id, cb_ids)
+
+        # Visible in accounting bin
+        res_acc = client.get('/api/recycle-bin/?module=accounting')
+        self.assertEqual(res_acc.status_code, 200)
+        acc_results = res_acc.data.get('results', res_acc.data)
+        acc_ids = [it['id'] for it in acc_results]
+        self.assertIn(cust_item.id, acc_ids)
+
+        # Restore from cashbook bin
+        res_restore = client.post(f'/api/recycle-bin/{cust_item.id}/restore/')
+        self.assertEqual(res_restore.status_code, 200)
+        self.assertTrue(res_restore.data['success'])
+
+        # Now active list in cashbook does not include it
+        res_cb_after = client.get('/api/recycle-bin/?module=cashbook&status=active')
+        cb_after_ids = [it['id'] for it in res_cb_after.data.get('results', res_cb_after.data)]
+        self.assertNotIn(cust_item.id, cb_after_ids)
+
+        # Now active list in accounting does not include it
+        res_acc_after = client.get('/api/recycle-bin/?module=accounting&status=active')
+        acc_after_ids = [it['id'] for it in res_acc_after.data.get('results', res_acc_after.data)]
+        self.assertNotIn(cust_item.id, acc_after_ids)
+
+        # Customer is restored in the database
+        self.assertTrue(Customer.objects.filter(id=cust_id).exists())

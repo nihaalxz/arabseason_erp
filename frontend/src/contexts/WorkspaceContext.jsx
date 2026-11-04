@@ -14,6 +14,10 @@ export const WORKSPACE_PRESETS = [
       invoices: true,
       estimations: false,
       planning: false,
+      enquiries: false,
+      delivery_notes: false,
+      quotations: false,
+      credit_notes: false,
       expenses: true,
       banks: false,
       cashbook: false,
@@ -35,6 +39,10 @@ export const WORKSPACE_PRESETS = [
       invoices: true,
       estimations: false,
       planning: false,
+      enquiries: true,
+      delivery_notes: true,
+      quotations: true,
+      credit_notes: true,
       expenses: true,
       banks: false,
       cashbook: false,
@@ -56,6 +64,10 @@ export const WORKSPACE_PRESETS = [
       invoices: true,
       estimations: true,
       planning: true,
+      enquiries: true,
+      delivery_notes: true,
+      quotations: true,
+      credit_notes: true,
       expenses: true,
       banks: true,
       cashbook: true,
@@ -244,9 +256,10 @@ export const WorkspaceProvider = ({ children }) => {
 
   const toggleFeature = (featureKey) => {
     setFeaturesState(prev => {
+      const currentVal = (prev && prev[featureKey] !== undefined) ? Boolean(prev[featureKey]) : true
       const updated = {
-        ...prev,
-        [featureKey]: !prev[featureKey]
+        ...(prev || {}),
+        [featureKey]: !currentVal
       }
       return updated
     })
@@ -256,7 +269,7 @@ export const WorkspaceProvider = ({ children }) => {
   const setFeature = (featureKey, value) => {
     setFeaturesState(prev => {
       const updated = {
-        ...prev,
+        ...(prev || {}),
         [featureKey]: Boolean(value)
       }
       return updated
@@ -265,7 +278,11 @@ export const WorkspaceProvider = ({ children }) => {
   }
 
   const resetToDefault = () => {
-    setWorkspaceMode('enterprise')
+    const enterprisePreset = WORKSPACE_PRESETS.find(p => p.id === 'enterprise')
+    setWorkspaceModeState('enterprise')
+    if (enterprisePreset?.features) {
+      setFeaturesState({ ...enterprisePreset.features })
+    }
   }
 
   const isFeatureVisible = (featureKey) => {
@@ -274,7 +291,7 @@ export const WorkspaceProvider = ({ children }) => {
       return true
     }
     // Check if feature key is enabled
-    if (features[featureKey] !== undefined) {
+    if (features && features[featureKey] !== undefined) {
       return Boolean(features[featureKey])
     }
     return true

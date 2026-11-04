@@ -45,6 +45,27 @@ from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializ
 def is_admin_user(user):
     return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'Admin'))
 
+def has_module_access(user, module):
+    """
+    Checks if a user has access to a given module ('erp', 'accounting', 'cashbook', 'other').
+    Admin/Staff/is_superuser always has access to all modules.
+    For non-admin, checks user's access_list.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if is_admin_user(user):
+        return True
+    if module == 'other':
+        return False  # module 'other' is admin-only
+    access_list = getattr(user, 'access_list', None) or []
+    if module == 'cashbook':
+        return 'cashbook' in access_list or any(p in access_list for p in ['expenses', 'labour', 'banks', 'recycle_bin'])
+    elif module == 'accounting':
+        return 'accounting' in access_list or any(p in access_list for p in ['customers', 'vendors', 'estimations', 'quotations', 'invoices', 'credit_notes', 'reports', 'accounting_settings', 'recycle_bin'])
+    elif module == 'erp':
+        return 'erp' in access_list or any(p in access_list for p in ['dashboard', 'enquiries', 'jobs', 'planning', 'delivery_notes', 'settings', 'recycle_bin'])
+    return False
+
 class IsAdminRoleUser(permissions.BasePermission):
     """
     Permission check for users with role = 'Admin', staff, or superuser.
@@ -4706,29 +4727,69 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
 class RecycleBinViewSet(viewsets.ModelViewSet):
     """
-    Recycle Bin for deleted records across the entire ERP system.
-    Users CANNOT permanently delete items from here.
-    Supports viewing details, searching, filtering by entity type, and restoring items.
+    Recycle Bin for deleted records across ERP, Accounting, and Cashbook modules.
+    - Admin: sees all items across users and modules, can restore and permanently purge.
+    - Non-admin: sees only items they deleted (deleted_by == request.user), within modules they have access to. Can restore own items; cannot purge (admin-only).
+    - Items with deleted_by = NULL are visible to admins only.
+    - Module scoping: erp, accounting, cashbook, other (admin-only). Unknown modules return 400.
     """
     serializer_class = RecycleBinItemSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def get_queryset(self):
+        from rest_framework import exceptions
+        from .recycle_bin import (
+            ENTITY_MODULE_MAP, VALID_MODULES,
+            get_entity_types_for_module, get_modules_for_entity_type
+        )
+
+        user = self.request.user
+        is_admin = is_admin_user(user)
+
         qs = RecycleBinItem.objects.all().select_related('deleted_by', 'restored_by')
 
-        # Filter by entity type
+        module = self.request.query_params.get('module')
+        if module:
+            module = module.strip().lower()
+            if module not in VALID_MODULES:
+                raise exceptions.ValidationError({'detail': f'Unknown module "{module}". Valid modules are: erp, accounting, cashbook, other.'})
+            if module == 'other' and not is_admin:
+                raise exceptions.PermissionDenied('Only administrators can view unmapped/other recycle bin items.')
+            if not is_admin and not has_module_access(user, module):
+                raise exceptions.PermissionDenied(f'You do not have access to the {module} module.')
+
+        # Role scoping
+        if not is_admin:
+            # Non-admin sees ONLY items they deleted (items with deleted_by=NULL are admin-only)
+            qs = qs.filter(deleted_by=user)
+            # Default module for non-admin if none provided
+            if not module:
+                for candidate in ['cashbook', 'accounting', 'erp']:
+                    if has_module_access(user, candidate):
+                        module = candidate
+                        break
+                if not module:
+                    raise exceptions.PermissionDenied('You do not have access to any modules in the Recycle Bin.')
+
+            entity_types = get_entity_types_for_module(module)
+            qs = qs.filter(entity_type__in=entity_types)
+        else:
+            # Admin sees all items; if module filter is provided, filter by that module
+            if module in ['erp', 'accounting', 'cashbook']:
+                entity_types = get_entity_types_for_module(module)
+                qs = qs.filter(entity_type__in=entity_types)
+            elif module == 'other':
+                all_mapped = [t for t, mods in ENTITY_MODULE_MAP.items() if any(m in {'erp', 'accounting', 'cashbook'} for m in mods)]
+                qs = qs.filter(Q(entity_type='other') | ~Q(entity_type__in=all_mapped))
+
+        # Filter by entity type (sub-filter)
         entity_type = self.request.query_params.get('entity_type')
         if entity_type and entity_type.lower() != 'all':
             if ',' in entity_type:
                 qs = qs.filter(entity_type__in=[t.strip() for t in entity_type.split(',') if t.strip()])
             else:
                 qs = qs.filter(entity_type=entity_type)
-
-        # Filter by module (e.g. module=cashbook)
-        module = self.request.query_params.get('module')
-        if module == 'cashbook':
-            qs = qs.filter(entity_type__in=['cashbook_entry', 'cashbook'])
 
         # Filter by restored status
         status_filter = self.request.query_params.get('status', 'active')
@@ -4751,9 +4812,15 @@ class RecycleBinViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         """
-        Permanently purge an item from the Recycle Bin.
+        Permanently purge an item from the Recycle Bin. Admin only.
         """
+        # get_object() ensures a non-admin gets 404 for an out-of-scope item instead of leaking existence
         bin_item = self.get_object()
+        if not is_admin_user(request.user):
+            return Response(
+                {'detail': 'Only administrators can permanently purge items from the Recycle Bin.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         item_name = bin_item.item_name
         bin_item.delete()
         return Response(
@@ -4765,8 +4832,17 @@ class RecycleBinViewSet(viewsets.ModelViewSet):
     def restore(self, request, pk=None):
         """
         Restore an item from the Recycle Bin back into its respective model.
+        Admin can restore any item. Non-admin can restore only their own items.
         """
         bin_item = self.get_object()
+        if not is_admin_user(request.user):
+            if bin_item.deleted_by_id != request.user.id:
+                return Response({'detail': 'You can only restore items you deleted.'}, status=status.HTTP_403_FORBIDDEN)
+            from .recycle_bin import get_modules_for_entity_type
+            item_modules = get_modules_for_entity_type(bin_item.entity_type)
+            if not any(has_module_access(request.user, m) for m in item_modules):
+                return Response({'detail': 'You do not have access to restore this item.'}, status=status.HTTP_403_FORBIDDEN)
+
         from .recycle_bin import restore_recycle_bin_item
         success, message = restore_recycle_bin_item(bin_item, user=request.user)
         if success:
@@ -4777,24 +4853,74 @@ class RecycleBinViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='stats')
     def stats(self, request):
         """
-        Returns count breakdown by entity type for the Recycle Bin filter tabs.
+        Returns scoped count breakdown by module and entity type.
         """
-        qs = RecycleBinItem.objects.all()
-        module = request.query_params.get('module')
-        if module == 'cashbook':
-            qs = qs.filter(entity_type__in=['cashbook_entry', 'cashbook'])
+        from .recycle_bin import (
+            ENTITY_MODULE_MAP, VALID_MODULES,
+            get_entity_types_for_module
+        )
 
-        total_active = qs.filter(is_restored=False).count()
-        total_restored = qs.filter(is_restored=True).count()
-        type_counts = {}
-        for row in qs.filter(is_restored=False).values('entity_type').annotate(count=Count('id')):
-            type_counts[row['entity_type']] = row['count']
+        user = request.user
+        is_admin = is_admin_user(user)
 
-        return Response({
-            'total_active': total_active,
-            'total_restored': total_restored,
-            'by_type': type_counts
-        })
+        requested_module = request.query_params.get('module')
+        if requested_module:
+            requested_module = requested_module.strip().lower()
+            if requested_module not in VALID_MODULES:
+                return Response({'detail': f'Unknown module "{requested_module}". Valid modules are: erp, accounting, cashbook, other.'}, status=status.HTTP_400_BAD_REQUEST)
+            if requested_module == 'other' and not is_admin:
+                return Response({'detail': 'Only administrators can access unmapped/other recycle bin stats.'}, status=status.HTTP_403_FORBIDDEN)
+            if not is_admin and not has_module_access(user, requested_module):
+                return Response({'detail': f'You do not have access to the {requested_module} module.'}, status=status.HTTP_403_FORBIDDEN)
+
+        base_qs = RecycleBinItem.objects.all()
+        if not is_admin:
+            base_qs = base_qs.filter(deleted_by=user)
+
+        def calc_module_stats(types, is_other=False):
+            if is_other:
+                all_mapped = [t for t, mods in ENTITY_MODULE_MAP.items() if any(m in {'erp', 'accounting', 'cashbook'} for m in mods)]
+                mqs = base_qs.filter(Q(entity_type='other') | ~Q(entity_type__in=all_mapped))
+            else:
+                mqs = base_qs.filter(entity_type__in=types)
+
+            act = mqs.filter(is_restored=False).count()
+            res = mqs.filter(is_restored=True).count()
+            counts = {}
+            for r in mqs.filter(is_restored=False).values('entity_type').annotate(count=Count('id')):
+                counts[r['entity_type']] = r['count']
+            return {
+                'total_active': act,
+                'total_restored': res,
+                'by_type': counts
+            }
+
+        # Build per-module scoped counts
+        data = {}
+        for mod in ['cashbook', 'accounting', 'erp']:
+            if is_admin or has_module_access(user, mod):
+                data[mod] = calc_module_stats(get_entity_types_for_module(mod))
+            else:
+                data[mod] = {'total_active': 0, 'total_restored': 0, 'by_type': {}}
+
+        if is_admin:
+            data['other'] = calc_module_stats([], is_other=True)
+
+        # For backwards-compatibility and active screen consumption
+        active_scope = requested_module or 'cashbook'
+        if active_scope in data:
+            data['total_active'] = data[active_scope]['total_active']
+            data['total_restored'] = data[active_scope]['total_restored']
+            data['by_type'] = data[active_scope]['by_type']
+        elif is_admin and not requested_module:
+            data['total_active'] = base_qs.filter(is_restored=False).count()
+            data['total_restored'] = base_qs.filter(is_restored=True).count()
+            counts = {}
+            for r in base_qs.filter(is_restored=False).values('entity_type').annotate(count=Count('id')):
+                counts[r['entity_type']] = r['count']
+            data['by_type'] = counts
+
+        return Response(data)
 
 
 class PendingJobOrderViewSet(viewsets.ModelViewSet):

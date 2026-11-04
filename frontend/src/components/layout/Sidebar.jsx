@@ -45,6 +45,32 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
   // Track pending job order entries for red dot notification
   const [pendingJobCount, setPendingJobCount] = useState(0)
   const [dueEnquiriesCount, setDueEnquiriesCount] = useState(0)
+  const [recycleCounts, setRecycleCounts] = useState({ erp: 0, accounting: 0, cashbook: 0 })
+
+  useEffect(() => {
+    let isMounted = true
+    const fetchRecycleCounts = async () => {
+      try {
+        const res = await api.get('recycle-bin/stats/')
+        if (isMounted && res.data) {
+          setRecycleCounts({
+            erp: res.data.erp?.total_active || 0,
+            accounting: res.data.accounting?.total_active || 0,
+            cashbook: res.data.cashbook?.total_active || 0,
+          })
+        }
+      } catch (err) {}
+    }
+    fetchRecycleCounts()
+    const handleUpdate = () => fetchRecycleCounts()
+    window.addEventListener('recycle-bin-updated', handleUpdate)
+    const timer = setInterval(fetchRecycleCounts, 30000)
+    return () => {
+      isMounted = false
+      window.removeEventListener('recycle-bin-updated', handleUpdate)
+      clearInterval(timer)
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     let isMounted = true
@@ -80,6 +106,12 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
     }
     if (itemPath === '/accounting') {
       return location.pathname === '/accounting'
+    }
+    if (itemPath === '/accounting/recycle-bin') {
+      return location.pathname === '/accounting/recycle-bin'
+    }
+    if (itemPath === '/erp/recycle-bin') {
+      return location.pathname === '/erp/recycle-bin'
     }
     if (itemPath === '/cashbook?tab=recycle_bin') {
       return location.pathname === '/cashbook' && currentTab === 'recycle_bin'
@@ -123,7 +155,7 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
       { name: 'Bank & Petty Cash', path: '/cashbook?tab=bank_accounts', icon: Landmark, permission: 'banks' },
       { type: 'divider', label: 'ADMINISTRATION' },
       { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings' },
-      { name: 'Recycle Bin', path: '/cashbook?tab=recycle_bin', icon: Trash2, permission: 'recycle_bin' },
+      { name: 'Recycle Bin', path: '/cashbook?tab=recycle_bin', icon: Trash2, permission: 'recycle_bin', count: recycleCounts.cashbook },
     ]
   } else if (activeModule === 'accounting') {
     allNavItems = [
@@ -158,6 +190,13 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
 
   const rawNavItems = allNavItems.filter(item => {
     if (item.type === 'divider') return true
+
+    // Workspace Navigation Visibility check (Operations & Financial Modules toggles)
+    const featureKey = item.featureKey || MODULE_KEY_MAP[item.path]
+    if (featureKey && !isFeatureVisible(featureKey)) {
+      return false
+    }
+
     if (isAdmin) return true
     if (item.adminOnly) return false
 
@@ -372,6 +411,29 @@ const Sidebar = ({ isOpen, isPinned, isMobile, onTogglePin, onClose, currentUser
                     }}
                   >
                     {dueEnquiriesCount}
+                  </span>
+                )}
+                {item.count > 0 && (
+                  <span
+                    className="recycle-bin-nav-badge"
+                    title={`${item.count} items in Recycle Bin`}
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: isMini ? '1px 5px' : '1px 7px',
+                      borderRadius: '999px',
+                      background: 'rgba(239, 68, 68, 0.18)',
+                      color: '#f87171',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      position: isMini ? 'absolute' : 'static',
+                      top: isMini ? '5px' : undefined,
+                      right: isMini ? '6px' : undefined,
+                      marginLeft: isMini ? undefined : 'auto',
+                      zIndex: 3,
+                      lineHeight: '1.2'
+                    }}
+                  >
+                    {item.count}
                   </span>
                 )}
               </Link>

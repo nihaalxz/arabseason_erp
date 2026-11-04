@@ -10,7 +10,7 @@ import {
   Building2, Phone, Mail, FolderOpen, HardHat, Users, Landmark, Minus
 } from 'lucide-react'
 import api from '../../api'
-import { showConfirm, showError, showToast, showSuccess } from '../../utils/swal'
+import { showConfirm, showError, showSuccess, showWarning } from '../../utils/swal';
 
 // Reusable Mobile Card Carousel matching Customers tab exactly
 const MobileCardCarousel = ({ 
@@ -461,7 +461,7 @@ export default function PersonalCashLedger({
   // Export to CSV without any Book columns
   const handleExportCSV = () => {
     if (!sortedChronologicalEntries.length) {
-      showToast('No entries to export', 'info')
+      showSuccess('No entries to export')
       return
     }
     const headers = ['Date', 'Time', 'Flow Type', 'Entity', 'Particulars / Payee', 'Amount (SAR)', 'Category', 'Payment Channel', 'Reference']
@@ -489,7 +489,7 @@ export default function PersonalCashLedger({
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    showToast('Ledger payments exported successfully!', 'success')
+    showSuccess('Ledger payments exported successfully!')
   }
 
   // Exact Color Tokens from Customers Tab UI

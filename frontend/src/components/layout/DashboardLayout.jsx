@@ -5,6 +5,7 @@ import Header from './Header'
 import CredTopStrip from '../cashbook/cred/CredTopStrip'
 import { useModule } from '../../contexts/ModuleContext'
 import { getIsDarkMode, applyTheme, toggleTheme } from '../../utils/theme'
+import api from '../../api'
 
 const DashboardLayout = ({ onLogout, currentUser }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => getIsDarkMode())
@@ -24,6 +25,47 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const isCashbook = location.pathname === '/cashbook' || location.pathname.startsWith('/cashbook/')
+
+  // Scoped Recycle Bin badge counts
+  const [recycleCounts, setRecycleCounts] = useState({ erp: 0, accounting: 0, cashbook: 0 })
+
+  const fetchRecycleCounts = async () => {
+    try {
+      const res = await api.get('recycle-bin/stats/')
+      if (res.data) {
+        setRecycleCounts({
+          erp: res.data.erp?.total_active || 0,
+          accounting: res.data.accounting?.total_active || 0,
+          cashbook: res.data.cashbook?.total_active || 0,
+        })
+      }
+    } catch (e) {}
+  }
+
+  useEffect(() => {
+    fetchRecycleCounts()
+    const handleUpdate = () => fetchRecycleCounts()
+    window.addEventListener('recycle-bin-updated', handleUpdate)
+    const interval = setInterval(fetchRecycleCounts, 30000)
+    return () => {
+      window.removeEventListener('recycle-bin-updated', handleUpdate)
+      clearInterval(interval)
+    }
+  }, [])
+
+  const activeRecycleCount = activeModule === 'accounting'
+    ? recycleCounts.accounting
+    : (activeModule === 'cashbook' ? recycleCounts.cashbook : recycleCounts.erp)
+
+  const handleOpenRecycleBin = () => {
+    if (activeModule === 'accounting') {
+      navigate('/accounting/recycle-bin')
+    } else if (activeModule === 'cashbook') {
+      navigate('/cashbook?tab=recycle_bin')
+    } else {
+      navigate('/erp/recycle-bin')
+    }
+  }
 
   // FIX 1: Universal mobile redirect. Only Cashbook has a mobile experience.
   // All Accounting and ERP routes redirect to /cashbook on mobile view (<= 768px).
@@ -174,7 +216,8 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
               isDarkMode={isDarkMode}
               onToggleTheme={handleToggleTheme}
               onOpenMembers={() => navigate('/settings')}
-              onOpenRecycleBin={() => navigate('/recycle-bin')}
+              onOpenRecycleBin={handleOpenRecycleBin}
+              recycleBinCount={activeRecycleCount}
             />
           )}
 
