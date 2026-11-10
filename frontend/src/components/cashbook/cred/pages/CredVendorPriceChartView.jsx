@@ -212,11 +212,11 @@ const CredVendorPriceChartView = ({
 
     try {
       const [quotesRes, matRes, venRes, catRes, jobsRes] = await Promise.all([
-        api.get('vendor-price-quotes/').catch(() => ({ data: [] })),
-        api.get('materials/').catch(() => ({ data: [] })),
-        api.get('vendors/').catch(() => ({ data: [] })),
-        api.get('material-categories/').catch(() => ({ data: [] })),
-        api.get('job-orders/').catch(() => ({ data: [] }))
+        api.get('vendor-price-quotes/?page_size=100').catch(() => ({ data: [] })),
+        api.get('materials/?page_size=100').catch(() => ({ data: [] })),
+        api.get('vendors/?page_size=100').catch(() => ({ data: [] })),
+        api.get('material-categories/?page_size=100').catch(() => ({ data: [] })),
+        api.get('job-orders/?page_size=100').catch(() => ({ data: [] }))
       ]);
 
       const quotesData = quotesRes.data?.results || quotesRes.data || [];

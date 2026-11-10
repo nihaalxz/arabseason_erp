@@ -1,7 +1,7 @@
 import React, { useRef } from 'react'
 import Modal from './Modal'
 import { X, Trash2, FileText, Check } from '../icons'
-import { UploadCloud } from 'lucide-react'
+import { UploadCloud, Eye } from 'lucide-react'
 
 /**
  * credSelectStyles
@@ -502,18 +502,233 @@ export const Textarea = ({
 
 /**
  * Dropzone
- * One-line dashed file dropzone with short hint and file removal chip
+ * One-line dashed file dropzone with short hint and file removal chip.
+ * Supports both single file mode (default) and multi-file mode (multiple=true).
  */
 export const Dropzone = ({
   value,
+  values,
   onUpload,
   onRemove,
+  onPreview,
   accept = 'image/*,.pdf,application/pdf',
   placeholder = 'Click to upload a document or image',
   hint = 'PDF, JPG, PNG up to 10MB',
+  multiple = false,
   style = {}
 }) => {
   const fileInputRef = useRef(null)
+
+  // Multi-file mode
+  if (multiple) {
+    const items = Array.isArray(values) ? values : (Array.isArray(value) ? value : (value ? [value] : []))
+
+    const handleDrop = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (onUpload) {
+        onUpload(e)
+      }
+    }
+
+    const handleDragOver = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', ...style }}>
+        <div
+          className="cred-dropzone"
+          onClick={() => fileInputRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          style={{
+            cursor: 'pointer',
+            padding: items.length > 0 ? '12px 16px' : '16px 20px'
+          }}
+        >
+          <UploadCloud size={16} strokeWidth={1.8} style={{ color: 'var(--text-muted, #8C8C8C)' }} />
+          <span style={{ fontSize: '13px', color: 'var(--text-muted, #8C8C8C)' }}>
+            {items.length > 0 ? '+ Upload more images or files' : placeholder}
+          </span>
+          {hint && (
+            <span style={{ fontSize: '12px', color: 'var(--text-muted, #8C8C8C)', opacity: 0.7 }}>
+              &bull; {hint}
+            </span>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={accept}
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              if (onUpload) onUpload(e)
+              if (fileInputRef.current) fileInputRef.current.value = ''
+            }}
+          />
+        </div>
+
+        {items.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {items.map((item, idx) => {
+              const fileName = typeof item === 'object' ? item.name || item.attachment_name : 'Attached file'
+              const isPdf = typeof item === 'object'
+                ? (item.type?.includes('pdf') || fileName?.toLowerCase().endsWith('.pdf'))
+                : String(item).toLowerCase().endsWith('.pdf')
+              const previewUrl = typeof item === 'object' ? (item.url || item.dataUrl || item.preview) : item
+              const sizeStr = item.size ? `(${(item.size / 1024).toFixed(0)} KB)` : ''
+
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'var(--fill-ghost-hover, #F4F4F4)',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    borderRadius: '10px',
+                    padding: '8px 12px',
+                    gap: '10px'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      overflow: 'hidden',
+                      flex: 1,
+                      cursor: onPreview ? 'pointer' : 'default'
+                    }}
+                    onClick={() => onPreview && onPreview(item, idx)}
+                  >
+                    {isPdf ? (
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '6px',
+                          backgroundColor: '#FEE2E2',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
+                      >
+                        <FileText size={18} color="var(--danger, #DC2626)" />
+                      </div>
+                    ) : previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt={fileName}
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '6px',
+                          objectFit: 'cover',
+                          flexShrink: 0,
+                          border: '1px solid var(--border, #E4E4E4)'
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--fill-ghost, #ECECEC)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
+                      >
+                        <FileText size={18} color="var(--text-muted, #8C8C8C)" />
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+                      <span
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          color: 'var(--text, #111111)',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title={fileName}
+                      >
+                        {fileName}
+                      </span>
+                      {sizeStr && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted, #8C8C8C)' }}>
+                          {sizeStr}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    {onPreview && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onPreview(item, idx)
+                        }}
+                        title="Preview attachment"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-muted, #8C8C8C)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: '4px',
+                          transition: 'color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text, #111111)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                      >
+                        <Eye size={15} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (onRemove) onRemove(idx)
+                      }}
+                      title="Remove attachment"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted, #8C8C8C)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: '4px',
+                        transition: 'color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger, #DC2626)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)')}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (value) {
     const fileName = typeof value === 'object' ? value.name || value.attachment_name : 'Attached file'

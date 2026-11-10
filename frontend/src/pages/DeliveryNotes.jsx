@@ -375,7 +375,7 @@ const DeliveryNotes = () => {
 
       {/* 4. Table / Empty State */}
       <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
-        {loading ? (
+        {loading && deliveryNotes.length === 0 ? (
           <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>

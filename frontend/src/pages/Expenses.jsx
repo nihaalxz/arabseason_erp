@@ -354,7 +354,7 @@ const Expenses = () => {
 
       {/* ── 4. MAIN DATA TABLE (Customers Table Style) ── */}
       <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
-        {loading ? (
+        {loading && expenses.length === 0 ? (
           <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>

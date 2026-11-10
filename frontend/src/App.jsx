@@ -1,33 +1,35 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import DashboardLayout from './components/layout/DashboardLayout'
 import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import AccountingDashboard from './pages/AccountingDashboard'
-import Customers from './pages/Customers'
-import Vendors from './pages/Vendors'
-import JobOrders from './pages/JobOrders'
-import Expenses from './pages/Expenses'
-import Estimations from './pages/Estimations'
-import EstimateBuilder from './pages/EstimateBuilder'
-import Reports from './pages/Reports'
-import Settings from './pages/Settings'
-import SearchResults from './pages/SearchResults'
-import UserManagement from './pages/UserManagement'
-import Cashbook from './pages/Cashbook'
-import Banks from './pages/Banks'
-import Invoices from './pages/Invoices'
-import Enquiries from './pages/Enquiries'
-import InvoiceBuilder from './pages/InvoiceBuilder'
-import Quotations from './pages/Quotations'
-import QuotationBuilder from './pages/QuotationBuilder'
-import CreditNotes from './pages/CreditNotes'
-import CreditNoteBuilder from './pages/CreditNoteBuilder'
-import DeliveryNotes from './pages/DeliveryNotes'
-import DeliveryNoteBuilder from './pages/DeliveryNoteBuilder'
-import RecycleBin from './pages/RecycleBin'
+
+// Code-split all sub-pages for minimal initial bundle size & fast loading
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const AccountingDashboard = lazy(() => import('./pages/AccountingDashboard'))
+const Customers = lazy(() => import('./pages/Customers'))
+const Vendors = lazy(() => import('./pages/Vendors'))
+const JobOrders = lazy(() => import('./pages/JobOrders'))
+const Expenses = lazy(() => import('./pages/Expenses'))
+const Estimations = lazy(() => import('./pages/Estimations'))
+const EstimateBuilder = lazy(() => import('./pages/EstimateBuilder'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Settings = lazy(() => import('./pages/Settings'))
+const SearchResults = lazy(() => import('./pages/SearchResults'))
+const UserManagement = lazy(() => import('./pages/UserManagement'))
+const Cashbook = lazy(() => import('./pages/Cashbook'))
+const Banks = lazy(() => import('./pages/Banks'))
+const Invoices = lazy(() => import('./pages/Invoices'))
+const Enquiries = lazy(() => import('./pages/Enquiries'))
+const InvoiceBuilder = lazy(() => import('./pages/InvoiceBuilder'))
+const Quotations = lazy(() => import('./pages/Quotations'))
+const QuotationBuilder = lazy(() => import('./pages/QuotationBuilder'))
+const CreditNotes = lazy(() => import('./pages/CreditNotes'))
+const CreditNoteBuilder = lazy(() => import('./pages/CreditNoteBuilder'))
+const DeliveryNotes = lazy(() => import('./pages/DeliveryNotes'))
+const DeliveryNoteBuilder = lazy(() => import('./pages/DeliveryNoteBuilder'))
+const RecycleBin = lazy(() => import('./pages/RecycleBin'))
+
 import api from './api'
-import { useEffect } from 'react'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ModuleProvider, useModule } from './contexts/ModuleContext'
@@ -35,6 +37,26 @@ import { WorkspaceProvider } from './contexts/WorkspaceContext'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import RouteGuard from './components/common/RouteGuard'
 import { canAccessPermission, isUserAdmin } from './constants/permissions'
+
+// Lightweight fallback loader during route transitions
+const PageLoader = () => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '60vh',
+    width: '100%'
+  }}>
+    <div style={{
+      width: '30px',
+      height: '30px',
+      border: '2.5px solid var(--border, #E4E4E4)',
+      borderTopColor: 'var(--text, #0A0A0A)',
+      borderRadius: '50%',
+      animation: 'appSpin 0.7s linear infinite'
+    }} />
+  </div>
+)
 
 // Legacy ERP route redirector: preserves full path and query string with replace
 const RedirectToAccounting = () => {
@@ -55,9 +77,20 @@ const RedirectToActiveRecycleBin = () => {
 }
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(localStorage.getItem('access_token')))
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user')) || null
+    } catch {
+      return null
+    }
+  })
+  const [loading, setLoading] = useState(() => {
+    // Only show full-screen spinner on cold start if there is a token but no user profile cached yet
+    const token = localStorage.getItem('access_token')
+    const user = localStorage.getItem('user')
+    return Boolean(token && !user)
+  })
 
   useEffect(() => {
     checkAuth()
@@ -195,6 +228,7 @@ function App() {
       <WorkspaceProvider>
         <ModuleProvider>
           <Router>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route 
               path="/login" 
@@ -399,6 +433,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
+          </Suspense>
         </Router>
       </ModuleProvider>
     </WorkspaceProvider>

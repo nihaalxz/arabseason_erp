@@ -1184,7 +1184,7 @@ export default function PersonalCashLedger({
       {/* ========================================================= */}
       {/* 5. MASTER DATA TABLE / MOBILE CARDS                       */}
       {/* ========================================================= */}
-      {loading ? (
+      {loading && (!entries || entries.length === 0) ? (
         <div style={{
           background: cardBg,
           border: `1px solid ${borderColor}`,

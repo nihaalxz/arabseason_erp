@@ -8,7 +8,8 @@ import {
   Check,
   Download,
   Eye,
-  FileText
+  FileText,
+  UserPlus
 } from 'lucide-react'
 import api from '../../api'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -88,6 +89,8 @@ export default function JobOrderModal({
     advance_amount: 0,
     payment_type: 'full',
     created_by_staff: '',
+    salesperson: '',
+    salesperson_name: '',
     payment_collected_by: '',
     assigned_to: '',
     custom_fields: {},
@@ -102,6 +105,7 @@ export default function JobOrderModal({
   const [staffOptions, setStaffOptions] = useState([])
   const [customers, setCustomers] = useState([])
   const [vendors, setVendors] = useState([])
+  const [salespersons, setSalespersons] = useState([])
   const [assignableAdmins, setAssignableAdmins] = useState([])
   const [descriptions, setDescriptions] = useState([''])
 
@@ -116,8 +120,14 @@ export default function JobOrderModal({
   const [customerForm, setCustomerForm] = useState({ name: '', company_name: '', phone: '', email: '' })
   const [submittingCustomer, setSubmittingCustomer] = useState(false)
 
+  // Quick Salesperson Creation Modal
+  const [isSalespersonModalOpen, setIsSalespersonModalOpen] = useState(false)
+  const [newSalespersonForm, setNewSalespersonForm] = useState({ name: '', phone: '', email: '' })
+  const [submittingSalesperson, setSubmittingSalesperson] = useState(false)
+
   // Attachment Preview Modal
   const [previewAttachment, setPreviewAttachment] = useState(null)
+  const [attachments, setAttachments] = useState([])
 
   // Fetch Lookups
   const fetchLookups = useCallback(async () => {
@@ -159,6 +169,14 @@ export default function JobOrderModal({
       setProjectOptions(uniqueProjects)
     } catch (err) {
       console.error('Failed to fetch projects:', err)
+    }
+
+    try {
+      const spRes = await api.get('salespersons/', { params: { nopage: 'true' } })
+      const spData = spRes.data
+      setSalespersons(Array.isArray(spData) ? spData : (spData?.results || []))
+    } catch (err) {
+      console.error('Failed to fetch salespersons:', err)
     }
 
     try {
@@ -322,10 +340,12 @@ export default function JobOrderModal({
         customer: editingJob.customer || editingJob.customer_id || '',
         vendor: editingJob.vendor || editingJob.vendor_id || '',
         status: editingJob.status || 'Pending',
-        total_amount: editingJob.total_amount || 0,
+        total_amount: editingJob.total_amount ?? '',
         advance_amount: editingJob.advance_amount || 0,
         payment_type: editingJob.payment_type || 'full',
         created_by_staff: editingJob.created_by_staff || editingJob.created_by_name || '',
+        salesperson: editingJob.salesperson || editingJob.salesperson_id || '',
+        salesperson_name: editingJob.salesperson_name || editingJob.salesperson_detail?.name || '',
         payment_collected_by: editingJob.payment_collected_by || '',
         assigned_to: editingJob.assigned_to || '',
         custom_fields: editingJob.custom_fields || {},
@@ -333,6 +353,20 @@ export default function JobOrderModal({
         attachment_name: editingJob.attachment_name || editingJob.custom_fields?.attachment_name || '',
         attachment_type: editingJob.attachment_type || editingJob.custom_fields?.attachment_type || ''
       })
+
+      let initialAttachments = []
+      if (Array.isArray(editingJob.attachments) && editingJob.attachments.length > 0) {
+        initialAttachments = editingJob.attachments
+      } else if (Array.isArray(editingJob.custom_fields?.attachments) && editingJob.custom_fields.attachments.length > 0) {
+        initialAttachments = editingJob.custom_fields.attachments
+      } else if (editingJob.attachment || editingJob.custom_fields?.attachment) {
+        initialAttachments = [{
+          name: editingJob.attachment_name || editingJob.custom_fields?.attachment_name || 'Attachment',
+          url: editingJob.attachment || editingJob.custom_fields?.attachment,
+          type: editingJob.attachment_type || editingJob.custom_fields?.attachment_type || 'image/jpeg'
+        }]
+      }
+      setAttachments(initialAttachments)
       setCustomerPriorBalance(parseFloat(editingJob.prior_balance || 0))
     } else if (selectedPendingForCreation) {
       const pending = selectedPendingForCreation
@@ -350,7 +384,7 @@ export default function JobOrderModal({
 
       const defaultCreator = `${resolvedUserRef.current?.first_name || ''} ${resolvedUserRef.current?.last_name || ''}`.trim() || resolvedUserRef.current?.username || ''
       const initDeposit = parseFloat(pending?.initial_deposit) || 0
-      const estTotal = parseFloat(pending?.estimated_amount) || initDeposit || 0
+      const estTotal = parseFloat(pending?.estimated_amount) || initDeposit || ''
 
       setFormData({
         order_id: '',
@@ -366,6 +400,8 @@ export default function JobOrderModal({
         advance_amount: initDeposit,
         payment_type: initDeposit > 0 ? 'advance' : 'full',
         created_by_staff: defaultCreator,
+        salesperson: pending?.salesperson || '',
+        salesperson_name: pending?.salesperson_name || '',
         payment_collected_by: '',
         assigned_to: '',
         custom_fields: {},
@@ -373,6 +409,18 @@ export default function JobOrderModal({
         attachment_name: '',
         attachment_type: ''
       })
+
+      let initialAttachments = []
+      if (Array.isArray(pending?.attachments) && pending.attachments.length > 0) {
+        initialAttachments = pending.attachments
+      } else if (pending?.attachment) {
+        initialAttachments = [{
+          name: pending.attachment_name || 'Attachment',
+          url: pending.attachment,
+          type: pending.attachment_type || 'image/jpeg'
+        }]
+      }
+      setAttachments(initialAttachments)
 
       const initialDescriptions = pending?.description
         ? pending.description.split('\n').map(d => d.trim()).filter(Boolean)
@@ -410,10 +458,12 @@ export default function JobOrderModal({
         customer: '',
         vendor: '',
         status: 'Pending',
-        total_amount: 0,
+        total_amount: '',
         advance_amount: 0,
         payment_type: 'full',
         created_by_staff: defaultCreator,
+        salesperson: '',
+        salesperson_name: '',
         payment_collected_by: '',
         assigned_to: '',
         custom_fields: {},
@@ -421,6 +471,7 @@ export default function JobOrderModal({
         attachment_name: '',
         attachment_type: ''
       })
+      setAttachments([])
       setDescriptions([''])
       setCustomerPriorBalance(0)
     }
@@ -448,33 +499,60 @@ export default function JobOrderModal({
     }
   }
 
-  // Attachment handlers
+  // Attachment handlers (supports multiple files)
   const handleAttachmentChange = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 10 * 1024 * 1024) {
-      showError('File Too Large', 'Please select an image or PDF smaller than 10MB.')
-      return
+    const files = Array.from(e.target?.files || e.dataTransfer?.files || e || [])
+    if (!files.length) return
+    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+    for (const f of files) {
+      if (f.size > MAX_SIZE) {
+        showError('File Too Large', `"${f.name}" exceeds the 10MB limit.`)
+        return
+      }
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      setFormData(prev => ({
-        ...prev,
-        attachment: reader.result,
-        attachment_name: file.name,
-        attachment_type: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
-      }))
-    }
-    reader.readAsDataURL(file)
+
+    const readers = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          resolve({
+            name: file.name,
+            url: reader.result,
+            type: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+            size: file.size
+          })
+        }
+        reader.readAsDataURL(file)
+      })
+    })
+
+    Promise.all(readers).then(newItems => {
+      setAttachments(prev => {
+        const updated = [...prev, ...newItems]
+        const first = updated[0]
+        setFormData(f => ({
+          ...f,
+          attachment: first ? first.url : '',
+          attachment_name: first ? first.name : '',
+          attachment_type: first ? first.type : ''
+        }))
+        return updated
+      })
+    })
   }
 
-  const handleRemoveAttachment = () => {
-    setFormData(prev => ({
-      ...prev,
-      attachment: '',
-      attachment_name: '',
-      attachment_type: ''
-    }))
+  const handleRemoveAttachment = (index) => {
+    setAttachments(prev => {
+      const updated = prev.filter((_, i) => i !== index)
+      const first = updated[0]
+      setFormData(f => ({
+        ...f,
+        attachment: first ? first.url : '',
+        attachment_name: first ? first.name : '',
+        attachment_type: first ? first.type : ''
+      }))
+      return updated
+    })
   }
 
   const handleDownloadAttachment = (dataUrl, fileName, mimeType) => {
@@ -525,6 +603,36 @@ export default function JobOrderModal({
       showError('Customer Error', 'Failed to create customer.')
     } finally {
       setSubmittingCustomer(false)
+    }
+  }
+
+  // Quick Salesperson Creation
+  const handleQuickCreateSalesperson = async (e) => {
+    e?.preventDefault()
+    if (!newSalespersonForm.name.trim()) return
+    try {
+      setSubmittingSalesperson(true)
+      const res = await api.post('salespersons/', {
+        name: newSalespersonForm.name.trim(),
+        phone: newSalespersonForm.phone.trim(),
+        email: newSalespersonForm.email.trim()
+      })
+      const created = res.data
+      setSalespersons(prev => [...prev.filter(s => s.id !== created.id), created].sort((a, b) => a.name.localeCompare(b.name)))
+      setFormData(prev => ({
+        ...prev,
+        salesperson: created.id,
+        salesperson_name: created.name
+      }))
+      setIsSalespersonModalOpen(false)
+      setNewSalespersonForm({ name: '', phone: '', email: '' })
+      showToast(`Salesperson "${created.name}" created and selected!`, 'success')
+    } catch (err) {
+      console.error('Failed to create salesperson:', err)
+      const msg = err.response?.data?.name?.[0] || 'Failed to create salesperson.'
+      showError('Salesperson Error', msg)
+    } finally {
+      setSubmittingSalesperson(false)
     }
   }
 
@@ -583,6 +691,17 @@ export default function JobOrderModal({
       return setFormError('Title, Customer, and Current Status are required')
     }
 
+    // Estimated Amount is non-mandatory (defaults to 0 if left blank)
+    const rawEstimated = formData.total_amount != null && String(formData.total_amount).trim() !== '' ? parseFloat(formData.total_amount) : 0
+    if (isNaN(rawEstimated) || rawEstimated < 0) {
+      return setFormError('Estimated Amount must be a valid number (0 or greater)')
+    }
+
+    // Assign to Admin is mandatory for non-admins
+    if (!resolvedIsAdmin && !formData.assigned_to) {
+      return setFormError('Assign to Admin is required. Please select an administrator.')
+    }
+
     const pfx = (contractPrefix || 'JOB').trim().toUpperCase().replace(/^#+/, '')
     const numPart = (contractNumber || '').trim().replace(/^[A-Za-z]+/i, '')
     if (!numPart) {
@@ -605,14 +724,26 @@ export default function JobOrderModal({
       setFormError('')
 
       const finalDescription = (descriptions || []).map(d => d.trim()).filter(Boolean).join('\n')
+      const primaryAttachment = attachments[0] || null
       const payload = {
         ...formData,
         order_id: finalOrderId,
         description: finalDescription,
-        custom_fields: formData.custom_fields || {},
+        custom_fields: {
+          ...(formData.custom_fields || {}),
+          attachments: attachments,
+          attachment: primaryAttachment ? primaryAttachment.url : '',
+          attachment_name: primaryAttachment ? primaryAttachment.name : '',
+          attachment_type: primaryAttachment ? primaryAttachment.type : ''
+        },
+        attachment: primaryAttachment ? primaryAttachment.url : '',
+        attachment_name: primaryAttachment ? primaryAttachment.name : '',
+        attachment_type: primaryAttachment ? primaryAttachment.type : '',
         total_amount: parseFloat(formData.total_amount || 0),
         advance_amount: parseFloat(formData.advance_amount || 0),
         payment_type: formData.payment_type || 'full',
+        salesperson: formData.salesperson || null,
+        salesperson_name: formData.salesperson_name || '',
         assigned_to: formData.assigned_to ? formData.assigned_to : null,
         pending_job_order: selectedPendingForCreation?.id || null
       }
@@ -983,7 +1114,60 @@ export default function JobOrderModal({
               </Field>
             </div>
 
-            {/* 7. Payment Collected By and Assign to Admin side by side */}
+            {/* 7. Salesperson and Payment Collected By side by side */}
+            <div>
+              <Field
+                label="Salesperson"
+                rightAction={
+                  <InlineAddLink
+                    onClick={() => {
+                      setNewSalespersonForm({ name: '', phone: '', email: '' })
+                      setIsSalespersonModalOpen(true)
+                    }}
+                    label="+ New"
+                  />
+                }
+              >
+                <Select
+                  isClearable
+                  options={[
+                    ...salespersons.map(s => ({
+                      label: s.name + (s.phone ? ` (${s.phone})` : ''),
+                      value: s.id,
+                      name: s.name
+                    })),
+                    { label: '+ Add New Salesperson...', value: '__ADD_NEW__', isAction: true }
+                  ]}
+                  value={formData.salesperson ? {
+                    label: (() => {
+                      const sp = salespersons.find(x => String(x.id) === String(formData.salesperson))
+                      return sp ? (sp.name + (sp.phone ? ` (${sp.phone})` : '')) : (formData.salesperson_name || 'Selected')
+                    })(),
+                    value: formData.salesperson
+                  } : null}
+                  onChange={(selected) => {
+                    if (selected?.value === '__ADD_NEW__') {
+                      setNewSalespersonForm({ name: '', phone: '', email: '' })
+                      setIsSalespersonModalOpen(true)
+                      return
+                    }
+                    setFormData({
+                      ...formData,
+                      salesperson: selected ? selected.value : '',
+                      salesperson_name: selected ? selected.name : ''
+                    })
+                  }}
+                  noOptionsMessage={() => 'No salespersons found'}
+                  components={{ Option: CredOption }}
+                  styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
+                  menuPosition="fixed"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  placeholder="Select salesperson..."
+                />
+              </Field>
+            </div>
+
             <div>
               <Field label="Payment Collected By">
                 <TextInput
@@ -995,16 +1179,19 @@ export default function JobOrderModal({
               </Field>
             </div>
 
+            {/* 8. Assign to Admin and Contract ID side by side */}
             <div>
               <Field
                 label="Assign to Admin"
+                required={!resolvedIsAdmin}
                 tooltip="When accepted by this Admin, full ownership and all financial calculations/transactions will sit under their account."
               >
                 <CredSelect
                   value={formData.assigned_to || ''}
                   onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                  required={!resolvedIsAdmin}
                 >
-                  <option value="">No admin assigned</option>
+                  <option value="">{resolvedIsAdmin ? '-- Common across Admins --' : 'Select admin...'}</option>
                   {assignableAdmins.map(adm => (
                     <option key={adm.id} value={adm.id}>
                       {adm.name} ({adm.username})
@@ -1014,13 +1201,26 @@ export default function JobOrderModal({
               </Field>
             </div>
 
+            <div>
+              <Field label="Contract ID">
+                <TextInput
+                  prefix={contractPrefix || 'JOB'}
+                  value={contractNumber}
+                  placeholder="0001"
+                  disabled
+                  readOnly
+                  title="Contract ID is generated automatically"
+                />
+              </Field>
+            </div>
+
             <datalist id="staff-options-list">
               {staffOptions.map((s, idx) => (
                 <option key={idx} value={s.name}>{s.username}</option>
               ))}
             </datalist>
 
-            {/* 8. Scope of Work (full width repeatable rows) */}
+            {/* 9. Scope of Work (full width repeatable rows) */}
             <div style={{ gridColumn: '1 / -1' }}>
               <Field label="Scope of Work">
                 <RowList
@@ -1034,21 +1234,6 @@ export default function JobOrderModal({
               </Field>
             </div>
 
-            {/* 9. Contract ID (required) */}
-            <div>
-              <Field label="Contract ID" required>
-                <TextInput
-                  prefix={contractPrefix || 'JOB'}
-                  value={contractNumber}
-                  placeholder="0012"
-                  onChange={(e) => {
-                    const clean = e.target.value.replace(/^[A-Za-z]+/i, '').replace(/[^\d]/g, '')
-                    setContractNumber(clean)
-                  }}
-                  required
-                />
-              </Field>
-            </div>
 
             {/* 10. Dynamic Custom Form Fields */}
             <div style={{ gridColumn: '1 / -1' }}>
@@ -1067,19 +1252,17 @@ export default function JobOrderModal({
               />
             </div>
 
-            {/* 11. Attachment */}
+            {/* 11. Attachments (Supports multiple files) */}
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label="Attachment">
+              <Field label="Attachments">
                 <Dropzone
-                  value={formData.attachment ? {
-                    name: formData.attachment_name,
-                    url: formData.attachment,
-                    type: formData.attachment_type
-                  } : null}
+                  multiple
+                  values={attachments}
                   onUpload={handleAttachmentChange}
                   onRemove={handleRemoveAttachment}
-                  placeholder="Click to upload a document or image"
-                  hint="PDF, JPG, PNG up to 10MB"
+                  onPreview={(item) => setPreviewAttachment({ name: item.name, dataUrl: item.url, type: item.type })}
+                  placeholder="Click or drag files to upload documents or images"
+                  hint="PDF, JPG, PNG up to 10MB (Multiple files allowed)"
                 />
               </Field>
             </div>
@@ -1130,6 +1313,44 @@ export default function JobOrderModal({
               value={customerForm.email}
               onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })}
               placeholder="e.g. abdullah@example.com"
+            />
+          </Field>
+        </form>
+      </ModalShell>
+
+      {/* ── QUICK-CREATE SALESPERSON MODAL ── */}
+      <ModalShell
+        isOpen={isSalespersonModalOpen}
+        onClose={() => setIsSalespersonModalOpen(false)}
+        title="Add Salesperson"
+        maxWidth="440px"
+        formId="quick-salesperson-form"
+        submitLabel="Add Salesperson"
+        submitting={submittingSalesperson}
+      >
+        <form id="quick-salesperson-form" onSubmit={handleQuickCreateSalesperson} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+          <Field label="Salesperson Name" required>
+            <TextInput
+              placeholder="e.g. John Doe"
+              value={newSalespersonForm.name}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, name: e.target.value }))}
+              required
+              autoFocus
+            />
+          </Field>
+          <Field label="Phone">
+            <TextInput
+              placeholder="e.g. 0501234567"
+              value={newSalespersonForm.phone}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, phone: e.target.value }))}
+            />
+          </Field>
+          <Field label="Email">
+            <TextInput
+              type="email"
+              placeholder="e.g. john@example.com"
+              value={newSalespersonForm.email}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, email: e.target.value }))}
             />
           </Field>
         </form>

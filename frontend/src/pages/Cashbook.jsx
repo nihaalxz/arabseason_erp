@@ -959,10 +959,20 @@ const Cashbook = ({ currentUser = null }) => {
     return Boolean(e && (e.cashbook != null && e.cashbook !== '' && e.cashbook !== false))
   }
 
+  const [expenseSummary, setExpenseSummary] = useState(null)
+  const fetchExpensesSummary = useCallback(async () => {
+    try {
+      const res = await api.get('expenses/summary/')
+      if (res.data) setExpenseSummary(res.data)
+    } catch (err) {
+      console.warn('Failed to load expense summary:', err)
+    }
+  }, [])
+
   const fetchExpensesList = useCallback(async () => {
     try {
       setExpensesLoading(true)
-      const res = await api.get('expenses/?nopage=true')
+      const res = await api.get('expenses/?page_size=50')
       const raw = Array.isArray(res.data) ? res.data : (res.data?.results || [])
       const seen = new Set()
       const uniqueData = raw.filter(item => {
@@ -976,9 +986,9 @@ const Cashbook = ({ currentUser = null }) => {
       })
       setExpensesList(uniqueData)
     } catch (err) {
-      console.warn('Failed to load expenses list with nopage=true, trying with limit:', err)
+      console.warn('Failed to load expenses list, trying fallback:', err)
       try {
-        const res2 = await api.get('expenses/?limit=250')
+        const res2 = await api.get('expenses/?page_size=25')
         const raw2 = res2.data?.results || res2.data || []
         const seen2 = new Set()
         const uniqueData2 = (Array.isArray(raw2) ? raw2 : []).filter(item => {
@@ -1007,10 +1017,20 @@ const Cashbook = ({ currentUser = null }) => {
     }
   }, [])
 
+  const [vendorSummary, setVendorSummary] = useState(null)
+  const fetchVendorsSummary = useCallback(async () => {
+    try {
+      const res = await api.get('vendors/summary/')
+      if (res.data) setVendorSummary(res.data)
+    } catch (err) {
+      console.warn('Failed to load vendor summary:', err)
+    }
+  }, [])
+
   const fetchVendorsList = useCallback(async () => {
     try {
       setVendorsLoading(true)
-      const res = await api.get('vendors/?nopage=true')
+      const res = await api.get('vendors/?page_size=50')
       const data = res.data?.results || res.data || []
       setVendors(Array.isArray(data) ? data : [])
     } catch (err) {
@@ -1022,7 +1042,7 @@ const Cashbook = ({ currentUser = null }) => {
 
   const fetchInvoicesList = useCallback(async () => {
     try {
-      const res = await api.get('invoices/?page_size=1000')
+      const res = await api.get('invoices/?page_size=50')
       const data = res.data?.results || res.data || []
       setInvoicesList(Array.isArray(data) ? data : [])
     } catch (err) {
@@ -1044,7 +1064,7 @@ const Cashbook = ({ currentUser = null }) => {
   const fetchCustomersList = useCallback(async () => {
     try {
       setCustomersLoading(true)
-      const res = await api.get('customers/?nopage=true')
+      const res = await api.get('customers/?page_size=50')
       const raw = Array.isArray(res.data) ? res.data : (res.data?.results || [])
       const seen = new Set()
       const uniqueData = raw.filter(item => {
@@ -1055,9 +1075,9 @@ const Cashbook = ({ currentUser = null }) => {
       })
       setCustomers(uniqueData)
     } catch (err) {
-      console.warn('Failed to load customers list with nopage=true, trying fallback:', err)
+      console.warn('Failed to load customers list, trying fallback:', err)
       try {
-        const res2 = await api.get('customers/?limit=250')
+        const res2 = await api.get('customers/?page_size=25')
         const raw2 = res2.data?.results || res2.data || []
         const seen2 = new Set()
         const uniqueData2 = (Array.isArray(raw2) ? raw2 : []).filter(item => {
@@ -1287,28 +1307,26 @@ const Cashbook = ({ currentUser = null }) => {
 
   useEffect(() => {
     if (activeTab === 'expenses' || isExpenseModalOpen) {
-      fetchExpensesList()
-      if (jobOrdersList.length === 0) {
-        fetchJobOrdersList()
-      }
-      if (vendors.length === 0) {
-        fetchVendorsList()
-      }
-      if (invoicesList.length === 0) {
-        fetchInvoicesList()
-      }
+      if (expensesList.length === 0) fetchExpensesList()
+      fetchExpensesSummary()
+      if (jobOrdersList.length === 0) fetchJobOrdersList()
+      if (vendors.length === 0) fetchVendorsList()
+      if (invoicesList.length === 0) fetchInvoicesList()
     }
     if (activeTab === 'customers' || isCustomerModalOpen) {
-      fetchCustomersList()
-      fetchCustomersSummary()
+      if (customers.length === 0) {
+        fetchCustomersList()
+        fetchCustomersSummary()
+      }
     }
     if (activeTab === 'vendors' || isVendorModalOpen) {
-      fetchVendorsList()
+      if (vendors.length === 0) fetchVendorsList()
+      fetchVendorsSummary()
     }
     if (activeTab === 'job_orders') {
-      fetchJobOrdersList()
+      if (jobOrdersList.length === 0) fetchJobOrdersList()
     }
-  }, [activeTab, isExpenseModalOpen, isCustomerModalOpen, isVendorModalOpen, fetchExpensesList, fetchJobOrdersList, fetchVendorsList, fetchInvoicesList, fetchCustomersList, fetchCustomersSummary, jobOrdersList.length, vendors.length, invoicesList.length])
+  }, [activeTab, isExpenseModalOpen, isCustomerModalOpen, isVendorModalOpen, fetchExpensesList, fetchExpensesSummary, fetchJobOrdersList, fetchVendorsList, fetchVendorsSummary, fetchInvoicesList, fetchCustomersList, fetchCustomersSummary])
 
   const handleSaveExpense = async (e) => {
     if (e && e.preventDefault) e.preventDefault()
@@ -2357,14 +2375,14 @@ const Cashbook = ({ currentUser = null }) => {
       setCustomersLoading(true)
       setAllEntriesLoading(true)
       const [custRes, paysRes, entriesRes, repRes, salRes, expRes, jobsRes, venRes] = await Promise.all([
-        api.get('customers/', { params: { nopage: 'true' } }).catch(() => ({ data: [] })),
-        api.get('customer-payments/', { params: { nopage: 'true' } }).catch(() => ({ data: [] })),
-        api.get('cashbook-entries/', { params: { nopage: 'true' } }).catch(() => ({ data: [] })),
+        api.get('customers/', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
+        api.get('customer-payments/', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
+        api.get('cashbook-entries/', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
         api.get('reports/').catch(() => ({ data: {} })),
-        api.get('salaries/', { params: { nopage: 'true' } }).catch(() => ({ data: [] })),
-        api.get('expenses/', { params: { nopage: 'true' } }).catch(() => ({ data: [] })),
-        api.get('job-orders/', { params: { nopage: 'true' } }).catch(() => ({ data: [] })),
-        api.get('vendors/', { params: { nopage: 'true' } }).catch(() => ({ data: [] }))
+        api.get('salaries/', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
+        api.get('expenses/', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
+        api.get('job-orders/', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
+        api.get('vendors/', { params: { page_size: 50 } }).catch(() => ({ data: [] }))
       ])
       const fetchedCust = custRes.data?.results || custRes.data
       if (Array.isArray(fetchedCust) && fetchedCust.length > 0) setCustomers(fetchedCust)
@@ -2430,12 +2448,32 @@ const Cashbook = ({ currentUser = null }) => {
     fetchBooks()
     fetchBanks()
     fetchPettyCashAccounts()
-    fetchBankFlow()
-    fetchDashboardData()
+    if (activeTab === 'overview' || activeTab === 'dashboard' || activeTab === 'bank_flow' || activeTab === 'bank_dashboard') {
+      fetchBankFlow()
+      fetchDashboardData()
+    }
     fetchStaffUsers()
     fetchLabourList()
     fetchMonthEntries(monthYearView)
+
+    const handlePettyUpdated = () => {
+      fetchPettyCashAccounts()
+      fetchBanks()
+      if (activeTab === 'overview' || activeTab === 'dashboard' || activeTab === 'bank_flow' || activeTab === 'bank_dashboard') {
+        fetchBankFlow()
+        fetchDashboardData()
+      }
+    }
+    window.addEventListener('petty-cash-updated', handlePettyUpdated)
+    return () => window.removeEventListener('petty-cash-updated', handlePettyUpdated)
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'overview' || activeTab === 'dashboard' || activeTab === 'bank_flow' || activeTab === 'bank_dashboard') {
+      fetchBankFlow()
+      fetchDashboardData()
+    }
+  }, [activeTab])
 
   useEffect(() => {
     fetchBankFlow()
@@ -4324,10 +4362,9 @@ const Cashbook = ({ currentUser = null }) => {
         }
       }
 
-      await Promise.all([
-        api.post('cashbook-entries/', outPayload),
-        api.post('cashbook-entries/', inPayload)
-      ])
+      // Post sequentially to prevent SQLite database lock contention
+      await api.post('cashbook-entries/', outPayload)
+      await api.post('cashbook-entries/', inPayload)
 
       setIsTransferModalOpen(false)
       fetchBanks()
@@ -11902,6 +11939,7 @@ const Cashbook = ({ currentUser = null }) => {
       <CredVendorsView
         isMobile={isMobileScreen}
         vendors={vendors}
+        vendorSummary={vendorSummary}
         isLoading={vendorsLoading}
         isDarkMode={isDarkMode}
         onAddVendor={() => handleOpenVendorModal()}
@@ -12382,7 +12420,7 @@ const Cashbook = ({ currentUser = null }) => {
           expenses: expensesList.length,
           customers: customers.length,
           vendors: vendors.length,
-          labour: labourList.length || 12,
+          labour: pendingLabourers.length,
           jobOrders: jobOrdersList.length,
           accounts: banks.length + pettyCashAccounts.length,
           recycleBin: cashbookRecycleCount
@@ -12599,7 +12637,7 @@ const Cashbook = ({ currentUser = null }) => {
               expenses: expensesList.length,
               customers: customers.length,
               vendors: vendors.length,
-              labour: labourList.length || 12,
+              labour: pendingLabourers.length,
               jobOrders: jobOrdersList.length,
               accounts: banks.length + pettyCashAccounts.length,
               recycleBin: cashbookRecycleCount
@@ -12650,6 +12688,7 @@ const Cashbook = ({ currentUser = null }) => {
           <CredVendorsView
             isMobile={isMobileScreen}
             vendors={vendors}
+            vendorSummary={vendorSummary}
             isLoading={vendorsLoading}
             isDarkMode={isDarkMode}
             onAddVendor={() => handleOpenVendorModal()}
@@ -12661,6 +12700,7 @@ const Cashbook = ({ currentUser = null }) => {
           <CredExpensesView
             isMobile={isMobileScreen}
             expenses={expensesList}
+            expenseSummary={expenseSummary}
             jobOrders={jobOrdersList}
             isLoading={expensesLoading}
             isDarkMode={isDarkMode}
@@ -12713,6 +12753,8 @@ const Cashbook = ({ currentUser = null }) => {
             <CashbookLabour 
               isDarkMode={isDarkMode} 
               isMobileScreen={isMobileScreen} 
+              initialLabourList={labourList}
+              onRefreshLabour={fetchLabourList}
               onBack={() => setActiveTab('more')}
               onNavigate={(tab, params) => navigateToTab(tab, params)}
             />
@@ -12722,11 +12764,14 @@ const Cashbook = ({ currentUser = null }) => {
             <CashbookJobOrders
               isDarkMode={isDarkMode}
               isMobileScreen={isMobileScreen}
+              currentUser={currentUser || user}
               customers={customers}
               vendors={vendors}
               banks={banks}
               pettyCashAccounts={pettyCashAccounts}
               books={books}
+              initialJobOrders={jobOrdersList}
+              onRefreshJobOrders={fetchJobOrdersList}
               onBack={() => setActiveTab('more')}
               onNavigate={(tab, params) => navigateToTab(tab, params)}
             />
@@ -12813,7 +12858,7 @@ const Cashbook = ({ currentUser = null }) => {
               background: 'rgba(0, 0, 0, 0.5)',
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
-              zIndex: 990
+              zIndex: 10050
             }}
           />
           <div
@@ -12829,8 +12874,8 @@ const Cashbook = ({ currentUser = null }) => {
               border: isDarkMode ? '1px solid #232528' : '1px solid #EAEAEA',
               borderRadius: isMobileScreen ? '24px 24px 0 0' : '24px',
               boxShadow: isDarkMode ? '0 -8px 40px rgba(0, 0, 0, 0.8)' : '0 -8px 32px rgba(0, 0, 0, 0.12)',
-              padding: isMobileScreen ? '12px 18px calc(24px + env(safe-area-inset-bottom, 0px))' : '16px 18px',
-              zIndex: 1000,
+              padding: isMobileScreen ? '12px 18px calc(24px + env(safe-area-inset-bottom, 16px))' : '16px 18px',
+              zIndex: 10060,
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
@@ -14342,16 +14387,24 @@ const Cashbook = ({ currentUser = null }) => {
         ) : activeTab === 'vendors' ? (
           renderVendorsSection()
         ) : activeTab === 'labour' ? (
-          <CashbookLabour isDarkMode={isDarkMode} isMobileScreen={isMobileScreen} />
+          <CashbookLabour 
+            isDarkMode={isDarkMode} 
+            isMobileScreen={isMobileScreen}
+            initialLabourList={labourList}
+            onRefreshLabour={fetchLabourList}
+          />
         ) : activeTab === 'job_orders' ? (
           <CashbookJobOrders 
             isDarkMode={isDarkMode} 
             isMobileScreen={isMobileScreen} 
+            currentUser={currentUser || user}
             customers={customers}
             vendors={vendors}
             banks={banks}
             pettyCashAccounts={pettyCashAccounts}
             books={books}
+            initialJobOrders={jobOrdersList}
+            onRefreshJobOrders={fetchJobOrdersList}
             onReceivePayment={(job) => {
               const cust = customers.find(c => String(c.id) === String(job.customer || job.customer_id))
               const total = parseFloat(job.total_amount) || 0

@@ -208,7 +208,7 @@ const Vendors = () => {
 
       {/* ── 3. TABLE ── */}
       <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
-        {loading ? (
+        {loading && vendors.length === 0 ? (
           <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>

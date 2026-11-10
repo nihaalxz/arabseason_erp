@@ -676,7 +676,7 @@ const CredCustomersView = ({
 
 
       {/* TABLE / CONTENT SECTION */}
-      {isLoading ? (
+      {isLoading && (!customers || customers.length === 0) ? (
         <div 
           style={{
             background: 'var(--bg, #FFFFFF)',

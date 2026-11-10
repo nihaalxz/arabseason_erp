@@ -186,14 +186,9 @@
   padding: max(14px, env(safe-area-inset-top, 0px)) 0 16px;
   gap: var(--space-12);
   width: 100%;
-  position: sticky;
-  top: 0;
+  position: relative;
   background: var(--bg);
   z-index: 70;
-  -webkit-transform: translate3d(0, 0, 0);
-  transform: translate3d(0, 0, 0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
 }
 
 .cred-topbar.has-open-dropdown {
@@ -320,10 +315,6 @@
   justify-content: space-around !important;
   z-index: 9999 !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  -webkit-transform: translate3d(0, 0, 0) !important;
-  transform: translate3d(0, 0, 0) !important;
-  -webkit-backface-visibility: hidden !important;
-  backface-visibility: hidden !important;
 }
 
 .cred-nav-item {
@@ -1285,14 +1276,14 @@
     box-shadow: none !important;
   }
 
-  /* Active KPI card keeps its 2px solid ink outline (white in dark mode) */
+  /* Active KPI card subtle border */
   .cred-money-card.is-active,
   .cred-money-card[aria-pressed="true"],
   .cred-card-carousel .cred-money-card.is-active,
   .cred-card-carousel .cred-money-card[aria-pressed="true"],
   .cred-money-cards-scroll .cred-money-card.is-active,
   .cred-money-cards-scroll .cred-money-card[aria-pressed="true"] {
-    border: 2px solid var(--text, #0A0A0A) !important;
+    border: 1px solid var(--border, #E4E4E4) !important;
   }
 
   [data-theme='dark'] .cred-money-card.is-active,
@@ -1303,7 +1294,7 @@
   .cashbook-dark .cred-card-carousel .cred-money-card.is-active,
   [data-theme='dark'] .cred-card-carousel .cred-money-card[aria-pressed="true"],
   .cashbook-dark .cred-card-carousel .cred-money-card[aria-pressed="true"] {
-    border-color: #FFFFFF !important;
+    border-color: #2e323a !important;
   }
 
   /* TASK 2: Dashboard Table Card Wrapper removal on mobile */
@@ -2257,7 +2248,6 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   left: 0;
   pointer-events: none;
   transform: translateZ(0);
-  -webkit-transform: translateZ(0);
   isolation: isolate;
   z-index: 1;
 }
@@ -2267,10 +2257,6 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   top: 0;
   left: 0;
   background: var(--goo-bg, #0A0A0A);
-  border-radius: 9999px !important;
-  -webkit-border-radius: 9999px !important;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  overflow: hidden;
 }
 
 .cred-gooey-panel-shape {
@@ -2278,10 +2264,6 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   top: 0;
   left: 0;
   background: var(--goo-bg, #0A0A0A);
-  border-radius: 20px !important;
-  -webkit-border-radius: 20px !important;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  overflow: hidden;
   transform-origin: 50% 0%;
   will-change: transform;
 }
@@ -2301,28 +2283,12 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-atabs-tab:focus:not(:focus-vi
   padding: 0 16px;
   box-sizing: border-box;
   outline: none;
-  border-radius: 9999px !important;
-  -webkit-border-radius: 9999px !important;
+  border-radius: 9999px;
   font-family: var(--font-ui, system-ui, sans-serif);
   z-index: 20;
   user-select: none !important;
   -webkit-user-select: none !important;
   -webkit-tap-highlight-color: transparent !important;
-}
-
-/* Fallback for WebKit (iOS Safari & macOS Safari): disable SVG filter on HTML DOM */
-@supports (-webkit-touch-callout: none) {
-  .cred-gooey-surface {
-    filter: none !important;
-    -webkit-filter: none !important;
-  }
-}
-
-@supports (-webkit-hyphens: none) and (not (-ms-ime-align: auto)) {
-  .cred-gooey-surface {
-    filter: none !important;
-    -webkit-filter: none !important;
-  }
 }
 
 .cred-gooey-trigger:focus-visible,
@@ -2404,37 +2370,38 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-gooey-trigger:focus:not(:focu
 }
 
 .cred-gooey-root.non-gooey .cred-gooey-trigger {
-  background: #F1F3F5 !important;
-  color: #0A0A0A !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  background: #0A0A0A !important;
+  color: #F4F4F4 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
 }
 
 .cred-gooey-root.non-gooey .cred-gooey-trigger:hover {
-  background: #E5E7EB !important;
-  border-color: rgba(0, 0, 0, 0.15) !important;
+  background: #171717 !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
 }
 
 .cred-gooey-root.non-gooey .cred-gooey-trigger .cred-gooey-trigger-label {
-  color: #0A0A0A !important;
+  color: #F4F4F4 !important;
 }
 
 .cred-gooey-root.non-gooey .cred-gooey-trigger svg {
-  stroke: #0A0A0A !important;
+  stroke: #CFCFCF !important;
 }
 
 .cred-gooey-root.non-gooey .cred-gooey-trigger span {
-  color: #0A0A0A !important;
+  color: #F4F4F4 !important;
 }
 
 .cred-gooey-options-list.non-gooey-panel {
-  background: #FFFFFF !important;
-  border: 1px solid var(--border, #E4E4E4) !important;
+  background: #0A0A0A !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 16px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6) !important;
 }
 
 .cred-gooey-options-list.non-gooey-panel .cred-gooey-row {
-  color: #374151 !important;
+  color: #D1D5DB !important;
   background: transparent !important;
   cursor: pointer !important;
   transition: background-color 0.12s ease, color 0.12s ease;
@@ -2451,21 +2418,21 @@ body.cb-dark-bw[data-cashbook-active="true"] .cred-gooey-trigger:focus:not(:focu
 
 .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active,
 .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover {
-  background: #F1F3F5 !important;
-  color: #0A0A0A !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
 }
 
 .cred-gooey-options-list.non-gooey-panel .cred-gooey-row.is-active span,
 .cred-gooey-options-list.non-gooey-panel .cred-gooey-row:hover span {
-  color: #0A0A0A !important;
+  color: #FFFFFF !important;
 }
 
 .cred-gooey-options-list.non-gooey-panel .cred-gooey-dot {
-  background-color: #0A0A0A !important;
+  background-color: #FFFFFF !important;
 }
 
 .cred-gooey-options-list.non-gooey-panel .cred-gooey-check {
-  color: #0A0A0A !important;
+  color: #FFFFFF !important;
 }
 
 /* Dark mode overrides for non-gooey dropdown */

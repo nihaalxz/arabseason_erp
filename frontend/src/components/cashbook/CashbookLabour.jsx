@@ -124,6 +124,8 @@ const MobileCardCarousel = ({
 export default function CashbookLabour({ 
   isDarkMode = false, 
   isMobileScreen = false,
+  initialLabourList = [],
+  onRefreshLabour = null,
   onBack,
   onNavigate
 }) {
@@ -141,9 +143,17 @@ export default function CashbookLabour({
   const effectiveIsMobile = isMobileScreen || internalIsMobile
 
   // Data states
-  const [labourEntries, setLabourEntries] = useState([])
+  const [labourEntries, setLabourEntries] = useState(() => Array.isArray(initialLabourList) ? initialLabourList : [])
   const [jobOrders, setJobOrders] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => (!initialLabourList || initialLabourList.length === 0))
+
+  // Sync initialLabourList when received or updated
+  useEffect(() => {
+    if (initialLabourList && initialLabourList.length > 0) {
+      setLabourEntries(initialLabourList)
+      setLoading(false)
+    }
+  }, [initialLabourList])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
@@ -203,31 +213,54 @@ export default function CashbookLabour({
   const inputBg = isDarkMode ? '#17191d' : '#f8fafc'
   const inputBorder = isDarkMode ? '#282b32' : '#cbd5e1'
 
+  const [labourSummary, setLabourSummary] = useState(null)
+
   const safeFormatAmount = (val) => {
     const num = parseFloat(val)
     if (isNaN(num)) return '0.00'
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
-  // Fetch Labour Entries
+  // Fetch Labour Summary for instant KPI cards & tab badge counts
+  const fetchLabourSummary = useCallback(async () => {
+    try {
+      const res = await api.get('labours/summary/')
+      if (res.data) setLabourSummary(res.data)
+    } catch (err) {
+      console.warn('Failed to load labour summary:', err)
+    }
+  }, [])
+
+  // Fetch Labour Entries with pagination
   const fetchLabourEntries = useCallback(async () => {
     try {
-      setLoading(true)
-      const res = await api.get('labours/')
-      const data = res.data?.results || res.data || []
-      setLabourEntries(Array.isArray(data) ? data : [])
+      setLoading(prev => labourEntries.length === 0 ? true : prev)
+      const res = await api.get('labours/?page_size=50')
+      const raw = res.data?.results || res.data || []
+      const list = Array.isArray(raw) ? raw : []
+      setLabourEntries(list)
+      if (onRefreshLabour) onRefreshLabour(list)
     } catch (err) {
-      console.error('Failed to load labour entries:', err)
-      showError('Failed to load labour entries.')
+      console.warn('Failed to load labour entries, trying fallback:', err)
+      try {
+        const res2 = await api.get('labours/?page_size=25')
+        const raw2 = res2.data?.results || res2.data || []
+        const list2 = Array.isArray(raw2) ? raw2 : []
+        setLabourEntries(list2)
+        if (onRefreshLabour) onRefreshLabour(list2)
+      } catch (e2) {
+        console.error('Failed to load labour entries fallback:', e2)
+        if (labourEntries.length === 0) showError('Failed to load labour entries.')
+      }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onRefreshLabour, labourEntries.length])
 
   // Fetch Job Orders for dropdown
   const fetchJobOrders = useCallback(async () => {
     try {
-      const res = await api.get('job-orders/?limit=500')
+      const res = await api.get('job-orders/?page_size=100')
       const data = res.data?.results || res.data || []
       setJobOrders(Array.isArray(data) ? data : [])
     } catch (err) {
@@ -236,10 +269,12 @@ export default function CashbookLabour({
   }, [])
 
   useEffect(() => {
+    fetchLabourSummary()
     fetchLabourEntries()
     fetchJobOrders()
 
     const handleRefresh = () => {
+      fetchLabourSummary()
       fetchLabourEntries()
       fetchJobOrders()
     }
@@ -247,7 +282,7 @@ export default function CashbookLabour({
     return () => {
       window.removeEventListener('refresh-cash-ledger', handleRefresh)
     }
-  }, [fetchLabourEntries, fetchJobOrders])
+  }, [fetchLabourSummary, fetchLabourEntries, fetchJobOrders])
 
   // Extract unique labourer names for suggestions
   const existingLabourerNames = useMemo(() => {
@@ -315,23 +350,34 @@ export default function CashbookLabour({
 
   // KPI Calculations
   const metrics = useMemo(() => {
-    const totalWork = labourEntries.reduce((acc, e) => acc + (parseFloat(e.payment_amount) || 0), 0)
-    const totalPaid = labourEntries.reduce((acc, e) => acc + (parseFloat(e.paid_amount) || 0), 0)
-    const totalDue = Math.max(0, totalWork - totalPaid)
-    const pendingCount = labourEntries.filter(e => {
-      const total = parseFloat(e.payment_amount) || 0
-      const paid = parseFloat(e.paid_amount) || 0
-      return (total - paid) > 0.01
-    }).length
+    const totalWork = labourSummary?.total_amount != null
+      ? labourSummary.total_amount
+      : labourEntries.reduce((acc, e) => acc + (parseFloat(e.payment_amount) || 0), 0)
+    const totalPaid = labourSummary?.paid_amount != null
+      ? labourSummary.paid_amount
+      : labourEntries.reduce((acc, e) => acc + (parseFloat(e.paid_amount) || 0), 0)
+    const totalDue = labourSummary?.due_amount != null
+      ? labourSummary.due_amount
+      : Math.max(0, totalWork - totalPaid)
+    const totalLabourers = labourSummary?.total_labourers != null
+      ? labourSummary.total_labourers
+      : labourerLedgers.length
+    const pendingCount = labourSummary?.pending_count != null
+      ? labourSummary.pending_count
+      : labourEntries.filter(e => {
+          const total = parseFloat(e.payment_amount) || 0
+          const paid = parseFloat(e.paid_amount) || 0
+          return (total - paid) > 0.01
+        }).length
 
     return {
-      totalLabourers: labourerLedgers.length,
+      totalLabourers,
       totalWork,
       totalPaid,
       totalDue,
       pendingCount
     }
-  }, [labourEntries, labourerLedgers])
+  }, [labourEntries, labourerLedgers, labourSummary])
 
   // Filtered Ledgers
   const filteredLedgers = useMemo(() => {
@@ -410,8 +456,8 @@ export default function CashbookLabour({
         { id: 'Settled', label: 'Settled (Paid)', desc: 'Zero balance remaining', count: settledCount, color: '#10b981' }
       ]
     } else {
-      const totalCount = labourEntries.length
-      const pendingCount = labourEntries.filter(e => {
+      const totalCount = labourSummary?.total_entries ?? labourEntries.length
+      const pendingCount = labourSummary?.pending_count ?? labourEntries.filter(e => {
         const tot = parseFloat(e.payment_amount) || 0
         const pd = parseFloat(e.paid_amount) || 0
         return (tot - pd) > 0.01
@@ -421,7 +467,7 @@ export default function CashbookLabour({
         const pd = parseFloat(e.paid_amount) || 0
         return (tot - pd) > 0.01 && pd > 0.01
       }).length
-      const settledCount = labourEntries.filter(e => {
+      const settledCount = labourSummary?.settled_count ?? labourEntries.filter(e => {
         const tot = parseFloat(e.payment_amount) || 0
         const pd = parseFloat(e.paid_amount) || 0
         return (tot - pd) <= 0.01 && tot > 0
@@ -433,7 +479,7 @@ export default function CashbookLabour({
         { id: 'Settled', label: 'Settled (Paid)', desc: 'Fully paid work orders', count: settledCount, color: '#10b981' }
       ]
     }
-  }, [viewMode, labourerLedgers, labourEntries])
+  }, [viewMode, labourerLedgers, labourEntries, labourSummary])
 
   // Map labour entry or ledger to voucher data
   const mapLabourToVoucher = (l) => {
@@ -940,9 +986,7 @@ export default function CashbookLabour({
           onClick={() => setStatusFilter('All')}
           style={{
             background: cardBg,
-            border: (statusFilter === 'All')
-              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
-              : `1px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: effectiveIsMobile ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: effectiveIsMobile ? '84px' : 'auto',
@@ -1026,9 +1070,7 @@ export default function CashbookLabour({
           onClick={() => setStatusFilter(statusFilter === 'Settled' ? 'All' : 'Settled')}
           style={{
             background: cardBg,
-            border: (statusFilter === 'Settled')
-              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
-              : `1px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: effectiveIsMobile ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: effectiveIsMobile ? '84px' : 'auto',
@@ -1072,9 +1114,7 @@ export default function CashbookLabour({
           onClick={() => setStatusFilter(statusFilter === 'Pending' ? 'All' : 'Pending')}
           style={{
             background: cardBg,
-            border: (statusFilter === 'Pending')
-              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
-              : `1px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: effectiveIsMobile ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: effectiveIsMobile ? '84px' : 'auto',
@@ -1216,7 +1256,7 @@ export default function CashbookLabour({
       </div>
 
       {/* ── 4. MAIN CONTENT ── */}
-      {loading ? (
+      {loading && labourEntries.length === 0 ? (
         <div style={{
           background: cardBg,
           border: `1px solid ${borderColor}`,

@@ -163,8 +163,8 @@ const CredCustomerChartView = ({
 
     try {
       const [worksRes, custRes] = await Promise.all([
-        api.get('customer-work-records/').catch(() => ({ data: [] })),
-        api.get('customers/?limit=500').catch(() => ({ data: [] }))
+        api.get('customer-work-records/?page_size=100').catch(() => ({ data: [] })),
+        api.get('customers/?page_size=100').catch(() => ({ data: [] }))
       ]);
 
       const worksData = worksRes.data?.results || worksRes.data || [];

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
@@ -233,7 +233,20 @@ const DashboardLayout = ({ onLogout, currentUser }) => {
             }}
           >
             <div key={isCashbook ? 'cashbook' : location.pathname} className="erp-page-transition">
-              <Outlet context={{ currentUser, onLogout, isDarkMode, onToggleTheme: handleToggleTheme }} />
+              <Suspense fallback={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', width: '100%' }}>
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    border: '2.5px solid var(--border, #E4E4E4)',
+                    borderTopColor: 'var(--text, #0A0A0A)',
+                    borderRadius: '50%',
+                    animation: 'appSpin 0.7s linear infinite'
+                  }} />
+                </div>
+              }>
+                <Outlet context={{ currentUser, onLogout, isDarkMode, onToggleTheme: handleToggleTheme }} />
+              </Suspense>
             </div>
           </main>
         </div>

@@ -68,9 +68,9 @@ const ManageBanksPettyCash = () => {
     setLoading(true)
     try {
       const [banksRes, pettyRes, usersRes] = await Promise.allSettled([
-        api.get('banks/?nopage=true'),
-        api.get('petty-cash-accounts/?nopage=true'),
-        api.get('timesheets/staff-users/')
+        api.get('banks/?page_size=100'),
+        api.get('petty-cash-accounts/?page_size=100'),
+        api.get('timesheets/staff-users/?page_size=100')
       ])
 
       if (banksRes.status === 'fulfilled') {
@@ -98,7 +98,7 @@ const ManageBanksPettyCash = () => {
 
       if (usersList.length === 0) {
         try {
-          const fallbackRes = await api.get('accounts/users/?nopage=true')
+          const fallbackRes = await api.get('accounts/users/?page_size=100')
           const fData = fallbackRes.data?.results || fallbackRes.data || []
           if (Array.isArray(fData)) {
             usersList = fData.map(u => ({
@@ -731,34 +731,7 @@ const ManageBanksPettyCash = () => {
                             >
                               <Edit size={13} strokeWidth={2} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBank(bank)}
-                              title="Delete Bank Account"
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--border, #E4E4E4)',
-                                background: 'var(--card-bg, #FFFFFF)',
-                                color: 'var(--text-muted, #71717A)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F5)'
-                                e.currentTarget.style.color = 'var(--text, #18181B)'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'
-                                e.currentTarget.style.color = 'var(--text-muted, #71717A)'
-                              }}
-                            >
-                              <Trash2 size={13} strokeWidth={2} />
-                            </button>
+
                           </div>
                         </td>
                       </tr>
@@ -954,34 +927,7 @@ const ManageBanksPettyCash = () => {
                             >
                               <Edit size={13} strokeWidth={2} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeletePetty(account)}
-                              title="Delete Account"
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--border, #E4E4E4)',
-                                background: 'var(--card-bg, #FFFFFF)',
-                                color: 'var(--text-muted, #71717A)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F5)'
-                                e.currentTarget.style.color = 'var(--text, #18181B)'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'var(--card-bg, #FFFFFF)'
-                                e.currentTarget.style.borderColor = 'var(--border, #E4E4E4)'
-                              }}
-                            >
-                              <Trash2 size={13} strokeWidth={2} />
-                            </button>
+
                           </div>
                         </td>
                       </tr>

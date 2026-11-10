@@ -612,7 +612,7 @@ const Estimations = () => {
           </div>
 
           {/* TABLE */}
-          {loading ? (
+          {loading && estimations.length === 0 ? (
             <div style={{ padding: '24px 0' }}><SkeletonLoader count={5} /></div>
           ) : filteredEstimations.length === 0 ? (
             <div style={{

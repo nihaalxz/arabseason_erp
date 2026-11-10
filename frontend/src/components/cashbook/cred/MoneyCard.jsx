@@ -42,9 +42,7 @@ const MoneyCard = ({
       style={{
         cursor: isInteractive ? 'pointer' : 'default',
         borderRadius: '20px',
-        border: isActive 
-          ? '2px solid var(--text, #0A0A0A)' 
-          : 'var(--m-card-border, 1px solid var(--border, #E4E4E4))',
+        border: 'var(--m-card-border, 1px solid var(--border, #E4E4E4))',
         boxSizing: 'border-box',
         userSelect: 'none',
         WebkitUserSelect: 'none',

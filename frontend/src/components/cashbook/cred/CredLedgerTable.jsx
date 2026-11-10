@@ -193,7 +193,7 @@ const CredLedgerTable = ({
       </div>
 
       {/* Table Rows or States */}
-      {isLoading ? (
+      {isLoading && (!entries || entries.length === 0) ? (
         <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {[1, 2, 3, 4, 5].map(n => (
             <div 

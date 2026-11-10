@@ -989,7 +989,7 @@ export default function Enquiries({ currentUser }) {
 
       {/* ── 5. MAIN DATA TABLE (Directly on page, Cashbook style, no horizontal scroll) ── */}
       <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
-        {loading ? (
+        {loading && enquiries.length === 0 ? (
           <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>

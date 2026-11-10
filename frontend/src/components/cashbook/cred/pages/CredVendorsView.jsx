@@ -39,6 +39,7 @@ const getAmountFontSize = (val) => {
 const CredVendorsView = ({
   isMobile = false,
   vendors = [],
+  vendorSummary = null,
   isLoading = false,
   isDarkMode = false,
   onAddVendor,
@@ -106,42 +107,44 @@ const CredVendorsView = ({
 
   // Computed vendor summary metrics
   const metrics = useMemo(() => {
-    const totalVendorsCount = deduplicatedVendors.length;
-    let totalBilled = 0;
-    let totalDisbursed = 0;
-    let totalPayablesDue = 0;
+    const totalVendorsCount = vendorSummary?.total_vendors ?? deduplicatedVendors.length;
+    let totalBilled = vendorSummary?.total_billed ?? 0;
+    let totalDisbursed = vendorSummary?.total_disbursed ?? 0;
+    let totalPayablesDue = vendorSummary?.total_payables_due ?? 0;
 
-    deduplicatedVendors.forEach(v => {
-      const billed = parseFloat(v.total_billed) || 0;
-      const paid = parseFloat(v.paid_amount) || 0;
-      const due = Math.max(0, billed - paid);
+    if (!vendorSummary) {
+      deduplicatedVendors.forEach(v => {
+        const billed = parseFloat(v.total_billed) || 0;
+        const paid = parseFloat(v.paid_amount) || 0;
+        const due = Math.max(0, billed - paid);
 
-      totalBilled += billed;
-      totalDisbursed += paid;
-      totalPayablesDue += due;
-    });
+        totalBilled += billed;
+        totalDisbursed += paid;
+        totalPayablesDue += due;
+      });
+    }
 
-    const payablesDueVendors = deduplicatedVendors.filter(v => {
+    const payablesDueCount = vendorSummary?.payables_due_count ?? deduplicatedVendors.filter(v => {
       const billed = parseFloat(v.total_billed) || 0;
       const paid = parseFloat(v.paid_amount) || 0;
       return (billed - paid) > 0.01;
-    });
+    }).length;
 
-    const settledVendors = deduplicatedVendors.filter(v => {
+    const settledCount = vendorSummary?.settled_count ?? deduplicatedVendors.filter(v => {
       const billed = parseFloat(v.total_billed) || 0;
       const paid = parseFloat(v.paid_amount) || 0;
       return (billed - paid) <= 0.01;
-    });
+    }).length;
 
     return {
       totalVendorsCount,
       totalBilled,
       totalDisbursed,
       totalPayablesDue,
-      payablesDueCount: payablesDueVendors.length,
-      settledCount: settledVendors.length
+      payablesDueCount,
+      settledCount
     };
-  }, [deduplicatedVendors]);
+  }, [deduplicatedVendors, vendorSummary]);
 
   // Filtered vendor records based on filter and search
   const filteredVendors = useMemo(() => {
@@ -540,7 +543,7 @@ const CredVendorsView = ({
       </div>
 
       {/* TABLE / CONTENT SECTION */}
-      {isLoading ? (
+      {isLoading && (!vendors || vendors.length === 0) ? (
         <div 
           style={{
             background: 'var(--bg, #FFFFFF)',

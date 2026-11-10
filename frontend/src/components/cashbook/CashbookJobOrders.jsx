@@ -11,6 +11,7 @@ import {
 import api from '../../api'
 import Modal from '../common/Modal'
 import JobOrderModal from '../jobs/JobOrderModal'
+import JobOrderDetailModal from '../jobs/JobOrderDetailModal'
 import CashbookSelect from '../common/CashbookSelect'
 import CredAnimatedTabs from './cred/CredAnimatedTabs'
 import GooeyMenu from './cred/GooeyMenu'
@@ -127,15 +128,26 @@ const MobileCardCarousel = ({
 export default function CashbookJobOrders({ 
   isDarkMode = false, 
   isMobileScreen = false,
+  currentUser: currentUserProp = null,
   customers: initialCustomers = [],
   vendors: initialVendors = [],
   banks: initialBanks = [],
   pettyCashAccounts: initialPettyCashAccounts = [],
   books: initialBooks = [],
+  initialJobOrders = [],
+  onRefreshJobOrders = null,
   onReceivePayment = null,
   onBack,
   onNavigate
 }) {
+  const currentUser = currentUserProp || (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}')
+    } catch (e) {
+      return {}
+    }
+  })()
+
   const [internalIsMobile, setInternalIsMobile] = useState(() => {
     if (typeof window !== 'undefined') return window.innerWidth <= 768
     return isMobileScreen
@@ -151,8 +163,8 @@ export default function CashbookJobOrders({
 
   const effectiveIsMobile = isMobileScreen || internalIsMobile
 
-  const [jobOrders, setJobOrders] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [jobOrders, setJobOrders] = useState(() => Array.isArray(initialJobOrders) ? initialJobOrders : [])
+  const [loading, setLoading] = useState(() => (!initialJobOrders || initialJobOrders.length === 0))
   const [customers, setCustomers] = useState(initialCustomers || [])
   const [vendors, setVendors] = useState(initialVendors || [])
   const [banks, setBanks] = useState(initialBanks || [])
@@ -161,9 +173,18 @@ export default function CashbookJobOrders({
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
 
+  // Sync initialJobOrders if passed or updated from parent
+  useEffect(() => {
+    if (initialJobOrders && initialJobOrders.length > 0) {
+      setJobOrders(initialJobOrders)
+      setLoading(false)
+    }
+  }, [initialJobOrders])
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingJob, setEditingJob] = useState(null)
+  const [selectedJobForDetail, setSelectedJobForDetail] = useState(null)
   const [previewAttachment, setPreviewAttachment] = useState(null)
 
   const handleOpenAttachmentPreview = (dataUrl, fileName, mimeType) => {
@@ -272,7 +293,7 @@ export default function CashbookJobOrders({
     if (initialVendors?.length) {
       setVendors(initialVendors)
     } else {
-      api.get('vendors/?nopage=true')
+      api.get('vendors/?page_size=100')
         .then(res => setVendors(Array.isArray(res.data) ? res.data : (res.data?.results || [])))
         .catch(() => {})
     }
@@ -312,17 +333,19 @@ export default function CashbookJobOrders({
   // Fetch job orders
   const fetchJobOrders = useCallback(async () => {
     try {
-      setLoading(true)
-      const res = await api.get('job-orders/?limit=1000')
+      setLoading(prev => jobOrders.length === 0 ? true : prev)
+      const res = await api.get('job-orders/?view_scope=all&page_size=50')
       const data = res.data?.results || res.data || []
-      setJobOrders(Array.isArray(data) ? data : [])
+      const list = Array.isArray(data) ? data : []
+      setJobOrders(list)
+      if (onRefreshJobOrders) onRefreshJobOrders(list)
     } catch (err) {
       console.error('Failed to load job orders for cashbook:', err)
-      showError('Failed to load job orders.')
+      if (jobOrders.length === 0) showError('Failed to load job orders.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onRefreshJobOrders, jobOrders.length])
 
   const [jobSummary, setJobSummary] = useState(null)
 
@@ -340,7 +363,7 @@ export default function CashbookJobOrders({
   // Fetch customers if not passed
   const fetchCustomers = useCallback(async () => {
     try {
-      const res = await api.get('customers/?nopage=true')
+      const res = await api.get('customers/?page_size=100')
       const data = res.data?.results || res.data || []
       setCustomers(Array.isArray(data) ? data : [])
     } catch (err) {
@@ -451,19 +474,25 @@ export default function CashbookJobOrders({
   // Filtered List
   const filteredJobOrders = useMemo(() => {
     return jobOrders.filter(j => {
+      const isCancelled = (j.status || '').toLowerCase() === 'cancelled'
+      // Only show cancelled orders when 'Cancelled' tab is explicitly selected
+      if (statusFilter === 'Cancelled') {
+        if (!isCancelled) return false
+      } else {
+        // In all other views ('All', 'In Progress', 'Payment Due', etc.), never show cancelled orders
+        if (isCancelled) return false
+      }
+
       // Status filter
       if (statusFilter === 'In Progress' && (j.status || '').toLowerCase() !== 'in progress') return false
       if (statusFilter === 'Completed' && (j.status || '').toLowerCase() !== 'completed') return false
       if (statusFilter === 'Pending' && (j.status || '').toLowerCase() !== 'pending') return false
-      if (statusFilter === 'Cancelled' && (j.status || '').toLowerCase() !== 'cancelled') return false
       if (statusFilter === 'Payment Due') {
-        if ((j.status || '').toLowerCase() === 'cancelled') return false
         const bal = parseFloat(j.balance)
         const due = !isNaN(bal) ? bal : ((parseFloat(j.total_amount) || 0) - (parseFloat(j.paid_amount) || 0))
         if (due <= 0.01) return false
       }
       if (statusFilter === 'Settled') {
-        if ((j.status || '').toLowerCase() === 'cancelled') return false
         const total = parseFloat(j.total_amount) || 0
         const bal = parseFloat(j.balance)
         const due = !isNaN(bal) ? bal : (total - (parseFloat(j.paid_amount) || 0))
@@ -498,12 +527,12 @@ export default function CashbookJobOrders({
   } = usePagination(filteredJobOrders, effectiveIsMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP, jobOrdersResetKey);
 
   const filterPills = [
-    { id: 'All', label: 'All', count: jobOrders.length },
-    { id: 'In Progress', label: 'In Progress', count: inProgressOrders.length },
+    { id: 'All', label: 'All', count: jobSummary?.count ?? activeJobOrders.length },
+    { id: 'In Progress', label: 'In Progress', count: jobSummary?.in_progress_count ?? inProgressOrders.length },
     { id: 'Payment Due', label: 'Payment Due', count: dueOrders.length },
-    { id: 'Completed', label: 'Completed', count: completedOrders.length },
-    { id: 'Pending', label: 'Pending', count: pendingOrders.length },
-    { id: 'Cancelled', label: 'Cancelled', count: cancelledOrders.length }
+    { id: 'Completed', label: 'Completed', count: jobSummary?.completed_count ?? completedOrders.length },
+    { id: 'Pending', label: 'Pending', count: jobSummary?.pending_count ?? pendingOrders.length },
+    { id: 'Cancelled', label: 'Cancelled', count: jobSummary?.cancelled_summary?.count ?? cancelledOrders.length }
   ]
 
   const mapJobToVoucher = (j) => {
@@ -967,9 +996,7 @@ export default function CashbookJobOrders({
           onClick={() => setStatusFilter('All')}
           style={{
             background: cardBg,
-            border: (statusFilter === 'All')
-              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
-              : `1px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: isMobileScreen ? '84px' : 'auto',
@@ -984,7 +1011,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {isCancelledView ? 'Cancelled Orders' : 'Total Contracts'}
+              Total Contracts
             </span>
             <div style={{
               width: '30px',
@@ -1006,12 +1033,10 @@ export default function CashbookJobOrders({
 
         {/* Card 2: Total Contract Value */}
         <div 
-          onClick={() => setStatusFilter(isCancelledView ? 'All' : 'Cancelled')}
+          onClick={() => setStatusFilter('All')}
           style={{
             background: cardBg,
-            border: isCancelledView
-              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
-              : `1px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: isMobileScreen ? '84px' : 'auto',
@@ -1026,7 +1051,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {isCancelledView ? 'Cancelled Value' : 'Contract Value'}
+              Contract Value
             </span>
             <div style={{
               width: '30px',
@@ -1055,9 +1080,7 @@ export default function CashbookJobOrders({
           onClick={() => setStatusFilter(statusFilter === 'Completed' ? 'All' : 'Completed')}
           style={{
             background: cardBg,
-            border: (statusFilter === 'Completed' || statusFilter === 'Settled')
-              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
-              : `1px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: isMobileScreen ? '84px' : 'auto',
@@ -1072,7 +1095,7 @@ export default function CashbookJobOrders({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {isCancelledView ? 'Cancelled Paid' : 'Cash In Paid'}
+              Cash In Paid
             </span>
             <div style={{
               width: '30px',
@@ -1101,9 +1124,7 @@ export default function CashbookJobOrders({
           onClick={() => setStatusFilter(statusFilter === 'Payment Due' ? 'All' : 'Payment Due')}
           style={{
             background: cardBg,
-            border: (statusFilter === 'Payment Due')
-              ? (isDarkMode ? '2px solid #ffffff' : '2px solid #0A0A0A')
-              : `1px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '16px',
             padding: isMobileScreen ? '0.75rem 0.95rem' : '1.15rem 1.25rem',
             minHeight: isMobileScreen ? '84px' : 'auto',
@@ -1244,7 +1265,7 @@ export default function CashbookJobOrders({
       {/* ========================================================= */}
       {/* JOB ORDERS DATA TABLE / MOBILE CARDS                      */}
       {/* ========================================================= */}
-      {loading ? (
+      {loading && jobOrders.length === 0 ? (
         <div style={{
           background: cardBg,
           border: `1px solid ${borderColor}`,
@@ -1327,7 +1348,11 @@ export default function CashbookJobOrders({
             const isCompleted = s === 'completed' || s === 'settled';
 
             return (
-              <div key={job.id} style={{ display: 'flex', flexDirection: 'column' }}>
+              <div 
+                key={job.id} 
+                style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+                onClick={() => setSelectedJobForDetail(job)}
+              >
                 {/* Tier 1: Avatar | Title + Subline | Status dot + plain text */}
                 <div style={{
                   display: 'flex',
@@ -1444,18 +1469,25 @@ export default function CashbookJobOrders({
                 }}>
 
                   {(() => {
-                    const att = job.attachment || job.custom_fields?.attachment
-                    const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
-                    const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
-                    if (!att) return null
-                    const isImg = att.startsWith('data:image/') || attType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(attName)
+                    const attList = Array.isArray(job.attachments) && job.attachments.length > 0
+                      ? job.attachments
+                      : (Array.isArray(job.custom_fields?.attachments) && job.custom_fields.attachments.length > 0
+                          ? job.custom_fields.attachments
+                          : ((job.attachment || job.custom_fields?.attachment) ? [{
+                              url: job.attachment || job.custom_fields?.attachment,
+                              name: job.attachment_name || job.custom_fields?.attachment_name || '',
+                              type: job.attachment_type || job.custom_fields?.attachment_type || ''
+                            }] : []))
+                    if (attList.length === 0) return null
+                    const first = attList[0]
+                    const isImg = first.url?.startsWith('data:image/') || first.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(first.name || '')
                     return (
                       <button
                         type="button"
-                        title={attName || 'View Attachment'}
+                        title={attList.length > 1 ? `View ${attList.length} Attachments` : (first.name || 'View Attachment')}
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleOpenAttachmentPreview(att, attName, attType)
+                          handleOpenAttachmentPreview(first.url, first.name, first.type)
                         }}
                         style={{
                           background: isDarkMode ? '#1e2025' : '#eef2ff',
@@ -1473,14 +1505,14 @@ export default function CashbookJobOrders({
                       >
                         {isImg ? (
                           <img
-                            src={att}
+                            src={first.url}
                             alt=""
                             style={{ width: '16px', height: '16px', objectFit: 'cover', borderRadius: '3px' }}
                           />
                         ) : (
                           <Paperclip size={12} />
                         )}
-                        <span>{isImg ? 'Image' : 'File'}</span>
+                        <span>{attList.length > 1 ? `${attList.length} Files` : (isImg ? 'Image' : 'File')}</span>
                       </button>
                     )
                   })()}
@@ -1590,8 +1622,10 @@ export default function CashbookJobOrders({
                       key={job.id || idx}
                       className="cred-table-row"
                       style={{
-                        borderBottom: `1px solid ${borderColor}`
+                        borderBottom: `1px solid ${borderColor}`,
+                        cursor: 'pointer'
                       }}
+                      onClick={() => setSelectedJobForDetail(job)}
                     >
                       {/* Job Order / Title (Two-line cell: title ink, id muted below, no boxed id) */}
                       <td style={{ padding: '8px 8px', verticalAlign: 'middle' }}>
@@ -1668,8 +1702,16 @@ export default function CashbookJobOrders({
                       </td>
 
                       {/* Actions ("receive payment" row text action, CredRowIconButton for edit & delete) */}
-                      <td style={{ padding: '8px 18px 8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle', width: '16%', minWidth: '160px' }}>
+                      <td style={{ padding: '8px 18px 8px 8px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle', width: '16%', minWidth: '160px' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', whiteSpace: 'nowrap' }}>
+
+                          <CredRowIconButton
+                            title="View Job Order & Contract Details"
+                            ariaLabel="View Details"
+                            onClick={() => setSelectedJobForDetail(job)}
+                          >
+                            <Eye size={13} />
+                          </CredRowIconButton>
 
                           <VoucherPrintBtn
                             onClick={() => printPaymentVoucher(mapJobToVoucher(job))}
@@ -1677,15 +1719,22 @@ export default function CashbookJobOrders({
                             isDarkMode={isDarkMode}
                           />
                           {(() => {
-                            const att = job.attachment || job.custom_fields?.attachment
-                            const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
-                            const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
-                            if (!att) return null
+                            const attList = Array.isArray(job.attachments) && job.attachments.length > 0
+                              ? job.attachments
+                              : (Array.isArray(job.custom_fields?.attachments) && job.custom_fields.attachments.length > 0
+                                  ? job.custom_fields.attachments
+                                  : ((job.attachment || job.custom_fields?.attachment) ? [{
+                                      url: job.attachment || job.custom_fields?.attachment,
+                                      name: job.attachment_name || job.custom_fields?.attachment_name || '',
+                                      type: job.attachment_type || job.custom_fields?.attachment_type || ''
+                                    }] : []))
+                            if (attList.length === 0) return null
+                            const first = attList[0]
                             return (
                               <CredRowIconButton
-                                title={attName || 'View Attachment'}
+                                title={attList.length > 1 ? `View ${attList.length} Attachments` : (first.name || 'View Attachment')}
                                 ariaLabel="View Attachment"
-                                onClick={() => handleOpenAttachmentPreview(att, attName, attType)}
+                                onClick={() => handleOpenAttachmentPreview(first.url, first.name, first.type)}
                               >
                                 <Paperclip size={13} />
                               </CredRowIconButton>
@@ -1788,6 +1837,7 @@ export default function CashbookJobOrders({
         onClose={() => setIsModalOpen(false)}
         editingJob={editingJob}
         existingJobs={jobOrders || []}
+        currentUser={currentUser}
         onSuccess={(savedJob, isNew) => {
           if (isNew) {
             setJobOrders(prev => [savedJob, ...prev])
@@ -1798,6 +1848,26 @@ export default function CashbookJobOrders({
           fetchJobSummary()
         }}
       />
+
+      {/* JOB ORDER DETAIL / PDF VIEW MODAL */}
+      {selectedJobForDetail && (
+        <JobOrderDetailModal
+          isOpen={!!selectedJobForDetail}
+          onClose={() => setSelectedJobForDetail(null)}
+          job={selectedJobForDetail}
+          currentUser={currentUser}
+          isDarkMode={isDarkMode}
+          onUpdateJob={(updated) => {
+            setJobOrders(prev => prev.map(j => j.id === updated.id ? { ...j, ...updated } : j))
+            setSelectedJobForDetail(prev => prev && prev.id === updated.id ? { ...prev, ...updated } : prev)
+            fetchJobSummary()
+          }}
+          onEditOrder={(job) => {
+            setSelectedJobForDetail(null)
+            handleOpenEditModal(job)
+          }}
+        />
+      )}
 
       {/* ========================================================= */}
       {/* RECEIVE CUSTOMER PAYMENT MODAL                            */}

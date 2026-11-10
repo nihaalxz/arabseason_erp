@@ -136,9 +136,9 @@ const CredLabourChartView = ({
 
     try {
       const [quotesRes, jobsRes, workersRes] = await Promise.all([
-        api.get('labour-price-quotes/').catch(() => ({ data: [] })),
-        api.get('job-orders/').catch(() => ({ data: [] })),
-        api.get('labours/').catch(() => ({ data: [] }))
+        api.get('labour-price-quotes/?page_size=100').catch(() => ({ data: [] })),
+        api.get('job-orders/?page_size=100').catch(() => ({ data: [] })),
+        api.get('labours/?page_size=100').catch(() => ({ data: [] }))
       ]);
 
       const quotesData = quotesRes.data?.results || quotesRes.data || [];

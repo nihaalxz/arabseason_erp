@@ -510,7 +510,7 @@ const CredAccountsView = ({
       </div>
 
       {/* ── 6. STATEMENT TRANSACTIONS TABLE / CARD SECTION ── */}
-      {statementLoading ? (
+      {statementLoading && (!sortedTransactions || sortedTransactions.length === 0) ? (
         <div 
           style={{
             background: 'var(--bg, #FFFFFF)',

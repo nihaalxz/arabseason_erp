@@ -433,7 +433,7 @@ const Customers = () => {
 
       {/* ── 5. MAIN DATA TABLE (Directly on page, Enquiries Table Style) ── */}
       <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
-        {loading ? (
+        {loading && customers.length === 0 ? (
           <div style={{ padding: '1.5rem 0' }}>
             <SkeletonLoader type="table" />
           </div>

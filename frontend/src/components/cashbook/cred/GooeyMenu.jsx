@@ -12,6 +12,12 @@ const CHEVRON_SPRING = { type: 'spring', stiffness: 300, damping: 20 };
  * GooeyMenu
  * CRED-style Liquid Dropdown Menu ported from easyui metaball color-matrix filter
  * Pure vanilla CSS + Framer Motion. Zero layout shift.
+ *
+ * iOS/macOS (WebKit) note: CSS filter: url(#svg-filter) on HTML elements breaks
+ * border-radius on WebKit. On those devices the gooey surface filter is disabled
+ * and the list panel falls back to a plain dark card with border/shadow.
+ * This is the ONLY WebKit-specific change — all other logic is identical to the
+ * original desktop behaviour.
  */
 export const GooeyMenu = ({
   options = [],
@@ -34,7 +40,7 @@ export const GooeyMenu = ({
   id,
   style = {},
   labelPrefix = '',
-  gooey = true,
+  gooey = false,
   ...props
 }) => {
   const reactId = useId();
@@ -66,35 +72,24 @@ export const GooeyMenu = ({
     return () => mq.removeEventListener?.('change', handler);
   }, []);
 
-  // WebKit (Safari on macOS and iOS, as well as iOS WebViews) has a known engine bug
-  // where CSS filter: url(#svg-filter) on HTML DOM nodes breaks CSS border-radius,
-  // rendering sharp rectangular corners instead of rounded curves.
+  // Detect WebKit engines (Safari on macOS/iOS and iOS WebViews).
+  // The CSS filter: url(#id) SVG filter is NOT applied on WebKit because it
+  // destroys border-radius on those engines. The fallback is a plain dark card.
   const [isWebKit, setIsWebKit] = useState(() => {
     if (typeof navigator === 'undefined') return false;
     const ua = navigator.userAgent || '';
     const vendor = navigator.vendor || '';
-    const isApple = vendor.indexOf('Apple') > -1 || /iPad|iPhone|iPod|Macintosh/.test(ua);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-    return isApple || isSafari;
+    return vendor.indexOf('Apple') > -1 || /^((?!chrome|android).)*safari/i.test(ua);
   });
 
   useEffect(() => {
     if (typeof navigator === 'undefined') return;
     const ua = navigator.userAgent || '';
     const vendor = navigator.vendor || '';
-    const isApple = vendor.indexOf('Apple') > -1 || /iPad|iPhone|iPod|Macintosh/.test(ua);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-    if (isApple || isSafari) {
+    if (vendor.indexOf('Apple') > -1 || /^((?!chrome|android).)*safari/i.test(ua)) {
       setIsWebKit(true);
     }
   }, []);
-
-  // SVG filter is only active when:
-  // 1. gooey prop is enabled
-  // 2. reduced motion is not requested
-  // 3. browser is not WebKit (to preserve perfect curved border-radius on iOS/macOS)
-  // 4. dropdown is actively open (never apply SVG filter when closed to keep the pill pristine!)
-  const enableGooeyFilter = gooey && !isReducedMotion && !isWebKit && open;
 
   // Normalize options array into consistent objects
   const normalizedOptions = useMemo(() => {
@@ -237,6 +232,11 @@ export const GooeyMenu = ({
   const panelY = pillHeight + gap;
   const SelectedIcon = selectedOption.icon;
 
+  // On desktop (non-WebKit) the gooey SVG filter stays active at all times so the
+  // panel blob merges back cleanly into the pill on close — no ghost.
+  // On WebKit the filter is disabled entirely; the list panel uses a plain card.
+  const useGooeyFilter = gooey && !isReducedMotion && !isWebKit;
+
   return (
     <div
       ref={containerRef}
@@ -287,8 +287,12 @@ export const GooeyMenu = ({
           style={{
             width,
             height: panelY + panelHeight + 60,
-            filter: enableGooeyFilter ? `url(#${filterId})` : 'none',
-            WebkitFilter: enableGooeyFilter ? `url(#${filterId})` : 'none'
+            // Apply the SVG metaball filter only on non-WebKit engines.
+            // The filter must stay on even while CLOSING so the blob merges
+            // back into the pill cleanly (no ghost). Removing it on close
+            // would expose the raw panel rectangle mid-animation.
+            filter: useGooeyFilter ? `url(#${filterId})` : 'none',
+            WebkitFilter: 'none'  // never apply SVG filter via -webkit- prefix
           }}
         >
           {/* Top Pill Solid Shape */}
@@ -298,35 +302,35 @@ export const GooeyMenu = ({
               width,
               height: pillHeight,
               borderRadius: pillHeight / 2,
-              WebkitBorderRadius: pillHeight / 2
             }}
           />
 
-          {/* Morphing Dropping Panel Solid Shape */}
+          {/* Morphing Dropping Panel Solid Shape
+              Always rendered when gooey=true so it can spring back into the pill
+              on close. The gooey filter above keeps both blobs merged during the
+              entire spring animation — open AND close. */}
           <motion.div
             className="cred-gooey-panel-shape"
             style={{
               width,
               height: panelHeight,
               borderRadius: 20,
-              WebkitBorderRadius: 20,
-              ...(!enableGooeyFilter && open ? {
-                boxShadow: '0 14px 36px rgba(0, 0, 0, 0.45)',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              } : {})
+              // On WebKit (no filter) the panel blob would be a visible dark
+              // rectangle even when closed. Hide it completely on WebKit.
+              display: isWebKit ? 'none' : 'block'
             }}
             initial={false}
             animate={
               open
-                ? { y: panelY, scaleY: 1, opacity: 1 }
-                : { y: 0, scaleY: pillHeight / panelHeight, opacity: enableGooeyFilter ? 1 : 0 }
+                ? { y: panelY, scaleY: 1 }
+                : { y: 0, scaleY: pillHeight / panelHeight }
             }
             transition={
               isReducedMotion
                 ? { duration: 0.12 }
                 : open
-                  ? { y: DROP_SPRING, scaleY: { ...GROW_SPRING, delay: 0.05 }, opacity: { duration: 0.1 } }
-                  : { y: SNAP_SPRING, scaleY: SNAP_SPRING, opacity: { duration: 0.12 } }
+                  ? { y: DROP_SPRING, scaleY: { ...GROW_SPRING, delay: 0.05 } }
+                  : { y: SNAP_SPRING, scaleY: SNAP_SPRING }
             }
           />
         </div>
@@ -345,7 +349,17 @@ export const GooeyMenu = ({
         style={{
           height: pillHeight,
           borderRadius: pillHeight / 2,
-          WebkitBorderRadius: pillHeight / 2
+          background: '#0A0A0A',
+          color: '#F4F4F4',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+          padding: '0 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          width: '100%',
+          boxSizing: 'border-box'
         }}
       >
         <div
@@ -417,11 +431,19 @@ export const GooeyMenu = ({
               overflowY: normalizedOptions.length > maxVisibleRows ? 'auto' : 'hidden',
               overflowX: 'hidden',
               padding: `${panelPadding}px 0`,
-              borderRadius: 20,
-              WebkitBorderRadius: 20,
+              borderRadius: 16,
+              // Fallback / non-gooey: normal black dropdown card
               ...(!gooey ? {
+                background: '#0A0A0A',
+                border: '1px solid rgba(255, 255, 255, 0.14)',
+                boxShadow: '0 14px 40px rgba(0, 0, 0, 0.6)',
                 zIndex: 100
-              } : {})
+              } : (gooey && isWebKit ? {
+                background: 'var(--goo-bg, #0A0A0A)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                boxShadow: '0 14px 36px rgba(0, 0, 0, 0.45)',
+                zIndex: 100
+              } : {}))
             }}
             initial="closed"
             animate="open"
@@ -432,15 +454,24 @@ export const GooeyMenu = ({
                     open: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.14, ease: [0.16, 1, 0.3, 1] } },
                     closed: { opacity: 0, y: -4, scale: 0.98, transition: { duration: 0.1, ease: [0.16, 1, 0.3, 1] } }
                   }
-                : isReducedMotion
+                : isWebKit
                   ? {
-                      open: { opacity: 1, transition: { duration: 0.12 } },
-                      closed: { opacity: 0, transition: { duration: 0.12 } }
+                      // WebKit: simple fade+slide since there's no gooey filter to merge with
+                      open: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } },
+                      closed: { opacity: 0, y: -6, scale: 0.98, transition: { duration: 0.12, ease: [0.16, 1, 0.3, 1] } }
                     }
-                  : {
-                      open: { transition: { staggerChildren: 0.035, delayChildren: 0.12 } },
-                      closed: { transition: { staggerChildren: 0.015, staggerDirection: -1 } }
-                    }
+                  : isReducedMotion
+                    ? {
+                        open: { opacity: 1, transition: { duration: 0.12 } },
+                        closed: { opacity: 0, transition: { duration: 0.12 } }
+                      }
+                    : {
+                        // Desktop gooey: original stagger animation — list items stagger in
+                        // while the gooey filter merges the blobs. On close the items stagger
+                        // out while the panel blob springs back into the pill.
+                        open: { transition: { staggerChildren: 0.035, delayChildren: 0.12 } },
+                        closed: { transition: { staggerChildren: 0.015, staggerDirection: -1 } }
+                      }
             }
           >
             {normalizedOptions.map((opt, i) => {
@@ -462,15 +493,20 @@ export const GooeyMenu = ({
                           open: { opacity: 1, y: 0, transition: { duration: 0.1 } },
                           closed: { opacity: 0, y: -4, transition: { duration: 0.1 } }
                         }
-                      : isReducedMotion
+                      : isWebKit
                         ? {
                             open: { opacity: 1, y: 0, transition: { duration: 0.12 } },
-                            closed: { opacity: 0, y: -4, transition: { duration: 0.12 } }
+                            closed: { opacity: 0, y: -4, transition: { duration: 0.08 } }
                           }
-                        : {
-                            open: { opacity: 1, y: 0, transition: ROW_SPRING },
-                            closed: { opacity: 0, y: -10, transition: SNAP_SPRING }
-                          }
+                        : isReducedMotion
+                          ? {
+                              open: { opacity: 1, y: 0, transition: { duration: 0.12 } },
+                              closed: { opacity: 0, y: -4, transition: { duration: 0.12 } }
+                            }
+                          : {
+                              open: { opacity: 1, y: 0, transition: ROW_SPRING },
+                              closed: { opacity: 0, y: -10, transition: SNAP_SPRING }
+                            }
                   }
                   className={`cred-gooey-row ${isActive ? 'is-active' : ''} ${isCurrentSelected ? 'is-selected' : ''}`}
                   style={{
@@ -478,10 +514,13 @@ export const GooeyMenu = ({
                     margin: '0 8px',
                     borderRadius: '12px',
                     padding: '0 12px',
-                    ...(gooey ? {
+                    ...(!gooey ? {
+                      background: isActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                      color: isActive ? '#FFFFFF' : '#D1D5DB'
+                    } : {
                       background: isActive ? 'var(--goo-row-active, #232323)' : 'transparent',
                       color: isActive ? 'var(--goo-text, #F4F4F4)' : 'var(--goo-text-muted, #DCDCDC)'
-                    } : {})
+                    })
                   }}
                 >
                   <div

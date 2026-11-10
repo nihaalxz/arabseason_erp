@@ -199,6 +199,7 @@ const getTypeBadgeStyle = (t, isDark) => {
 const CredExpensesView = ({
   isMobile = false,
   expenses = [],
+  expenseSummary = null,
   jobOrders = [],
   isLoading = false,
   isDarkMode = false,
@@ -553,9 +554,9 @@ const CredExpensesView = ({
         <MoneyCard
           icon={Receipt}
           label="TOTAL EXPENSES"
-          value={isMobile && formatCompactKpi(totalExpensesAmount) ? <span className="cred-tnum">{formatCompactKpi(totalExpensesAmount)}</span> : totalExpensesAmount}
+          value={isMobile && formatCompactKpi(expenseSummary?.total_amount ?? totalExpensesAmount) ? <span className="cred-tnum">{formatCompactKpi(expenseSummary?.total_amount ?? totalExpensesAmount)}</span> : (expenseSummary?.total_amount ?? totalExpensesAmount)}
           variant="danger"
-          caption={`${deduplicatedExpenses.length} ${deduplicatedExpenses.length === 1 ? 'entry' : 'entries'}`}
+          caption={`${expenseSummary?.total_count ?? deduplicatedExpenses.length} ${(expenseSummary?.total_count ?? deduplicatedExpenses.length) === 1 ? 'entry' : 'entries'}`}
           isActive={cardFilter === 'all'}
           onClick={() => handleCardClick('all')}
         />
@@ -685,7 +686,7 @@ const CredExpensesView = ({
           exit={{ opacity: 0 }}
           transition={fadeFast}
         >
-          {isLoading ? (
+          {isLoading && (!expenses || expenses.length === 0) ? (
             <div 
               style={{
                 background: 'var(--bg, #FFFFFF)',

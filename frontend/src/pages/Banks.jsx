@@ -718,7 +718,7 @@ const Banks = () => {
             overflow: 'hidden',
             boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
           }}>
-            {loading ? (
+            {loading && banks.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center' }}>
                 <SkeletonLoader count={4} />
               </div>
@@ -1378,7 +1378,7 @@ const Banks = () => {
             overflow: 'hidden',
             boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
           }}>
-            {statementLoading ? (
+            {statementLoading && !statementData ? (
               <div style={{ padding: '3rem', textAlign: 'center' }}>
                 <SkeletonLoader count={5} />
               </div>

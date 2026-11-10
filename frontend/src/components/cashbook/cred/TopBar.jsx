@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { 
   Bell, Sun, Moon, LogOut, Check, X, Banknote, User
@@ -94,8 +95,10 @@ const TopBar = ({
       setNotifications(prev => prev.map(n =>
         n.id === notification.id ? { ...n, is_read: true, action_taken: 'approved' } : n
       ));
+      window.dispatchEvent(new CustomEvent('petty-cash-updated'));
     } catch (err) {
       console.error('Approve failed:', err);
+      alert(err.response?.data?.detail || 'Failed to approve petty cash entry.');
     } finally {
       setApprovingId(null);
     }
@@ -111,8 +114,10 @@ const TopBar = ({
       setNotifications(prev => prev.map(n =>
         n.id === notification.id ? { ...n, is_read: true, action_taken: 'rejected' } : n
       ));
+      window.dispatchEvent(new CustomEvent('petty-cash-updated'));
     } catch (err) {
       console.error('Reject failed:', err);
+      alert(err.response?.data?.detail || 'Failed to reject petty cash entry.');
     } finally {
       setApprovingId(null);
     }
@@ -163,15 +168,14 @@ const TopBar = ({
     <header 
       className={`cred-topbar ${className} ${(showProfile || showNotifications) ? 'has-open-dropdown' : ''}`} 
       style={{ 
-        position: 'sticky',
-        top: 0,
+        position: 'relative',
         zIndex: (showProfile || showNotifications) ? 1050 : 70,
         background: 'var(--bg)',
         ...style 
       }}
     >
-      {/* Dimmed Underlay Backdrop for Profile & Notification dropdowns */}
-      {(showProfile || showNotifications) && (
+      {/* Dimmed Underlay Backdrop for Profile & Notification dropdowns (Portaled to body to never distort layout) */}
+      {(showProfile || showNotifications) && typeof document !== 'undefined' && createPortal(
         <div 
           className="cred-topbar-underlay"
           onClick={(e) => {
@@ -190,16 +194,15 @@ const TopBar = ({
             left: 0,
             right: 0,
             bottom: 0,
-            width: '100vw',
-            height: '100vh',
+            width: '100%',
+            height: '100%',
             zIndex: 9990,
             background: isDarkMode ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.2)',
-            backdropFilter: 'blur(2px)',
-            WebkitBackdropFilter: 'blur(2px)',
             animation: 'credUnderlayFadeIn 0.15s ease-out',
             cursor: 'pointer'
           }}
-        />
+        />,
+        document.body
       )}
 
       {/* 1. Left Avatar with Thin Ring and Red Dot */}
@@ -481,7 +484,7 @@ const TopBar = ({
                             </div>
 
                             {/* Approval actions if petty cash request */}
-                            {isPettyCash && isPending && !notif.is_read && (
+                            {isPettyCash && isPending && (
                               <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                                 <button
                                   type="button"

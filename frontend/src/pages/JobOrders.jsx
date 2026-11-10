@@ -6,8 +6,8 @@ import { CredAnimatedTabs } from '../components/cashbook/cred/CredAnimatedTabs'
 import CredSearchInput from '../components/cashbook/cred/CredSearchInput'
 import { useSearchParams } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
-import { Clock, Paperclip, Download, Eye as LucideEye, ExternalLink, UploadCloud, FilePlus, X, RotateCcw } from 'lucide-react'
-import { Edit, Trash2, Plus, Eye, RefreshCw, AlertCircle, CreditCard, CheckCircle2, XCircle, UserPlus, User, FileText, ArrowUpDown, ArrowUp, ArrowDown, Briefcase, Layers, BookOpen, Folder, ChevronRight } from '../components/icons'
+import { Clock, Paperclip, Download, Eye as LucideEye, ExternalLink, UploadCloud, FilePlus, X, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Edit, Trash2, Plus, Eye, RefreshCw, AlertCircle, CreditCard, CheckCircle2, XCircle, UserPlus, User, FileText, ArrowUpDown, ArrowUp, ArrowDown, Briefcase, Layers, BookOpen, Folder } from '../components/icons'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import Select from 'react-select'
 import CreatableSelect from 'react-select/creatable'
@@ -31,6 +31,7 @@ import ProjectPlanning from '../components/planning/ProjectPlanning'
 import { canAccessPermission, isUserAdmin } from '../constants/permissions'
 import AccessDenied from '../components/common/AccessDenied'
 import DynamicCustomFields from '../components/common/DynamicCustomFields'
+import JobOrderDetailModal from '../components/jobs/JobOrderDetailModal'
 import { showConfirm, showAlert, showSuccess, showError, showWarning, showToast } from '../utils/swal'
 
 const MONTH_CHOICES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
@@ -57,6 +58,8 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
   const [totalPages, setTotalPages] = useState(1)
   const [filterStatus, setFilterStatus] = useState('')
   const [filterPayment, setFilterPayment] = useState('')
+  const [filterCreatedBy, setFilterCreatedBy] = useState('all')
+  const [filterSalesperson, setFilterSalesperson] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortField, setSortField] = useState('created_at')
@@ -149,8 +152,28 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
   const [pendingFilterStatus, setPendingFilterStatus] = useState('pending') // 'pending' | 'converted' | 'all'
   const [pendingSearchQuery, setPendingSearchQuery] = useState('')
   const [selectedPendingForCreation, setSelectedPendingForCreation] = useState(null)
+  const [selectedJobForDetail, setSelectedJobForDetail] = useState(null)
   const [previewAttachment, setPreviewAttachment] = useState(null)
   const projectPlanningRef = useRef(null)
+
+  const getJobAttachments = (job) => {
+    if (!job) return []
+    if (Array.isArray(job.attachments) && job.attachments.length > 0) {
+      return job.attachments
+    }
+    const cf = (typeof job.custom_fields === 'object' && job.custom_fields) ? job.custom_fields : {}
+    if (Array.isArray(cf.attachments) && cf.attachments.length > 0) {
+      return cf.attachments
+    }
+    if (job.attachment || cf.attachment) {
+      return [{
+        name: job.attachment_name || cf.attachment_name || 'Site Photo',
+        url: job.attachment || cf.attachment,
+        type: job.attachment_type || cf.attachment_type || 'image/jpeg'
+      }]
+    }
+    return []
+  }
 
   const handleDownloadAttachment = (dataUrl, fileName, mimeType) => {
     if (!dataUrl) return
@@ -183,34 +206,70 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
     }
   }
 
-  const handleOpenAttachmentPreview = (dataUrl, fileName, mimeType) => {
-    if (!dataUrl) return
+  const handleOpenAttachmentPreview = (dataUrlOrList, fileNameOrIndex = 0, mimeType = null) => {
+    let list = []
+    let initialIndex = 0
+
+    if (Array.isArray(dataUrlOrList)) {
+      list = dataUrlOrList.map((item, idx) => {
+        if (typeof item === 'string') {
+          return { url: item, name: `Attachment ${idx + 1}`, type: '' }
+        }
+        return {
+          url: item.url || item.dataUrl || '',
+          name: item.name || `Attachment ${idx + 1}`,
+          type: item.type || ''
+        }
+      }).filter(item => Boolean(item.url))
+      initialIndex = typeof fileNameOrIndex === 'number' ? Math.max(0, Math.min(fileNameOrIndex, list.length - 1)) : 0
+    } else if (typeof dataUrlOrList === 'string' && dataUrlOrList) {
+      list = [{
+        url: dataUrlOrList,
+        name: typeof fileNameOrIndex === 'string' ? fileNameOrIndex : 'Attachment',
+        type: mimeType || ''
+      }]
+      initialIndex = 0
+    }
+
+    if (list.length === 0) return
+
+    const item = list[initialIndex]
+    const itemType = item.type || (item.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
+    let blobUrl = item.url
     try {
-      const arr = dataUrl.split(',')
-      const bstr = atob(arr[1])
-      let n = bstr.length
-      const u8arr = new Uint8Array(n)
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n)
+      if (item.url.startsWith('data:')) {
+        const arr = item.url.split(',')
+        const bstr = atob(arr[1])
+        let n = bstr.length
+        const u8arr = new Uint8Array(n)
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n)
+        }
+        const blob = new Blob([u8arr], { type: itemType })
+        blobUrl = URL.createObjectURL(blob)
       }
-      const type = mimeType || (fileName?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
-      const blob = new Blob([u8arr], { type })
-      const blobUrl = URL.createObjectURL(blob)
-      setPreviewAttachment({
-        blobUrl,
-        dataUrl,
-        name: fileName || 'Attachment',
-        type
-      })
     } catch (err) {
       console.error('Preview error:', err)
-      setPreviewAttachment({
-        blobUrl: dataUrl,
-        dataUrl,
-        name: fileName || 'Attachment',
-        type: mimeType || 'application/octet-stream'
-      })
     }
+
+    setPreviewAttachment({
+      list,
+      currentIndex: initialIndex,
+      blobUrl,
+      dataUrl: item.url,
+      name: item.name || `Attachment ${initialIndex + 1}`,
+      type: itemType
+    })
+  }
+
+  const handleNextPreview = () => {
+    if (!previewAttachment || !previewAttachment.list || previewAttachment.currentIndex >= previewAttachment.list.length - 1) return
+    handleOpenAttachmentPreview(previewAttachment.list, previewAttachment.currentIndex + 1)
+  }
+
+  const handlePrevPreview = () => {
+    if (!previewAttachment || !previewAttachment.list || previewAttachment.currentIndex <= 0) return
+    handleOpenAttachmentPreview(previewAttachment.list, previewAttachment.currentIndex - 1)
   }
 
   const fetchPendingJobOrders = useCallback(async () => {
@@ -279,11 +338,11 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
   }
 
   // Refs always hold the latest filter/page/sort values — no stale closures
-  const filterRef = useRef({ page: 1, status: '', payment: '', search: '', sortField: 'created_at', sortDirection: 'desc', client: 'all', adminTab: 'my', staffFilter: 'all' })
-  filterRef.current = { page, status: filterStatus, payment: filterPayment, search: debouncedSearch, sortField, sortDirection, client: selectedClientBook, adminTab, staffFilter: assignedStaffFilter }
+  const filterRef = useRef({ page: 1, status: '', payment: '', search: '', sortField: 'created_at', sortDirection: 'desc', client: 'all', adminTab: 'my', staffFilter: 'all', createdBy: 'all', salesperson: 'all' })
+  filterRef.current = { page, status: filterStatus, payment: filterPayment, search: debouncedSearch, sortField, sortDirection, client: selectedClientBook, adminTab, staffFilter: assignedStaffFilter, createdBy: filterCreatedBy, salesperson: filterSalesperson }
 
   const fetchJobs = useCallback(async (overrides = {}) => {
-    const { page: p, status: s, payment: pay, search: q, sortField: sf, sortDirection: sd, client: cl, adminTab: at, staffFilter: sfFilter } = { ...filterRef.current, ...overrides }
+    const { page: p, status: s, payment: pay, search: q, sortField: sf, sortDirection: sd, client: cl, adminTab: at, staffFilter: sfFilter, createdBy: cb, salesperson: sp } = { ...filterRef.current, ...overrides }
     try {
       setLoading(true)
       const params = {
@@ -300,6 +359,8 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
       if (pay) params.payment_status = pay
       if (q) params.search = q
       if (cl && cl !== 'all') params.customer = cl
+      if (cb && cb !== 'all') params.created_by = cb
+      if (sp && sp !== 'all') params.salesperson = sp
       if (sf) {
         params.ordering = (sd === 'desc' ? '-' : '') + sf
       }
@@ -336,8 +397,8 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
   // When any filter/search changes: reset to page 1 and fetch
   useEffect(() => {
     setPage(1)
-    fetchJobs({ page: 1, status: filterStatus, payment: filterPayment, search: debouncedSearch, sortField, sortDirection, client: selectedClientBook, adminTab, staffFilter: assignedStaffFilter })
-  }, [filterStatus, filterPayment, debouncedSearch, sortField, sortDirection, selectedClientBook, adminTab, assignedStaffFilter])
+    fetchJobs({ page: 1, status: filterStatus, payment: filterPayment, search: debouncedSearch, sortField, sortDirection, client: selectedClientBook, adminTab, staffFilter: assignedStaffFilter, createdBy: filterCreatedBy, salesperson: filterSalesperson })
+  }, [filterStatus, filterPayment, debouncedSearch, sortField, sortDirection, selectedClientBook, adminTab, assignedStaffFilter, filterCreatedBy, filterSalesperson])
 
   useEffect(() => {
     fetchJobSummary()
@@ -380,6 +441,8 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
     total_amount: 0,
     created_by_staff: '',
     payment_collected_by: '',
+    salesperson: '',
+    salesperson_name: '',
     assigned_to: '',
     custom_fields: {},
     attachment: '',
@@ -391,6 +454,10 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
   const [descriptions, setDescriptions] = useState([''])
   const [customers, setCustomers] = useState([])
   const [vendors, setVendors] = useState([])
+  const [salespersons, setSalespersons] = useState([])
+  const [isSalespersonModalOpen, setIsSalespersonModalOpen] = useState(false)
+  const [newSalespersonForm, setNewSalespersonForm] = useState({ name: '', phone: '', email: '' })
+  const [submittingSalesperson, setSubmittingSalesperson] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
   const [customerPriorBalance, setCustomerPriorBalance] = useState(0)
@@ -413,6 +480,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [customerForm, setCustomerForm] = useState({ name: '', company_name: '', phone: '', email: '' })
   const [submittingCustomer, setSubmittingCustomer] = useState(false)
+  const [attachments, setAttachments] = useState([])
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 
@@ -462,6 +530,37 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
       setAssignableAdmins(aRes.data || [])
     } catch (err) {
       console.error('Failed to fetch assignable admins', err)
+    }
+    try {
+      const spRes = await api.get('salespersons/', { params: { nopage: 'true' } })
+      const spData = spRes.data
+      setSalespersons(Array.isArray(spData) ? spData : (spData.results || []))
+    } catch (err) {
+      console.error('Failed to fetch salespersons', err)
+    }
+  }
+
+  const handleQuickCreateSalesperson = async (e) => {
+    if (e && e.preventDefault) e.preventDefault()
+    if (!newSalespersonForm.name.trim()) return
+    setSubmittingSalesperson(true)
+    try {
+      const res = await api.post('salespersons/', newSalespersonForm)
+      const newSp = res.data
+      setSalespersons(prev => [...prev, newSp].sort((a, b) => a.name.localeCompare(b.name)))
+      setFormData(prev => ({
+        ...prev,
+        salesperson: newSp.id,
+        salesperson_name: newSp.name
+      }))
+      setIsSalespersonModalOpen(false)
+      setNewSalespersonForm({ name: '', phone: '', email: '' })
+      showToast(`Salesperson "${newSp.name}" added successfully!`, 'success')
+    } catch (err) {
+      console.error('Failed to create salesperson', err)
+      showError('Salesperson Error', err.response?.data?.detail || err.response?.data?.name?.[0] || 'Failed to create salesperson.')
+    } finally {
+      setSubmittingSalesperson(false)
     }
   }
 
@@ -774,17 +873,33 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
         customer: job.customer,
         vendor: job.vendor || '',
         status: job.status,
-        total_amount: job.total_amount,
+        total_amount: job.total_amount ?? '',
         advance_amount: job.advance_amount || 0,
         payment_type: job.payment_type || 'full',
         created_by_staff: job.created_by_staff || job.created_by_name || '',
         payment_collected_by: job.payment_collected_by || '',
+        salesperson: job.salesperson || job.salesperson_detail?.id || '',
+        salesperson_name: job.salesperson_name || job.salesperson_detail?.name || '',
         assigned_to: job.assigned_to || '',
         custom_fields: job.custom_fields || {},
         attachment: job.attachment || job.custom_fields?.attachment || '',
         attachment_name: job.attachment_name || job.custom_fields?.attachment_name || '',
         attachment_type: job.attachment_type || job.custom_fields?.attachment_type || ''
       })
+
+      let initialAttachments = []
+      if (Array.isArray(job.attachments) && job.attachments.length > 0) {
+        initialAttachments = job.attachments
+      } else if (Array.isArray(job.custom_fields?.attachments) && job.custom_fields.attachments.length > 0) {
+        initialAttachments = job.custom_fields.attachments
+      } else if (job.attachment || job.custom_fields?.attachment) {
+        initialAttachments = [{
+          name: job.attachment_name || job.custom_fields?.attachment_name || 'Attachment',
+          url: job.attachment || job.custom_fields?.attachment,
+          type: job.attachment_type || job.custom_fields?.attachment_type || 'image/jpeg'
+        }]
+      }
+      setAttachments(initialAttachments)
       setCustomerPriorBalance(parseFloat(job.prior_balance || 0))
       api.get('expenses/', { params: { job_order: job.id } }).then(res => {
         setExpenses(res.data.results || res.data)
@@ -833,7 +948,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
         customer: '',
         vendor: '',
         status: 'Pending',
-        total_amount: 0,
+        total_amount: '',
         advance_amount: 0,
         payment_type: 'full',
         created_by_staff: defaultCreator,
@@ -844,6 +959,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
         attachment_name: '',
         attachment_type: ''
       })
+      setAttachments([])
       setCustomerPriorBalance(0)
     }
     setFormError('')
@@ -894,7 +1010,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
     } catch (e) {}
 
     const initDeposit = parseFloat(pending?.initial_deposit) || 0
-    const estTotal = parseFloat(pending?.estimated_amount) || initDeposit || 0
+    const estTotal = parseFloat(pending?.estimated_amount) || initDeposit || ''
 
     setFormData({
       order_id: '',
@@ -911,11 +1027,26 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
       payment_type: initDeposit > 0 ? 'advance' : 'full',
       created_by_staff: creatorName,
       payment_collected_by: '',
+      salesperson: pending?.salesperson || '',
+      salesperson_name: pending?.salesperson_name || '',
+      assigned_to: isAdmin ? (currentUser?.id || '') : '',
       custom_fields: {},
       attachment: '',
       attachment_name: '',
       attachment_type: ''
     })
+
+    let initialAttachments = []
+    if (Array.isArray(pending?.attachments) && pending.attachments.length > 0) {
+      initialAttachments = pending.attachments
+    } else if (pending?.attachment) {
+      initialAttachments = [{
+        name: pending.attachment_name || 'Attachment',
+        url: pending.attachment,
+        type: pending.attachment_type || 'image/jpeg'
+      }]
+    }
+    setAttachments(initialAttachments)
 
     const initialDescriptions = pending?.description 
       ? pending.description.split('\n').map(d => d.trim()).filter(Boolean)
@@ -952,37 +1083,75 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
   }
 
   const handleAttachmentChange = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 10 * 1024 * 1024) {
-      showError('File Too Large', 'Please select an image or PDF smaller than 10MB.')
-      return
+    const files = Array.from(e.target?.files || e.dataTransfer?.files || e || [])
+    if (!files.length) return
+    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+    for (const f of files) {
+      if (f.size > MAX_SIZE) {
+        showError('File Too Large', `"${f.name}" exceeds the 10MB limit.`)
+        return
+      }
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      setFormData(prev => ({
-        ...prev,
-        attachment: reader.result,
-        attachment_name: file.name,
-        attachment_type: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
-      }))
-    }
-    reader.readAsDataURL(file)
+
+    const readers = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          resolve({
+            name: file.name,
+            url: reader.result,
+            type: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+            size: file.size
+          })
+        }
+        reader.readAsDataURL(file)
+      })
+    })
+
+    Promise.all(readers).then(newItems => {
+      setAttachments(prev => {
+        const updated = [...prev, ...newItems]
+        const first = updated[0]
+        setFormData(f => ({
+          ...f,
+          attachment: first ? first.url : '',
+          attachment_name: first ? first.name : '',
+          attachment_type: first ? first.type : ''
+        }))
+        return updated
+      })
+    })
   }
 
-  const handleRemoveAttachment = () => {
-    setFormData(prev => ({
-      ...prev,
-      attachment: '',
-      attachment_name: '',
-      attachment_type: ''
-    }))
+  const handleRemoveAttachment = (index) => {
+    setAttachments(prev => {
+      const updated = prev.filter((_, i) => i !== index)
+      const first = updated[0]
+      setFormData(f => ({
+        ...f,
+        attachment: first ? first.url : '',
+        attachment_name: first ? first.name : '',
+        attachment_type: first ? first.type : ''
+      }))
+      return updated
+    })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.title || !formData.customer || !formData.status) {
       return setFormError('Title, Customer, and Current Status are required')
+    }
+
+    // Estimated Amount is non-mandatory (defaults to 0 if left blank)
+    const rawEstimated = formData.total_amount != null && String(formData.total_amount).trim() !== '' ? parseFloat(formData.total_amount) : 0
+    if (isNaN(rawEstimated) || rawEstimated < 0) {
+      return setFormError('Estimated Amount must be a valid number (0 or greater)')
+    }
+
+    // Assign to Admin is mandatory for staff; for admins it defaults to self
+    if (!isAdmin && !formData.assigned_to) {
+      return setFormError('Assign to Admin is required. Please select an administrator.')
     }
 
     const pfx = (contractPrefix || 'JOB').trim().toUpperCase().replace(/^#+/, '')
@@ -1007,14 +1176,27 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
       setFormError('')
       
       const finalDescription = (descriptions || []).map(d => d.trim()).filter(Boolean).join('\n')
+      const primaryAttachment = attachments[0] || null
       const payload = { 
         ...formData, 
         order_id: finalOrderId, 
         description: finalDescription,
-        custom_fields: formData.custom_fields || {},
+        custom_fields: {
+          ...(formData.custom_fields || {}),
+          attachments: attachments,
+          attachment: primaryAttachment ? primaryAttachment.url : '',
+          attachment_name: primaryAttachment ? primaryAttachment.name : '',
+          attachment_type: primaryAttachment ? primaryAttachment.type : ''
+        },
+        attachment: primaryAttachment ? primaryAttachment.url : '',
+        attachment_name: primaryAttachment ? primaryAttachment.name : '',
+        attachment_type: primaryAttachment ? primaryAttachment.type : '',
+        total_amount: parseFloat(formData.total_amount || 0),
         advance_amount: parseFloat(formData.advance_amount || 0),
         payment_type: formData.payment_type || 'full',
-        assigned_to: formData.assigned_to ? formData.assigned_to : null,
+        salesperson: formData.salesperson ? formData.salesperson : null,
+        salesperson_name: formData.salesperson_name || '',
+        assigned_to: formData.assigned_to ? formData.assigned_to : (isAdmin ? (currentUser?.id || null) : null),
         pending_job_order: selectedPendingForCreation?.id || null
       }
       if (payload.vendor === '') payload.vendor = null
@@ -1541,10 +1723,33 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
     }))
   ], [staffOptions])
 
+  const createdByDropdownOptions = useMemo(() => {
+    const list = [{ value: 'all', label: 'All created by' }]
+    const seen = new Set()
+    staffOptions.forEach(st => {
+      const val = String(st.id)
+      const label = st.name || st.username
+      if (!seen.has(val) && !seen.has(label.toLowerCase())) {
+        seen.add(val)
+        seen.add(label.toLowerCase())
+        list.push({ value: val, label })
+      }
+    })
+    return list
+  }, [staffOptions])
+
+  const salespersonDropdownOptions = useMemo(() => [
+    { value: 'all', label: 'All salespersons' },
+    ...salespersons.map(sp => ({
+      value: String(sp.id),
+      label: sp.name
+    }))
+  ], [salespersons])
+
   // Universal refresh event listener
   useEffect(() => {
     const handleAppRefresh = () => {
-      fetchJobs({ page, status: filterStatus, payment: filterPayment, search: debouncedSearch, sortField, sortDirection, client: selectedClientBook, adminTab, staffFilter: assignedStaffFilter })
+      fetchJobs({ page, status: filterStatus, payment: filterPayment, search: debouncedSearch, sortField, sortDirection, client: selectedClientBook, adminTab, staffFilter: assignedStaffFilter, createdBy: filterCreatedBy, salesperson: filterSalesperson })
       fetchJobSummary()
       fetchPendingJobOrders()
       if (isAdmin) fetchAssignedCount()
@@ -1552,7 +1757,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
     }
     window.addEventListener('app:refresh', handleAppRefresh)
     return () => window.removeEventListener('app:refresh', handleAppRefresh)
-  }, [page, filterStatus, filterPayment, debouncedSearch, sortField, sortDirection, selectedClientBook, adminTab, assignedStaffFilter, isAdmin, fetchAssignedCount, fetchPendingJobOrders])
+  }, [page, filterStatus, filterPayment, debouncedSearch, sortField, sortDirection, selectedClientBook, adminTab, assignedStaffFilter, filterCreatedBy, filterSalesperson, isAdmin, fetchAssignedCount, fetchPendingJobOrders])
 
   if (!hasJobsAccess && !hasPlanningAccess) {
     return <AccessDenied currentUser={currentUser} requiredPermission="jobs" />
@@ -1650,7 +1855,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
           </div>
 
           {/* Pending Table / List */}
-          {pendingJobsLoading ? (
+          {pendingJobsLoading && pendingJobOrders.length === 0 ? (
             <div style={{ padding: '1.5rem 0' }}>
               <SkeletonLoader type="table" />
             </div>
@@ -1901,7 +2106,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
               <CredAnimatedTabs
                 className="cred-jobs-subtabs"
                 tabs={[
-                  { id: 'my', label: 'My Job Orders' },
+                  { id: 'my', label: 'All Job Orders' },
                   { 
                     id: 'assigned', 
                     label: 'Assigned Job Orders', 
@@ -2058,6 +2263,24 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                 ariaLabel="Filter client"
               />
 
+              <PlainFilterDropdown
+                id="jobs-created-by-filter"
+                value={filterCreatedBy}
+                onChange={(val) => { setFilterCreatedBy(val); setPage(1); }}
+                options={createdByDropdownOptions}
+                minWidth={120}
+                ariaLabel="Filter created by"
+              />
+
+              <PlainFilterDropdown
+                id="jobs-salesperson-filter"
+                value={filterSalesperson}
+                onChange={(val) => { setFilterSalesperson(val); setPage(1); }}
+                options={salespersonDropdownOptions}
+                minWidth={125}
+                ariaLabel="Filter salesperson"
+              />
+
               {adminTab === 'assigned' && (
                 <PlainFilterDropdown
                   id="jobs-staff-filter"
@@ -2088,7 +2311,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
 
           {/* Main Table (Cashbook table style, directly on page, no horizontal scroll) */}
           <div style={{ width: '100%', position: 'relative', marginBottom: '2.5rem' }}>
-            {loading ? (
+            {loading && jobs.length === 0 ? (
               <div style={{ padding: '1.5rem 0' }}>
                 <SkeletonLoader type="table" />
               </div>
@@ -2109,26 +2332,26 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
 
                 {jobs.length > 0 && (
                   <>
-                    <div className="desktop-only-table" style={{ width: '100%' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <div className="desktop-only-table" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                      <table style={{ width: '100%', minWidth: '1080px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <colgroup>
-                          <col style={{ width: '10%' }} />
-                          <col style={{ width: '20%' }} />
-                          <col style={{ width: '16%' }} />
-                          <col style={{ width: '13%' }} />
+                          <col style={{ width: '11%' }} />
+                          <col style={{ width: '18%' }} />
+                          <col style={{ width: '15%' }} />
                           <col style={{ width: '12%' }} />
                           <col style={{ width: '11%' }} />
-                          <col style={{ width: '11%' }} />
+                          <col style={{ width: '10%' }} />
+                          <col style={{ width: '10%' }} />
                           {customColumns.map(col => (
                             <col key={col.id} style={{ width: '100px' }} />
                           ))}
-                          <col style={{ width: '120px' }} />
+                          <col style={{ width: isAdmin && adminTab === 'assigned' ? '210px' : '180px' }} />
                         </colgroup>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border, #E4E4E4)' }}>
                             <th 
                               onClick={() => handleSort('order_id')}
-                              style={{ width: '10%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              style={{ width: '11%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                               title="Sort by Contract ID"
                             >
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -2140,7 +2363,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                             </th>
                             <th 
                               onClick={() => handleSort('title')}
-                              style={{ width: '20%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              style={{ width: '18%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                               title="Sort by Title"
                             >
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -2152,7 +2375,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                             </th>
                             <th 
                               onClick={() => handleSort('customer')}
-                              style={{ width: '16%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              style={{ width: '15%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                               title="Sort by Client"
                             >
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -2164,7 +2387,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                             </th>
                             <th 
                               onClick={() => handleSort('status')}
-                              style={{ width: '13%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              style={{ width: '12%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                               title="Sort by Status"
                             >
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -2176,7 +2399,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                             </th>
                             <th 
                               onClick={() => handleSort('total_amount')}
-                              style={{ width: '12%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                              style={{ width: '11%', padding: '10px 16px 10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                               title="Sort by Total Value"
                             >
                               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', width: '100%' }}>
@@ -2186,14 +2409,14 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                 )}
                               </div>
                             </th>
-                            <th style={{ width: '11%', padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Paid</th>
-                            <th style={{ width: '11%', padding: '10px 24px 10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Balance</th>
+                            <th style={{ width: '10%', padding: '10px 16px 10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Paid</th>
+                            <th style={{ width: '10%', padding: '10px 16px 10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Balance</th>
                             {customColumns.map(col => (
                               <th key={col.id} style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'left', textTransform: 'none', whiteSpace: 'nowrap' }}>
                                 {col.label}
                               </th>
                             ))}
-                            <th style={{ width: '144px', minWidth: '144px', padding: '10px 8px 10px 16px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Actions</th>
+                            <th style={{ width: isAdmin && adminTab === 'assigned' ? '210px' : '180px', minWidth: isAdmin && adminTab === 'assigned' ? '210px' : '180px', padding: '10px 12px 10px 8px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', textAlign: 'right', textTransform: 'none', whiteSpace: 'nowrap' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2202,7 +2425,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                               key={job.id}
                               className="cred-table-row"
                               style={{ borderBottom: '1px solid var(--border, #E4E4E4)', cursor: 'pointer', transition: 'background-color 0.15s ease' }}
-                              onClick={() => handleOpenModal(job)}
+                              onClick={() => setSelectedJobForDetail(job)}
                             >
                               {/* Contract ID (Plain text, weight 500, tabular-nums) */}
                               <td style={{ padding: '10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
@@ -2231,17 +2454,17 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                               </td>
 
                               {/* Total Val. (Amount only, neutral Cashbook style) */}
-                              <td style={{ textAlign: 'right', padding: '10px 24px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                              <td style={{ textAlign: 'right', padding: '10px 16px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                                 {renderCashbookAmount(job.total_amount)}
                               </td>
 
                               {/* Paid (Neutral Cashbook style) */}
-                              <td style={{ textAlign: 'right', padding: '10px 24px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                              <td style={{ textAlign: 'right', padding: '10px 16px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                                 {renderCashbookAmount(job.paid_amount)}
                               </td>
 
                               {/* Balance (Neutral Cashbook style) */}
-                              <td style={{ textAlign: 'right', padding: '10px 24px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                              <td style={{ textAlign: 'right', padding: '10px 16px 10px 12px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                                 {job.status === 'Cancelled' ? (
                                   <span style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '12.5px' }}>—</span>
                                 ) : (
@@ -2259,9 +2482,87 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                               ))}
 
                               {/* Actions */}
-                              <td style={{ width: '144px', minWidth: '144px', textAlign: 'right', padding: '10px 8px 10px 16px', verticalAlign: 'middle', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                              <td style={{ width: isAdmin && adminTab === 'assigned' ? '210px' : '180px', minWidth: isAdmin && adminTab === 'assigned' ? '210px' : '180px', textAlign: 'right', padding: '10px 12px 10px 8px', verticalAlign: 'middle', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                                 {isAdmin && adminTab === 'assigned' ? (
-                                  <div style={{ display: 'inline-flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+                                    {(() => {
+                                      const jobAtts = getJobAttachments(job)
+                                      if (jobAtts.length === 0) return null
+                                      return (
+                                        <button 
+                                          type="button"
+                                          className="cred-icon-action-btn" 
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            height: '30px',
+                                            minWidth: '30px',
+                                            flexShrink: 0,
+                                            padding: '0 6px',
+                                            color: 'var(--text-muted, #8C8C8C)',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '3px',
+                                            borderRadius: '6px',
+                                            transition: 'color 0.15s ease, background-color 0.15s ease'
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleOpenAttachmentPreview(jobAtts, 0)
+                                          }}
+                                          title={`View all ${jobAtts.length} attached photos/files`}
+                                          aria-label="View Attachments"
+                                          onMouseEnter={(e) => {
+                                            e.currentTarget.style.color = 'var(--text, #0A0A0A)'
+                                            e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                            e.currentTarget.style.backgroundColor = 'transparent'
+                                          }}
+                                        >
+                                          <Paperclip size={15} strokeWidth={1.8} />
+                                          <span style={{ fontSize: '11px', fontWeight: 600 }}>{jobAtts.length}</span>
+                                        </button>
+                                      )
+                                    })()}
+                                    <button 
+                                      type="button"
+                                      className="cred-icon-action-btn" 
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        width: '30px',
+                                        height: '30px',
+                                        flexShrink: 0,
+                                        padding: 0,
+                                        color: 'var(--text-muted, #8C8C8C)',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px',
+                                        transition: 'color 0.15s ease, background-color 0.15s ease'
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setSelectedJobForDetail(job)
+                                      }}
+                                      title="View Job Order & Contract Details"
+                                      aria-label="View Details"
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = 'var(--text, #0A0A0A)'
+                                        e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                        e.currentTarget.style.backgroundColor = 'transparent'
+                                      }}
+                                    >
+                                      <LucideEye size={16} strokeWidth={1.8} />
+                                    </button>
                                     <button 
                                       type="button"
                                       className="cred-text-action-btn"
@@ -2314,12 +2615,10 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                     </button>
                                   </div>
                                 ) : (
-                                  <div style={{ display: 'inline-flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
                                     {(() => {
-                                      const att = job.attachment || job.custom_fields?.attachment
-                                      const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
-                                      const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
-                                      if (!att) return null
+                                      const jobAtts = getJobAttachments(job)
+                                      if (jobAtts.length === 0) return null
                                       return (
                                         <button 
                                           type="button"
@@ -2327,24 +2626,25 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                           style={{
                                             background: 'none',
                                             border: 'none',
-                                            width: '32px',
-                                            height: '32px',
+                                            height: '30px',
+                                            minWidth: '30px',
                                             flexShrink: 0,
-                                            padding: 0,
+                                            padding: '0 6px',
                                             color: 'var(--text-muted, #8C8C8C)',
                                             cursor: 'pointer',
                                             display: 'inline-flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
+                                            gap: '3px',
                                             borderRadius: '6px',
                                             transition: 'color 0.15s ease, background-color 0.15s ease'
                                           }}
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            handleOpenAttachmentPreview(att, attName, attType)
+                                            handleOpenAttachmentPreview(jobAtts, 0)
                                           }}
-                                          title={attName || 'View Attachment'}
-                                          aria-label="View Attachment"
+                                          title={`View all ${jobAtts.length} attached photos/files`}
+                                          aria-label="View Attachments"
                                           onMouseEnter={(e) => {
                                             e.currentTarget.style.color = 'var(--text, #0A0A0A)'
                                             e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
@@ -2354,7 +2654,10 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                             e.currentTarget.style.backgroundColor = 'transparent'
                                           }}
                                         >
-                                          <Paperclip size={16} strokeWidth={1.8} />
+                                          <Paperclip size={15} strokeWidth={1.8} />
+                                          {jobAtts.length > 1 && (
+                                            <span style={{ fontSize: '11px', fontWeight: 600 }}>{jobAtts.length}</span>
+                                          )}
                                         </button>
                                       )
                                     })()}
@@ -2364,8 +2667,43 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                       style={{
                                         background: 'none',
                                         border: 'none',
-                                        width: '32px',
-                                        height: '32px',
+                                        width: '30px',
+                                        height: '30px',
+                                        flexShrink: 0,
+                                        padding: 0,
+                                        color: 'var(--text-muted, #8C8C8C)',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px',
+                                        transition: 'color 0.15s ease, background-color 0.15s ease'
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setSelectedJobForDetail(job)
+                                      }}
+                                      title="View Job Order & Contract Details"
+                                      aria-label="View Details"
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = 'var(--text, #0A0A0A)'
+                                        e.currentTarget.style.backgroundColor = 'var(--fill-ghost-hover, #F4F4F4)'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = 'var(--text-muted, #8C8C8C)'
+                                        e.currentTarget.style.backgroundColor = 'transparent'
+                                      }}
+                                    >
+                                      <LucideEye size={16} strokeWidth={1.8} />
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      className="cred-icon-action-btn" 
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        width: '30px',
+                                        height: '30px',
                                         flexShrink: 0,
                                         padding: 0,
                                         color: 'var(--text-muted, #8C8C8C)',
@@ -2398,8 +2736,8 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                         style={{
                                           background: 'none',
                                           border: 'none',
-                                          width: '32px',
-                                          height: '32px',
+                                          width: '30px',
+                                          height: '30px',
                                           flexShrink: 0,
                                           padding: 0,
                                           color: 'var(--text-muted, #8C8C8C)',
@@ -2431,8 +2769,8 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                         style={{
                                           background: 'none',
                                           border: 'none',
-                                          width: '32px',
-                                          height: '32px',
+                                          width: '30px',
+                                          height: '30px',
                                           flexShrink: 0,
                                           padding: 0,
                                           color: 'var(--text-muted, #8C8C8C)',
@@ -2458,7 +2796,6 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                         <RotateCcw size={16} strokeWidth={1.8} />
                                       </button>
                                     )}
-
                                   </div>
                                 )}
                               </td>
@@ -2480,7 +2817,7 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                           <div 
                             key={job.id} 
                             className="mobile-entity-card clickable-card"
-                            onClick={() => handleOpenModal(job)}
+                            onClick={() => setSelectedJobForDetail(job)}
                             style={{ marginBottom: '0.75rem', cursor: 'pointer' }}
                           >
                             <div className="mobile-card-header">
@@ -2493,38 +2830,16 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     {(() => {
-                                      const att = job.attachment || job.custom_fields?.attachment
-                                      const attName = job.attachment_name || job.custom_fields?.attachment_name || ''
-                                      const attType = job.attachment_type || job.custom_fields?.attachment_type || ''
-                                      if (!att) return null
-                                      const isImg = att.startsWith('data:image/') || attType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(attName)
-                                      if (isImg) {
-                                        return (
-                                          <img
-                                            src={att}
-                                            alt=""
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleOpenAttachmentPreview(att, attName, attType)
-                                            }}
-                                            style={{
-                                              width: '28px',
-                                              height: '28px',
-                                              objectFit: 'cover',
-                                              borderRadius: '6px',
-                                              border: '1px solid var(--border, #E4E4E4)',
-                                              flexShrink: 0
-                                            }}
-                                          />
-                                        )
-                                      }
+                                      const attList = getJobAttachments(job)
+                                      if (attList.length === 0) return null
                                       return (
                                         <button
                                           type="button"
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            handleOpenAttachmentPreview(att, attName, attType)
+                                            handleOpenAttachmentPreview(attList, 0)
                                           }}
+                                          title={`View ${attList.length} attachment(s)`}
                                           style={{
                                             background: 'none',
                                             border: 'none',
@@ -2532,10 +2847,15 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                             color: 'var(--text-muted, #8C8C8C)',
                                             display: 'inline-flex',
                                             alignItems: 'center',
-                                            flexShrink: 0
+                                            gap: '3px',
+                                            flexShrink: 0,
+                                            cursor: 'pointer'
                                           }}
                                         >
                                           <Paperclip size={13} />
+                                          {attList.length > 1 && (
+                                            <span style={{ fontSize: '11px', fontWeight: 600 }}>{attList.length}</span>
+                                          )}
                                         </button>
                                       )
                                     })()}
@@ -2571,6 +2891,22 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                             <div className="mobile-card-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '0.5rem', borderTop: '1px solid var(--border, #E4E4E4)' }} onClick={(e) => e.stopPropagation()}>
                               {isAdmin && adminTab === 'assigned' ? (
                                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                  <button
+                                    type="button"
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      padding: '4px 6px',
+                                      color: 'var(--text-muted, #8C8C8C)',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center'
+                                    }}
+                                    onClick={() => setSelectedJobForDetail(job)}
+                                    title="View Details"
+                                  >
+                                    <LucideEye size={14} />
+                                  </button>
                                   <button 
                                     type="button"
                                     style={{
@@ -2605,6 +2941,14 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
                                 </div>
                               ) : (
                                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                  <button 
+                                    type="button"
+                                    style={{ background: 'none', border: 'none', padding: '4px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer' }}
+                                    onClick={() => setSelectedJobForDetail(job)}
+                                    title="View Details"
+                                  >
+                                    <LucideEye size={14} />
+                                  </button>
                                   <button 
                                     type="button"
                                     style={{ background: 'none', border: 'none', padding: '4px', color: 'var(--text-muted, #8C8C8C)', cursor: 'pointer' }}
@@ -3017,7 +3361,56 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
               </Field>
             </div>
 
-            {/* 7. Payment Collected By and Assign to Admin side by side */}
+            {/* 7. Salesperson (with + New link & in-dropdown option) and Payment Collected By side by side */}
+            <div>
+              <Field
+                label="Salesperson"
+                rightAction={
+                  <InlineAddLink
+                    onClick={() => setIsSalespersonModalOpen(true)}
+                    label="+ New"
+                  />
+                }
+              >
+                <Select
+                  isClearable
+                  options={[
+                    ...salespersons.map(s => ({
+                      label: s.name + (s.phone ? ` (${s.phone})` : ''),
+                      value: s.id,
+                      name: s.name
+                    })),
+                    { label: '+ Add New Salesperson...', value: '__ADD_NEW__', isAction: true }
+                  ]}
+                  value={formData.salesperson ? {
+                    label: (() => {
+                      const sp = salespersons.find(x => String(x.id) === String(formData.salesperson))
+                      return sp ? (sp.name + (sp.phone ? ` (${sp.phone})` : '')) : (formData.salesperson_name || 'Selected')
+                    })(),
+                    value: formData.salesperson
+                  } : null}
+                  onChange={(selected) => {
+                    if (selected?.value === '__ADD_NEW__') {
+                      setIsSalespersonModalOpen(true)
+                      return
+                    }
+                    setFormData({
+                      ...formData,
+                      salesperson: selected ? selected.value : '',
+                      salesperson_name: selected ? selected.name : ''
+                    })
+                  }}
+                  noOptionsMessage={() => 'No salespersons found'}
+                  components={{ Option: CredOption }}
+                  styles={credSelectStyles}
+                  classNamePrefix="cred-react-select"
+                  menuPosition="fixed"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  placeholder="Select salesperson..."
+                />
+              </Field>
+            </div>
+
             <div>
               <Field label="Payment Collected By">
                 <TextInput
@@ -3029,16 +3422,19 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
               </Field>
             </div>
 
-            <div>
+            {/* 8. Assign to Admin */}
+            <div style={{ gridColumn: '1 / -1' }}>
               <Field
                 label="Assign to Admin"
+                required={!isAdmin}
                 tooltip="When accepted by this Admin, full ownership and all financial calculations/transactions will sit under their account."
               >
                 <CredSelect
                   value={formData.assigned_to || ''}
                   onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                  required={!isAdmin}
                 >
-                  <option value="">No admin assigned</option>
+                  <option value="">{isAdmin ? '-- Auto-Assigned to Admin Team --' : 'Select admin...'}</option>
                   {assignableAdmins.map(adm => (
                     <option key={adm.id} value={adm.id}>
                       {adm.name} ({adm.username})
@@ -3099,19 +3495,17 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
               />
             </div>
 
-            {/* 11. Attachment */}
+            {/* 11. Attachments (Supports multiple files) */}
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label="Attachment">
+              <Field label="Attachments">
                 <Dropzone
-                  value={formData.attachment ? {
-                    name: formData.attachment_name,
-                    url: formData.attachment,
-                    type: formData.attachment_type
-                  } : null}
+                  multiple
+                  values={attachments}
                   onUpload={handleAttachmentChange}
                   onRemove={handleRemoveAttachment}
-                  placeholder="Click to upload a document or image"
-                  hint="PDF, JPG, PNG up to 10MB"
+                  onPreview={(item) => handleOpenAttachmentPreview(item.url, item.name, item.type)}
+                  placeholder="Click or drag files to upload documents or images"
+                  hint="PDF, JPG, PNG up to 10MB (Multiple files allowed)"
                 />
               </Field>
             </div>
@@ -3167,35 +3561,102 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
         </form>
       </ModalShell>
 
-      {/* ── PREVIEW ATTACHMENT MODAL ── */}
+      {/* ── CREATE SALESPERSON MODAL (Upgraded to shared primitives) ── */}
+      <ModalShell
+        isOpen={isSalespersonModalOpen}
+        onClose={() => setIsSalespersonModalOpen(false)}
+        title="New Salesperson"
+        maxWidth="460px"
+        formId="quick-salesperson-form"
+        submitLabel="Add Salesperson"
+        submittingLabel="Saving..."
+        submitting={submittingSalesperson}
+      >
+        <form id="quick-salesperson-form" onSubmit={handleQuickCreateSalesperson} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+          <Field label="Salesperson Name" required>
+            <TextInput
+              required
+              autoFocus
+              placeholder="e.g. Tariq Mansoor"
+              value={newSalespersonForm.name}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, name: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Phone Number">
+            <TextInput
+              placeholder="e.g. +966 55 987 6543"
+              value={newSalespersonForm.phone}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, phone: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Email Address">
+            <TextInput
+              type="email"
+              placeholder="e.g. tariq@arabseason.club"
+              value={newSalespersonForm.email}
+              onChange={(e) => setNewSalespersonForm(prev => ({ ...prev, email: e.target.value }))}
+            />
+          </Field>
+        </form>
+      </ModalShell>
+
+      {/* ── PREVIEW ATTACHMENT MODAL (Supports Multi-Image Carousel & Inspection) ── */}
       {previewAttachment && (
         <ModalShell
           isOpen={!!previewAttachment}
           onClose={() => setPreviewAttachment(null)}
-          title={`Attachment: ${previewAttachment.name}`}
-          maxWidth="820px"
+          title={`Attachment: ${previewAttachment.name}${previewAttachment.list && previewAttachment.list.length > 1 ? ` (${previewAttachment.currentIndex + 1} of ${previewAttachment.list.length})` : ''}`}
+          maxWidth="840px"
           footer={
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
-              <button
-                type="button"
-                className="cred-modal-cancel-btn"
-                onClick={() => setPreviewAttachment(null)}
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                className="cred-modal-submit-btn"
-                onClick={() => handleDownloadAttachment(previewAttachment.dataUrl, previewAttachment.name, previewAttachment.type)}
-              >
-                <Download size={14} /> Download File
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {previewAttachment.list && previewAttachment.list.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      className="cred-modal-cancel-btn"
+                      onClick={handlePrevPreview}
+                      disabled={previewAttachment.currentIndex <= 0}
+                      style={{ opacity: previewAttachment.currentIndex <= 0 ? 0.4 : 1, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <ChevronLeft size={14} /> Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="cred-modal-cancel-btn"
+                      onClick={handleNextPreview}
+                      disabled={previewAttachment.currentIndex >= previewAttachment.list.length - 1}
+                      style={{ opacity: previewAttachment.currentIndex >= previewAttachment.list.length - 1 ? 0.4 : 1, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      Next <ChevronRight size={14} />
+                    </button>
+                  </>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="cred-modal-cancel-btn"
+                  onClick={() => setPreviewAttachment(null)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="cred-modal-submit-btn"
+                  onClick={() => handleDownloadAttachment(previewAttachment.dataUrl, previewAttachment.name, previewAttachment.type)}
+                >
+                  <Download size={14} /> Download File
+                </button>
+              </div>
             </div>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{
-              maxHeight: '68vh',
+              maxHeight: '65vh',
               overflow: 'auto',
               display: 'flex',
               justifyContent: 'center',
@@ -3208,19 +3669,76 @@ const JobOrders = ({ embedded = false, currentUser: currentUserProp = null }) =>
               {previewAttachment.type?.includes('pdf') || previewAttachment.name?.toLowerCase().endsWith('.pdf') ? (
                 <iframe
                   src={previewAttachment.blobUrl || previewAttachment.dataUrl}
-                  style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '8px' }}
+                  style={{ width: '100%', height: '62vh', border: 'none', borderRadius: '8px' }}
                   title={previewAttachment.name}
                 />
               ) : (
                 <img
                   src={previewAttachment.blobUrl || previewAttachment.dataUrl}
                   alt={previewAttachment.name}
-                  style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', borderRadius: '8px' }}
+                  style={{ maxWidth: '100%', maxHeight: '62vh', objectFit: 'contain', borderRadius: '8px' }}
                 />
               )}
             </div>
+
+            {/* Thumbnail carousel strip if multiple attachments */}
+            {previewAttachment.list && previewAttachment.list.length > 1 && (
+              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px 2px', alignItems: 'center' }}>
+                {previewAttachment.list.map((item, idx) => {
+                  const isImg = item.url?.startsWith('data:image/') || item.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(item.name || '')
+                  const isCur = idx === previewAttachment.currentIndex
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleOpenAttachmentPreview(previewAttachment.list, idx)}
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '6px',
+                        border: isCur ? '2px solid #0F7638' : '1px solid var(--border, #E4E4E4)',
+                        padding: 0,
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        background: '#ffffff',
+                        flexShrink: 0,
+                        opacity: isCur ? 1 : 0.65,
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={item.name || `Photo ${idx + 1}`}
+                    >
+                      {isImg ? (
+                        <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                          <Paperclip size={16} />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </ModalShell>
+      )}
+
+      {/* ── JOB ORDER DETAIL / PDF VIEW MODAL ── */}
+      {selectedJobForDetail && (
+        <JobOrderDetailModal
+          isOpen={!!selectedJobForDetail}
+          onClose={() => setSelectedJobForDetail(null)}
+          job={selectedJobForDetail}
+          currentUser={currentUser}
+          onUpdateJob={(updated) => {
+            setJobs(prev => prev.map(j => j.id === updated.id ? { ...j, ...updated } : j))
+            setSelectedJobForDetail(prev => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev))
+          }}
+          onEditOrder={(job) => {
+            setSelectedJobForDetail(null)
+            handleOpenModal(job)
+          }}
+        />
       )}
 
       {/* ── Scoped CRED Styles for Job Orders Page ── */}
