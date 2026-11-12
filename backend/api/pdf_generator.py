@@ -430,6 +430,8 @@ class UniversalPDFGenerator:
         """
         fallback = {
             'company_name': 'Arab Season',
+            'legal_name_en': '',
+            'legal_name_ar': '',
             'email': 'ad@arabseason.net',
             'website': 'www.arabseason.club',
             'phone': '0575287403',
@@ -442,16 +444,18 @@ class UniversalPDFGenerator:
             s = SiteSettings.objects.first()
             if s:
                 phone_val = str(s.phone or '').strip()
-                if not phone_val or phone_val.startswith('+965'):
+                if not phone_val or phone_val == '+965 57 5287 403':
                     phone_val = '0575287403'
                 addr_val = str(s.address or '').strip()
-                if not addr_val or 'Alsalihia' in addr_val:
+                if not addr_val or addr_val == 'Saudi Arabia, Alsalihia Dist':
                     addr_val = 'Riyadh, KSA'
                 web_val = str(getattr(s, 'website', '') or '').strip()
                 if not web_val or 'arabseason.com' in web_val:
                     web_val = 'www.arabseason.club'
                 return {
                     'company_name': s.company_name or fallback['company_name'],
+                    'legal_name_en': getattr(s, 'legal_name_en', '') or '',
+                    'legal_name_ar': getattr(s, 'legal_name_ar', '') or '',
                     'email': s.email or fallback['email'],
                     'website': web_val,
                     'phone': phone_val,
@@ -3255,6 +3259,288 @@ class UniversalPDFGenerator:
                 signature_style=sig_style
             )
             elements.extend(sigs)
+
+        doc.build(elements, canvasmaker=NumberedCanvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
+
+    def generate_statement_pdf(self, payload):
+        """
+        Generates an official Zoho-style Statement of Accounts PDF for Customer or Vendor.
+        Adheres to exact specification:
+          - Logo top-left
+          - Legal name EN/AR (shaped with arabic_reshaper + bidi) + TRN + address/phone/email/website top-right
+          - 'To:' block (name, company, address, TRN, phone, only non-empty lines)
+          - Title 'Statement of Accounts' + period
+          - Boxed Account Summary at right
+          - Dark charcoal table header (#1E293B, white text) repeating each page (repeatRows=1)
+          - Columns: Date | Transactions | Details | Amount | Payments | Balance
+          - First row is Opening Balance
+          - Balance Due / Balance Payable footer right-aligned
+          - Ledger running_balance used as-is (no recomputation, no description-based row skipping)
+          - Negative customer balances show as 'Credit Balance' with CR
+        """
+        buffer = BytesIO()
+        doc = BaseDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=36.0,
+            rightMargin=36.0,
+            topMargin=40.0,
+            bottomMargin=45.0
+        )
+        frame = Frame(
+            36.0, 45.0, 523.28, 841.69 - 40.0 - 45.0,
+            id='normal',
+            leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0
+        )
+        template = PageTemplate(id='all_pages', frames=frame)
+        doc.addPageTemplates([template])
+        doc_width = 523.28
+        elements = []
+
+        settings = self._get_site_settings()
+        logo_path = self._resolve_logo_path()
+
+        font_reg = FONTS.get('Ubuntu', FONTS.get('AppFont', 'Helvetica'))
+        font_bold = FONTS.get('Ubuntu-Bold', FONTS.get('AppFont-Bold', 'Helvetica-Bold'))
+
+        # 1. Header (Logo on left, Company details on right)
+        left_flowables = []
+        if logo_path and os.path.exists(logo_path):
+            try:
+                left_flowables.append(Image(logo_path, width=160, height=48, mask='auto'))
+            except Exception:
+                pass
+
+        co_en = settings.get("legal_name_en") or settings.get("company_name", "Arab Season")
+        co_ar = settings.get("legal_name_ar") or ""
+        trn = settings.get("tax_number") or ""
+        addr = settings.get("address", "Riyadh, KSA")
+        phone = settings.get("phone", "0575287403")
+        email = settings.get("email", "ad@arabseason.net")
+        web = settings.get("website", "www.arabseason.club")
+
+        comp_lines = [f"<b>{co_en}</b>"]
+        if co_ar:
+            comp_lines.append(f"<b>{format_bidi_text(co_ar)}</b>")
+        if trn:
+            comp_lines.append(f"TRN {trn}")
+        if addr:
+            comp_lines.append(addr)
+        if phone:
+            comp_lines.append(phone)
+        if email and web:
+            comp_lines.append(f"{email} - {web}")
+        elif email:
+            comp_lines.append(email)
+
+        comp_p = Paragraph(
+            "<br/>".join(comp_lines),
+            ParagraphStyle('CompHdr', fontName=font_reg, fontSize=8.5, leading=11, alignment=2, textColor=colors.HexColor('#1E293B'))
+        )
+        right_flowables = [comp_p]
+
+        hdr_table = Table([[left_flowables, right_flowables]], colWidths=[200, doc_width - 200])
+        hdr_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(hdr_table)
+        elements.append(Spacer(1, 18.0))
+
+        # 2. Party ('To') & Document Meta / Account Summary
+        entity = payload.get('entity') or {}
+        entity_name = entity.get('name') or 'Valued Client'
+        company_name = entity.get('company_name') or entity.get('company') or ''
+        entity_tax = entity.get('tax_number') or ''
+        entity_addr = entity.get('address') or ''
+        entity_phone = entity.get('phone') or ''
+
+        to_lines = ["<font size=8.5 color='#64748B'>To</font>"]
+        to_lines.append(f'<font name="{font_bold}" size="10" color="#0F172A"><b>{entity_name}</b></font>')
+        if company_name and company_name.lower().strip() != entity_name.lower().strip():
+            to_lines.append(f'<font size="9" color="#334155">{company_name}</font>')
+        if entity_addr and str(entity_addr).strip():
+            to_lines.append(f'<font size="8.5" color="#475569">{str(entity_addr).strip()}</font>')
+        if entity_tax and str(entity_tax).strip():
+            to_lines.append(f'<font size="8.5" color="#475569">TRN {str(entity_tax).strip()}</font>')
+        if entity_phone and str(entity_phone).strip():
+            to_lines.append(f'<font size="8.5" color="#475569">Tel: {str(entity_phone).strip()}</font>')
+
+        to_p = Paragraph("<br/>".join(to_lines), ParagraphStyle('ToBlock', fontName=font_reg, fontSize=9, leading=12))
+
+        # Right Column: Statement of Accounts title, Period, and Account Summary Box
+        period_info = payload.get('period') or {}
+        period_text = period_info.get('period_text') or 'All Time'
+        stmt_title = Paragraph(
+            "Statement of Accounts",
+            ParagraphStyle('StmtTitle', fontName=font_bold, fontSize=16, leading=18, alignment=2, textColor=colors.HexColor('#0F172A'))
+        )
+        period_p = Paragraph(
+            period_text,
+            ParagraphStyle('StmtPeriod', fontName=font_reg, fontSize=8.5, leading=11, alignment=2, textColor=colors.HexColor('#64748B'))
+        )
+
+        summary_items = payload.get('account_summary') or []
+        summary_table_data = [
+            [
+                Paragraph("<b>Account Summary</b>", ParagraphStyle('ASHead', fontName=font_bold, fontSize=8.5, leading=10, textColor=colors.HexColor('#0F172A'))),
+                Paragraph("", ParagraphStyle('ASHeadBlank', fontName=font_reg, fontSize=8.5, leading=10))
+            ]
+        ]
+
+        for item in summary_items:
+            lbl = item.get('label') or ''
+            amt = float(item.get('amount') or 0.0)
+            is_cr = item.get('is_cr', False)
+            if is_cr:
+                amt_str = f"SAR {amt:,.2f} CR"
+                val_style = ParagraphStyle('ASValCR', fontName=font_bold, fontSize=8.5, leading=10, alignment=2, textColor=colors.HexColor('#16A34A'))
+            else:
+                amt_str = f"SAR {amt:,.2f}"
+                is_due = ('Balance' in lbl or 'Due' in lbl or 'Payable' in lbl)
+                val_style = ParagraphStyle(
+                    'ASVal',
+                    fontName=font_bold if is_due else font_reg,
+                    fontSize=8.5,
+                    leading=10,
+                    alignment=2,
+                    textColor=colors.HexColor('#0F172A') if is_due else colors.HexColor('#334155')
+                )
+            lbl_p = Paragraph(lbl, ParagraphStyle('ASLbl', fontName=font_reg, fontSize=8.5, leading=10, textColor=colors.HexColor('#475569')))
+            val_p = Paragraph(amt_str, val_style)
+            summary_table_data.append([lbl_p, val_p])
+
+        as_table = Table(summary_table_data, colWidths=[120, 110])
+        as_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+            ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#E2E8F0')),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#F1F5F9')),
+            ('TOPPADDING', (0,0), (-1,-1), 4.5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4.5),
+            ('LEFTPADDING', (0,0), (-1,-1), 8),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+            ('LINEBELOW', (0,0), (-1,0), 0.75, colors.HexColor('#CBD5E1')),
+        ]))
+
+        meta_flowables = [stmt_title, Spacer(1, 3), period_p, Spacer(1, 8), as_table]
+        meta_table = Table([[to_p, meta_flowables]], colWidths=[270, doc_width - 270])
+        meta_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(meta_table)
+        elements.append(Spacer(1, 20.0))
+
+        # 3. Ledger Table
+        table_cols = [
+            ("Date", "center"),
+            ("Transactions", "left"),
+            ("Details", "left"),
+            ("Amount", "right"),
+            ("Payments", "right"),
+            ("Balance", "right")
+        ]
+        col_widths = [65.0, 100.0, 148.28, 70.0, 70.0, 70.0]
+
+        header_cells = []
+        for title, align in table_cols:
+            align_code = 1 if align == 'center' else (2 if align == 'right' else 0)
+            th_style = ParagraphStyle(
+                f'TH_Stmt_{title}',
+                fontName=font_bold,
+                fontSize=8.5,
+                textColor=colors.HexColor('#FFFFFF'),
+                leading=10,
+                alignment=align_code
+            )
+            header_cells.append(Paragraph(title, th_style))
+
+        table_data = [header_cells]
+        rows = payload.get('rows') or []
+
+        for r in rows:
+            r_date_raw = r.get('date')
+            r_date = format_doc_date(r_date_raw) if r_date_raw else ''
+            r_tx = r.get('transactions') or ''
+            r_details = r.get('details') or ''
+            amt = float(r.get('amount') or 0.0)
+            pmt = float(r.get('payments') or 0.0)
+            bal = float(r.get('balance') if r.get('balance') is not None else r.get('running_balance', 0.0))
+
+            amt_str = f"{amt:,.2f}" if amt > 0 else ""
+            pmt_str = f"{pmt:,.2f}" if pmt > 0 else ""
+
+            is_customer = (payload.get('entity_type') == 'customer')
+            if is_customer and bal < 0:
+                bal_str = f"{abs(bal):,.2f} CR"
+                bal_color = '#16A34A'
+            else:
+                bal_str = f"{bal:,.2f}"
+                bal_color = '#DC2626' if bal > 0 else '#0F172A'
+
+            is_ob = (r_tx == '***Opening Balance***' or r.get('type') == 'opening_balance')
+            tx_font = font_bold if is_ob else font_reg
+            tx_color = '#0F172A' if is_ob else '#334155'
+
+            row_cells = [
+                Paragraph(r_date, ParagraphStyle('TD_Date', fontName=font_reg, fontSize=8, leading=10, alignment=1, textColor=colors.HexColor('#334155'))),
+                Paragraph(r_tx, ParagraphStyle('TD_Tx', fontName=tx_font, fontSize=8, leading=10, textColor=colors.HexColor(tx_color))),
+                Paragraph(r_details, ParagraphStyle('TD_Det', fontName=font_reg, fontSize=8, leading=10, textColor=colors.HexColor('#64748B'))),
+                Paragraph(amt_str, ParagraphStyle('TD_Amt', fontName=font_reg, fontSize=8, leading=10, alignment=2, textColor=colors.HexColor('#0F172A'))),
+                Paragraph(pmt_str, ParagraphStyle('TD_Pmt', fontName=font_reg, fontSize=8, leading=10, alignment=2, textColor=colors.HexColor('#0F172A'))),
+                Paragraph(bal_str, ParagraphStyle('TD_Bal', fontName=font_bold, fontSize=8, leading=10, alignment=2, textColor=colors.HexColor(bal_color))),
+            ]
+            table_data.append(row_cells)
+
+        items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        items_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('TOPPADDING', (0,0), (-1,0), 6.5),
+            ('BOTTOMPADDING', (0,0), (-1,0), 6.5),
+            ('TOPPADDING', (0,1), (-1,-1), 5.5),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 5.5),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('LINEBELOW', (0,1), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ]))
+        elements.append(items_table)
+        elements.append(Spacer(1, 14.0))
+
+        # 4. Balance Due / Balance Payable Footer
+        closing_bal = float(payload.get('closing_balance') or 0.0)
+        is_cust = (payload.get('entity_type') == 'customer')
+        if is_cust:
+            if closing_bal < 0:
+                footer_text = f"Credit Balance: <b>SAR {abs(closing_bal):,.2f} CR</b>"
+                f_color = '#16A34A'
+            else:
+                footer_text = f"Balance Due: <b>SAR {closing_bal:,.2f}</b>"
+                f_color = '#0F172A'
+        else:
+            if closing_bal < 0:
+                footer_text = f"Credit Balance: <b>SAR {abs(closing_bal):,.2f} CR</b>"
+                f_color = '#16A34A'
+            else:
+                footer_text = f"Balance Payable: <b>SAR {closing_bal:,.2f}</b>"
+                f_color = '#0F172A'
+
+        footer_p = Paragraph(
+            footer_text,
+            ParagraphStyle('BalFooter', fontName=font_bold, fontSize=11, leading=14, alignment=2, textColor=colors.HexColor(f_color))
+        )
+        footer_p.keepWithNext = True
+        elements.append(footer_p)
 
         doc.build(elements, canvasmaker=NumberedCanvas)
         pdf_bytes = buffer.getvalue()

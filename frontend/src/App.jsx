@@ -7,7 +7,9 @@ import Login from './pages/Login'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const AccountingDashboard = lazy(() => import('./pages/AccountingDashboard'))
 const Customers = lazy(() => import('./pages/Customers'))
+const CustomerDetail = lazy(() => import('./pages/CustomerDetail'))
 const Vendors = lazy(() => import('./pages/Vendors'))
+const VendorDetail = lazy(() => import('./pages/VendorDetail'))
 const JobOrders = lazy(() => import('./pages/JobOrders'))
 const Expenses = lazy(() => import('./pages/Expenses'))
 const Estimations = lazy(() => import('./pages/Estimations'))
@@ -264,9 +266,19 @@ function App() {
                   <Customers />
                 </RouteGuard>
               } />
+              <Route path="accounting/customers/:id" element={
+                <RouteGuard permission="customers" currentUser={currentUser}>
+                  <CustomerDetail />
+                </RouteGuard>
+              } />
               <Route path="accounting/vendors" element={
                 <RouteGuard permission="vendors" currentUser={currentUser}>
                   <Vendors />
+                </RouteGuard>
+              } />
+              <Route path="accounting/vendors/:id" element={
+                <RouteGuard permission="vendors" currentUser={currentUser}>
+                  <VendorDetail />
                 </RouteGuard>
               } />
               <Route path="accounting/estimations" element={

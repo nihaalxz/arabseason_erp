@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Edit3, Filter, AlertCircle, Phone, Mail, User } from 'lucide-react'
 import api from '../api'
 import { useSettings } from '../contexts/SettingsContext'
@@ -27,6 +28,7 @@ const FILTER_OPTIONS = [
 ]
 
 const Customers = () => {
+  const navigate = useNavigate()
   const isAdmin = isCurrentUserAdmin()
   const { formatCurrency } = useSettings()
   const basePath = '/accounting'
@@ -65,6 +67,7 @@ const Customers = () => {
     email: '', 
     phone: '', 
     address: '', 
+    tax_number: '',
     payable_amount: '' 
   })
   const [submitting, setSubmitting] = useState(false)
@@ -149,11 +152,12 @@ const Customers = () => {
         email: customer.email || '', 
         phone: customer.phone || '', 
         address: customer.address || '',
+        tax_number: customer.tax_number || '',
         payable_amount: pa > 0 ? String(pa) : (rawPa != null && String(rawPa).trim() !== '' ? String(rawPa) : '')
       })
     } else {
       setEditingCustomer(null)
-      setFormData({ name: '', company_name: '', email: '', phone: '', address: '', payable_amount: '' })
+      setFormData({ name: '', company_name: '', email: '', phone: '', address: '', tax_number: '', payable_amount: '' })
     }
     setFormError('')
     setIsModalOpen(true)
@@ -177,6 +181,7 @@ const Customers = () => {
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         address: formData.address.trim(),
+        tax_number: (formData.tax_number || '').trim(),
         payable_amount: formData.payable_amount !== '' ? parseFloat(formData.payable_amount) || 0 : 0
       }
       
@@ -479,9 +484,19 @@ const Customers = () => {
                           <tr
                             key={customer.id}
                             className="cred-table-row"
+                            tabIndex={0}
+                            role="button"
+                            onClick={() => navigate(`/accounting/customers/${customer.id}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                navigate(`/accounting/customers/${customer.id}`)
+                              }
+                            }}
                             style={{
                               borderBottom: '1px solid var(--border, #E4E4E4)',
-                              transition: 'background-color 0.15s ease'
+                              transition: 'background-color 0.15s ease',
+                              cursor: 'pointer'
                             }}
                           >
                             {/* Customer Name + CID */}
@@ -731,6 +746,14 @@ const Customers = () => {
                 placeholder="e.g. Kingdom Trading LLC"
                 value={formData.company_name}
                 onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+              />
+            </Field>
+
+            <Field label="VAT / Tax Number (TRN)">
+              <TextInput
+                placeholder="e.g. 300000000000003"
+                value={formData.tax_number}
+                onChange={(e) => setFormData({ ...formData, tax_number: e.target.value })}
               />
             </Field>
 

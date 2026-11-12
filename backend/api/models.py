@@ -18,6 +18,8 @@ class Customer(models.Model):
 
     address = models.TextField(blank=True, default='')
 
+    tax_number = models.CharField(max_length=50, blank=True, default='')
+
     payable_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Amount owed by company to this customer")
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='customers')
@@ -61,6 +63,8 @@ class Vendor(models.Model):
     email = models.EmailField(blank=True)
 
     company = models.CharField(max_length=255, blank=True)
+
+    tax_number = models.CharField(max_length=50, blank=True, default='')
 
     business_group = models.CharField(max_length=255, blank=True, default='General')
 
@@ -146,6 +150,10 @@ class JobOrder(models.Model):
 
     payment_collected_by = models.CharField(max_length=255, blank=True, null=True)
 
+    salesperson = models.ForeignKey('Salesperson', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_orders')
+
+    salesperson_name = models.CharField(max_length=255, blank=True, default='')
+
     custom_fields = models.JSONField(default=dict, blank=True)
 
     
@@ -213,6 +221,10 @@ class PendingJobOrder(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     converted_job = models.ForeignKey('JobOrder', on_delete=models.SET_NULL, null=True, blank=True, related_name='source_pending_entries')
+
+    salesperson = models.ForeignKey('Salesperson', on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_job_orders')
+
+    salesperson_name = models.CharField(max_length=255, blank=True, default='')
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_job_orders')
 
@@ -519,6 +531,10 @@ class Expense(models.Model):
 class SiteSettings(models.Model):
 
     company_name = models.CharField(max_length=255, default='Arab Season')
+
+    legal_name_en = models.CharField(max_length=255, blank=True, default='')
+
+    legal_name_ar = models.CharField(max_length=255, blank=True, default='')
 
     email = models.EmailField(default='ad@arabseason.net')
 
@@ -1049,6 +1065,10 @@ class PettyCashAccount(models.Model):
     notes = models.TextField(blank=True, default='')
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='owned_petty_cash_accounts')
+
+    is_funding_source = models.BooleanField(default=False, db_index=True, help_text="Designates this account as an admin funding source for staff allowances")
+
+    primary_user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='primary_petty_cash_account', help_text="Explicit staff user for whom this is the primary petty cash account")
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='petty_cash_accounts')
 

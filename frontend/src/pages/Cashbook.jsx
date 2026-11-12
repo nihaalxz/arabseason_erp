@@ -517,7 +517,8 @@ const Cashbook = ({ currentUser = null }) => {
     }
   })()
   const isAdmin = isUserAdmin(user)
-  const hasAccess = isAdmin || hasModuleAccess(user, 'cashbook')
+  const isCashStaff = Boolean(user?.is_cash_staff || user?.access_list?.includes('cash_staff') || user?.access_list?.includes('cashbook_staff')) && !isAdmin
+  const hasAccess = isAdmin || hasModuleAccess(user, 'cashbook') || isCashStaff
 
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -680,6 +681,12 @@ const Cashbook = ({ currentUser = null }) => {
   const [accountsSearchQuery, setAccountsSearchQuery] = useState('')
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false)
   const accountDropdownRef = useRef(null)
+
+  // Staff Allowance & Approval States
+  const [adminCashInMode, setAdminCashInMode] = useState('customer') // 'customer' | 'allowance'
+  const [pendingAllowances, setPendingAllowances] = useState([])
+  const [isPendingApprovalsModalOpen, setIsPendingApprovalsModalOpen] = useState(false)
+  const [actioningApprovalId, setActioningApprovalId] = useState(null)
 
   useEffect(() => {
     const handleAccountDropdownOutsideClick = (e) => {
@@ -1638,6 +1645,16 @@ const Cashbook = ({ currentUser = null }) => {
     return []
   }, [pettyCashAccounts, user])
 
+  // Primary Petty Cash Account assigned to the active user (if cash staff)
+  const staffPrimaryAccount = useMemo(() => {
+    return pettyCashAccounts.find(a => a.is_own_account || a.primary_user === user?.id || a.owner === user?.id) || userPettyCashAccounts[0] || pettyCashAccounts[0] || null
+  }, [pettyCashAccounts, userPettyCashAccounts, user])
+
+  // Funding source accounts available for disbursing staff allowances (Nizam, Shuhaib)
+  const fundingSources = useMemo(() => {
+    return pettyCashAccounts.filter(a => a.is_funding_source && a.status === 'Active')
+  }, [pettyCashAccounts])
+
   // Resolve active cashout channel and calculate available balance
   const selectedCashoutAccount = useMemo(() => {
     if (entryType !== 'out') return null
@@ -2320,6 +2337,53 @@ const Cashbook = ({ currentUser = null }) => {
     }
   }
 
+  const fetchPendingAllowances = useCallback(async () => {
+    try {
+      const res = await api.get('cashbook-entries/', {
+        params: {
+          approval_status: 'pending',
+          transaction_type: 'Petty Cash Allowance',
+          page_size: 50
+        }
+      })
+      const results = res.data?.results || res.data || []
+      setPendingAllowances(results)
+      return results
+    } catch (err) {
+      console.warn('Failed to fetch pending allowances', err)
+      return []
+    }
+  }, [])
+
+  const handleApproveAllowance = async (entry) => {
+    try {
+      setActioningApprovalId(entry.id)
+      await api.post(`cashbook-entries/${entry.id}/approve/`)
+      showToast(`Allowance of ${entry.amount} SAR for ${entry.staff_name || 'Staff'} approved successfully!`, 'success')
+      await fetchPendingAllowances()
+      await fetchAllCashEntries()
+      await fetchPettyCashAccounts()
+    } catch (err) {
+      showError(err.response?.data?.detail || 'Failed to approve allowance request.')
+    } finally {
+      setActioningApprovalId(null)
+    }
+  }
+
+  const handleRejectAllowance = async (entry) => {
+    try {
+      setActioningApprovalId(entry.id)
+      await api.post(`cashbook-entries/${entry.id}/reject/`)
+      showToast(`Allowance request for ${entry.staff_name || 'Staff'} rejected.`, 'info')
+      await fetchPendingAllowances()
+      await fetchAllCashEntries()
+    } catch (err) {
+      showError(err.response?.data?.detail || 'Failed to reject allowance request.')
+    } finally {
+      setActioningApprovalId(null)
+    }
+  }
+
   const fetchBankFlow = async () => {
     try {
       setBankFlowLoading(true)
@@ -2399,6 +2463,7 @@ const Cashbook = ({ currentUser = null }) => {
       if (Array.isArray(fetchedExp) && fetchedExp.length > 0) setExpensesList(fetchedExp)
 
       setJobOrders(jobsRes.data?.results || jobsRes.data || [])
+      fetchPendingAllowances()
     } catch (e) {
       console.error('Error fetching dashboard extra data:', e)
     } finally {
@@ -2415,6 +2480,7 @@ const Cashbook = ({ currentUser = null }) => {
       const tasks = [
         fetchBanks(),
         fetchPettyCashAccounts(),
+        fetchPendingAllowances(),
         fetchBankFlow(),
         fetchDashboardData(),
         fetchExpensesList(),
@@ -3110,24 +3176,25 @@ const Cashbook = ({ currentUser = null }) => {
       const isInsideBook = (activeTab === 'book' || activeTab === 'books') && (selectedBook?.id || searchParams.get('book'))
       const defaultBookId = isInsideBook ? String(selectedBook?.id || searchParams.get('book')) : (entry?.cashbook ? String(entry.cashbook) : '')
       
-      const presetMode = (entry?.payment_mode && entry.payment_mode !== 'Cash') ? entry.payment_mode : 'Petty Cash'
-      const defaultPettyAcc = matchedUserPettyAcc || null
+      const presetMode = isCashStaff ? 'Petty Cash' : ((entry?.payment_mode && entry.payment_mode !== 'Cash') ? entry.payment_mode : 'Petty Cash')
+      const defaultPettyAcc = staffPrimaryAccount || matchedUserPettyAcc || null
       const presetPettyAcc = entry?.petty_cash_account ? String(entry.petty_cash_account) : (defaultPettyAcc ? String(defaultPettyAcc.id) : '')
       const presetPettyName = entry?.petty_cash_account_name || (defaultPettyAcc ? defaultPettyAcc.name : '')
       const presetBankAcc = entry?.bank_account || (banks.length > 0 ? banks[0].id : '')
       const presetBankName = entry?.bank_account_name || (banks.length > 0 ? banks[0].bank_name : '')
       
       setSelectedPettyCashAccountId(presetPettyAcc)
+      setAdminCashInMode('customer')
       
       setEntryFormData({
         cashbook: entry?.cashbook ? String(entry.cashbook) : defaultBookId,
         amount: entry?.amount || '',
         date: entry?.date || curDate,
         time: entry?.time || curTime,
-        remark: entry?.remark || '',
-        category: entry?.category || (type === 'in' ? 'Sales' : 'Food'),
+        remark: entry?.remark || (isCashStaff ? (type === 'in' ? 'Petty cash expense allowance request' : 'Company Expense') : ''),
+        category: entry?.category || (isCashStaff ? (type === 'in' ? 'Expense Allowance' : 'General') : (type === 'in' ? 'Sales' : 'Food')),
         payment_mode: presetMode,
-        transaction_type: entry?.transaction_type || (presetMode === 'Bank Transfer' ? (type === 'in' ? 'Bank Deposit' : 'Bank Transfer') : 'Petty Cash'),
+        transaction_type: entry?.transaction_type || (isCashStaff && type === 'in' ? 'Petty Cash Allowance' : (presetMode === 'Bank Transfer' ? (type === 'in' ? 'Bank Deposit' : 'Bank Transfer') : 'Petty Cash')),
         bank_account: presetBankAcc,
         bank_account_name: presetBankName,
         petty_cash_account: presetPettyAcc,
@@ -3136,9 +3203,10 @@ const Cashbook = ({ currentUser = null }) => {
         customer: entry?.customer || '',
         vendor: entry?.vendor || '',
         labour: entry?.labour ? String(entry.labour) : '',
-        debit_type: entry?.debit_type || 'Company Expense',
-        staff_user: entry?.staff_user || '',
-        staff_name: entry?.staff_name || '',
+        debit_type: isCashStaff ? (type === 'in' ? 'Transfer' : 'Company Expense') : (entry?.debit_type || 'Company Expense'),
+        staff_user: isCashStaff ? user?.id : (entry?.staff_user || ''),
+        staff_name: isCashStaff ? (user?.get_full_name || user?.username || '') : (entry?.staff_name || ''),
+        source_account: fundingSources[0] ? String(fundingSources[0].id) : '',
         paid_month: getCurrentMonthDisplay(),
         job_order: entry?.job_order || '',
         job_order_title: entry?.job_order_title || '',
@@ -3286,29 +3354,65 @@ const Cashbook = ({ currentUser = null }) => {
       if (foundC) resolvedParty = (foundC.name || '').trim()
     }
 
-    if (entryType === 'in') {
-      if (!resolvedParty && !entryFormData.customer) {
-        setEntryError('Customer Name is required for every Cash In (Credit) entry.')
+    if (isCashStaff) {
+      if (entryType === 'in') {
+        const sourceId = entryFormData.source_account || (fundingSources[0] ? String(fundingSources[0].id) : '')
+        if (!sourceId) {
+          setEntryError('Please select a disbursing custodian (funding source account).')
+          return
+        }
+        if (!staffPrimaryAccount) {
+          setEntryError('No primary petty cash account assigned to you. Please contact an administrator.')
+          return
+        }
+      } else {
+        // Cash out
+        if (!staffPrimaryAccount) {
+          setEntryError('No primary petty cash account assigned to you. Please contact an administrator.')
+          return
+        }
+        const reqAmt = parseFloat(entryFormData.amount) || 0
+        const availBal = parseFloat(staffPrimaryAccount.balance || 0)
+        if (reqAmt > availBal) {
+          setEntryError(`Cannot cash out: Insufficient balance in ${staffPrimaryAccount.name}. Available: ${safeFormatAmount(availBal)} SAR, Requested: ${safeFormatAmount(reqAmt)} SAR.`)
+          return
+        }
+      }
+    } else if (isAdmin && entryType === 'in' && adminCashInMode === 'allowance') {
+      const sourceId = entryFormData.source_account || (fundingSources[0] ? String(fundingSources[0].id) : '')
+      if (!sourceId) {
+        setEntryError('Please select a disbursing custodian/source account.')
+        return
+      }
+      if (!entryFormData.petty_cash_account && !entryFormData.staff_user) {
+        setEntryError('Please select a recipient staff member or petty cash account.')
         return
       }
     } else {
-      // entryType === 'out'
-      const dType = entryFormData.debit_type || 'Company Expense'
-      if (dType === 'VENDOR' && (!resolvedParty && !entryFormData.vendor)) {
-        setEntryError('Vendor Name is required for Vendor Debit entries.')
-        return
-      }
-      if (dType === 'LABOUR' && (!resolvedParty && !entryFormData.labour)) {
-        setEntryError('Labourer selection is required for Labour Debit entries.')
-        return
-      }
-      if (dType === 'SALARY' && (!entryFormData.staff_name && !entryFormData.staff_user && !resolvedParty)) {
-        setEntryError('Staff/User selection is required for Salary entries.')
-        return
-      }
-      if (dType === 'CUSTOMER' && (!resolvedParty && !entryFormData.customer)) {
-        setEntryError('Customer selection is required for Customer Refund entries.')
-        return
+      if (entryType === 'in') {
+        if (!resolvedParty && !entryFormData.customer) {
+          setEntryError('Customer Name is required for every Cash In (Credit) entry.')
+          return
+        }
+      } else {
+        // entryType === 'out'
+        const dType = entryFormData.debit_type || 'Company Expense'
+        if (dType === 'VENDOR' && (!resolvedParty && !entryFormData.vendor)) {
+          setEntryError('Vendor Name is required for Vendor Debit entries.')
+          return
+        }
+        if (dType === 'LABOUR' && (!resolvedParty && !entryFormData.labour)) {
+          setEntryError('Labourer selection is required for Labour Debit entries.')
+          return
+        }
+        if (dType === 'SALARY' && (!entryFormData.staff_name && !entryFormData.staff_user && !resolvedParty)) {
+          setEntryError('Staff/User selection is required for Salary entries.')
+          return
+        }
+        if (dType === 'CUSTOMER' && (!resolvedParty && !entryFormData.customer)) {
+          setEntryError('Customer selection is required for Customer Refund entries.')
+          return
+        }
       }
     }
 
@@ -3515,34 +3619,81 @@ const Cashbook = ({ currentUser = null }) => {
 
       const assignedJobOrderId = createdJobOrderId || (entryFormData.job_order && entryFormData.job_order !== '__rough__' ? parseInt(entryFormData.job_order) : null)
 
-      const payload = {
-        cashbook: (activeTab === 'ledger' || !targetBookId) ? null : parseInt(targetBookId),
-        entry_type: entryType,
-        amount: parseFloat(entryFormData.amount),
-        date: dateVal,
-        time: timeVal,
-        remark: entryFormData.remark || (createdJobOrderId ? `Advance payment for Job Order ${entryFormData.rough_job_title.trim()}` : (entryType === 'in' ? 'Cash Inflow' : 'Cash Outflow')),
-        category: entryFormData.category,
-        payment_mode: entryFormData.payment_mode,
-        transaction_type: finalTxType,
-        bank_account: finalBankAcc,
-        bank_account_name: finalBankName,
-        petty_cash_account: finalPettyCashAcc,
-        petty_cash_account_name: finalPettyCashName,
-        party_name: finalParty,
-        debit_type: entryType === 'out' ? (entryFormData.debit_type || 'Company Expense') : '',
-        staff_user: entryType === 'out' && entryFormData.debit_type === 'SALARY' ? (entryFormData.staff_user || null) : null,
-        staff_name: entryType === 'out' && entryFormData.debit_type === 'SALARY' ? (entryFormData.staff_name || finalParty) : '',
-        paid_month: entryType === 'out' && entryFormData.debit_type === 'SALARY' ? (entryFormData.paid_month || getCurrentMonthDisplay()) : '',
-        customer: targetCustomerId,
-        vendor: targetVendorId,
-        labour: (entryType === 'out' && entryFormData.debit_type === 'LABOUR')
-          ? (entryFormData.labour ? parseInt(entryFormData.labour) : null)
-          : null,
-        job_order: assignedJobOrderId,
-        pending_job_order: null,
-        reference_number: entryFormData.reference_number,
-        custom_fields: entryFormData.custom_fields || {}
+      let payload = null
+
+      if (isCashStaff) {
+        if (entryType === 'in') {
+          payload = {
+            entry_type: 'in',
+            amount: parseFloat(entryFormData.amount),
+            date: dateVal,
+            time: timeVal,
+            remark: entryFormData.remark || 'Petty cash expense allowance request',
+            category: entryFormData.category || 'Expense Allowance',
+            payment_mode: 'Petty Cash',
+            source_account: entryFormData.source_account || (fundingSources[0] ? String(fundingSources[0].id) : null)
+          }
+        } else {
+          payload = {
+            entry_type: 'out',
+            amount: parseFloat(entryFormData.amount),
+            date: dateVal,
+            time: timeVal,
+            remark: entryFormData.remark || 'Company Expense',
+            category: entryFormData.category || 'General',
+            debit_type: 'Company Expense',
+            payment_mode: 'Petty Cash'
+          }
+        }
+      } else if (isAdmin && entryType === 'in' && adminCashInMode === 'allowance') {
+        const destPca = entryFormData.petty_cash_account || (entryFormData.staff_user ? pettyCashAccounts.find(a => a.primary_user === parseInt(entryFormData.staff_user) || a.owner === parseInt(entryFormData.staff_user))?.id : null)
+        const matchedStaffObj = staffUsers.find(u => String(u.id) === String(entryFormData.staff_user))
+        payload = {
+          entry_type: 'in',
+          amount: parseFloat(entryFormData.amount),
+          date: dateVal,
+          time: timeVal,
+          remark: entryFormData.remark || 'Petty cash staff allowance disbursement',
+          category: entryFormData.category || 'Expense Allowance',
+          payment_mode: 'Petty Cash',
+          transaction_type: 'Petty Cash Allowance',
+          debit_type: 'Transfer',
+          source_account: entryFormData.source_account || (fundingSources[0] ? String(fundingSources[0].id) : null),
+          petty_cash_account: destPca,
+          staff_user: entryFormData.staff_user || null,
+          staff_name: entryFormData.staff_name || matchedStaffObj?.get_full_name || matchedStaffObj?.username || '',
+          is_staff_allowance: true
+        }
+      } else {
+        payload = {
+          cashbook: (activeTab === 'ledger' || !targetBookId) ? null : parseInt(targetBookId),
+          entry_type: entryType,
+          amount: parseFloat(entryFormData.amount),
+          date: dateVal,
+          time: timeVal,
+          remark: entryFormData.remark || (createdJobOrderId ? `Advance payment for Job Order ${entryFormData.rough_job_title.trim()}` : (entryType === 'in' ? 'Cash Inflow' : 'Cash Outflow')),
+          category: entryFormData.category,
+          payment_mode: entryFormData.payment_mode,
+          transaction_type: finalTxType,
+          bank_account: finalBankAcc,
+          bank_account_name: finalBankName,
+          petty_cash_account: finalPettyCashAcc,
+          petty_cash_account_name: finalPettyCashName,
+          party_name: finalParty,
+          debit_type: entryType === 'out' ? (entryFormData.debit_type || 'Company Expense') : '',
+          staff_user: entryType === 'out' && entryFormData.debit_type === 'SALARY' ? (entryFormData.staff_user || null) : null,
+          staff_name: entryType === 'out' && entryFormData.debit_type === 'SALARY' ? (entryFormData.staff_name || finalParty) : '',
+          paid_month: entryType === 'out' && entryFormData.debit_type === 'SALARY' ? (entryFormData.paid_month || getCurrentMonthDisplay()) : '',
+          customer: targetCustomerId,
+          vendor: targetVendorId,
+          labour: (entryType === 'out' && entryFormData.debit_type === 'LABOUR')
+            ? (entryFormData.labour ? parseInt(entryFormData.labour) : null)
+            : null,
+          job_order: assignedJobOrderId,
+          pending_job_order: null,
+          reference_number: entryFormData.reference_number,
+          custom_fields: entryFormData.custom_fields || {}
+        }
       }
 
       if (editingEntry && editingEntry.id) {
@@ -14646,6 +14797,31 @@ const Cashbook = ({ currentUser = null }) => {
               {/* Desktop-only action buttons in command bar */}
               {!isMobileScreen && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  {(isAdmin || fundingSources.some(a => a.owner === user?.id)) && pendingAllowances.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsPendingApprovalsModalOpen(true)}
+                      style={{
+                        background: '#fef3c7',
+                        color: '#92400e',
+                        border: '1px solid #fcd34d',
+                        borderRadius: '8px',
+                        padding: '0.55rem 1rem',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+                      }}
+                      title="Review pending staff allowance requests"
+                    >
+                      <AlertCircle size={16} />
+                      <span>Pending Allowances ({pendingAllowances.length})</span>
+                    </button>
+                  )}
+
                   <div style={{ width: '1px', height: '24px', background: isDarkMode ? '#27272a' : '#cbd5e1', margin: '0 2px' }} />
                   <button
                     type="button"
@@ -14668,7 +14844,7 @@ const Cashbook = ({ currentUser = null }) => {
                     onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
                     onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   >
-                    <Plus size={16} strokeWidth={2.8} /> Credit (Customer)
+                    <Plus size={16} strokeWidth={2.8} /> {isCashStaff ? 'Request Allowance' : 'Credit (Customer)'}
                   </button>
 
                   <button
@@ -14692,7 +14868,7 @@ const Cashbook = ({ currentUser = null }) => {
                     onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
                     onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   >
-                    <Minus size={16} strokeWidth={2.8} /> Debit (Expense)
+                    <Minus size={16} strokeWidth={2.8} /> {isCashStaff ? 'Add Expense' : 'Debit (Expense)'}
                   </button>
                 </div>
               )}
@@ -17619,7 +17795,7 @@ const Cashbook = ({ currentUser = null }) => {
                 cursor: isInsufficientCashoutBalance ? 'not-allowed' : 'pointer'
               }}
             >
-              {submittingEntry ? 'Saving...' : (editingEntry ? 'Update Entry' : (entryType === 'in' ? '+ Save Credit (Customer)' : '— Save Debit (Expense)'))}
+              {submittingEntry ? 'Saving...' : (editingEntry ? 'Update Entry' : (entryType === 'in' ? (isCashStaff ? '+ Request Allowance' : (adminCashInMode === 'allowance' ? 'Disburse Allowance' : '+ Save Credit (Customer)')) : (isCashStaff ? '— Save Expense' : '— Save Debit (Expense)')))}
             </button>
           </div>
         )}
@@ -17678,7 +17854,7 @@ const Cashbook = ({ currentUser = null }) => {
                   transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               >
-                <Plus size={16} strokeWidth={2.5} /> Credit (Customer)
+                <Plus size={16} strokeWidth={2.5} /> {isCashStaff ? 'Request Allowance' : 'Credit (Customer)'}
               </button>
               <button
                 type="button"
@@ -17708,13 +17884,51 @@ const Cashbook = ({ currentUser = null }) => {
                   transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               >
-                <Minus size={16} strokeWidth={2.5} /> Debit (Expense)
+                <Minus size={16} strokeWidth={2.5} /> {isCashStaff ? 'Expense (Cash Out)' : 'Debit (Expense)'}
               </button>
             </div>
           </div>
 
-          {/* When Debit (Expense) is selected: Render Type selector */}
-          {entryType === 'out' && (
+          {/* Admin toggle for Cash In: Customer Payment vs Disburse Staff Allowance */}
+          {entryType === 'in' && isAdmin && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setAdminCashInMode('customer')}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  border: adminCashInMode === 'customer' ? '1.5px solid #16a34a' : '1px solid #e2e8f0',
+                  background: adminCashInMode === 'customer' ? (isDarkMode ? 'rgba(22, 163, 74, 0.2)' : '#f0fdf4') : 'transparent',
+                  color: adminCashInMode === 'customer' ? '#16a34a' : (isDarkMode ? '#cbd5e1' : '#64748b'),
+                  fontWeight: 600,
+                  fontSize: '12.5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Customer Payment
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminCashInMode('allowance')}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  border: adminCashInMode === 'allowance' ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+                  background: adminCashInMode === 'allowance' ? (isDarkMode ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff') : 'transparent',
+                  color: adminCashInMode === 'allowance' ? '#2563eb' : (isDarkMode ? '#cbd5e1' : '#64748b'),
+                  fontWeight: 600,
+                  fontSize: '12.5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Disburse Staff Allowance
+              </button>
+            </div>
+          )}
+
+          {/* When Debit (Expense) is selected: Render Type selector for non-staff */}
+          {entryType === 'out' && !isCashStaff && (
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                 <label className="cred-form-label" style={{ margin: 0, textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: isDarkMode ? '#cbd5e1' : '#475569' }}>
@@ -17759,7 +17973,410 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
           )}
 
-          <div className="form-grid" style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+          {isCashStaff ? (
+            /* ========================================================= */
+            /* CASH STAFF VIEW (SIMPLIFIED & RESTRICTED)                  */
+            /* ========================================================= */
+            <div className="form-grid" style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+              {entryType === 'in' ? (
+                <>
+                  {/* Staff Allowance Request Form */}
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Disbursing Custodian *
+                      </label>
+                    </div>
+                    <CashbookSelect
+                      value={entryFormData.source_account || (fundingSources[0] ? String(fundingSources[0].id) : '')}
+                      onChange={(val) => setEntryFormData(prev => ({ ...prev, source_account: val }))}
+                      options={fundingSources.map(fs => ({
+                        id: String(fs.id),
+                        label: `${fs.holder_name || fs.name} (${fs.name})`
+                      }))}
+                      variant="modal-field"
+                      ariaLabel="Disbursing Custodian"
+                      isDark={isDarkMode}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Purpose / Category *
+                      </label>
+                    </div>
+                    <CashbookSelect
+                      value={entryFormData.category || 'Expense Allowance'}
+                      onChange={(val) => setEntryFormData(prev => ({ ...prev, category: val }))}
+                      options={[
+                        { id: 'Expense Allowance', label: 'Expense Allowance' },
+                        { id: 'Vehicle Fuel', label: 'Vehicle Fuel' },
+                        { id: 'Travel Expenses', label: 'Travel Expenses' },
+                        { id: 'Food & Refreshments', label: 'Food & Refreshments' },
+                        { id: 'Site Supplies', label: 'Site Supplies' },
+                        { id: 'General', label: 'General' }
+                      ]}
+                      variant="modal-field"
+                      ariaLabel="Purpose Category"
+                      isDark={isDarkMode}
+                    />
+                  </div>
+
+                  <div className="form-group col-span-2">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Receiving Account (Locked)
+                      </label>
+                    </div>
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      background: isDarkMode ? '#1e2024' : '#f8fafc',
+                      border: isDarkMode ? '1px solid #33363d' : '1px solid #cbd5e1',
+                      fontSize: '0.82rem',
+                      color: staffPrimaryAccount ? (isDarkMode ? '#f1f5f9' : '#0f172a') : '#ef4444',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <LucideWallet size={15} />
+                      <span>
+                        {staffPrimaryAccount
+                          ? `${staffPrimaryAccount.name} (${staffPrimaryAccount.holder_name || 'Primary Account'})`
+                          : '⚠️ No primary petty cash account assigned to your user. Please contact an administrator.'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Requested Amount (SAR) *
+                      </label>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      className="cred-input"
+                      value={entryFormData.amount}
+                      onChange={(e) => setEntryFormData(prev => ({ ...prev, amount: e.target.value }))}
+                      required
+                      style={{ height: '38px', minHeight: '38px', fontSize: '1rem', fontWeight: 800, width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Date *
+                      </label>
+                    </div>
+                    <input
+                      type="date"
+                      className="cred-input"
+                      value={entryFormData.date}
+                      onChange={(e) => setEntryFormData(prev => ({ ...prev, date: e.target.value }))}
+                      required
+                      style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                    />
+                  </div>
+
+                  <div className="form-group col-span-2">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Remark / Reason
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g. Fuel for delivery van 4, urgent trip to Riyadh"
+                      className="cred-input"
+                      value={entryFormData.remark}
+                      onChange={(e) => setEntryFormData(prev => ({ ...prev, remark: e.target.value }))}
+                      style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Staff Company Expense Form */}
+                  <div className="form-group col-span-2">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Paying Account (Locked)
+                      </label>
+                    </div>
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      background: isDarkMode ? '#1e2024' : '#f8fafc',
+                      border: isDarkMode ? '1px solid #33363d' : '1px solid #cbd5e1',
+                      fontSize: '0.82rem',
+                      color: isDarkMode ? '#f1f5f9' : '#0f172a',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <LucideWallet size={15} />
+                        <span>{staffPrimaryAccount ? staffPrimaryAccount.name : 'Primary Account'}</span>
+                      </div>
+                      <span style={{ fontWeight: 700, color: (staffPrimaryAccount?.balance || 0) > 0 ? '#16a34a' : '#ef4444' }}>
+                        Available: SAR {safeFormatAmount(staffPrimaryAccount?.balance || 0)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Expense Category *
+                      </label>
+                    </div>
+                    <CashbookSelect
+                      value={entryFormData.category || 'General'}
+                      onChange={(val) => setEntryFormData(prev => ({ ...prev, category: val }))}
+                      options={[
+                        { id: 'General', label: 'General' },
+                        { id: 'Vehicle Fuel', label: 'Vehicle Fuel' },
+                        { id: 'Travel Expenses', label: 'Travel Expenses' },
+                        { id: 'Food', label: 'Food & Refreshments' },
+                        { id: 'Site Supplies', label: 'Site Supplies' },
+                        { id: 'Office Supplies', label: 'Office Supplies' },
+                        { id: 'Maintenance', label: 'Vehicle/Office Maintenance' }
+                      ]}
+                      variant="modal-field"
+                      ariaLabel="Expense Category"
+                      isDark={isDarkMode}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Expense Amount (SAR) *
+                      </label>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      className="cred-input"
+                      value={entryFormData.amount}
+                      onChange={(e) => setEntryFormData(prev => ({ ...prev, amount: e.target.value }))}
+                      required
+                      style={{ height: '38px', minHeight: '38px', fontSize: '1rem', fontWeight: 800, width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                    />
+                    {parseFloat(entryFormData.amount || 0) > (parseFloat(staffPrimaryAccount?.balance || 0)) && (
+                      <div style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '4px', fontWeight: 600 }}>
+                        ⚠️ Amount exceeds your available balance (SAR {safeFormatAmount(staffPrimaryAccount?.balance || 0)})
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Date *
+                      </label>
+                    </div>
+                    <input
+                      type="date"
+                      className="cred-input"
+                      value={entryFormData.date}
+                      onChange={(e) => setEntryFormData(prev => ({ ...prev, date: e.target.value }))}
+                      required
+                      style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Time
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      className="cred-input"
+                      value={entryFormData.time}
+                      onChange={(e) => setEntryFormData(prev => ({ ...prev, time: e.target.value }))}
+                      style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                    />
+                  </div>
+
+                  <div className="form-group col-span-2">
+                    <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                        Remark / Description *
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g. Fuel for Toyota Hilux, repair tire"
+                      className="cred-input"
+                      value={entryFormData.remark}
+                      onChange={(e) => setEntryFormData(prev => ({ ...prev, remark: e.target.value }))}
+                      required
+                      style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (isAdmin && entryType === 'in' && adminCashInMode === 'allowance') ? (
+            /* ========================================================= */
+            /* ADMIN DISBURSE STAFF ALLOWANCE VIEW                        */
+            /* ========================================================= */
+            <div className="form-grid" style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+              <div className="form-group">
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                    Funding Source Account *
+                  </label>
+                </div>
+                <CashbookSelect
+                  value={entryFormData.source_account || (fundingSources[0] ? String(fundingSources[0].id) : '')}
+                  onChange={(val) => setEntryFormData(prev => ({ ...prev, source_account: val }))}
+                  options={fundingSources.map(fs => ({
+                    id: String(fs.id),
+                    label: `${fs.name} (Available: SAR ${safeFormatAmount(fs.balance)})`
+                  }))}
+                  variant="modal-field"
+                  ariaLabel="Funding Source Account"
+                  isDark={isDarkMode}
+                />
+              </div>
+
+              <div className="form-group">
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                    Recipient Staff Member *
+                  </label>
+                </div>
+                <CashbookSelect
+                  value={entryFormData.staff_user ? String(entryFormData.staff_user) : ''}
+                  onChange={(val) => {
+                    const matchedUser = staffUsers.find(u => String(u.id) === String(val))
+                    const matchedPca = pettyCashAccounts.find(a => a.primary_user === parseInt(val) || a.owner === parseInt(val))
+                    setEntryFormData(prev => ({
+                      ...prev,
+                      staff_user: val,
+                      staff_name: matchedUser ? (matchedUser.get_full_name || matchedUser.username) : '',
+                      petty_cash_account: matchedPca ? String(matchedPca.id) : prev.petty_cash_account,
+                      petty_cash_account_name: matchedPca ? matchedPca.name : prev.petty_cash_account_name
+                    }))
+                  }}
+                  options={[
+                    { id: '', label: '-- Select Staff User --' },
+                    ...staffUsers.map(u => ({
+                      id: String(u.id),
+                      label: `${u.get_full_name || u.username}${u.role ? ` (${u.role})` : ''}`
+                    }))
+                  ]}
+                  variant="modal-field"
+                  ariaLabel="Recipient Staff Member"
+                  isDark={isDarkMode}
+                />
+              </div>
+
+              <div className="form-group">
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                    Purpose / Category *
+                  </label>
+                </div>
+                <CashbookSelect
+                  value={entryFormData.category || 'Expense Allowance'}
+                  onChange={(val) => setEntryFormData(prev => ({ ...prev, category: val }))}
+                  options={[
+                    { id: 'Expense Allowance', label: 'Expense Allowance' },
+                    { id: 'Vehicle Fuel', label: 'Vehicle Fuel' },
+                    { id: 'Travel Expenses', label: 'Travel Expenses' },
+                    { id: 'Food & Refreshments', label: 'Food & Refreshments' },
+                    { id: 'Site Supplies', label: 'Site Supplies' },
+                    { id: 'General', label: 'General' }
+                  ]}
+                  variant="modal-field"
+                  ariaLabel="Purpose Category"
+                  isDark={isDarkMode}
+                />
+              </div>
+
+              <div className="form-group">
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                    Disburse Amount (SAR) *
+                  </label>
+                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  className="cred-input"
+                  value={entryFormData.amount}
+                  onChange={(e) => setEntryFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  required
+                  style={{ height: '38px', minHeight: '38px', fontSize: '1rem', fontWeight: 800, width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                    Date *
+                  </label>
+                </div>
+                <input
+                  type="date"
+                  className="cred-input"
+                  value={entryFormData.date}
+                  onChange={(e) => setEntryFormData(prev => ({ ...prev, date: e.target.value }))}
+                  required
+                  style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                    Time
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  className="cred-input"
+                  value={entryFormData.time}
+                  onChange={(e) => setEntryFormData(prev => ({ ...prev, time: e.target.value }))}
+                  style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                />
+              </div>
+
+              <div className="form-group col-span-2">
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="cred-form-label" style={{ margin: 0, fontWeight: 700, fontSize: '0.74rem' }}>
+                    Remark / Description
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Weekly petty cash allowance disbursed to staff"
+                  className="cred-input"
+                  value={entryFormData.remark}
+                  onChange={(e) => setEntryFormData(prev => ({ ...prev, remark: e.target.value }))}
+                  style={{ height: '38px', minHeight: '38px', fontSize: '0.82rem', width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="form-grid" style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
 
             {/* Conditional Entity Selector based on Designation & Debit Type */}
             {entryType === 'in' ? (
@@ -20137,6 +20754,7 @@ const Cashbook = ({ currentUser = null }) => {
             </div>
 
           </div>
+        )}
         </form>
       </Modal>
 

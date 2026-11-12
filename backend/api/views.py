@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.db import transaction
 from rest_framework import viewsets, permissions, status, views
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -31,6 +32,7 @@ from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializ
                         PlanningToolSerializer, PlanningWorkerSerializer, ProjectPlanSerializer,
                         SalaryPaymentSerializer, CashBookSerializer, CashBookEntrySerializer,
                         StaffTimesheetSerializer, BankAccountSerializer, PettyCashAccountSerializer,
+                        StaffPettyCashAccountSerializer,
                         InvoiceSerializer, InvoiceItemSerializer, CustomFormFieldSerializer,
                         MaterialCategorySerializer, MaterialSerializer,
                         EstimationSerializer, EstimationItemSerializer,
@@ -41,9 +43,21 @@ from .serializers import (CustomerSerializer, VendorSerializer, JobOrderSerializ
                         EnquirySerializer, EnquiryFollowUpSerializer, SalespersonSerializer,
                         LabourPriceQuoteSerializer, VendorPriceQuoteSerializer,
                         CustomerWorkRecordSerializer)
+from .ledger import build_customer_ledger, build_vendor_ledger, build_statement_payload
 
 def is_admin_user(user):
     return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'Admin'))
+
+def is_cash_staff_user(user):
+    if not user or not user.is_authenticated:
+        return False
+    if is_admin_user(user):
+        return False
+    return bool(
+        getattr(user, 'is_cash_staff', False) or
+        'cash_staff' in (getattr(user, 'access_list', []) or []) or
+        'cashbook_staff' in (getattr(user, 'access_list', []) or [])
+    )
 
 def has_module_access(user, module):
     """
@@ -59,7 +73,7 @@ def has_module_access(user, module):
         return False  # module 'other' is admin-only
     access_list = getattr(user, 'access_list', None) or []
     if module == 'cashbook':
-        return 'cashbook' in access_list or any(p in access_list for p in ['expenses', 'labour', 'banks', 'recycle_bin'])
+        return getattr(user, 'is_cash_staff', False) or 'cashbook' in access_list or 'cash_staff' in access_list or 'cashbook_staff' in access_list or any(p in access_list for p in ['expenses', 'labour', 'banks', 'recycle_bin'])
     elif module == 'accounting':
         return 'accounting' in access_list or any(p in access_list for p in ['customers', 'vendors', 'estimations', 'quotations', 'invoices', 'credit_notes', 'reports', 'accounting_settings', 'recycle_bin'])
     elif module == 'erp':
@@ -81,10 +95,10 @@ class HasCashbookAccess(permissions.BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        if is_admin_user(user):
+        if is_admin_user(user) or is_cash_staff_user(user):
             return True
         access_list = getattr(user, 'access_list', None) or []
-        return 'cashbook' in access_list
+        return 'cashbook' in access_list or 'cash_staff' in access_list or 'cashbook_staff' in access_list
 
 class HasSalaryAccess(permissions.BasePermission):
     """
@@ -107,9 +121,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         jobs_sub = JobOrder.objects.filter(customer=OuterRef('pk')).exclude(status='Cancelled').values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
-        invs_sub = Invoice.objects.filter(customer=OuterRef('pk'), job_order__isnull=True).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
+        invs_sub = Invoice.objects.filter(customer=OuterRef('pk'), job_order__isnull=True).exclude(status__in=['Draft', 'Cancelled']).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
         cns_sub = CreditNote.objects.filter(customer=OuterRef('pk')).exclude(status__in=['Draft', 'Cancelled']).values('customer').annotate(total=Sum('total_amount')).values('total')[:1]
-        pays_sub = CustomerPayment.objects.filter(customer=OuterRef('pk')).exclude(payment_type='refund').values('customer').annotate(total=Sum('amount')).values('total')[:1]
+        pays_sub = CustomerPayment.objects.filter(customer=OuterRef('pk')).exclude(payment_type__in=['refund', 'credit_note']).values('customer').annotate(total=Sum('amount')).values('total')[:1]
 
         adv_sub = CustomerPayment.objects.filter(customer=OuterRef('pk'), payment_type='advance').values('customer').annotate(total=Sum('amount')).values('total')[:1]
 
@@ -167,13 +181,58 @@ class CustomerViewSet(viewsets.ModelViewSet):
             'total_payable': round(total_payable, 2)
         })
 
+    @action(detail=True, methods=['get'], url_path='statement')
+    def statement(self, request, pk=None):
+        customer = self.get_object()
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        search = request.query_params.get('search')
+        payload = build_statement_payload('customer', customer, start_date=start_date, end_date=end_date, search=search)
+        return Response(payload)
+
+    @action(detail=True, methods=['get'], url_path='transactions')
+    def transactions(self, request, pk=None):
+        customer = self.get_object()
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        search = request.query_params.get('search')
+        ledger_data = build_customer_ledger(customer, start_date=start_date, end_date=end_date, search=search)
+        return Response({
+            'count': len(ledger_data['rows']),
+            'results': ledger_data['rows'],
+            'totals': ledger_data['totals'],
+            'opening_balance': ledger_data['opening_balance'],
+            'closing_balance': ledger_data['closing_balance'],
+            'customer': ledger_data['customer'],
+            'period': ledger_data['period'],
+        })
+
+    @action(detail=True, methods=['get'], url_path='statement-pdf')
+    def statement_pdf(self, request, pk=None):
+        from .pdf_generator import universal_pdf_generator, format_dynamic_filename
+        from django.http import HttpResponse
+
+        customer = self.get_object()
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        search = request.query_params.get('search')
+        payload = build_statement_payload('customer', customer, start_date=start_date, end_date=end_date, search=search)
+
+        pdf_bytes = universal_pdf_generator.generate_statement_pdf(payload)
+        filename = format_dynamic_filename('customer_statement', f"C{customer.id:04d}", customer.name)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+
 class VendorViewSet(viewsets.ModelViewSet):
     serializer_class = VendorSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # Vendors are company-wide; visible to all authenticated users
-        qs = Vendor.objects.all().select_related('created_by').order_by('name')
+        qs = Vendor.objects.all().select_related('created_by').prefetch_related(
+            'labours', 'job_orders', 'job_orders__expenses', 'expenses', 'payments'
+        ).order_by('name')
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(
@@ -195,6 +254,92 @@ class VendorViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         return super().list(request, *args, **kwargs)
 
+    @action(detail=False, methods=['get'], url_path='summary')
+    def summary(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        total_vendors = qs.count()
+        total_billed = 0.0
+        total_paid = 0.0
+        total_due = 0.0
+        payables_due_count = 0
+        settled_count = 0
+
+        for v in qs:
+            lab_sum = sum(float(l.payment_amount or 0) for l in v.labours.all())
+            ob = float(v.opening_balance or 0)
+            job_orders = [j for j in v.job_orders.all() if j.status != 'Cancelled']
+            assigned_job_ids = set()
+            job_assigned_sum = 0.0
+            for j in job_orders:
+                assigned_job_ids.add(j.id)
+                j_amt = float(j.total_amount or 0)
+                j_exps = sum(float(e.amount or 0) for e in j.expenses.all() if e.vendor_id == v.id)
+                job_assigned_sum += max(j_amt, j_exps)
+            other_exp_sum = sum(float(e.amount or 0) for e in v.expenses.all() if e.job_order_id not in assigned_job_ids)
+            billed = round(job_assigned_sum + other_exp_sum + lab_sum + ob, 2)
+            paid = round(sum(float(p.amount or 0) for p in v.payments.all()), 2)
+            due = max(0.0, billed - paid)
+
+            total_billed += billed
+            total_paid += paid
+            total_due += due
+            if due > 0.01:
+                payables_due_count += 1
+            else:
+                settled_count += 1
+
+        return Response({
+            'total_vendors': total_vendors,
+            'total_billed': round(total_billed, 2),
+            'total_disbursed': round(total_paid, 2),
+            'total_payables_due': round(total_due, 2),
+            'payables_due_count': payables_due_count,
+            'settled_count': settled_count
+        })
+
+    @action(detail=True, methods=['get'], url_path='statement')
+    def statement(self, request, pk=None):
+        vendor = self.get_object()
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        search = request.query_params.get('search')
+        payload = build_statement_payload('vendor', vendor, start_date=start_date, end_date=end_date, search=search)
+        return Response(payload)
+
+    @action(detail=True, methods=['get'], url_path='transactions')
+    def transactions(self, request, pk=None):
+        vendor = self.get_object()
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        search = request.query_params.get('search')
+        ledger_data = build_vendor_ledger(vendor, start_date=start_date, end_date=end_date, search=search)
+        return Response({
+            'count': len(ledger_data['rows']),
+            'results': ledger_data['rows'],
+            'totals': ledger_data['totals'],
+            'opening_balance': ledger_data['opening_balance'],
+            'closing_balance': ledger_data['closing_balance'],
+            'vendor': ledger_data['vendor'],
+            'period': ledger_data['period'],
+        })
+
+    @action(detail=True, methods=['get'], url_path='statement-pdf')
+    def statement_pdf(self, request, pk=None):
+        from .pdf_generator import universal_pdf_generator, format_dynamic_filename
+        from django.http import HttpResponse
+
+        vendor = self.get_object()
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        search = request.query_params.get('search')
+        payload = build_statement_payload('vendor', vendor, start_date=start_date, end_date=end_date, search=search)
+
+        pdf_bytes = universal_pdf_generator.generate_statement_pdf(payload)
+        filename = format_dynamic_filename('vendor_statement', f"V{vendor.id:04d}", vendor.name)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+
 class JobOrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
@@ -206,7 +351,13 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        queryset = JobOrder.objects.all().select_related('customer', 'vendor', 'created_by', 'assigned_to', 'assigned_by').prefetch_related('customer_payments')
+        queryset = JobOrder.objects.all().select_related(
+            'customer', 'vendor', 'created_by', 'assigned_to', 'assigned_by', 'salesperson'
+        ).prefetch_related(
+            'customer_payments',
+            'customer_payments__cashbook_entries__bank_account',
+            'customer_payments__cashbook_entries__petty_cash_account'
+        )
         
         user = self.request.user
 
@@ -223,13 +374,10 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             # Staff member: sees jobs they created that have NOT been accepted yet by an admin
             queryset = queryset.filter(created_by=user).exclude(assignment_status='accepted')
         else:
-            # Administrator: can view 'my' (owned/accepted), 'assigned' (delegated pending), or all
+            # Administrator: can view 'assigned' (delegated pending from staff), or common job orders
             view_scope = self.request.query_params.get('view_scope')
             if view_scope == 'assigned':
-                queryset = queryset.filter(
-                    Q(assigned_to=user) | Q(assigned_to__isnull=True),
-                    assignment_status='pending'
-                )
+                queryset = queryset.filter(assignment_status='pending')
                 staff_filter = self.request.query_params.get('assigned_by_staff')
                 if staff_filter and staff_filter != 'all':
                     if str(staff_filter).isdigit():
@@ -239,17 +387,10 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                             Q(assigned_by__username__iexact=staff_filter) |
                             Q(original_creator_name__icontains=staff_filter)
                         )
-            elif view_scope == 'my':
-                queryset = queryset.filter(
-                    Q(created_by=user) |
-                    Q(assignment_status='accepted', assigned_to=user)
-                )
             elif view_scope != 'all' and not self.request.query_params.get('nopage') and not self.request.query_params.get('customer') and not self.request.query_params.get('vendor'):
-                # Default main list view for admin is "My Job Orders"
-                queryset = queryset.filter(
-                    Q(created_by=user) |
-                    Q(assignment_status='accepted', assigned_to=user)
-                )
+                # Default main list view for admins: show all common active/accepted company job orders
+                # (exclude only pending delegations from staff which are reviewed in the 'assigned' tab)
+                queryset = queryset.exclude(assignment_status='pending')
 
         customer_id = self.request.query_params.get('customer')
         if customer_id and str(customer_id).lower() != 'all':
@@ -257,6 +398,41 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(customer_id=customer_id)
             else:
                 queryset = queryset.filter(customer__name=customer_id)
+
+        created_by_param = self.request.query_params.get('created_by')
+        if created_by_param and str(created_by_param).lower() != 'all':
+            if str(created_by_param).isdigit():
+                from accounts.models import CustomUser
+                matched_user = CustomUser.objects.filter(id=created_by_param).first()
+                user_q = Q(created_by_id=created_by_param) | Q(assigned_by_id=created_by_param)
+                if matched_user:
+                    uname = matched_user.username
+                    full = f"{matched_user.first_name} {matched_user.last_name}".strip()
+                    user_q |= Q(created_by_staff__icontains=uname) | Q(original_creator_name__icontains=uname)
+                    if full:
+                        user_q |= Q(created_by_staff__icontains=full) | Q(original_creator_name__icontains=full)
+                queryset = queryset.filter(user_q)
+            else:
+                queryset = queryset.filter(
+                    Q(created_by__username__iexact=created_by_param) |
+                    Q(created_by_staff__icontains=created_by_param) |
+                    Q(original_creator_name__icontains=created_by_param) |
+                    Q(assigned_by__username__iexact=created_by_param)
+                )
+
+        salesperson_id = self.request.query_params.get('salesperson')
+        if salesperson_id and str(salesperson_id).lower() != 'all':
+            if str(salesperson_id).isdigit():
+                sp_obj = Salesperson.objects.filter(id=salesperson_id).first()
+                sp_q = Q(salesperson_id=salesperson_id)
+                if sp_obj:
+                    sp_q |= Q(salesperson_name__icontains=sp_obj.name)
+                queryset = queryset.filter(sp_q)
+            else:
+                queryset = queryset.filter(
+                    Q(salesperson__name__iexact=salesperson_id) |
+                    Q(salesperson_name__icontains=salesperson_id)
+                )
 
         vendor_id = self.request.query_params.get('vendor')
         if vendor_id and str(vendor_id).lower() != 'all':
@@ -283,7 +459,9 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                 Q(title__icontains=search_query) |
                 Q(order_id__icontains=search_query) |
                 Q(customer__name__icontains=search_query) |
-                Q(vendor__name__icontains=search_query)
+                Q(vendor__name__icontains=search_query) |
+                Q(salesperson__name__icontains=search_query) |
+                Q(salesperson_name__icontains=search_query)
             )
             
         payment_status = self.request.query_params.get('payment_status')
@@ -325,6 +503,7 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                 
         return queryset.distinct()
 
+    @transaction.atomic
     def perform_create(self, serializer):
         user = self.request.user
         customer_obj = serializer.validated_data.get('customer')
@@ -370,11 +549,25 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             created_by_staff = full or user.username
 
         # Check if an admin was assigned during creation
+        is_creator_admin = is_admin_user(user)
         assigned_to_id = self.request.data.get('assigned_to') or self.request.data.get('assigned_to_id')
         assigned_to_user = None
         if assigned_to_id:
             User = get_user_model()
             assigned_to_user = User.objects.filter(id=assigned_to_id).first()
+        elif is_creator_admin:
+            assigned_to_user = user
+
+        # Salesperson handling
+        salesperson_id = self.request.data.get('salesperson')
+        salesperson_obj = None
+        salesperson_name = serializer.validated_data.get('salesperson_name') or ''
+        if salesperson_id:
+            salesperson_obj = Salesperson.objects.filter(id=salesperson_id).first()
+            if salesperson_obj and not salesperson_name:
+                salesperson_name = salesperson_obj.name
+
+        init_assignment_status = 'accepted' if is_creator_admin else ('pending' if assigned_to_user else 'unassigned')
 
         # Ensure attachment in custom_fields is synced to top-level fields if top-level is empty
         custom_fields = serializer.validated_data.get('custom_fields') or {}
@@ -394,8 +587,11 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             assigned_to=assigned_to_user,
             assigned_by=user if assigned_to_user else None,
             original_creator_name=created_by_staff if assigned_to_user else None,
-            assignment_status='pending' if assigned_to_user else 'unassigned',
+            assignment_status=init_assignment_status,
             assigned_at=timezone.now() if assigned_to_user else None,
+            accepted_at=timezone.now() if is_creator_admin else None,
+            salesperson=salesperson_obj if salesperson_obj else serializer.validated_data.get('salesperson'),
+            salesperson_name=salesperson_name,
             attachment=attachment or '',
             attachment_name=attachment_name or '',
             attachment_type=attachment_type or ''
@@ -423,65 +619,61 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
         if advance_amount_val > Decimal('0.00'):
             import datetime
-            from django.db import transaction
-            with transaction.atomic():
-                cp = CustomerPayment.objects.create(
-                    customer=job.customer,
-                    job_order=job,
+            cp = CustomerPayment.objects.create(
+                customer=job.customer,
+                job_order=job,
+                amount=advance_amount_val,
+                payment_date=datetime.date.today(),
+                payment_type='advance',
+                notes=f"Advance payment at job creation ({job.order_id or job.id})",
+                created_by=user
+            )
+
+            # Check if an account was selected for receiving the advance payment
+            bank_id = self.request.data.get('bank_account') or self.request.data.get('bank_account_id')
+            pca_id = self.request.data.get('petty_cash_account') or self.request.data.get('petty_cash_account_id')
+            cashbook_id = self.request.data.get('cashbook') or self.request.data.get('cashbook_id')
+            payment_mode = self.request.data.get('payment_mode')
+
+            bank_obj = BankAccount.objects.select_for_update().filter(id=bank_id).first() if bank_id else None
+            pca_obj = PettyCashAccount.objects.select_for_update().filter(id=pca_id).first() if pca_id else None
+
+            if not payment_mode:
+                if bank_obj:
+                    payment_mode = 'Bank Transfer'
+                elif pca_obj:
+                    payment_mode = 'Petty Cash'
+                else:
+                    payment_mode = 'Cash'
+
+            # If bank or pca or cashbook was specified, create CashBookEntry
+            if bank_obj or pca_obj or cashbook_id:
+                cb_entry = CashBookEntry.objects.create(
+                    cashbook_id=cashbook_id,
+                    entry_type='in',
                     amount=advance_amount_val,
-                    payment_date=datetime.date.today(),
-                    payment_type='advance',
-                    notes=f"Advance payment at job creation ({job.order_id or job.id})",
+                    date=datetime.date.today(),
+                    time=datetime.datetime.now().time().strftime('%H:%M:%S'),
+                    remark=f"Job {str(job.order_id or job.id).strip() if str(job.order_id or job.id).strip().upper().startswith('JOB') else '#' + str(job.order_id or job.id).lstrip('#')} - {job.title} (Advance)",
+                    category='Sales',
+                    payment_mode=payment_mode,
+                    transaction_type='Customer Payment',
+                    bank_account=bank_obj,
+                    bank_account_name=bank_obj.bank_name if bank_obj else '',
+                    petty_cash_account=pca_obj,
+                    petty_cash_account_name=pca_obj.name if pca_obj else '',
+                    party_name=job.customer.name if job.customer else '',
+                    customer=job.customer,
+                    customer_payment=cp,
+                    job_order=job,
                     created_by=user
                 )
-
-                # Check if an account was selected for receiving the advance payment
-                bank_id = self.request.data.get('bank_account') or self.request.data.get('bank_account_id')
-                pca_id = self.request.data.get('petty_cash_account') or self.request.data.get('petty_cash_account_id')
-                cashbook_id = self.request.data.get('cashbook') or self.request.data.get('cashbook_id')
-                payment_mode = self.request.data.get('payment_mode')
-
-                bank_obj = BankAccount.objects.filter(id=bank_id).first() if bank_id else None
-                pca_obj = PettyCashAccount.objects.filter(id=pca_id).first() if pca_id else None
-
-                if not payment_mode:
-                    if bank_obj:
-                        payment_mode = 'Bank Transfer'
-                    elif pca_obj:
-                        payment_mode = 'Petty Cash'
-                    else:
-                        payment_mode = 'Cash'
-
-                # If bank or pca or cashbook was specified, create CashBookEntry
-                if bank_obj or pca_obj or cashbook_id:
-                    cb_entry = CashBookEntry.objects.create(
-                        cashbook_id=cashbook_id,
-                        entry_type='in',
-                        amount=advance_amount_val,
-                        date=datetime.date.today(),
-                        time=datetime.datetime.now().time().strftime('%H:%M:%S'),
-                        remark=f"Job {str(job.order_id or job.id).strip() if str(job.order_id or job.id).strip().upper().startswith('JOB') else '#' + str(job.order_id or job.id).lstrip('#')} - {job.title} (Advance)",
-                        category='Sales',
-                        payment_mode=payment_mode,
-                        transaction_type='Customer Payment',
-                        bank_account=bank_obj,
-                        bank_account_name=bank_obj.bank_name if bank_obj else '',
-                        petty_cash_account=pca_obj,
-                        petty_cash_account_name=pca_obj.name if pca_obj else '',
-                        party_name=job.customer.name if job.customer else '',
-                        customer=job.customer,
-                        customer_payment=cp,
-                        job_order=job,
-                        created_by=user
-                    )
-                    if bank_obj:
-                        BankAccount.objects.filter(id=bank_obj.id).update(
-                            balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + advance_amount_val
-                        )
-                    if pca_obj:
-                        PettyCashAccount.objects.filter(id=pca_obj.id).update(
-                            balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + advance_amount_val
-                        )
+                if bank_obj:
+                    bank_obj.balance = (bank_obj.balance or Decimal('0.00')) + advance_amount_val
+                    bank_obj.save(update_fields=['balance'])
+                elif pca_obj:
+                    pca_obj.balance = (pca_obj.balance or Decimal('0.00')) + advance_amount_val
+                    pca_obj.save(update_fields=['balance'])
 
         # 4.4 — If converted from a pending job order, link and convert it
         pending_id = self.request.data.get('pending_job_order') or self.request.data.get('pending_job_order_id')
@@ -502,6 +694,7 @@ class JobOrderViewSet(viewsets.ModelViewSet):
             except (PendingJobOrder.DoesNotExist, ValueError):
                 pass
 
+    @transaction.atomic
     def perform_update(self, serializer):
         prev_instance = self.get_object()
         old_status = prev_instance.status
@@ -509,8 +702,6 @@ class JobOrderViewSet(viewsets.ModelViewSet):
 
         job = serializer.save()
         user = self.request.user if self.request.user.is_authenticated else None
-        advance_amount = Decimal(str(job.advance_amount or 0))
-        adv_payment = CustomerPayment.objects.filter(job_order=job, payment_type='advance').first()
 
         # Check if newly assigned to an admin
         if job.assigned_to and job.assigned_to != old_assigned_to:
@@ -535,6 +726,20 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                     action_data={'job_order_id': job.id, 'order_id': job.order_id}
                 )
 
+        # Check if salesperson updated
+        salesperson_id = self.request.data.get('salesperson')
+        if salesperson_id is not None:
+            if salesperson_id and str(salesperson_id).isdigit():
+                sp_obj = Salesperson.objects.filter(id=salesperson_id).first()
+                job.salesperson = sp_obj
+                if sp_obj and not job.salesperson_name:
+                    job.salesperson_name = sp_obj.name
+                job.save(update_fields=['salesperson', 'salesperson_name'])
+            elif not salesperson_id:
+                job.salesperson = None
+                job.salesperson_name = ''
+                job.save(update_fields=['salesperson', 'salesperson_name'])
+
         # Check if marked as Cancelled
         if job.status == 'Cancelled' and old_status != 'Cancelled':
             job.assignment_status = 'cancelled'
@@ -551,83 +756,157 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                     action_type='view_job_order',
                     action_data={'job_order_id': job.id, 'order_id': job.order_id}
                 )
-        if advance_amount > 0:
+
+        # perform_update must touch advance payment/cashbook/balances ONLY when advance_amount or an account field is present in request.data
+        advance_keys = ['advance_amount', 'bank_account', 'bank_account_id', 'petty_cash_account', 'petty_cash_account_id', 'account_type']
+        touches_advance = any(k in self.request.data for k in advance_keys)
+
+        if touches_advance:
             import datetime
-            if adv_payment:
-                old_adv = adv_payment.amount
-                adv_payment.amount = advance_amount
-                adv_payment.save(update_fields=['amount'])
-                cb_entry = CashBookEntry.objects.filter(customer_payment=adv_payment).first()
-                if cb_entry:
-                    diff = advance_amount - old_adv
-                    cb_entry.amount = advance_amount
-                    cb_entry.save(update_fields=['amount'])
-                    if cb_entry.bank_account:
-                        b = cb_entry.bank_account
-                        b.balance = (b.balance or Decimal('0.00')) + diff
-                        b.save(update_fields=['balance'])
-                    elif cb_entry.petty_cash_account:
-                        p = cb_entry.petty_cash_account
-                        p.balance = (p.balance or Decimal('0.00')) + diff
-                        p.save(update_fields=['balance'])
-            else:
-                cp = CustomerPayment.objects.create(
-                    customer=job.customer,
-                    job_order=job,
-                    amount=advance_amount,
-                    payment_date=datetime.date.today(),
-                    payment_type='advance',
-                    notes=f"Advance payment for job ({job.order_id or job.id})",
-                    created_by=user
-                )
-                bank_id = self.request.data.get('bank_account') or self.request.data.get('bank_account_id')
-                pca_id = self.request.data.get('petty_cash_account') or self.request.data.get('petty_cash_account_id')
-                cashbook_id = self.request.data.get('cashbook') or self.request.data.get('cashbook_id')
-                payment_mode = self.request.data.get('payment_mode')
-                bank_obj = BankAccount.objects.filter(id=bank_id).first() if bank_id else None
-                pca_obj = PettyCashAccount.objects.filter(id=pca_id).first() if pca_id else None
-                if not payment_mode:
-                    payment_mode = 'Bank Transfer' if bank_obj else ('Petty Cash' if pca_obj else 'Cash')
-                if bank_obj or pca_obj or cashbook_id:
-                    cb_entry = CashBookEntry.objects.create(
-                        cashbook_id=cashbook_id,
-                        entry_type='in',
-                        amount=advance_amount,
-                        date=datetime.date.today(),
-                        time=datetime.datetime.now().time().strftime('%H:%M:%S'),
-                        remark=f"Job {str(job.order_id or job.id).strip() if str(job.order_id or job.id).strip().upper().startswith('JOB') else '#' + str(job.order_id or job.id).lstrip('#')} - {job.title} (Advance)",
-                        category='Sales',
-                        payment_mode=payment_mode,
-                        transaction_type='Customer Payment',
-                        bank_account=bank_obj,
-                        bank_account_name=bank_obj.bank_name if bank_obj else '',
-                        petty_cash_account=pca_obj,
-                        petty_cash_account_name=pca_obj.name if pca_obj else '',
-                        party_name=job.customer.name if job.customer else '',
+            from .recycle_bin import archive_to_recycle_bin
+
+            new_advance_amount = Decimal(str(job.advance_amount or 0))
+            adv_payment = CustomerPayment.objects.filter(job_order=job, payment_type='advance').order_by('id').first()
+            existing_cb = CashBookEntry.objects.filter(customer_payment=adv_payment).first() if adv_payment else None
+
+            bank_id = self.request.data.get('bank_account') or self.request.data.get('bank_account_id')
+            pca_id = self.request.data.get('petty_cash_account') or self.request.data.get('petty_cash_account_id')
+            payment_mode = self.request.data.get('payment_mode')
+            account_specified = any(k in self.request.data for k in ['bank_account', 'bank_account_id', 'petty_cash_account', 'petty_cash_account_id'])
+
+            if new_advance_amount > Decimal('0.00'):
+                # 1. Determine target account
+                target_bank = None
+                target_pca = None
+                if account_specified:
+                    if bank_id:
+                        target_bank = BankAccount.objects.select_for_update().filter(id=bank_id).first()
+                    elif pca_id:
+                        target_pca = PettyCashAccount.objects.select_for_update().filter(id=pca_id).first()
+                elif existing_cb:
+                    if existing_cb.bank_account_id:
+                        target_bank = BankAccount.objects.select_for_update().filter(id=existing_cb.bank_account_id).first()
+                    elif existing_cb.petty_cash_account_id:
+                        target_pca = PettyCashAccount.objects.select_for_update().filter(id=existing_cb.petty_cash_account_id).first()
+
+                # 2. Update or create CustomerPayment
+                if adv_payment:
+                    adv_payment.amount = new_advance_amount
+                    adv_payment.save(update_fields=['amount'])
+                else:
+                    adv_payment = CustomerPayment.objects.create(
                         customer=job.customer,
-                        customer_payment=cp,
                         job_order=job,
+                        amount=new_advance_amount,
+                        payment_date=datetime.date.today(),
+                        payment_type='advance',
+                        notes=f"Advance payment for job ({job.order_id or job.id})",
                         created_by=user
                     )
-                    if bank_obj:
-                        bank_obj.balance = (bank_obj.balance or Decimal('0.00')) + advance_amount
-                        bank_obj.save(update_fields=['balance'])
-                    if pca_obj:
-                        pca_obj.balance = (pca_obj.balance or Decimal('0.00')) + advance_amount
-                        pca_obj.save(update_fields=['balance'])
-        elif adv_payment and advance_amount == 0:
-            cb_entry = CashBookEntry.objects.filter(customer_payment=adv_payment).first()
-            if cb_entry:
-                if cb_entry.bank_account:
-                    b = cb_entry.bank_account
-                    b.balance = (b.balance or Decimal('0.00')) - cb_entry.amount
-                    b.save(update_fields=['balance'])
-                elif cb_entry.petty_cash_account:
-                    p = cb_entry.petty_cash_account
-                    p.balance = (p.balance or Decimal('0.00')) - cb_entry.amount
-                    p.save(update_fields=['balance'])
-                cb_entry.delete()
-            adv_payment.delete()
+
+                # 3. Handle CashBookEntry & Account balance updates
+                if existing_cb:
+                    old_cb_bank = existing_cb.bank_account
+                    old_cb_pca = existing_cb.petty_cash_account
+                    old_amount = existing_cb.amount
+
+                    same_account = (
+                        (old_cb_bank and target_bank and old_cb_bank.id == target_bank.id) or
+                        (old_cb_pca and target_pca and old_cb_pca.id == target_pca.id)
+                    )
+
+                    if same_account:
+                        diff = new_advance_amount - old_amount
+                        if diff != Decimal('0.00'):
+                            if target_bank:
+                                target_bank.balance = (target_bank.balance or Decimal('0.00')) + diff
+                                target_bank.save(update_fields=['balance'])
+                            elif target_pca:
+                                target_pca.balance = (target_pca.balance or Decimal('0.00')) + diff
+                                target_pca.save(update_fields=['balance'])
+                        existing_cb.amount = new_advance_amount
+                        existing_cb.save(update_fields=['amount'])
+                    else:
+                        # Account switch: reverse old account by old_amount, credit new account by new_advance_amount
+                        if old_cb_bank:
+                            old_b = BankAccount.objects.select_for_update().filter(id=old_cb_bank.id).first()
+                            if old_b:
+                                old_b.balance = (old_b.balance or Decimal('0.00')) - old_amount
+                                old_b.save(update_fields=['balance'])
+                        elif old_cb_pca:
+                            old_p = PettyCashAccount.objects.select_for_update().filter(id=old_cb_pca.id).first()
+                            if old_p:
+                                old_p.balance = (old_p.balance or Decimal('0.00')) - old_amount
+                                old_p.save(update_fields=['balance'])
+
+                        if target_bank:
+                            target_bank.balance = (target_bank.balance or Decimal('0.00')) + new_advance_amount
+                            target_bank.save(update_fields=['balance'])
+                        elif target_pca:
+                            target_pca.balance = (target_pca.balance or Decimal('0.00')) + new_advance_amount
+                            target_pca.save(update_fields=['balance'])
+
+                        if not payment_mode:
+                            payment_mode = 'Bank Transfer' if target_bank else ('Petty Cash' if target_pca else 'Cash')
+
+                        existing_cb.amount = new_advance_amount
+                        existing_cb.bank_account = target_bank
+                        existing_cb.bank_account_name = target_bank.bank_name if target_bank else ''
+                        existing_cb.petty_cash_account = target_pca
+                        existing_cb.petty_cash_account_name = target_pca.name if target_pca else ''
+                        existing_cb.payment_mode = payment_mode
+                        existing_cb.save(update_fields=[
+                            'amount', 'bank_account', 'bank_account_name',
+                            'petty_cash_account', 'petty_cash_account_name', 'payment_mode'
+                        ])
+                else:
+                    # Legacy advance without CashBookEntry: create entry and credit account only if target account is specified
+                    if target_bank or target_pca:
+                        if not payment_mode:
+                            payment_mode = 'Bank Transfer' if target_bank else ('Petty Cash' if target_pca else 'Cash')
+                        CashBookEntry.objects.create(
+                            entry_type='in',
+                            amount=new_advance_amount,
+                            date=adv_payment.payment_date or datetime.date.today(),
+                            time=datetime.datetime.now().time().strftime('%H:%M:%S'),
+                            remark=f"Job {str(job.order_id or job.id).strip() if str(job.order_id or job.id).strip().upper().startswith('JOB') else '#' + str(job.order_id or job.id).lstrip('#')} - {job.title} (Advance)",
+                            category='Sales',
+                            payment_mode=payment_mode,
+                            transaction_type='Customer Payment',
+                            bank_account=target_bank,
+                            bank_account_name=target_bank.bank_name if target_bank else '',
+                            petty_cash_account=target_pca,
+                            petty_cash_account_name=target_pca.name if target_pca else '',
+                            party_name=job.customer.name if job.customer else '',
+                            customer=job.customer,
+                            customer_payment=adv_payment,
+                            job_order=job,
+                            created_by=user
+                        )
+                        if target_bank:
+                            target_bank.balance = (target_bank.balance or Decimal('0.00')) + new_advance_amount
+                            target_bank.save(update_fields=['balance'])
+                        elif target_pca:
+                            target_pca.balance = (target_pca.balance or Decimal('0.00')) + new_advance_amount
+                            target_pca.save(update_fields=['balance'])
+
+            elif adv_payment and new_advance_amount == Decimal('0.00'):
+                # Advance set to 0: reverse balance, archive to recycle bin, and delete
+                if existing_cb:
+                    if existing_cb.bank_account_id:
+                        b = BankAccount.objects.select_for_update().filter(id=existing_cb.bank_account_id).first()
+                        if b:
+                            b.balance = (b.balance or Decimal('0.00')) - existing_cb.amount
+                            b.save(update_fields=['balance'])
+                    elif existing_cb.petty_cash_account_id:
+                        p = PettyCashAccount.objects.select_for_update().filter(id=existing_cb.petty_cash_account_id).first()
+                        if p:
+                            p.balance = (p.balance or Decimal('0.00')) - existing_cb.amount
+                            p.save(update_fields=['balance'])
+                    archive_to_recycle_bin(existing_cb, user=user)
+                    existing_cb.delete()
+                archive_to_recycle_bin(adv_payment, user=user)
+                adv_payment.delete()
 
     def destroy(self, request, *args, **kwargs):
         return Response(
@@ -823,34 +1102,42 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         )['tot']
         cancelled_count = cancelled_qs.count()
 
-        # Build client breakdown (common across all users)
-        customers = Customer.objects.all()
-        
+        # Fast status counts for filter pills without loading full objects
+        in_progress_count = active_qs.filter(status='In Progress').count()
+        completed_count = active_qs.filter(status='Completed').count()
+        pending_count = active_qs.filter(status='Pending').count()
+
+        # Build client breakdown only if explicitly requested (prevents 100+ SQL queries on default loads)
         client_breakdown = []
-        for cust in customers:
-            cust_jobs = JobOrder.objects.filter(customer=cust).exclude(status='Cancelled')
-            if not is_admin_user(request.user):
-                cust_jobs = cust_jobs.filter(created_by=request.user)
-            c_count = cust_jobs.count()
-            if c_count > 0:
-                c_val = cust_jobs.aggregate(tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=DecimalField()))['tot']
-                c_paid = CustomerPayment.objects.filter(job_order__in=cust_jobs).aggregate(
-                    tot=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField())
-                )['tot']
-                client_breakdown.append({
-                    'customer_id': cust.id,
-                    'customer_name': cust.name,
-                    'count': c_count,
-                    'total_value': float(c_val),
-                    'total_paid': float(c_paid),
-                    'total_balance': float(max(Decimal('0'), c_val - c_paid))
-                })
+        if request.query_params.get('include_clients') == 'true':
+            customers = Customer.objects.all()
+            for cust in customers:
+                cust_jobs = JobOrder.objects.filter(customer=cust).exclude(status='Cancelled')
+                if not is_admin_user(request.user):
+                    cust_jobs = cust_jobs.filter(created_by=request.user)
+                c_count = cust_jobs.count()
+                if c_count > 0:
+                    c_val = cust_jobs.aggregate(tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=DecimalField()))['tot']
+                    c_paid = CustomerPayment.objects.filter(job_order__in=cust_jobs).aggregate(
+                        tot=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField())
+                    )['tot']
+                    client_breakdown.append({
+                        'customer_id': cust.id,
+                        'customer_name': cust.name,
+                        'count': c_count,
+                        'total_value': float(c_val),
+                        'total_paid': float(c_paid),
+                        'total_balance': float(max(Decimal('0'), c_val - c_paid))
+                    })
 
         return Response({
             'total_value': float(total_val),
             'total_paid': float(total_paid),
             'total_balance': float(total_balance),
             'count': count,
+            'in_progress_count': in_progress_count,
+            'completed_count': completed_count,
+            'pending_count': pending_count,
             'by_client': client_breakdown,
             'cancelled_summary': {
                 'count': cancelled_count,
@@ -930,15 +1217,9 @@ class JobOrderViewSet(viewsets.ModelViewSet):
         if not is_admin_user(user):
             return Response({'error': 'Only Administrators can accept Job Orders'}, status=status.HTTP_403_FORBIDDEN)
 
-        # If already accepted and owned by this admin, return success idempotently
+        # If already accepted, return success idempotently
         if job.assignment_status == 'accepted':
-            if job.created_by == user or job.assigned_to == user:
-                return Response(JobOrderSerializer(job, context={'request': request}).data)
-            return Response({'error': 'This Job Order has already been accepted.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # If explicitly assigned to another admin and current user is not a superuser
-        if job.assigned_to and job.assigned_to != user and not user.is_superuser:
-            return Response({'error': f"This Job Order is assigned to {job.assigned_to.username}. Only they or a superuser can accept it."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(JobOrderSerializer(job, context={'request': request}).data)
 
         old_staff_user = job.assigned_by or job.created_by
         creator_name = job.original_creator_name or (old_staff_user.username if old_staff_user else 'Staff')
@@ -1054,6 +1335,18 @@ class JobOrderViewSet(viewsets.ModelViewSet):
                 logger.warning(f"Failed to create restore notification: {notify_err}")
 
         return Response(JobOrderSerializer(job, context={'request': request}).data)
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        job = self.get_object()
+        from .pdf_generator import universal_pdf_generator, format_dynamic_filename
+        pdf_bytes = universal_pdf_generator.generate_job_order_pdf(job)
+        cust_name = job.customer.name if job.customer else 'client'
+        order_ref = job.order_id or f"JOB{job.id:04d}"
+        filename = format_dynamic_filename('job_order', order_ref, cust_name)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
 
 class CustomerPaymentViewSet(viewsets.ModelViewSet):
     serializer_class = CustomerPaymentSerializer
@@ -2153,10 +2446,19 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
 
         qp = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
 
-        # Strict user isolation for EVERY user regardless of admin privilege
-        qs = CashBookEntry.objects.filter(
-            Q(created_by=user) | Q(cashbook__created_by=user)
-        ).select_related('cashbook', 'created_by')
+        # Admins see all cashbook__isnull=True plus personal books they created;
+        # Cash staff see entries created by them, attributed to them, or for their accounts
+        if is_admin_user(user):
+            qs = CashBookEntry.objects.filter(
+                Q(cashbook__isnull=True) | Q(cashbook__created_by=user) | Q(created_by=user)
+            ).select_related('cashbook', 'created_by')
+        else:
+            qs = CashBookEntry.objects.filter(
+                Q(created_by=user) |
+                Q(staff_user=user) |
+                Q(petty_cash_account__owner=user) |
+                Q(petty_cash_account__primary_user=user)
+            ).select_related('cashbook', 'created_by')
 
         book_id = qp.get('cashbook')
         if book_id:
@@ -2256,6 +2558,10 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
         expense_param = qp.get('expense')
         if expense_param and expense_param != 'all':
             qs = qs.filter(expense_id=expense_param)
+
+        staff_user_param = qp.get('staff_user')
+        if staff_user_param and staff_user_param != 'all':
+            qs = qs.filter(Q(staff_user_id=staff_user_param) | Q(created_by_id=staff_user_param))
 
         ledger_only = qp.get('ledger_only')
         if ledger_only in ['true', '1', True]:
@@ -2685,6 +2991,103 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
         from django.db import transaction
         from rest_framework.exceptions import ValidationError
         with transaction.atomic():
+            user = self.request.user
+            if is_cash_staff_user(user):
+                # 1. Reject forbidden fields
+                forbidden_fields = [
+                    'customer', 'vendor', 'labour', 'salary_payment',
+                    'job_order', 'pending_job_order', 'customer_payment'
+                ]
+                for f in forbidden_fields:
+                    if serializer.validated_data.get(f) or (hasattr(self.request, 'data') and self.request.data.get(f)):
+                        raise ValidationError({f: f"Cash staff members are not permitted to link {f}."})
+
+                # 2. Get user's primary petty cash account
+                primary_pca = PettyCashAccount.objects.filter(Q(primary_user=user) | Q(owner=user)).first()
+                if not primary_pca:
+                    raise ValidationError({"petty_cash_account": "No primary petty cash account has been assigned to you by an administrator."})
+
+                entry_type = serializer.validated_data.get('entry_type')
+                if entry_type == 'out':
+                    debit_type = serializer.validated_data.get('debit_type')
+                    if debit_type and debit_type != 'Company Expense':
+                        raise ValidationError({"debit_type": "Cash staff members can only perform Company Expense cash-out transactions."})
+                    serializer.validated_data['debit_type'] = 'Company Expense'
+                    serializer.validated_data['petty_cash_account'] = primary_pca
+                    serializer.validated_data['petty_cash_account_name'] = primary_pca.name
+                    serializer.validated_data['staff_user'] = user
+                    serializer.validated_data['staff_name'] = user.get_full_name() or user.username
+                    serializer.validated_data['cashbook'] = None
+
+                elif entry_type == 'in':
+                    # Cash in for staff is ONLY an Allowance Request from an active funding source
+                    source_account_id = (
+                        self.request.data.get('source_account') or 
+                        self.request.data.get('source_account_id') or 
+                        self.request.data.get('from_account')
+                    )
+                    if not source_account_id:
+                        raise ValidationError({"source_account": "Please select a disbursing custodian/source account."})
+                    source_pca = PettyCashAccount.objects.filter(id=source_account_id, is_funding_source=True, status='Active').first()
+                    if not source_pca:
+                        raise ValidationError({"source_account": "Selected source account is not an authorized active funding source."})
+
+                    serializer.validated_data['debit_type'] = 'Transfer'
+                    serializer.validated_data['transaction_type'] = 'Petty Cash Allowance'
+                    serializer.validated_data['category'] = serializer.validated_data.get('category') or 'Expense Allowance'
+                    serializer.validated_data['petty_cash_account'] = primary_pca
+                    serializer.validated_data['petty_cash_account_name'] = primary_pca.name
+                    serializer.validated_data['party_name'] = source_pca.holder_name or source_pca.name
+                    serializer.validated_data['staff_user'] = user
+                    serializer.validated_data['staff_name'] = user.get_full_name() or user.username
+                    serializer.validated_data['cashbook'] = None
+                    serializer.validated_data['approval_status'] = 'pending'
+
+                    custom_fields = dict(serializer.validated_data.get('custom_fields') or {})
+                    custom_fields['is_staff_allowance'] = True
+                    custom_fields['source_account_id'] = source_pca.id
+                    custom_fields['source_account_name'] = source_pca.name
+                    serializer.validated_data['custom_fields'] = custom_fields
+
+            else:
+                is_admin_disburse = (
+                    serializer.validated_data.get('entry_type') == 'in' and
+                    (
+                        serializer.validated_data.get('transaction_type') == 'Petty Cash Allowance' or
+                        (hasattr(self.request, 'data') and self.request.data.get('is_staff_allowance'))
+                    )
+                )
+                if is_admin_disburse:
+                    source_account_id = (
+                        self.request.data.get('source_account') or 
+                        self.request.data.get('source_account_id') or 
+                        self.request.data.get('from_account')
+                    )
+                    if not source_account_id:
+                        raise ValidationError({"source_account": "Please select a funding source account to disburse from."})
+                    source_pca = PettyCashAccount.objects.select_for_update().filter(id=source_account_id).first()
+                    if not source_pca:
+                        raise ValidationError({"source_account": "Selected funding source account not found."})
+                    req_amt = Decimal(str(serializer.validated_data.get('amount') or '0.00'))
+                    if (source_pca.balance or Decimal('0.00')) < req_amt:
+                        raise ValidationError({"amount": f"Insufficient balance in funding source '{source_pca.name}'. Available: {source_pca.balance} {source_pca.currency}, requested: {req_amt} {source_pca.currency}."})
+
+                    dest_pca = serializer.validated_data.get('petty_cash_account')
+                    if not dest_pca:
+                        raise ValidationError({"petty_cash_account": "Please select a recipient staff petty cash account."})
+
+                    serializer.validated_data['debit_type'] = 'Transfer'
+                    serializer.validated_data['transaction_type'] = 'Petty Cash Allowance'
+                    serializer.validated_data['approval_status'] = 'approved'
+                    serializer.validated_data['approved_by'] = user
+                    serializer.validated_data['approved_at'] = timezone.now()
+                    custom_fields = dict(serializer.validated_data.get('custom_fields') or {})
+                    custom_fields['is_staff_allowance'] = True
+                    custom_fields['source_account_id'] = source_pca.id
+                    custom_fields['source_account_name'] = source_pca.name
+                    custom_fields['is_direct_admin_disbursement'] = True
+                    serializer.validated_data['custom_fields'] = custom_fields
+
             validated_data = serializer.validated_data
             entry_type = validated_data.get('entry_type')
             amt = Decimal(str(validated_data.get('amount') or '0.00'))
@@ -2720,54 +3123,125 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                 pca = entry.petty_cash_account
                 amt = Decimal(str(entry.amount))
                 if entry.entry_type == 'in':
-                    # 4.1 Petty Cash Approval Workflow: Check if current user is adding cash to someone else's petty cash account
-                    account_owner = pca.owner
-                    if not account_owner and pca.created_by:
-                        account_owner = pca.created_by
-                    if not account_owner and pca.holder_name:
-                        from django.contrib.auth import get_user_model
-                        UserModel = get_user_model()
-                        account_owner = UserModel.objects.filter(
-                            Q(first_name__iexact=pca.holder_name.strip()) |
-                            Q(username__iexact=pca.holder_name.strip())
-                        ).first()
-
-                    current_user = self.request.user if self.request.user.is_authenticated else None
-                    is_other_person = bool(
-                        account_owner and current_user and account_owner.id != current_user.id
+                    is_allowance = (
+                        entry.transaction_type == 'Petty Cash Allowance' or
+                        (entry.custom_fields and entry.custom_fields.get('is_staff_allowance'))
                     )
-
-                    if is_other_person:
-                        entry.approval_status = 'pending'
-                        entry.save(update_fields=['approval_status'])
-                        # Held in pending: do NOT credit pca.balance yet!
-                        actor_name = current_user.get_full_name() or current_user.username
-                        Notification.objects.create(
-                            recipient=account_owner,
-                            actor=current_user,
-                            notification_type='petty_cash_approval',
-                            title=f"Petty Cash Deposit: {entry.amount} {pca.currency}",
-                            message=f"{actor_name} added {entry.amount} {pca.currency} to your petty cash account ({pca.name}). Please review and approve with 'OK'.",
-                            action_type='petty_cash_approval',
-                            action_data={
-                                'entry_id': entry.id,
-                                'cashbook_id': entry.cashbook_id,
-                                'cashbook_name': entry.cashbook.name if entry.cashbook else 'Cash Ledger',
-                                'account_id': pca.id,
-                                'account_name': pca.name,
-                                'amount': str(entry.amount),
-                                'currency': pca.currency,
-                                'date': str(entry.date),
-                                'party_name': entry.party_name,
-                                'remark': entry.remark
-                            }
-                        )
+                    if is_allowance:
+                        if entry.approval_status == 'pending':
+                            # Held in pending: do NOT credit pca.balance yet!
+                            source_id = entry.custom_fields.get('source_account_id')
+                            source_pca = PettyCashAccount.objects.filter(id=source_id).first()
+                            recipient_user = source_pca.owner if (source_pca and source_pca.owner) else None
+                            actor_name = user.get_full_name() or user.username
+                            if recipient_user:
+                                Notification.objects.create(
+                                    recipient=recipient_user,
+                                    actor=user,
+                                    notification_type='petty_cash_approval',
+                                    title=f"Staff Allowance Request: {entry.amount} {pca.currency}",
+                                    message=f"{actor_name} requested {entry.amount} {pca.currency} from {source_pca.name} for {entry.category} ({entry.remark or ''}). Please review and approve.",
+                                    action_type='petty_cash_approval',
+                                    action_data={
+                                        'entry_id': entry.id,
+                                        'account_id': pca.id,
+                                        'account_name': pca.name,
+                                        'source_account_id': source_pca.id,
+                                        'source_account_name': source_pca.name,
+                                        'amount': str(entry.amount),
+                                        'currency': pca.currency,
+                                        'date': str(entry.date),
+                                        'party_name': entry.party_name,
+                                        'remark': entry.remark
+                                    }
+                                )
+                        elif entry.approval_status == 'approved' and entry.custom_fields and entry.custom_fields.get('is_direct_admin_disbursement'):
+                            # Admin direct disburse: debit source, credit staff, and create paired leg
+                            source_id = entry.custom_fields.get('source_account_id')
+                            source_pca = PettyCashAccount.objects.select_for_update().filter(id=source_id).first()
+                            if source_pca:
+                                PettyCashAccount.objects.filter(id=source_pca.id).update(
+                                    balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) - amt
+                                )
+                                PettyCashAccount.objects.filter(id=pca.id).update(
+                                    balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + amt
+                                )
+                                out_leg = CashBookEntry.objects.create(
+                                    entry_type='out',
+                                    debit_type='Transfer',
+                                    transaction_type='Petty Cash Allowance',
+                                    category=entry.category or 'Expense Allowance',
+                                    petty_cash_account=source_pca,
+                                    petty_cash_account_name=source_pca.name,
+                                    party_name=entry.staff_name or (entry.staff_user.get_full_name() if entry.staff_user else 'Staff'),
+                                    staff_user=entry.staff_user,
+                                    staff_name=entry.staff_name,
+                                    amount=amt,
+                                    date=entry.date,
+                                    time=entry.time or timezone.now().time(),
+                                    remark=f"Allowance disbursed to {entry.staff_name or 'Staff'}: {entry.remark or ''}".strip(),
+                                    approval_status='approved',
+                                    approved_by=self.request.user,
+                                    approved_at=timezone.now(),
+                                    created_by=self.request.user,
+                                    custom_fields={
+                                        'paired_entry_id': entry.id,
+                                        'is_staff_allowance': True,
+                                        'destination_account_id': pca.id,
+                                        'destination_account_name': pca.name
+                                    }
+                                )
+                                c_fields = dict(entry.custom_fields or {})
+                                c_fields['paired_entry_id'] = out_leg.id
+                                entry.custom_fields = c_fields
+                                entry.save(update_fields=['custom_fields'])
                     else:
-                        entry.approval_status = 'approved'
-                        entry.save(update_fields=['approval_status'])
-                        PettyCashAccount.objects.filter(id=pca.id).update(
-                            balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + amt
+                        account_owner = pca.owner
+                        if not account_owner and pca.created_by:
+                            account_owner = pca.created_by
+                        if not account_owner and pca.holder_name:
+                            from django.contrib.auth import get_user_model
+                            UserModel = get_user_model()
+                            account_owner = UserModel.objects.filter(
+                                Q(first_name__iexact=pca.holder_name.strip()) |
+                                Q(username__iexact=pca.holder_name.strip())
+                            ).first()
+
+                        current_user = self.request.user if self.request.user.is_authenticated else None
+                        is_other_person = bool(
+                            account_owner and current_user and account_owner.id != current_user.id
                         )
+
+                        if is_other_person:
+                            entry.approval_status = 'pending'
+                            entry.save(update_fields=['approval_status'])
+                            actor_name = current_user.get_full_name() or current_user.username
+                            Notification.objects.create(
+                                recipient=account_owner,
+                                actor=current_user,
+                                notification_type='petty_cash_approval',
+                                title=f"Petty Cash Deposit: {entry.amount} {pca.currency}",
+                                message=f"{actor_name} added {entry.amount} {pca.currency} to your petty cash account ({pca.name}). Please review and approve with 'OK'.",
+                                action_type='petty_cash_approval',
+                                action_data={
+                                    'entry_id': entry.id,
+                                    'cashbook_id': entry.cashbook_id,
+                                    'cashbook_name': entry.cashbook.name if entry.cashbook else 'Cash Ledger',
+                                    'account_id': pca.id,
+                                    'account_name': pca.name,
+                                    'amount': str(entry.amount),
+                                    'currency': pca.currency,
+                                    'date': str(entry.date),
+                                    'party_name': entry.party_name,
+                                    'remark': entry.remark
+                                }
+                            )
+                        else:
+                            entry.approval_status = 'approved'
+                            entry.save(update_fields=['approval_status'])
+                            PettyCashAccount.objects.filter(id=pca.id).update(
+                                balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + amt
+                            )
                 elif entry.entry_type == 'out':
                     PettyCashAccount.objects.filter(id=pca.id).update(
                         balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) - amt
@@ -2775,8 +3249,18 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         from django.db import transaction
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+
+        user = self.request.user
+        old_instance = self.get_object()
+
+        if is_cash_staff_user(user):
+            if old_instance.created_by_id != user.id and old_instance.staff_user_id != user.id:
+                raise PermissionDenied("You can only edit your own entries.")
+            if old_instance.approval_status == 'approved':
+                raise PermissionDenied("Approved entries cannot be edited by staff. Please contact an administrator.")
+
         with transaction.atomic():
-            old_instance = self.get_object()
             old_bank = old_instance.bank_account
             old_pca = old_instance.petty_cash_account
             old_entry_type = old_instance.entry_type
@@ -2827,7 +3311,6 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                     pca_obj = PettyCashAccount.objects.select_for_update().filter(id=new_pca.id).first()
                     curr_bal = Decimal(str(pca_obj.balance or '0.00')) if pca_obj else Decimal('0.00')
                     if curr_bal < new_amount:
-                        from rest_framework.exceptions import ValidationError
                         raise ValidationError({
                             "amount": f"Insufficient balance in Petty Cash account '{pca_obj.name}'. Available: {curr_bal} {pca_obj.currency}, requested: {new_amount} {pca_obj.currency}."
                         })
@@ -2835,7 +3318,6 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                     bank_obj = BankAccount.objects.select_for_update().filter(id=new_bank.id).first()
                     curr_bal = Decimal(str(bank_obj.balance or '0.00')) if bank_obj else Decimal('0.00')
                     if curr_bal < new_amount:
-                        from rest_framework.exceptions import ValidationError
                         raise ValidationError({
                             "amount": f"Insufficient balance in Bank account '{bank_obj.bank_name}'. Available: {curr_bal} {bank_obj.currency}, requested: {new_amount} {bank_obj.currency}."
                         })
@@ -2861,9 +3343,39 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                         balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) - amt
                     )
 
+            # Keep paired allowance leg synchronized if this entry was edited
+            if new_instance.custom_fields and new_instance.custom_fields.get('paired_entry_id'):
+                p_id = new_instance.custom_fields.get('paired_entry_id')
+                paired_entry = CashBookEntry.objects.filter(id=p_id).first()
+                if paired_entry:
+                    old_p_amt = Decimal(str(paired_entry.amount))
+                    new_p_amt = Decimal(str(new_instance.amount))
+                    if old_p_amt != new_p_amt:
+                        diff = new_p_amt - old_p_amt
+                        paired_entry.amount = new_instance.amount
+                        paired_entry.date = new_instance.date
+                        paired_entry.save(update_fields=['amount', 'date'])
+                        if paired_entry.petty_cash_account_id:
+                            if paired_entry.entry_type == 'out':
+                                PettyCashAccount.objects.filter(id=paired_entry.petty_cash_account_id).update(
+                                    balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) - diff
+                                )
+                            elif paired_entry.entry_type == 'in':
+                                PettyCashAccount.objects.filter(id=paired_entry.petty_cash_account_id).update(
+                                    balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + diff
+                                )
+
     def perform_destroy(self, instance):
         from django.db import transaction
+        from rest_framework.exceptions import PermissionDenied
         from .recycle_bin import archive_to_recycle_bin, set_bypass_recycle_bin
+
+        user = self.request.user
+        if is_cash_staff_user(user):
+            if instance.created_by_id != user.id and instance.staff_user_id != user.id:
+                raise PermissionDenied("You can only delete your own entries.")
+            if instance.approval_status == 'approved':
+                raise PermissionDenied("Approved entries cannot be deleted by staff. Please contact an administrator.")
 
         with transaction.atomic():
             archive_to_recycle_bin(instance, user=self.request.user)
@@ -2916,54 +3428,179 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
                         balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + amt
                     )
 
-            instance.delete()
+            # If this entry is part of a paired allowance transfer, reverse and delete the paired entry as well
+            paired_id = instance.custom_fields.get('paired_entry_id') if instance.custom_fields else None
+            if paired_id:
+                paired_entry = CashBookEntry.objects.filter(id=paired_id).first()
+                if paired_entry:
+                    if paired_entry.petty_cash_account_id:
+                        p_amt = Decimal(str(paired_entry.amount))
+                        if paired_entry.entry_type == 'out':
+                            PettyCashAccount.objects.filter(id=paired_entry.petty_cash_account_id).update(
+                                balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + p_amt
+                            )
+                        elif paired_entry.entry_type == 'in':
+                            PettyCashAccount.objects.filter(id=paired_entry.petty_cash_account_id).update(
+                                balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) - p_amt
+                            )
+                    paired_entry.delete()
 
+            instance.delete()
 
     @action(detail=True, methods=['post'], url_path='approve')
     def approve_entry(self, request, pk=None):
-        entry = self.get_object()
-        if entry.approval_status == 'approved':
-            return Response({'detail': 'Entry is already approved.'})
-        pca = entry.petty_cash_account
-        if not pca:
-            return Response({'detail': 'Entry has no linked petty cash account.'}, status=status.HTTP_400_BAD_REQUEST)
+        from django.db import transaction
+        with transaction.atomic():
+            entry = CashBookEntry.objects.select_for_update().filter(pk=pk).first()
+            if not entry:
+                return Response({'detail': 'Entry not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check authorization: user must be the account owner, or admin
-        account_owner = pca.owner or pca.created_by
-        if account_owner and request.user.id != account_owner.id and not is_admin_user(request.user):
-            return Response({'detail': 'Only the petty cash account owner can approve this addition.'}, status=status.HTTP_403_FORBIDDEN)
+            if entry.approval_status == 'approved':
+                return Response({'detail': 'Entry is already approved.'}, status=status.HTTP_400_BAD_REQUEST)
+            if entry.approval_status == 'rejected':
+                return Response({'detail': 'Cannot approve a rejected entry.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        entry.approval_status = 'approved'
-        entry.approved_by = request.user
-        entry.approved_at = timezone.now()
-        entry.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
+            pca = entry.petty_cash_account
+            if not pca:
+                return Response({'detail': 'Entry has no linked petty cash account.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Now credit the balance
-        amt = Decimal(str(entry.amount))
-        pca.balance = (pca.balance or Decimal('0.00')) + amt
-        pca.save(update_fields=['balance'])
+            is_allowance = (
+                entry.transaction_type == 'Petty Cash Allowance' or
+                (entry.custom_fields and entry.custom_fields.get('is_staff_allowance'))
+            )
 
-        # Update any notifications for this entry
-        Notification.objects.filter(
-            notification_type='petty_cash_approval',
-            action_data__entry_id=entry.id
-        ).update(is_read=True, action_taken='approved')
+            amt = Decimal(str(entry.amount))
 
-        return Response({
-            'detail': 'Petty cash addition approved successfully.',
-            'entry': CashBookEntrySerializer(entry).data,
-            'account_balance': float(pca.balance)
-        })
+            if is_allowance:
+                # 1. Requester cannot approve their own allowance request
+                if request.user.id == entry.created_by_id or (entry.staff_user_id and request.user.id == entry.staff_user_id):
+                    return Response({'detail': 'Requesters cannot approve their own allowance requests.'}, status=status.HTTP_403_FORBIDDEN)
+
+                # 2. Authorization: only the source account owner or an Admin
+                source_id = entry.custom_fields.get('source_account_id')
+                source_pca = PettyCashAccount.objects.select_for_update().filter(id=source_id).first()
+                if not source_pca:
+                    return Response({'detail': 'Funding source account not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                is_admin = is_admin_user(request.user)
+                is_source_owner = bool(source_pca.owner_id and request.user.id == source_pca.owner_id)
+                if not (is_admin or is_source_owner):
+                    return Response({'detail': 'Only the funding source account owner or an administrator can approve this allowance.'}, status=status.HTTP_403_FORBIDDEN)
+
+                # 3. Check source balance >= amount
+                if (source_pca.balance or Decimal('0.00')) < amt:
+                    return Response({
+                        'detail': f"Insufficient balance in funding source '{source_pca.name}'. Available: {source_pca.balance} {source_pca.currency}, requested: {amt} {source_pca.currency}."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # 4. Debit source using atomic F()
+                PettyCashAccount.objects.filter(id=source_pca.id).update(
+                    balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) - amt
+                )
+
+                # 5. Credit staff account using atomic F()
+                PettyCashAccount.objects.filter(id=pca.id).update(
+                    balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + amt
+                )
+
+                # 6. Create paired out-leg on source account so its statement reflects it
+                out_leg = CashBookEntry.objects.create(
+                    entry_type='out',
+                    debit_type='Transfer',
+                    transaction_type='Petty Cash Allowance',
+                    category='Expense Allowance',
+                    petty_cash_account=source_pca,
+                    petty_cash_account_name=source_pca.name,
+                    party_name=entry.staff_name or (entry.staff_user.get_full_name() if entry.staff_user else 'Staff'),
+                    staff_user=entry.staff_user,
+                    staff_name=entry.staff_name,
+                    amount=amt,
+                    date=entry.date,
+                    time=entry.time or timezone.now().time(),
+                    remark=f"Allowance disbursed to {entry.staff_name or 'Staff'}: {entry.remark or ''}".strip(),
+                    approval_status='approved',
+                    approved_by=request.user,
+                    approved_at=timezone.now(),
+                    created_by=request.user,
+                    custom_fields={
+                        'paired_entry_id': entry.id,
+                        'is_staff_allowance': True,
+                        'destination_account_id': pca.id,
+                        'destination_account_name': pca.name
+                    }
+                )
+
+                entry.approval_status = 'approved'
+                entry.approved_by = request.user
+                entry.approved_at = timezone.now()
+                c_fields = dict(entry.custom_fields or {})
+                c_fields['paired_entry_id'] = out_leg.id
+                entry.custom_fields = c_fields
+                entry.save(update_fields=['approval_status', 'approved_by', 'approved_at', 'custom_fields'])
+
+                source_pca.refresh_from_db()
+                pca.refresh_from_db()
+
+                return Response({
+                    'detail': 'Staff allowance approved and disbursed successfully.',
+                    'entry': CashBookEntrySerializer(entry).data,
+                    'staff_account_balance': float(pca.balance),
+                    'source_account_balance': float(source_pca.balance)
+                })
+
+            else:
+                account_owner = pca.owner or pca.created_by
+                if account_owner and request.user.id != account_owner.id and not is_admin_user(request.user):
+                    return Response({'detail': 'Only the petty cash account owner can approve this addition.'}, status=status.HTTP_403_FORBIDDEN)
+
+                entry.approval_status = 'approved'
+                entry.approved_by = request.user
+                entry.approved_at = timezone.now()
+                entry.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
+
+                # Credit the balance using atomic F()
+                PettyCashAccount.objects.filter(id=pca.id).update(
+                    balance=Coalesce(F('balance'), Decimal('0.00'), output_field=DecimalField()) + amt
+                )
+
+                pca.refresh_from_db()
+
+                Notification.objects.filter(
+                    notification_type='petty_cash_approval',
+                    action_data__entry_id=entry.id
+                ).update(is_read=True, action_taken='approved')
+
+                return Response({
+                    'detail': 'Petty cash addition approved successfully.',
+                    'entry': CashBookEntrySerializer(entry).data,
+                    'account_balance': float(pca.balance)
+                })
 
     @action(detail=True, methods=['post'], url_path='reject')
     def reject_entry(self, request, pk=None):
         entry = self.get_object()
         if entry.approval_status == 'rejected':
-            return Response({'detail': 'Entry is already rejected.'})
+            return Response({'detail': 'Entry is already rejected.'}, status=status.HTTP_400_BAD_REQUEST)
+        if entry.approval_status == 'approved':
+            return Response({'detail': 'Cannot reject an already approved entry.'}, status=status.HTTP_400_BAD_REQUEST)
+
         pca = entry.petty_cash_account
-        account_owner = pca.owner or pca.created_by if pca else None
-        if account_owner and request.user.id != account_owner.id and not is_admin_user(request.user):
-            return Response({'detail': 'Only the petty cash account owner can reject this addition.'}, status=status.HTTP_403_FORBIDDEN)
+        is_allowance = (
+            entry.transaction_type == 'Petty Cash Allowance' or
+            (entry.custom_fields and entry.custom_fields.get('is_staff_allowance'))
+        )
+
+        if is_allowance:
+            source_id = entry.custom_fields.get('source_account_id')
+            source_pca = PettyCashAccount.objects.filter(id=source_id).first()
+            is_admin = is_admin_user(request.user)
+            is_source_owner = bool(source_pca and source_pca.owner_id == request.user.id)
+            if not (is_admin or is_source_owner):
+                return Response({'detail': 'Only the funding source account owner or an administrator can reject this allowance.'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            account_owner = pca.owner or pca.created_by if pca else None
+            if account_owner and request.user.id != account_owner.id and not is_admin_user(request.user):
+                return Response({'detail': 'Only the petty cash account owner can reject this addition.'}, status=status.HTTP_403_FORBIDDEN)
 
         entry.approval_status = 'rejected'
         entry.approved_by = request.user
@@ -2978,6 +3615,163 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
         return Response({
             'detail': 'Petty cash addition rejected.',
             'entry': CashBookEntrySerializer(entry).data
+        })
+
+    @action(detail=False, methods=['get'], url_path='staff-dashboard')
+    def staff_dashboard(self, request):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        from accounts.models import CustomUser
+
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        # Role & Scope Resolution
+        if is_cash_staff_user(user):
+            # Cash staff is strictly scoped to themselves
+            target_user = user
+        else:
+            # Admin can view a specific staff member or get all staff summary
+            staff_param = request.query_params.get('staff_user')
+            if staff_param and staff_param not in ['all', 'All', '']:
+                target_user = CustomUser.objects.filter(id=staff_param).first()
+                if not target_user:
+                    return Response({'error': 'Staff user not found'}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                # Return all cash staff members with their balances and period summary
+                staff_qs = CustomUser.objects.filter(
+                    Q(is_cash_staff=True) |
+                    Q(access_list__contains=['cash_staff']) |
+                    Q(access_list__contains=['cashbook_staff']) |
+                    Q(role='User')
+                ).exclude(id=user.id).distinct().order_by('username')
+
+                results = []
+                for s_user in staff_qs:
+                    pca = PettyCashAccount.objects.filter(
+                        Q(primary_user=s_user) | Q(owner=s_user)
+                    ).first()
+
+                    s_entries = CashBookEntry.objects.filter(
+                        Q(staff_user=s_user) | (Q(petty_cash_account=pca) if pca else Q(pk__isnull=True))
+                    )
+                    if start_date:
+                        s_entries = s_entries.filter(date__gte=start_date)
+                    if end_date:
+                        s_entries = s_entries.filter(date__lte=end_date)
+
+                    allowances = s_entries.filter(
+                        entry_type='in',
+                        approval_status='approved',
+                        transaction_type='Petty Cash Allowance'
+                    ).aggregate(tot=Coalesce(Sum('amount'), Decimal('0.00'), output_field=DecimalField()))['tot']
+
+                    expenses = s_entries.filter(
+                        entry_type='out',
+                        debit_type='Company Expense'
+                    ).aggregate(tot=Coalesce(Sum('amount'), Decimal('0.00'), output_field=DecimalField()))['tot']
+
+                    pending = s_entries.filter(
+                        entry_type='in',
+                        approval_status='pending',
+                        transaction_type='Petty Cash Allowance'
+                    ).aggregate(tot=Coalesce(Sum('amount'), Decimal('0.00'), output_field=DecimalField()))['tot']
+
+                    results.append({
+                        'id': s_user.id,
+                        'username': s_user.username,
+                        'full_name': f"{s_user.first_name} {s_user.last_name}".strip() or s_user.username,
+                        'email': s_user.email,
+                        'is_cash_staff': getattr(s_user, 'is_cash_staff', False),
+                        'petty_cash_account': {
+                            'id': pca.id,
+                            'name': pca.name,
+                            'balance': str(pca.balance or '0.00'),
+                            'currency': pca.currency,
+                            'status': pca.status
+                        } if pca else None,
+                        'total_allowances_received': str(allowances),
+                        'total_expenses_spent': str(expenses),
+                        'pending_allowances': str(pending),
+                        'net_period_flow': str(allowances - expenses)
+                    })
+
+                return Response({
+                    'staff_members': results,
+                    'count': len(results)
+                })
+
+        # Single staff member detail dashboard
+        pca = PettyCashAccount.objects.filter(
+            Q(primary_user=target_user) | Q(owner=target_user)
+        ).first()
+
+        s_entries = CashBookEntry.objects.filter(
+            Q(staff_user=target_user) | (Q(petty_cash_account=pca) if pca else Q(pk__isnull=True))
+        )
+        if start_date:
+            s_entries = s_entries.filter(date__gte=start_date)
+        if end_date:
+            s_entries = s_entries.filter(date__lte=end_date)
+
+        allowances = s_entries.filter(
+            entry_type='in',
+            approval_status='approved',
+            transaction_type='Petty Cash Allowance'
+        ).aggregate(tot=Coalesce(Sum('amount'), Decimal('0.00'), output_field=DecimalField()))['tot']
+
+        expenses = s_entries.filter(
+            entry_type='out',
+            debit_type='Company Expense'
+        ).aggregate(tot=Coalesce(Sum('amount'), Decimal('0.00'), output_field=DecimalField()))['tot']
+
+        pending = s_entries.filter(
+            entry_type='in',
+            approval_status='pending',
+            transaction_type='Petty Cash Allowance'
+        ).aggregate(tot=Coalesce(Sum('amount'), Decimal('0.00'), output_field=DecimalField()))['tot']
+
+        expense_count = s_entries.filter(entry_type='out', debit_type='Company Expense').count()
+
+        category_breakdown = list(
+            s_entries.filter(entry_type='out', debit_type='Company Expense')
+            .values('category')
+            .annotate(total=Coalesce(Sum('amount'), Decimal('0.00'), output_field=DecimalField()))
+            .order_by('-total')
+        )
+
+        recent_entries = s_entries.order_by('-date', '-time', '-created_at')[:30]
+
+        return Response({
+            'staff_user': {
+                'id': target_user.id,
+                'username': target_user.username,
+                'full_name': f"{target_user.first_name} {target_user.last_name}".strip() or target_user.username,
+                'email': target_user.email,
+                'is_cash_staff': getattr(target_user, 'is_cash_staff', False)
+            },
+            'petty_cash_account': {
+                'id': pca.id,
+                'name': pca.name,
+                'balance': str(pca.balance or '0.00'),
+                'currency': pca.currency,
+                'status': pca.status
+            } if pca else None,
+            'summary': {
+                'balance': str(pca.balance or '0.00') if pca else '0.00',
+                'total_allowances_received': str(allowances),
+                'total_expenses_spent': str(expenses),
+                'pending_allowances': str(pending),
+                'net_period_flow': str(allowances - expenses),
+                'expense_count': expense_count
+            },
+            'category_breakdown': [
+                {'category': item['category'] or 'General', 'total': str(item['total'])}
+                for item in category_breakdown
+            ],
+            'recent_entries': CashBookEntrySerializer(recent_entries, many=True).data
         })
 
     @action(detail=False, methods=['get'], url_path='ledger')
@@ -3065,6 +3859,8 @@ class CashBookEntryViewSet(viewsets.ModelViewSet):
         ).exclude(
             Q(debit_type__iexact='Transfer') |
             Q(category__iexact='Transfer') |
+            Q(transaction_type__iexact='Petty Cash Allowance') |
+            Q(category__iexact='Expense Allowance') |
             Q(party_name__icontains='Internal Transfer') |
             Q(remark__icontains='Internal Transfer') |
             Q(party_name__icontains='➔') |
@@ -3823,42 +4619,24 @@ class PettyCashAccountViewSet(viewsets.ModelViewSet):
     serializer_class = PettyCashAccountSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        user = getattr(self.request, 'user', None)
+        if user and not is_admin_user(user):
+            return StaffPettyCashAccountSerializer
+        return PettyCashAccountSerializer
+
     def get_queryset(self):
-        qs = PettyCashAccount.objects.all().select_related('created_by')
-        # Seed default accounts if none exist
-        if not qs.exists():
-            default_accounts = [
-                {
-                    'name': 'Nizam Petty Cash',
-                    'holder_name': 'Nizam',
-                    'balance': Decimal('0.00'),
-                    'currency': 'SAR',
-                    'status': 'Active',
-                    'notes': 'Custody account for Nizam'
-                },
-                {
-                    'name': 'Shuhaib Petty Cash',
-                    'holder_name': 'Shuhaib',
-                    'balance': Decimal('0.00'),
-                    'currency': 'SAR',
-                    'status': 'Active',
-                    'notes': 'Custody account for Shuhaib'
-                },
-                {
-                    'name': 'Main Office Petty Cash',
-                    'holder_name': 'Admin Office',
-                    'balance': Decimal('0.00'),
-                    'currency': 'SAR',
-                    'status': 'Active',
-                    'notes': 'Office operational float'
-                }
-            ]
-            for a in default_accounts:
-                PettyCashAccount.objects.create(
-                    created_by=self.request.user if self.request.user.is_authenticated else None,
-                    **a
-                )
-            qs = PettyCashAccount.objects.all().select_related('created_by')
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return PettyCashAccount.objects.none()
+
+        if is_admin_user(user):
+            qs = PettyCashAccount.objects.all().select_related('created_by', 'owner', 'primary_user')
+        else:
+            # Non-admins get only their own account (owner or primary_user) AND active funding-source accounts
+            qs = PettyCashAccount.objects.filter(
+                Q(owner=user) | Q(primary_user=user) | Q(is_funding_source=True, status='Active')
+            ).select_related('created_by', 'owner', 'primary_user')
 
         status_param = self.request.query_params.get('status')
         if status_param and status_param != 'All':

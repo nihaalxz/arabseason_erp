@@ -13,10 +13,10 @@ export const useSettings = () => {
 
 export const SettingsProvider = ({ children }) => {
     const [settings, setSettings] = useState({
-        currency: 'AED',
-        timezone: 'GST',
+        currency: 'SAR',
+        timezone: 'AST',
         date_format: 'DD/MM/YYYY',
-        company_name: 'Arab Season ERPS'
+        company_name: 'Arab Season'
     });
     const [loading, setLoading] = useState(true);
 
@@ -42,20 +42,35 @@ export const SettingsProvider = ({ children }) => {
         refreshSettings();
     }, [refreshSettings]);
 
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('en-AE', {
-            style: 'currency',
-            currency: settings.currency || 'AED',
-        }).format(amount);
+    const formatCurrency = (amount, customCurrency) => {
+        const curr = customCurrency || settings?.currency || 'SAR';
+        const num = parseFloat(amount || 0);
+        const formatted = Math.abs(num).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        if (num < 0) {
+            return `- ${curr} ${formatted}`;
+        }
+        return `${curr} ${formatted}`;
     };
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
+        try {
+            const parts = String(dateStr).split('T')[0].split(' ')[0].split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                const d = new Date(year, month, day);
+                return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            }
+        } catch (e) {
+            // fallback
+        }
         const date = new Date(dateStr);
-        // Simple mapping from setting to toLocaleDateString options or similar
-        // For now, let's keep it simple or use a library if available.
-        // Assuming settings.date_format is something like 'DD/MM/YYYY'
-        return date.toLocaleDateString('en-GB'); 
+        return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
     const value = {

@@ -58,6 +58,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'last_name': user.last_name,
                 'email': user.email,
                 'is_admin': user.is_staff or user.is_superuser or user.role == 'Admin',
+                'is_cash_staff': getattr(user, 'is_cash_staff', False) or 'cash_staff' in (getattr(user, 'access_list', []) or []) or 'cashbook_staff' in (getattr(user, 'access_list', []) or []),
                 'role': user.role,
                 'access_list': user.access_list
             }
@@ -83,6 +84,7 @@ def check_auth_view(request):
                 'first_name': request.user.first_name,
                 'last_name': request.user.last_name,
                 'is_admin': request.user.is_staff or request.user.is_superuser or request.user.role == 'Admin',
+                'is_cash_staff': getattr(request.user, 'is_cash_staff', False) or 'cash_staff' in (getattr(request.user, 'access_list', []) or []) or 'cashbook_staff' in (getattr(request.user, 'access_list', []) or []),
                 'role': request.user.role,
                 'access_list': request.user.access_list
             }

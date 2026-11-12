@@ -57,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -98,6 +99,12 @@ DATABASES = {
         ssl_require=False
     )
 }
+
+# Ensure SQLite has a generous busy timeout so concurrent transactions do not raise 'database is locked'
+if 'sqlite' in DATABASES['default'].get('ENGINE', ''):
+    DATABASES['default'].setdefault('OPTIONS', {})['timeout'] = 30
+elif 'mysql' in DATABASES['default'].get('ENGINE', ''):
+    DATABASES['default'].setdefault('OPTIONS', {})['init_command'] = "SET sql_mode='STRICT_TRANS_TABLES'"
 
 
 # Password validation

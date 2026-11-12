@@ -1,6 +1,9 @@
 import axios from 'axios';
 
 const getBaseApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (hostname.includes('ngrok') || hostname.includes('localtunnel') || hostname.includes('trycloudflare.com')) {
@@ -10,7 +13,7 @@ const getBaseApiUrl = () => {
       return `${window.location.protocol}//${hostname}:8000/api/`;
     }
   }
-  return import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/';
+  return 'http://127.0.0.1:8000/api/';
 };
 
 const API_URL = getBaseApiUrl();

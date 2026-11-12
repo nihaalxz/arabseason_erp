@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Edit3, AlertCircle, Building2 } from 'lucide-react'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -15,6 +16,7 @@ import {
 import { showConfirm, showError, showToast } from '../utils/swal'
 
 const Vendors = () => {
+  const navigate = useNavigate()
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -33,6 +35,7 @@ const Vendors = () => {
     email: '',
     phone: '',
     address: '',
+    tax_number: '',
     opening_balance: ''
   })
   const [submitting, setSubmitting] = useState(false)
@@ -88,6 +91,7 @@ const Vendors = () => {
         email: vendor.email || '',
         phone: vendor.phone || '',
         address: vendor.address || '',
+        tax_number: vendor.tax_number || '',
         opening_balance: ob > 0 ? String(ob) : (vendor.opening_balance != null && String(vendor.opening_balance).trim() !== '' && String(vendor.opening_balance).trim() !== '0.00' ? String(vendor.opening_balance) : '')
       })
     } else {
@@ -98,6 +102,7 @@ const Vendors = () => {
         email: '',
         phone: '',
         address: '',
+        tax_number: '',
         opening_balance: ''
       })
     }
@@ -117,6 +122,7 @@ const Vendors = () => {
       
       const payload = {
         ...formData,
+        tax_number: (formData.tax_number || '').trim(),
         opening_balance: parseFloat(formData.opening_balance) || 0
       }
 
@@ -242,9 +248,19 @@ const Vendors = () => {
                         <tr
                           key={vendor.id}
                           className="cred-table-row"
+                          tabIndex={0}
+                          role="button"
+                          onClick={() => navigate(`/accounting/vendors/${vendor.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              navigate(`/accounting/vendors/${vendor.id}`)
+                            }
+                          }}
                           style={{
                             borderBottom: '1px solid var(--border, #E4E4E4)',
-                            transition: 'background-color 0.15s ease'
+                            transition: 'background-color 0.15s ease',
+                            cursor: 'pointer'
                           }}
                         >
                           {/* Vendor Name + VID */}
@@ -357,6 +373,14 @@ const Vendors = () => {
                 placeholder="e.g. Al-Futtaim Group"
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              />
+            </Field>
+
+            <Field label="VAT / Tax Number (TRN)">
+              <TextInput
+                placeholder="e.g. 300000000000003"
+                value={formData.tax_number}
+                onChange={(e) => setFormData({ ...formData, tax_number: e.target.value })}
               />
             </Field>
 

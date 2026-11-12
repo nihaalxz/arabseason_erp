@@ -8,6 +8,7 @@ import {
   RotateCcw, CheckCircle2, Landmark, Lock,
   Eye, EyeOff
 } from '../components/icons'
+import { Building2 } from 'lucide-react'
 import api from '../api'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { showConfirm } from '../utils/swal'
@@ -20,10 +21,10 @@ const Settings = ({ mode }) => {
   const isAccounting = mode === 'accounting' || location.pathname.startsWith('/accounting')
 
   const validTabs = isAccounting
-    ? ['manage-banks-cash', 'workspace', 'profile', 'security']
-    : ['workspace', 'profile', 'security']
+    ? ['company', 'manage-banks-cash', 'workspace', 'profile', 'security']
+    : ['company', 'workspace', 'profile', 'security']
 
-  const defaultTab = isAccounting ? 'manage-banks-cash' : 'workspace'
+  const defaultTab = isAccounting ? 'company' : 'company'
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(() => {
@@ -50,11 +51,16 @@ const Settings = ({ mode }) => {
   // Form States
   const [formData, setFormData] = useState({
     company_name: '',
+    legal_name_en: '',
+    legal_name_ar: '',
+    tax_number: '',
+    cr_number: '',
     email: '',
     phone: '',
     address: '',
-    currency: 'AED',
-    timezone: 'GST',
+    website: '',
+    currency: 'SAR',
+    timezone: 'AST',
     date_format: 'DD/MM/YYYY'
   })
 
@@ -76,12 +82,14 @@ const Settings = ({ mode }) => {
 
   const tabs = useMemo(() => isAccounting
     ? [
+        { id: 'company', name: 'Company & Tax', icon: Building2 },
         { id: 'manage-banks-cash', name: 'Manage Banks & Petty Cash', icon: Landmark },
         { id: 'workspace', name: 'Financial Modules', icon: Sliders },
         { id: 'profile', name: 'My Profile', icon: User },
         { id: 'security', name: 'Security', icon: Shield },
       ]
     : [
+        { id: 'company', name: 'Company & Tax', icon: Building2 },
         { id: 'workspace', name: 'Operations Modules', icon: Sliders },
         { id: 'profile', name: 'My Profile', icon: User },
         { id: 'security', name: 'Security', icon: Shield },
@@ -331,6 +339,272 @@ const Settings = ({ mode }) => {
       )}
 
       {/* ── 4. Tab Content Area ── */}
+
+      {/* Company & Tax Settings */}
+      {activeTab === 'company' && (
+        <div style={{ maxWidth: '880px' }}>
+          <div style={{
+            background: 'var(--card-bg, #FFFFFF)',
+            border: '1px solid var(--border, #E4E4E4)',
+            borderRadius: '20px',
+            padding: '28px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border, #E4E4E4)' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: 'var(--fill-ghost, #F1F5F9)',
+                color: 'var(--text, #0A0A0A)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Building2 size={20} strokeWidth={2} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text, #0A0A0A)', letterSpacing: '-0.01em' }}>
+                  Company Identity & Tax Details
+                </h2>
+                <p style={{ color: 'var(--text-muted, #8C8C8C)', fontSize: '13px', margin: '4px 0 0' }}>
+                  These legal names, TRN and contact details appear in your Statements of Accounts, Invoices, and Quotations.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px', marginBottom: '24px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Legal Name (English)
+                </label>
+                <input
+                  type="text"
+                  value={formData.legal_name_en || ''}
+                  onChange={(e) => setFormData({ ...formData, legal_name_en: e.target.value })}
+                  placeholder="e.g. ALI MOHAMMED MOTAH Establishment"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Legal Name (Arabic)
+                </label>
+                <input
+                  type="text"
+                  dir="rtl"
+                  value={formData.legal_name_ar || ''}
+                  onChange={(e) => setFormData({ ...formData, legal_name_ar: e.target.value })}
+                  placeholder="e.g. مؤسسة علي محمد معطاح للمقاولات"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  VAT / Tax Registration Number (TRN)
+                </label>
+                <input
+                  type="text"
+                  value={formData.tax_number || ''}
+                  onChange={(e) => setFormData({ ...formData, tax_number: e.target.value })}
+                  placeholder="e.g. 310495911200003"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Commercial Registration (CR)
+                </label>
+                <input
+                  type="text"
+                  value={formData.cr_number || ''}
+                  onChange={(e) => setFormData({ ...formData, cr_number: e.target.value })}
+                  placeholder="e.g. 1010XXXXXX"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Trade / Brand Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.company_name || ''}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                  placeholder="e.g. Arab Season"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.phone || ''}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="e.g. 0575287403"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={formData.email || ''}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="e.g. ad@arabseason.net"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Website
+                </label>
+                <input
+                  type="text"
+                  value={formData.website || ''}
+                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  placeholder="e.g. www.arabseason.club"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted, #8C8C8C)', marginBottom: '6px' }}>
+                  Registered Office Address
+                </label>
+                <input
+                  type="text"
+                  value={formData.address || ''}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="e.g. Riyadh, KSA"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border, #E4E4E4)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0A0A0A)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <PageHeaderButton
+                onClick={handleSave}
+                disabled={saving}
+                icon={Save}
+              >
+                {saving ? 'Saving...' : 'Save Company Details'}
+              </PageHeaderButton>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manage Banks & Petty Cash (Full Width) */}
       {activeTab === 'manage-banks-cash' && (

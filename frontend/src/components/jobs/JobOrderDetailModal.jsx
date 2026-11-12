@@ -35,9 +35,6 @@ export default function JobOrderDetailModal({
   isDarkMode = false
 }) {
   const [activeJob, setActiveJob] = useState(job)
-  const [isEditingAmount, setIsEditingAmount] = useState(false)
-  const [editedAmount, setEditedAmount] = useState('')
-  const [isSavingAmount, setIsSavingAmount] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
   
   // Lightbox / Multi-Image Gallery State
@@ -45,10 +42,6 @@ export default function JobOrderDetailModal({
 
   useEffect(() => {
     setActiveJob(job)
-    if (job) {
-      setEditedAmount(job.total_amount != null ? String(job.total_amount) : '0')
-    }
-    setIsEditingAmount(false)
     setActiveLightboxIndex(null)
   }, [job])
 
@@ -91,33 +84,6 @@ export default function JobOrderDetailModal({
     currentUser?.user_permissions?.includes('admin') ||
     String(activeJob.assigned_to) === String(currentUser?.id)
   )
-
-  // Handle in-place update of estimated amount
-  const handleSaveEstimatedAmount = async (e) => {
-    if (e && e.preventDefault) e.preventDefault()
-    const parsed = parseFloat(editedAmount)
-    if (isNaN(parsed) || parsed < 0) {
-      showError('Invalid Amount', 'Please enter a valid positive number or 0.')
-      return
-    }
-
-    try {
-      setIsSavingAmount(true)
-      const res = await api.patch(`job-orders/${activeJob.id}/`, {
-        total_amount: parsed
-      })
-      const updated = { ...activeJob, ...res.data, total_amount: parsed }
-      setActiveJob(updated)
-      setIsEditingAmount(false)
-      if (onUpdateJob) onUpdateJob(updated)
-      showToast('Estimated amount updated successfully', 'success')
-    } catch (err) {
-      console.error('Failed to update estimated amount:', err)
-      showError('Update Failed', 'Failed to update estimated amount. Please try again.')
-    } finally {
-      setIsSavingAmount(false)
-    }
-  }
 
   // Handle server-side PDF download
   const handleDownloadPdf = async () => {
@@ -640,98 +606,13 @@ export default function JobOrderDetailModal({
 
                 {/* 3-Row Financial Box at Bottom */}
                 <div style={{ borderTop: '1px solid #475569', flexShrink: 0 }}>
-                  {/* Box 1: Total Amount with Admin In-Place Editing */}
+                  {/* Box 1: Total Amount (Read-only) */}
                   <div style={{ borderBottom: '1px solid #475569', padding: '4px 8px', minHeight: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '9px', fontWeight: 800, color: '#0f172a' }}>Total Amount</span>
-                      {isAdmin && !isEditingAmount && (
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingAmount(true)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            background: '#F4F4F4',
-                            border: '1px solid #E4E4E4',
-                            color: '#0A0A0A',
-                            borderRadius: '9999px',
-                            padding: '1px 7px',
-                            fontSize: '8px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
-                          title="Edit Total Amount"
-                        >
-                          <Edit3 size={8} />
-                          <span>Edit</span>
-                        </button>
-                      )}
-                    </div>
-                    {isEditingAmount ? (
-                      <form onSubmit={handleSaveEstimatedAmount} style={{ display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editedAmount}
-                          onChange={(e) => setEditedAmount(e.target.value)}
-                          autoFocus
-                          style={{
-                            width: '100%',
-                            padding: '2px 4px',
-                            fontSize: '9px',
-                            fontWeight: 700,
-                            borderRadius: '4px',
-                            border: '1px solid #0A0A0A',
-                            outline: 'none'
-                          }}
-                        />
-                        <button
-                          type="submit"
-                          disabled={isSavingAmount}
-                          style={{
-                            backgroundColor: '#0A0A0A',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '9999px',
-                            padding: '2px 6px',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <Check size={8} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEditingAmount(false)
-                            setEditedAmount(activeJob.total_amount != null ? String(activeJob.total_amount) : '0')
-                          }}
-                          style={{
-                            backgroundColor: '#F4F4F4',
-                            color: '#0A0A0A',
-                            border: '1px solid #E4E4E4',
-                            borderRadius: '9999px',
-                            padding: '2px 6px',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <X size={8} />
-                        </button>
-                      </form>
-                    ) : (
-                      totalVal > 0 && (
-                        <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#0f172a', marginTop: '1px' }}>
-                          SAR {totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                      )
+                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#0f172a' }}>Total Amount</span>
+                    {totalVal > 0 && (
+                      <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#0f172a', marginTop: '1px' }}>
+                        SAR {totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
                     )}
                   </div>
 

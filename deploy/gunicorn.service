@@ -1,0 +1,31 @@
+[Unit]
+Description=Gunicorn daemon for ERP Backend
+After=network.target postgresql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/erp/backend
+Environment="PATH=/var/www/erp/backend/venv/bin"
+EnvironmentFile=/var/www/erp/backend/.env
+
+# 9 workers tuned for 4 vCPU cores (2 * 4 + 1 = 9)
+# 120s timeout ensures large PDF generations & statement exports complete smoothly
+ExecStart=/var/www/erp/backend/venv/bin/gunicorn \
+    --workers 9 \
+    --worker-class gthread \
+    --threads 2 \
+    --bind 127.0.0.1:8000 \
+    --timeout 120 \
+    --max-requests 1000 \
+    --max-requests-jitter 50 \
+    --access-logfile /var/log/gunicorn/access.log \
+    --error-logfile /var/log/gunicorn/error.log \
+    config.wsgi:application
+
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+

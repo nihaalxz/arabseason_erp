@@ -44,6 +44,7 @@ class CustomerSerializer(serializers.ModelSerializer):
             'phone': {'required': False, 'allow_blank': True, 'allow_null': True},
             'email': {'required': False, 'allow_blank': True, 'allow_null': True},
             'address': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'tax_number': {'required': False, 'allow_blank': True, 'allow_null': True},
             'payable_amount': {'required': False, 'allow_null': True},
             'custom_fields': {'required': False, 'allow_null': True},
         }
@@ -53,11 +54,11 @@ class CustomerSerializer(serializers.ModelSerializer):
         pa = getattr(obj, 'paid_amount', None)
         if tb is not None and pa is not None:
             return max(0.0, round(float(tb) - max(0.0, float(pa)), 2))
-        job_billed = sum(float(j.total_amount) for j in obj.job_orders.exclude(status='Cancelled'))
-        inv_billed = sum(float(i.total_amount) for i in obj.invoices.filter(job_order__isnull=True))
-        cn_credited = sum(float(c.total_amount) for c in obj.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
+        job_billed = sum(float(j.total_amount or 0) for j in obj.job_orders.all() if j.status != 'Cancelled')
+        inv_billed = sum(float(i.total_amount or 0) for i in obj.invoices.all() if not i.job_order_id and i.status not in ['Draft', 'Cancelled'])
+        cn_credited = sum(float(c.total_amount or 0) for c in obj.credit_notes.all() if c.status not in ['Draft', 'Cancelled'])
         billed = max(0.0, job_billed + inv_billed - cn_credited)
-        paid = sum(float(p.amount) for p in obj.payments.all() if getattr(p, 'payment_type', None) != 'refund')
+        paid = sum(float(p.amount or 0) for p in obj.payments.all() if getattr(p, 'payment_type', None) not in ['refund', 'credit_note'])
         return max(0.0, round(billed - paid, 2))
 
     def get_outstanding_balance(self, obj):
@@ -93,6 +94,8 @@ class CustomerSerializer(serializers.ModelSerializer):
             attrs['email'] = ''
         if 'address' in attrs and attrs['address'] is None:
             attrs['address'] = ''
+        if 'tax_number' in attrs:
+            attrs['tax_number'] = str(attrs['tax_number']).strip() if attrs['tax_number'] else ''
         if 'payable_amount' in attrs and (attrs['payable_amount'] is None or attrs['payable_amount'] == ''):
             attrs['payable_amount'] = Decimal('0.00')
         if 'custom_fields' in attrs and attrs['custom_fields'] is None:
@@ -112,13 +115,14 @@ class CustomerSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         ret['company'] = ret.get('company_name') or ''
-        cn_credited = sum(float(c.total_amount) for c in instance.credit_notes.exclude(status__in=['Draft', 'Cancelled']))
+        # Use prefetched credit_notes in Python memory without firing new SQL query
+        cn_credited = sum(float(c.total_amount or 0) for c in instance.credit_notes.all() if c.status not in ['Draft', 'Cancelled'])
         
         # 1. Total Billed
         tb = getattr(instance, 'total_billed', None)
         if tb is None:
-            job_billed = sum(float(j.total_amount) for j in instance.job_orders.exclude(status='Cancelled'))
-            inv_billed = sum(float(i.total_amount) for i in instance.invoices.filter(job_order__isnull=True))
+            job_billed = sum(float(j.total_amount or 0) for j in instance.job_orders.all() if j.status != 'Cancelled')
+            inv_billed = sum(float(i.total_amount or 0) for i in instance.invoices.all() if not i.job_order_id and i.status not in ['Draft', 'Cancelled'])
             tb = job_billed + inv_billed - cn_credited
         tb_val = max(0.0, round(float(tb), 2))
         ret['total_billed'] = tb_val
@@ -127,7 +131,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         # 2. Cash Collected (Positive Inflow from Customer)
         pa = getattr(instance, 'paid_amount', None)
         if pa is None:
-            pa = sum(float(p.amount) for p in instance.payments.all() if getattr(p, 'payment_type', None) != 'refund')
+            pa = sum(float(p.amount or 0) for p in instance.payments.all() if getattr(p, 'payment_type', None) not in ['refund', 'credit_note'])
         pa_val = max(0.0, round(float(pa), 2))
         ret['paid_amount'] = pa_val
 
@@ -138,7 +142,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         ret['credit_due'] = credit_due
 
         # 4. Total Cashed Out / Refunds Paid to Customer
-        refund_sum = sum(float(p.amount) for p in instance.payments.all() if getattr(p, 'payment_type', None) == 'refund')
+        refund_sum = sum(float(p.amount or 0) for p in instance.payments.all() if getattr(p, 'payment_type', None) == 'refund')
         ret['total_cashed_out'] = round(refund_sum, 2)
 
         # 5. Customer Payable (Company Debt / Credit owed to Customer)
@@ -170,6 +174,7 @@ class VendorSerializer(serializers.ModelSerializer):
             'phone': {'required': False, 'allow_blank': True, 'allow_null': True},
             'email': {'required': False, 'allow_blank': True, 'allow_null': True},
             'address': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'tax_number': {'required': False, 'allow_blank': True, 'allow_null': True},
             'business_group': {'required': False, 'allow_blank': True, 'allow_null': True},
             'opening_balance': {'required': False, 'allow_null': True},
         }
@@ -186,6 +191,8 @@ class VendorSerializer(serializers.ModelSerializer):
             attrs['email'] = ''
         if 'address' in attrs and attrs['address'] is None:
             attrs['address'] = ''
+        if 'tax_number' in attrs:
+            attrs['tax_number'] = str(attrs['tax_number']).strip() if attrs['tax_number'] else ''
         if 'business_group' in attrs and (attrs['business_group'] is None or attrs['business_group'] == ''):
             attrs['business_group'] = 'General'
         if 'opening_balance' in attrs and (attrs['opening_balance'] is None or attrs['opening_balance'] == ''):
@@ -194,26 +201,26 @@ class VendorSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        lab_sum = sum(float(l.payment_amount) for l in instance.labours.all())
+        lab_sum = sum(float(l.payment_amount or 0) for l in instance.labours.all())
         ob = float(instance.opening_balance or 0)
 
-        # Assigned job orders billed
-        job_orders = instance.job_orders.exclude(status='Cancelled')
+        # Assigned job orders billed (in-memory lookup over prefetched job_orders)
+        job_orders = [j for j in instance.job_orders.all() if j.status != 'Cancelled']
         assigned_job_ids = set()
         job_assigned_sum = 0.0
         for j in job_orders:
             assigned_job_ids.add(j.id)
             j_amt = float(j.total_amount or 0)
-            j_exps = sum(float(e.amount) for e in j.expenses.filter(vendor=instance))
+            j_exps = sum(float(e.amount or 0) for e in j.expenses.all() if e.vendor_id == instance.id)
             job_assigned_sum += max(j_amt, j_exps)
 
         # Expenses not tied to any assigned job order
-        other_exp_sum = sum(float(e.amount) for e in instance.expenses.exclude(job_order_id__in=assigned_job_ids))
+        other_exp_sum = sum(float(e.amount or 0) for e in instance.expenses.all() if e.job_order_id not in assigned_job_ids)
 
         total_billed = round(job_assigned_sum + other_exp_sum + lab_sum + ob, 2)
         ret['total_billed'] = total_billed
 
-        paid_sum = sum(float(p.amount) for p in instance.payments.all())
+        paid_sum = sum(float(p.amount or 0) for p in instance.payments.all())
         ret['paid_amount'] = round(paid_sum, 2)
 
         pending = round(total_billed - paid_sum, 2)
@@ -245,6 +252,13 @@ class JobOrderLookupSerializer(serializers.ModelSerializer):
     def get_due_amount(self, obj):
         return self.get_balance(obj)
 
+class SalespersonSerializer(serializers.ModelSerializer):
+    enquiries_count = serializers.IntegerField(source='enquiries.count', read_only=True)
+
+    class Meta:
+        model = Salesperson
+        fields = '__all__'
+
 class PendingJobOrderSerializer(serializers.ModelSerializer):
     customer_name = serializers.ReadOnlyField(source='customer.name')
     customer_phone = serializers.ReadOnlyField(source='customer.phone')
@@ -253,6 +267,7 @@ class PendingJobOrderSerializer(serializers.ModelSerializer):
     created_by_name = serializers.ReadOnlyField(source='created_by.username')
     converted_job_order_id = serializers.ReadOnlyField(source='converted_job.order_id')
     converted_job_title = serializers.ReadOnlyField(source='converted_job.title')
+    salesperson_detail = SalespersonSerializer(source='salesperson', read_only=True)
 
     class Meta:
         model = PendingJobOrder
@@ -261,11 +276,13 @@ class PendingJobOrderSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'customer': {'required': False, 'allow_null': True},
             'vendor': {'required': False, 'allow_null': True},
+            'salesperson': {'required': False, 'allow_null': True},
         }
 
 class JobOrderSerializer(serializers.ModelSerializer):
     customer_name = serializers.ReadOnlyField(source='customer.name')
     vendor_name = serializers.ReadOnlyField(source='vendor.name')
+    salesperson_detail = SalespersonSerializer(source='salesperson', read_only=True)
     created_by_name = serializers.SerializerMethodField()
     assigned_to_name = serializers.SerializerMethodField()
     assigned_by_name = serializers.SerializerMethodField()
@@ -285,11 +302,121 @@ class JobOrderSerializer(serializers.ModelSerializer):
     margin_percentage = serializers.SerializerMethodField()
     linked_project = serializers.SerializerMethodField()
     cancelled_advance_retained = serializers.SerializerMethodField()
+    advance_payment_source = serializers.SerializerMethodField()
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, default=Decimal('0.00'))
 
     class Meta:
         model = JobOrder
         fields = '__all__'
         read_only_fields = ['created_by']
+
+    def validate(self, attrs):
+        # On Job Order creation, assign to admin is mandatory
+        if not self.instance:
+            assigned_to = attrs.get('assigned_to') or self.initial_data.get('assigned_to') or self.initial_data.get('assigned_to_id')
+            request = self.context.get('request')
+            if not assigned_to:
+                if request and request.user and request.user.is_authenticated and (request.user.is_superuser or getattr(request.user, 'role', '') == 'Admin'):
+                    pass
+                else:
+                    raise serializers.ValidationError({"assigned_to": "Assign to Admin is mandatory. Please select an administrator."})
+
+        # Advance amount validations
+        adv_input = attrs.get('advance_amount') if 'advance_amount' in attrs else self.initial_data.get('advance_amount')
+        if adv_input is not None and adv_input != '':
+            try:
+                adv_val = Decimal(str(adv_input))
+                if adv_val < Decimal('0.00'):
+                    raise serializers.ValidationError({"advance_amount": "Advance amount cannot be negative."})
+            except (ValueError, TypeError):
+                raise serializers.ValidationError({"advance_amount": "Invalid advance amount format."})
+
+        # advance <= total_amount only when either value is being changed
+        is_changing_adv = ('advance_amount' in attrs) or ('advance_amount' in self.initial_data)
+        is_changing_tot = ('total_amount' in attrs) or ('total_amount' in self.initial_data)
+
+        if is_changing_adv or is_changing_tot:
+            eff_adv = attrs.get('advance_amount')
+            if eff_adv is None:
+                eff_adv = self.instance.advance_amount if self.instance else Decimal('0.00')
+            eff_adv = Decimal(str(eff_adv or 0))
+
+            eff_tot = attrs.get('total_amount')
+            if eff_tot is None:
+                eff_tot = self.instance.total_amount if self.instance else Decimal('0.00')
+            eff_tot = Decimal(str(eff_tot or 0))
+
+            if eff_adv > eff_tot:
+                raise serializers.ValidationError({"advance_amount": "Advance amount cannot exceed total amount."})
+
+        # Require destination account only when advance is new or its amount/account is changing
+        account_fields = ['bank_account', 'bank_account_id', 'petty_cash_account', 'petty_cash_account_id']
+        bank_id = self.initial_data.get('bank_account') or self.initial_data.get('bank_account_id')
+        pca_id = self.initial_data.get('petty_cash_account') or self.initial_data.get('petty_cash_account_id')
+        has_account_input = bool(bank_id or pca_id)
+
+        if not self.instance:
+            adv_val = Decimal(str(attrs.get('advance_amount', 0) or 0))
+            if adv_val > Decimal('0.00') and not has_account_input:
+                raise serializers.ValidationError({"payment_source": "Please select a bank account or petty cash account for receiving the advance payment."})
+            attrs['payment_type'] = 'advance' if adv_val > Decimal('0.00') else 'full'
+        else:
+            old_adv = Decimal(str(self.instance.advance_amount or 0))
+            adv_changed = ('advance_amount' in self.initial_data) and (Decimal(str(self.initial_data.get('advance_amount') or 0)) != old_adv)
+            acc_changed = any(k in self.initial_data for k in account_fields)
+            new_adv = Decimal(str(self.initial_data.get('advance_amount') if 'advance_amount' in self.initial_data else old_adv))
+
+            if new_adv > Decimal('0.00') and (adv_changed or acc_changed):
+                if not has_account_input:
+                    adv_pmt = self.instance.customer_payments.filter(payment_type='advance').first()
+                    existing_cb = adv_pmt.cashbook_entries.first() if adv_pmt else None
+                    has_existing_acc = bool(existing_cb and (existing_cb.bank_account_id or existing_cb.petty_cash_account_id))
+                    if not has_existing_acc:
+                        raise serializers.ValidationError({"payment_source": "Please select a bank account or petty cash account for receiving the advance payment."})
+
+            if 'advance_amount' in self.initial_data:
+                if new_adv != old_adv:
+                    attrs['payment_type'] = 'advance' if new_adv > Decimal('0.00') else 'full'
+
+        return super().validate(attrs)
+
+    def get_advance_payment_source(self, obj):
+        payments = getattr(obj, 'customer_payments', None)
+        payment_list = payments.all() if payments is not None else obj.customer_payments.all()
+        adv_payment = None
+        for p in payment_list:
+            if getattr(p, 'payment_type', None) == 'advance':
+                adv_payment = p
+                break
+        if not adv_payment:
+            return None
+
+        cbs = getattr(adv_payment, 'cashbook_entries', None)
+        cb_list = cbs.all() if cbs is not None else adv_payment.cashbook_entries.all()
+        cb = cb_list[0] if cb_list else None
+        if not cb:
+            return None
+
+        if cb.bank_account:
+            return {
+                'account_type': 'bank',
+                'account_id': cb.bank_account.id,
+                'account_name': cb.bank_account.bank_name or cb.bank_account_name or '',
+                'payment_mode': cb.payment_mode or 'Bank Transfer'
+            }
+        elif cb.petty_cash_account:
+            return {
+                'account_type': 'petty_cash',
+                'account_id': cb.petty_cash_account.id,
+                'account_name': cb.petty_cash_account.name or cb.petty_cash_account_name or '',
+                'payment_mode': cb.payment_mode or 'Petty Cash'
+            }
+        return {
+            'account_type': None,
+            'account_id': None,
+            'account_name': cb.bank_account_name or cb.petty_cash_account_name or '',
+            'payment_mode': cb.payment_mode or 'Cash'
+        }
 
     def get_created_by_name(self, obj):
         if obj.created_by_staff:
@@ -391,8 +518,8 @@ class JobOrderSerializer(serializers.ModelSerializer):
         return round(float(obj.prior_balance or 0) + float(obj.total_amount or 0), 2)
 
     def get_payment_history(self, obj):
-        # Limit history in list view to keep it fast
-        payments = obj.customer_payments.all()[:10]
+        # Limit history in list view to keep it fast, using in-memory prefetched list
+        payments = list(obj.customer_payments.all())[:10]
         return [
             {
                 "id": p.id,
@@ -447,12 +574,31 @@ class JobOrderSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        if not data.get('attachment') and isinstance(instance.custom_fields, dict):
-            cf = instance.custom_fields
+        cf = instance.custom_fields if isinstance(instance.custom_fields, dict) else {}
+        if not data.get('attachment') and cf:
             if cf.get('attachment'):
                 data['attachment'] = cf.get('attachment')
                 data['attachment_name'] = data.get('attachment_name') or cf.get('attachment_name', '')
                 data['attachment_type'] = data.get('attachment_type') or cf.get('attachment_type', '')
+
+        # Multiple attachments support
+        if 'attachments' in cf and isinstance(cf['attachments'], list) and len(cf['attachments']) > 0:
+            data['attachments'] = cf['attachments']
+            if not data.get('attachment'):
+                first = cf['attachments'][0]
+                if isinstance(first, dict):
+                    data['attachment'] = first.get('url', '')
+                    data['attachment_name'] = first.get('name', '')
+                    data['attachment_type'] = first.get('type', '')
+        elif data.get('attachment'):
+            data['attachments'] = [{
+                'name': data.get('attachment_name') or 'Attachment',
+                'url': data.get('attachment'),
+                'type': data.get('attachment_type') or 'image/jpeg'
+            }]
+        else:
+            data['attachments'] = []
+
         return data
 
 class CustomerPaymentSerializer(serializers.ModelSerializer):
@@ -786,6 +932,7 @@ class PettyCashAccountSerializer(serializers.ModelSerializer):
     owner_name = serializers.SerializerMethodField(read_only=True)
     linked_user = serializers.PrimaryKeyRelatedField(source='owner', queryset=User.objects.all(), required=False, allow_null=True)
     linked_user_name = serializers.SerializerMethodField(read_only=True)
+    primary_user_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = PettyCashAccount
@@ -800,6 +947,57 @@ class PettyCashAccountSerializer(serializers.ModelSerializer):
 
     def get_linked_user_name(self, obj):
         return self.get_owner_name(obj)
+
+    def get_primary_user_name(self, obj):
+        if obj.primary_user:
+            full = f"{obj.primary_user.first_name} {obj.primary_user.last_name}".strip()
+            return full or obj.primary_user.username
+        return ''
+
+
+class StaffPettyCashAccountSerializer(serializers.ModelSerializer):
+    """
+    Restricted serializer for non-admin cash staff.
+    Hides balances of accounts that do not belong to the user.
+    """
+    balance = serializers.SerializerMethodField()
+    is_own_account = serializers.SerializerMethodField()
+    created_by_name = serializers.ReadOnlyField(source='created_by.username')
+    owner_name = serializers.SerializerMethodField(read_only=True)
+    primary_user_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = PettyCashAccount
+        fields = [
+            'id', 'name', 'holder_name', 'balance', 'currency',
+            'status', 'notes', 'is_funding_source', 'is_own_account',
+            'owner', 'owner_name', 'primary_user', 'primary_user_name', 'created_by_name'
+        ]
+        read_only_fields = fields
+
+    def get_is_own_account(self, obj):
+        request = self.context.get('request')
+        user = request.user if request else None
+        if not user or not user.is_authenticated:
+            return False
+        return bool(obj.owner_id == user.id or obj.primary_user_id == user.id)
+
+    def get_balance(self, obj):
+        if self.get_is_own_account(obj):
+            return str(obj.balance or '0.00')
+        return None
+
+    def get_owner_name(self, obj):
+        if obj.owner:
+            full = f"{obj.owner.first_name} {obj.owner.last_name}".strip()
+            return full or obj.owner.username
+        return obj.holder_name or ''
+
+    def get_primary_user_name(self, obj):
+        if obj.primary_user:
+            full = f"{obj.primary_user.first_name} {obj.primary_user.last_name}".strip()
+            return full or obj.primary_user.username
+        return ''
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -853,18 +1051,22 @@ class InvoiceSerializer(serializers.ModelSerializer):
         return 'System'
 
     def get_paid_amount(self, obj):
-        paid = obj.payments.aggregate(tot=Coalesce(Sum('amount'), Decimal('0'), output_field=models.DecimalField()))['tot']
-        return float(paid)
+        # Use prefetched payments in Python memory to eliminate N+1 SQL queries
+        return round(sum(float(p.amount or 0) for p in obj.payments.all()), 2)
 
     def get_balance_due(self, obj):
         paid = self.get_paid_amount(obj)
-        from .models import CreditNote
-        cn_tot = CreditNote.objects.filter(
-            Q(invoice=obj) | Q(reference_number=obj.invoice_number)
-        ).exclude(status__in=['Draft', 'Cancelled']).aggregate(
-            tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=models.DecimalField())
-        )['tot']
-        bal = float(obj.total_amount) - paid - float(cn_tot)
+        # Use prefetched credit_notes if available, or fall back to filtered query
+        if hasattr(obj, '_prefetched_objects_cache') and 'credit_notes' in obj._prefetched_objects_cache:
+            cn_tot = sum(float(cn.total_amount or 0) for cn in obj.credit_notes.all() if cn.status not in ['Draft', 'Cancelled'])
+        else:
+            from .models import CreditNote
+            cn_tot = float(CreditNote.objects.filter(
+                Q(invoice=obj) | Q(reference_number=obj.invoice_number)
+            ).exclude(status__in=['Draft', 'Cancelled']).aggregate(
+                tot=Coalesce(Sum('total_amount'), Decimal('0'), output_field=models.DecimalField())
+            )['tot'] or 0)
+        bal = float(obj.total_amount or 0) - paid - float(cn_tot)
         return round(max(0.0, bal), 2)
 
 
@@ -1609,14 +1811,6 @@ class EnquiryFollowUpSerializer(serializers.ModelSerializer):
         model = EnquiryFollowUp
         fields = '__all__'
         read_only_fields = ['created_by', 'created_at']
-
-
-class SalespersonSerializer(serializers.ModelSerializer):
-    enquiries_count = serializers.IntegerField(source='enquiries.count', read_only=True)
-
-    class Meta:
-        model = Salesperson
-        fields = '__all__'
 
 
 class EnquirySerializer(serializers.ModelSerializer):

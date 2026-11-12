@@ -27,6 +27,7 @@ import {
   CredOption
 } from '../common/FormPrimitives'
 import DynamicCustomFields from '../common/DynamicCustomFields'
+import AdvancePaymentSource from './AdvancePaymentSource'
 
 const getLinkedProjectTitle = (job) => {
   if (!job) return ''
@@ -87,6 +88,8 @@ export default function JobOrderModal({
     status: 'Pending',
     total_amount: 0,
     advance_amount: 0,
+    account_type: 'bank',
+    account_id: '',
     payment_type: 'full',
     created_by_staff: '',
     salesperson: '',
@@ -342,6 +345,8 @@ export default function JobOrderModal({
         status: editingJob.status || 'Pending',
         total_amount: editingJob.total_amount ?? '',
         advance_amount: editingJob.advance_amount || 0,
+        account_type: editingJob.advance_payment_source?.account_type || 'bank',
+        account_id: editingJob.advance_payment_source?.account_id || '',
         payment_type: editingJob.payment_type || 'full',
         created_by_staff: editingJob.created_by_staff || editingJob.created_by_name || '',
         salesperson: editingJob.salesperson || editingJob.salesperson_id || '',
@@ -398,6 +403,8 @@ export default function JobOrderModal({
         status: 'In Progress',
         total_amount: estTotal,
         advance_amount: initDeposit,
+        account_type: 'bank',
+        account_id: '',
         payment_type: initDeposit > 0 ? 'advance' : 'full',
         created_by_staff: defaultCreator,
         salesperson: pending?.salesperson || '',
@@ -460,6 +467,8 @@ export default function JobOrderModal({
         status: 'Pending',
         total_amount: '',
         advance_amount: 0,
+        account_type: 'bank',
+        account_id: '',
         payment_type: 'full',
         created_by_staff: defaultCreator,
         salesperson: '',
@@ -723,6 +732,12 @@ export default function JobOrderModal({
       setSubmitting(true)
       setFormError('')
 
+      const advanceVal = parseFloat(formData.advance_amount || 0)
+      if (advanceVal > 0 && !formData.account_id) {
+        setSubmitting(false)
+        return setFormError('Please select a payment source account for the advance payment.')
+      }
+
       const finalDescription = (descriptions || []).map(d => d.trim()).filter(Boolean).join('\n')
       const primaryAttachment = attachments[0] || null
       const payload = {
@@ -740,8 +755,10 @@ export default function JobOrderModal({
         attachment_name: primaryAttachment ? primaryAttachment.name : '',
         attachment_type: primaryAttachment ? primaryAttachment.type : '',
         total_amount: parseFloat(formData.total_amount || 0),
-        advance_amount: parseFloat(formData.advance_amount || 0),
-        payment_type: formData.payment_type || 'full',
+        advance_amount: advanceVal,
+        account_type: formData.account_type,
+        bank_account: advanceVal > 0 && formData.account_type === 'bank' ? formData.account_id : null,
+        petty_cash_account: advanceVal > 0 && formData.account_type === 'petty_cash' ? formData.account_id : null,
         salesperson: formData.salesperson || null,
         salesperson_name: formData.salesperson_name || '',
         assigned_to: formData.assigned_to ? formData.assigned_to : null,
@@ -1051,17 +1068,15 @@ export default function JobOrderModal({
               </Field>
             </div>
 
-            {/* 5. Payment Structure and Invoice Number side by side */}
+            {/* 5. Advance Amount Received and Invoice Number side by side */}
             <div>
-              <Field label="Payment Structure">
-                <CredSelect
-                  value={formData.payment_type || 'full'}
-                  onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
-                >
-                  <option value="full">Full Payment</option>
-                  <option value="advance">Advance + Balance Later</option>
-                  <option value="installment">Installments</option>
-                </CredSelect>
+              <Field label="Advance Amount Received">
+                <NumberInput
+                  prefix="SAR"
+                  value={formData.advance_amount ?? ''}
+                  onChange={(e) => setFormData({ ...formData, advance_amount: e.target.value })}
+                  placeholder="0.00"
+                />
               </Field>
             </div>
 
@@ -1075,18 +1090,16 @@ export default function JobOrderModal({
               </Field>
             </div>
 
-            {/* Advance Amount (if payment_type is advance or installment) */}
-            {(formData.payment_type === 'advance' || formData.payment_type === 'installment') && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <Field label="Advance Amount Received">
-                  <NumberInput
-                    prefix="SAR"
-                    value={formData.advance_amount || ''}
-                    onChange={(e) => setFormData({ ...formData, advance_amount: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </Field>
-              </div>
+            {/* Advance Payment Source (shown and required only when advance_amount > 0) */}
+            {parseFloat(formData.advance_amount || 0) > 0 && (
+              <AdvancePaymentSource
+                accountType={formData.account_type || 'bank'}
+                accountId={formData.account_id || ''}
+                onAccountTypeChange={(type) => setFormData(prev => ({ ...prev, account_type: type, account_id: '' }))}
+                onAccountIdChange={(id) => setFormData(prev => ({ ...prev, account_id: id }))}
+                currentAccount={editingJob?.advance_payment_source}
+                required={true}
+              />
             )}
 
             {/* 6. Quotation Number and Created By side by side */}
